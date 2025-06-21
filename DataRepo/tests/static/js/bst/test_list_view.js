@@ -402,7 +402,6 @@ QUnit.test('updateVisible', function (assert) {
   assert.equal(errors.length, 0)
   assert.equal(getViewColumnCookie('firstcol', 'visible'), 'true')
   assert.equal(getViewColumnCookie('testfield', 'visible'), 'false')
-  console.warn($('#bstlistviewtable').bootstrapTable('getVisibleColumns'))
   $('#bstlistviewtable').bootstrapTable('showAllColumns')
   updateVisible(true)
   assert.equal(alerts.length, 0)
