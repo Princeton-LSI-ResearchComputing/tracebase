@@ -1000,11 +1000,6 @@ def get_field_val_by_iteration(
             for tpl in sorted(val, key=lambda t: t[1], reverse=not asc)
         ]
 
-    if not isinstance(val, tuple) or len(val) != 3:
-        raise ProgrammingError(
-            f"3-member tuple not returned from _get_field_val_by_iteration_helper '{type(val).__name__}': {val}."
-        )
-
     # Convert empty strings in the tuple's return value to None
     return val[0] if not isinstance(val[0], str) or val[0] != "" else None
 
@@ -1058,12 +1053,27 @@ def _get_field_val_by_iteration_helper(
         (Union[List[Tuple[Any, Any, Any]]], Tuple[Any, Any, Any]): A list of 3-membered tuples or a 3-membered
             tuple.  Each tuple contains the value, a sort value, and a unique value.
     """
-    if len(field_path) == 0 or rec is None:
-        return None
+    if len(field_path) == 0:
+        raise ProgrammingError("A non-zero length field_path is required")
+
+    if rec is None:
+        if is_many_related_to_root(field_path, type(rec)):
+            return []
+        else:
+            return None, None, None
 
     if is_many_related_to_parent(field_path[0], type(rec)):
         # This method handles only fields that are many-related to their immediate parent
-        return _get_field_val_by_iteration_manyrelated_helper(
+        retval = _get_field_val_by_iteration_manyrelated_helper(
+            rec,
+            field_path,
+            related_limit=related_limit,
+            sort_field_path=sort_field_path,
+            _sort_val=_sort_val,
+        )
+    else:
+        # This method handles only fields that are singly related to their immediate parent
+        retval = _get_field_val_by_iteration_onerelated_helper(
             rec,
             field_path,
             related_limit=related_limit,
@@ -1071,14 +1081,32 @@ def _get_field_val_by_iteration_helper(
             _sort_val=_sort_val,
         )
 
-    # This method handles only fields that are singly related to their immediate parent
-    return _get_field_val_by_iteration_onerelated_helper(
-        rec,
-        field_path,
-        related_limit=related_limit,
-        sort_field_path=sort_field_path,
-        _sort_val=_sort_val,
-    )
+    # A many-related field can return a single (tuple) value instead of a list if a None exists on the path before the
+    # first many-related model is encountered.  E.g. animal__infusate__tracer_links__tracer is many-related to Sample,
+    # thus we expect a list, but if the animal has no infusate, a tuple would be returned because we haven't gotten to
+    # the many-related relationship with tracer_links yet.  The following catches that and performs type checking.
+    # NOTE: hasattr assumes that if the model doesn't have the first field, then it is an annotation and is by
+    # definition, not many-related
+    if hasattr(type(rec), field_path[0]) and is_many_related_to_root(
+        field_path, type(rec)
+    ):
+        if (
+            isinstance(retval, tuple) and (len(retval) != 3 or retval[0] is not None)
+        ) and not isinstance(retval, list):
+            raise ProgrammingError(
+                f"Expected a list, but got '{type(retval).__name__}': '{retval}' when looking for many-related field "
+                f"'{'__'.join(field_path)}' in a '{type(rec).__name__}' record: '{rec}'."
+            )
+        if isinstance(retval, tuple):
+            return []
+    else:
+        if not isinstance(retval, tuple) or len(retval) != 3:
+            raise ProgrammingError(
+                f"Expected a 3-member tuple, but got '{type(retval).__name__}': '{retval}' when looking for one-"
+                f"related field '{'__'.join(field_path)}' in a '{type(rec).__name__}' record: '{rec}'."
+            )
+
+    return retval
 
 
 def _get_field_val_by_iteration_onerelated_helper(
@@ -1147,6 +1175,10 @@ def _get_field_val_by_iteration_onerelated_helper(
             uniq_val = val_or_rec.pk
         # NOTE: Returning the value, a value to sort by, and a value that makes it unique per record (or field)
         return val_or_rec, _sort_val, uniq_val
+
+    # The foreign key is None and iterating deeper would cause an exception, so return a None tuple
+    if val_or_rec is None:
+        return None, None, None
 
     return _get_field_val_by_iteration_helper(
         val_or_rec,
