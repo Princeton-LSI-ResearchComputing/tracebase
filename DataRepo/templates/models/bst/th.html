@@ -12,7 +12,8 @@
     data-sorter="{{ column.sorter }}"{% endif %}
 
     data-valign="top"
-    data-visible="{{ column.visible|lower }}">
+    {% if column.hidable %}data-visible="{{ column.visible|lower }}"{% endif %}
+    data-switchable="{{ column.hidable|lower }}">
     {{ column.header }}
     {% if column.tooltip %}<sup class="bi-question-circle" title="{{ column.tooltip }}"></sup>{% endif %}
 

@@ -1,3 +1,4 @@
+from django.db import ProgrammingError
 from django.db.models import (
     CASCADE,
     CharField,
@@ -5,6 +6,7 @@ from django.db.models import (
     ForeignKey,
     IntegerField,
     ManyToManyField,
+    Value,
 )
 from django.db.models.functions import Lower
 from django.http import HttpRequest
@@ -156,6 +158,7 @@ class BSTBaseListViewTests(TracebaseTestCase):
                     filterer=BSTFilterer(
                         "desc", BSTBLVStudyTestModel, initial="description"
                     ),
+                    visible=False,
                 ),
                 "animals_mm_count": BSTAnnotColumn(
                     "animals_mm_count",
@@ -350,6 +353,75 @@ class BSTBaseListViewTests(TracebaseTestCase):
             BSTColumn("name", BSTBLVStudyTestModel), blv.column_settings["name"]
         )
         self.assertIsInstance(blv.column_settings["animals_group"], BSTColumnGroup)
+
+    def test_init_column_settings_dict_and_annotation(self):
+        """This tests that an annotation can be in both the column_settings dict and in the annotations, as long as both
+        don't specify the converter"""
+        blv = BSTBaseListView()
+        blv.annotations = {"annot": Value("no error expected")}
+
+        # test = No error
+        blv.init_column_settings(
+            {"annot": {"visible": False}},
+            clear=True,
+        )
+
+        # test = error when BSTAnnotColumn supplied
+        with self.assertRaises(ProgrammingError) as ar:
+            # not str, dict, BSTBaseColumn, or BSTColumnGroup -> TypeError
+            blv.init_column_settings(
+                {"annot": BSTAnnotColumn("annot", Value("error expected"))}, clear=True
+            )
+        self.assertIn(
+            "Multiple column settings defined for annotation column 'annot'",
+            str(ar.exception),
+        )
+        self.assertIn("'dict' and 'BSTAnnotColumn' were supplied.", str(ar.exception))
+
+        # test = error when converter supplied
+        with self.assertRaises(ProgrammingError) as ar:
+            # not str, dict, BSTBaseColumn, or BSTColumnGroup -> TypeError
+            blv.init_column_settings(
+                {"annot": {"converter": Value("error expected")}}, clear=True
+            )
+        self.assertIn("Multiple BSTAnnotColumn converters", str(ar.exception))
+        self.assertIn("Class default: 'Value('no error expected')'", str(ar.exception))
+        self.assertIn(
+            "Supplied via the constructor: 'Value('error expected')'.",
+            str(ar.exception),
+        )
+
+        # test = No error when set in the class attribute (simulated)
+        blv.column_settings = {"annot": {"visible": False}}
+        blv.init_column_settings()
+
+        # test = error when BSTAnnotColumn set in the class attribute (simulated)
+        blv.column_settings = {
+            "annot": BSTAnnotColumn("annot", Value("error expected"))
+        }
+        with self.assertRaises(ProgrammingError) as ar:
+            # not str, dict, BSTBaseColumn, or BSTColumnGroup -> TypeError
+            blv.init_column_settings()
+        self.assertIn(
+            "The annotation column 'annot' has been defined twice", str(ar.exception)
+        )
+        self.assertIn(
+            "BSTBaseListView.column_settings and once in BSTBaseListView.annotations.",
+            str(ar.exception),
+        )
+
+        # test = error when converter set in the class attribute (simulated)
+        blv.column_settings = {"annot": {"converter": Value("error expected")}}
+        with self.assertRaises(ProgrammingError) as ar:
+            # not str, dict, BSTBaseColumn, or BSTColumnGroup -> TypeError
+            blv.init_column_settings()
+        self.assertIn(
+            "The annotation column 'annot' has been defined twice", str(ar.exception)
+        )
+        self.assertIn(
+            "BSTBaseListView.column_settings and once in BSTBaseListView.annotations",
+            str(ar.exception),
+        )
 
     def test_prepare_column_kwargs(self):
         blv = BSTBaseListView()
@@ -771,7 +843,8 @@ class BSTBaseListViewTests(TracebaseTestCase):
             model = BSTBLVNoRepTestModel
 
         nrblv = NoRepBLV()
-        self.assertIsNone(nrblv.representative_column)
+        # An arbitrary representative is selected
+        self.assertIsNotNone(nrblv.representative_column)
         self.assertIn("details", nrblv.columns.keys())
         self.assertIn("details", nrblv.column_ordering)
         self.assertTrue(nrblv.columns["details"].linked)

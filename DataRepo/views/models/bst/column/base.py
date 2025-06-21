@@ -71,6 +71,7 @@ class BSTBaseColumn(ABC):
         tooltip: Optional[str] = None,
         searchable: Optional[bool] = None,
         sortable: Optional[bool] = None,
+        hidable: bool = True,
         visible: bool = True,
         exported: bool = True,
         linked: bool = False,
@@ -98,6 +99,7 @@ class BSTBaseColumn(ABC):
                 default is based on whether the column is a foreign key or not, because Django turns keys into model
                 objects that do not render the actual numeric key value, so what the user sees would not behave as
                 expected when sorted.
+            hidable (bool) [True]: Controls whether a column's visible state can be made False.
             visible (bool) [True]: Controls whether a column is initially visible.
             exported (bool) [True]: Adds to BST's exportOptions' ignoreColumn attribute if False.
             linked (bool) [False]: Whether or not the value in the column should link to a detail page for the model
@@ -132,7 +134,8 @@ class BSTBaseColumn(ABC):
         self.tooltip = tooltip
         self.searchable = searchable
         self.sortable = sortable
-        self.visible = visible
+        self.hidable = hidable
+        self.visible = visible if hidable else True
         self.exported = exported
         self.linked = linked
         self.th_template = (

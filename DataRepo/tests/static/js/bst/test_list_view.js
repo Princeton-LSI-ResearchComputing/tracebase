@@ -128,6 +128,56 @@ function createTestTable () {
   return fixture
 }
 
+function createTestTable2 (tableID, columnNames) {
+  // This is defined in tests.html and cleaned automatically by QUnit
+  const fixture = document.querySelector('#qunit-fixture')
+
+  // Create a table with a td containing 'table-cell' and a br containing 'cell-wrap'
+  const table = document.createElement('table')
+  // This is the default ID defined in DataRepo/static/js/bst/list_view.js
+  table.id = tableID
+  // This makes sure that there's always at least 1 column visible
+  table.setAttribute('data-show-columns', 'true')
+
+  // Create a thead row
+  const tr1 = document.createElement('tr')
+  for (let i = 0; i < columnNames.length; i++) {
+    const th = document.createElement('th')
+    th.setAttribute('data-field', columnNames[i])
+    tr1.appendChild(th)
+  }
+
+  // Create a tbody row
+  const tr = document.createElement('tr')
+  for (let i = 0; i < columnNames.length; i++) {
+    const td = document.createElement('td')
+    td.classList.add('table-cell')
+    td.classList.add('nobr')
+    td.id = 'test2'
+    const textOne = document.createTextNode('First line ')
+    const br = document.createElement('br')
+    br.classList.add('cell-wrap')
+    br.classList.add('d-none')
+    br.id = 'test3'
+    const textTwo = document.createTextNode('Second line')
+    td.appendChild(textOne)
+    td.appendChild(br)
+    td.appendChild(textTwo)
+    tr.appendChild(td)
+  }
+
+  const thead = document.createElement('thead')
+  const tbody = document.createElement('tbody')
+  thead.appendChild(tr1)
+  tbody.appendChild(tr)
+
+  table.appendChild(thead)
+  table.appendChild(tbody)
+  fixture.append(table)
+
+  return fixture
+}
+
 function assertCollapsed (assert, fixture, collapsed) {
   if (typeof collapsed === 'undefined') {
     // Test initial state is collapsed
@@ -287,13 +337,6 @@ QUnit.test('displayWarnings', function (assert) {
   assert.true(alerts[0].includes('Warning2.'))
 })
 
-QUnit.test('getColumnNames', function (assert) {
-  createTestTable()
-  const result = getColumnNames()
-  // 'testfield' is the data-field attribute of the single 'th' element added to the table in createTestTable
-  assert.deepEqual(result, ['testfield'])
-})
-
 QUnit.test('updateVisible', function (assert) {
   // Override the alert and error functions to capture messages for testing
   // See: https://stackoverflow.com/a/41369753
@@ -307,38 +350,64 @@ QUnit.test('updateVisible', function (assert) {
   initViewCookies('testcookieprefix')
 
   // Test before table is created to assert the error about no th data-field attributes
-  updateVisible('false', 'anyname')
+  updateVisible(false, 'anyname')
   assert.equal(errors.length, 1)
   assert.equal(errors[0], 'No th data-field attributes found.')
   assert.equal(alerts.length, 1)
   assert.equal(alerts[0], 'Error: Unable to save your column visibility selection')
 
   // Create the table
-  createTestTable()
+  const tid = 'bstlistviewtable'
+  const testColumnNames = ['firstcol', 'testfield']
+  createTestTable2(tid, testColumnNames)
+  // Init bootstrap so that the getVisibleColumns and getHiddenColumns functions will work
+  $('#bstlistviewtable').bootstrapTable()
+  // Set the columnNames
+  initGlobalDefaults(tid, testColumnNames)
 
   // Empty the arrays for the next test
   alerts.splice(0, alerts.length)
   errors.splice(0, errors.length)
 
-  updateVisible('false', 'testfield')
+  updateVisible(false, 'testfield')
   assert.equal(alerts.length, 0)
   assert.equal(errors.length, 0)
   assert.equal(getViewColumnCookie('testfield', 'visible'), 'false')
-  updateVisible('true', 'testfield')
+  updateVisible(true, 'testfield')
   assert.equal(alerts.length, 0)
   assert.equal(errors.length, 0)
   assert.equal(getViewColumnCookie('testfield', 'visible'), 'true')
 
   // Now test for an invalid column
-  updateVisible('false', 'wrongname')
+  updateVisible(false, 'wrongname')
   assert.equal(errors.length, 1)
   assert.equal(
     errors[0],
     "Column 'wrongname' not found.  The second argument must match a th data-field attribute.  " +
-    'Current data-fields: [testfield]'
+    'Current data-fields: [firstcol,testfield]'
   )
   assert.equal(alerts.length, 1)
   assert.equal(alerts[0], 'Error: Unable to save your column visibility selection')
+
+  // Now test setting all column visibility (BST sets all but the first column as hidden)
+  // Empty the arrays for the next test
+  alerts.splice(0, alerts.length)
+  errors.splice(0, errors.length)
+
+  // We need to trigger bootstrap to hide all columns so that getVisibleColumns returns the one that BST arbitrarily
+  // decided should not be hidden (the first one, based on 'data-show-columns'='true')
+  $('#bstlistviewtable').bootstrapTable('hideAllColumns')
+  updateVisible(false)
+  assert.equal(alerts.length, 0)
+  assert.equal(errors.length, 0)
+  assert.equal(getViewColumnCookie('firstcol', 'visible'), 'true')
+  assert.equal(getViewColumnCookie('testfield', 'visible'), 'false')
+  $('#bstlistviewtable').bootstrapTable('showAllColumns')
+  updateVisible(true)
+  assert.equal(alerts.length, 0)
+  assert.equal(errors.length, 0)
+  assert.equal(getViewColumnCookie('firstcol', 'visible'), 'true')
+  assert.equal(getViewColumnCookie('testfield', 'visible'), 'true')
 
   // Restore the original functions
   window.alert = alertBackup
@@ -372,6 +441,7 @@ QUnit.test('initBST', function (assert) {
     100, // total
     120, // rawTotal
     window.location.href.split('?')[0], // currentURL
+    ['col1'], // columnNames
     ['WX'], // warnings
     ['TC'], // cookieResets
     'false', // clearCookies
@@ -388,6 +458,10 @@ QUnit.test('initBST', function (assert) {
 
   // Test that cookieResets deletes specific cookies
   assert.equal(getViewCookie('TC'), '')
+
+  // Test that the columnNames global is set
+  assert.equal(1, columnNames.length)
+  assert.equal('col1', columnNames[0])
 
   // Test that cookies are set
   assert.equal(getViewCookie('limit'), '10')
@@ -413,6 +487,7 @@ QUnit.test('initBST', function (assert) {
     100, // total
     120, // rawTotal
     window.location.href.split('?')[0], // currentURL
+    ['col1'], // columnNames
     [], // warnings
     [], // cookieResets
     'true', // clearCookies
@@ -445,6 +520,7 @@ QUnit.test('initBST', function (assert) {
     100, // total
     120, // rawTotal
     window.location.href.split('?')[0], // currentURL
+    ['col1'], // columnNames
     [], // warnings
     [], // cookieResets
     'false', // clearCookies,
