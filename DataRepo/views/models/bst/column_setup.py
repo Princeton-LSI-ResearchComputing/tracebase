@@ -773,6 +773,11 @@ class BSTBaseView:
         if self.representative_column is None and self.model is not None:
             self.representative_column = list(self.columns.values())[0]
 
+        # The representative column is either the first linked column or the first column
+        # Allowing no model is purely for testing, since this isn't an abstract base class
+        if self.representative_column is None and self.model is not None:
+            self.representative_column = list(self.columns.values())[0]
+
     def init_column(self, colname: str):
         """Takes a column name and sets or creates a derived instance of the BSTBaseColumn class, adding it to
         self.columns.
