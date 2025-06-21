@@ -11,6 +11,7 @@ var djangoLimit = djangoLimitDefault // eslint-disable-line no-var
 var djangoPerPage = djangoLimitDefault // eslint-disable-line no-var
 var djangoRawTotal = 0 // eslint-disable-line no-var
 var djangoTotal = djangoRawTotal // eslint-disable-line no-var
+var columnNames = [] // eslint-disable-line no-var
 
 var sortCookieName = 'sort' // eslint-disable-line no-var, no-unused-vars
 var ascCookieName = 'asc' // eslint-disable-line no-var, no-unused-vars
@@ -23,9 +24,13 @@ var pageCookieName = 'page' // eslint-disable-line no-var
 /**
  * This function exists solely for testing purposes
  */
-function initGlobalDefaults () { // eslint-disable-line no-unused-vars
+function initGlobalDefaults (customDjangoTableID, columnNames) { // eslint-disable-line no-unused-vars
   globalThis.djangoCurrentURL = window.location.href.split('?')[0]
-  globalThis.djangoTableID = 'bstlistviewtable'
+  if (typeof customDjangoTableID === 'undefined') {
+    globalThis.djangoTableID = 'bstlistviewtable'
+  } else {
+    globalThis.djangoTableID = customDjangoTableID
+  }
   globalThis.jqTableID = '#' + djangoTableID
   globalThis.djangoLimitDefault = 15
   globalThis.djangoLimit = djangoLimitDefault
@@ -40,6 +45,11 @@ function initGlobalDefaults () { // eslint-disable-line no-unused-vars
   globalThis.visibleCookieName = 'visible'
   globalThis.limitCookieName = 'limit'
   globalThis.pageCookieName = 'page'
+  if (typeof columnNames === 'undefined') {
+    globalThis.columnNames = []
+  } else {
+    globalThis.columnNames = columnNames
+  }
 }
 
 /**
@@ -53,6 +63,7 @@ function initGlobalDefaults () { // eslint-disable-line no-unused-vars
  * @param {*} total The total number of results/rows given the current searc/filter.
  * @param {*} rawTotal The total unfiltered number of results.
  * @param {*} currentURL The current URL of the page.
+ * @param {*} columnNames Ordered list of column names (the data-field attribute of the th tags).
  * @param {*} warnings A list of warnings from django.
  * @param {*} cookieResets A list of cookie names to reset from django.  (Not the whole cookie name, just the last bit, e.g. 'sortcol'.)
  * @param {*} clearCookies A boolean represented as a string, e.g. 'false'.
@@ -74,6 +85,7 @@ function initBST ( // eslint-disable-line no-unused-vars
   total,
   rawTotal,
   currentURL,
+  columnNames,
   warnings,
   cookieResets,
   clearCookies,
@@ -101,6 +113,13 @@ function initBST ( // eslint-disable-line no-unused-vars
   globalThis.visibleCookieName = visibleCookieName
   globalThis.limitCookieName = limitCookieName
   globalThis.pageCookieName = pageCookieName
+
+  // Clear whatever might already be in the global columnNames array
+  globalThis.columnNames = []
+  // Add the supplied columnNames
+  for (let i = 0; i < columnNames.length; i++) {
+    globalThis.columnNames.push(columnNames[i])
+  }
 
   // Initialize the cookies (basically just the prefix)
   initViewCookies(cookiePrefix) // eslint-disable-line no-undef
@@ -212,6 +231,7 @@ function displayWarnings (warningsArray) {
 }
 
 /**
+<<<<<<< HEAD
  * Retrieves a list of column names (obtained from the data-field attribute of every th element).
  * Bootstrap table provides alternate methods of retrieving the fields, but they are not in order and are limited to
  * only either the visible or hidden ones.
@@ -230,6 +250,8 @@ function getColumnNames () {
 // See: https://github.com/Princeton-LSI-ResearchComputing/tracebase/issues/1577
 
 /**
+=======
+>>>>>>> Fixed column visibility cookies and exceptions regarding representative fields, null foreign keys, and setting conflicts.
  * Requests a new page from the server based on the values passed in (or the cookies as defaults).
  * @param {*} page Page number.
  * @param {*} limit Rows per page.
@@ -367,7 +389,6 @@ function parseBool (boolval, def) {
  * @returns Nothing.
  */
 function updateVisible (visible, columnName) {
-  const columnNames = getColumnNames()
   if (typeof columnName !== 'undefined' && columnName) {
     if (columnNames.includes(columnName)) {
       setViewColumnCookie(columnName, visibleCookieName, visible) // eslint-disable-line no-undef
@@ -376,15 +397,22 @@ function updateVisible (visible, columnName) {
       alert('Error: Unable to save your column visibility selection') // eslint-disable-line no-undef
     } else {
       console.error(
-        "Column '" + columnName.toString() + "' not found.  The second argument must match a th data-field attribute.  " +
-        'Current data-fields: [' + columnNames.toString() + ']'
+        "Column '" + columnName.toString() + "' not found.  The second argument must match a th data-field " +
+        'attribute.  Current data-fields: [' + columnNames.toString() + ']'
       )
       alert('Error: Unable to save your column visibility selection') // eslint-disable-line no-undef
     }
   } else {
-    // When a columnName is not provided, set all columns' visibility
-    for (let i = 0; i < columnNames.length; i++) {
-      setViewColumnCookie(columnNames[i], visibleCookieName, visible) // eslint-disable-line no-undef
+    if (visible) {
+      $(jqTableID).bootstrapTable('getVisibleColumns').map(function (col) { // eslint-disable-line no-undef
+        setViewColumnCookie(col.field, visibleCookieName, visible) // eslint-disable-line no-undef
+        return col.field
+      })
+    } else {
+      $(jqTableID).bootstrapTable('getHiddenColumns').map(function (col) { // eslint-disable-line no-undef
+        setViewColumnCookie(col.field, visibleCookieName, visible) // eslint-disable-line no-undef
+        return col.field
+      })
     }
   }
 }

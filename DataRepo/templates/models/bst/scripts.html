@@ -1,6 +1,8 @@
 {% load static %}
+{% load bsttags %}
 
 {# Variables needed for the scripts #}
+{{ columns|keys|json_script:"orderedColumnNames" }}
 {{ warnings|json_script:"warnings" }}
 {{ cookie_resets|json_script:"cookieResets" }}
 
@@ -10,6 +12,9 @@
 
 {# Script initialization #}
 <script>
+    // columnNames: An ordered list of column names from django.
+    const columnNamesElem = document.getElementById("orderedColumnNames");
+    const orderedColumnNames = JSON.parse(columnNamesElem.textContent);
     // warnings: A list of warnings from django.
     const warningsElem = document.getElementById("warnings");
     const warnings = JSON.parse(warningsElem.textContent);
@@ -35,6 +40,7 @@
             to create a proper concrete view for BSTListView in the tests, with a url and everything.
             {% endcomment %}
             {% comment %} '{% url request.resolver_match.url_name %}', {% endcomment %}
+            orderedColumnNames,
             warnings,
             cookieResets,
             '{{ clear_cookies }}',
