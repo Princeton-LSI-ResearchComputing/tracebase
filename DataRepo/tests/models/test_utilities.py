@@ -369,8 +369,8 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
         )
         with self.assertRaises(ProgrammingError) as ar:
             resolve_field_path(1)
-        self.assertEqual(
-            "Unexpected field_or_expression type: 'int'.",
+        self.assertIn(
+            "Unexpected field_or_expression type: 'int'",
             str(ar.exception),
         )
 

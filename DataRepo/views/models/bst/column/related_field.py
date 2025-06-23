@@ -123,7 +123,7 @@ class BSTRelatedColumn(BSTColumn):
                         "display_field_path could not be determined.  Supply display_field_path to allow search/sort."
                     )
 
-                tooltip = "" if tooltip is None else tooltip + "  "
+                tooltip = "" if tooltip is None else tooltip + "\n\n"
                 tooltip += (
                     "Search and sort is disabled for this column because the displayed values do not exist in the "
                     "database as a single field"
