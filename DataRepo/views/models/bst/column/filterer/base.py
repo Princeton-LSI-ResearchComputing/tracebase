@@ -9,7 +9,7 @@ from warnings import warn
 from django.conf import settings
 from django.db.models import Q
 
-from DataRepo.utils.exceptions import DeveloperWarning
+from DataRepo.utils.exceptions import DeveloperWarning, trace
 
 
 class InputMethods(NamedTuple):
@@ -451,6 +451,8 @@ class BSTBaseFilterer(ABC):
         # The DB (or Django?) does a conversion.  It clearly works for numeric fields and date fields, so what
         # BSTAnnotSorter does (without knowing the field type), is it infers whether to use icontains or iexact based on
         # the input method.
+        if term == "None":
+            return Q(**{f"{self.name}__isnull": True})
         return Q(**{f"{self.name}__{self._server_filterer.lookup}": term})
 
     @property
@@ -458,6 +460,8 @@ class BSTBaseFilterer(ABC):
         """Returns the json to supply to Bootstrap Table's data-filter-data attribute (which must be preceded by
         "json:").  See: https://bootstrap-table.com/docs/extensions/filter-control/#filterdata
         """
-        if settings.DEBUG:
-            warn("choices_json called when choices is None")
+        if self.choices is None and settings.DEBUG:
+            warn(
+                f"{trace()}\nchoices_json called when choices is None for column {self.name}"
+            )
         return "" if self.choices is None else json.dumps(self.choices)

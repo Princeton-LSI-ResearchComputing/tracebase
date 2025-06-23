@@ -158,7 +158,6 @@ function initBST ( // eslint-disable-line no-unused-vars
       // 1. BST sort and server side sort sometimes sort differently (c.i.p. imported_timestamp)
       // 2. BST sort completely fails when the number of rows is very large
       // ...so we will always let the sort hit the server to be on the safe side.
-      console.log('Sorting by ' + orderBy + ', ' + orderDir)
       updatePage(1)
     },
     onSearch: function (searchTerm) {
@@ -178,7 +177,6 @@ function initBST ( // eslint-disable-line no-unused-vars
       }
     },
     onColumnSearch: function (columnName, searchTerm) {
-      console.log('Filtering column ' + columnName + ' with term: ' + searchTerm)
       if (!loading) {
         // NOTE: Turns out that on page load, a column search event is triggered, so we check to see if anything
         // changed before triggering a page update.

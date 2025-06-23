@@ -118,19 +118,23 @@ class BSTClientInterfaceTests(TracebaseTestCase):
         self.assertEqual(
             str(aw.warnings[0].message), c.warnings[0] + "  'BSTClientInterface-cname'"
         )
-        self.assertEqual(f"BSTClientInterface-{view_cookie_name}", c.cookie_resets[0])
+        self.assertEqual(view_cookie_name, c.cookie_resets[0])
 
         # second occurrence does not warn
         val = c.get_boolean_cookie(view_cookie_name, default=True)
         self.assertTrue(val)
         # The rest has not changed...
-        self.assertEqual(1, len(c.warnings))
+        self.assertEqual(
+            1,
+            len(c.warnings),
+            msg=f"Cookie: {view_cookie_name} Resets: {c.cookie_resets} Warnings: {c.warnings}",
+        )
         # The warning message gives the full cookie name, which the user does not need to know.
         self.assertEqual(
             str(aw.warnings[0].message), c.warnings[0] + "  'BSTClientInterface-cname'"
         )
         self.assertEqual(1, len(c.cookie_resets))
-        self.assertEqual(f"BSTClientInterface-{view_cookie_name}", c.cookie_resets[0])
+        self.assertEqual(view_cookie_name, c.cookie_resets[0])
 
     @TracebaseTestCase.assertNotWarns()
     def test_get_column_cookie_name(self):
@@ -197,8 +201,8 @@ class BSTClientInterfaceTests(TracebaseTestCase):
         self.assertEqual(2, len(aw.warnings))
         self.assertEqual(2, len(c.warnings))
         self.assertEqual(2, len(c.cookie_resets))
-        self.assertIn("BSTClientInterface-filter-column1", c.cookie_resets)
-        self.assertIn("BSTClientInterface-filter-column2", c.cookie_resets)
+        self.assertIn("filter-column1", c.cookie_resets)
+        self.assertIn("filter-column2", c.cookie_resets)
 
     @TracebaseTestCase.assertNotWarns()
     def test_get_column_cookie(self):
@@ -256,7 +260,7 @@ class BSTClientInterfaceTests(TracebaseTestCase):
         bci.reset_column_cookies(["name", "desc"], "visible")
         # Only deletes the ones that are "set" (and empty string is eval'ed as None)
         self.assertEqual(
-            ["BSTClientInterface-visible-name", "BSTClientInterface-visible-desc"],
+            ["visible-name", "visible-desc"],
             bci.cookie_resets,
         )
 
@@ -279,7 +283,7 @@ class BSTClientInterfaceTests(TracebaseTestCase):
         bci.init_interface()
         bci.reset_cookie("sortcol")
         # Only deletes the ones that are "set" (and empty string is eval'ed as None)
-        self.assertEqual(["BSTClientInterface-sortcol"], bci.cookie_resets)
+        self.assertEqual(["sortcol"], bci.cookie_resets)
 
     def test_model_title_plural(self):
         self.assertEqual("BCI Study Test Models", StudyBCI.model_title_plural)
@@ -306,7 +310,7 @@ class BSTClientInterfaceTests(TracebaseTestCase):
         slv.init_interface()
         slv.reset_filter_cookies()
         # Only deletes the ones that are "set" (and empty string is eval'ed as None)
-        self.assertEqual(["StudyBCI-filter-desc"], slv.cookie_resets)
+        self.assertEqual(["filter-desc"], slv.cookie_resets)
 
     @TracebaseTestCase.assertNotWarns()
     def test_reset_search_cookie(self):
@@ -326,7 +330,7 @@ class BSTClientInterfaceTests(TracebaseTestCase):
         slv = StudyBCI(request=request)
         slv.init_interface()
         slv.reset_search_cookie()
-        self.assertEqual(["StudyBCI-search"], slv.cookie_resets)
+        self.assertEqual(["search"], slv.cookie_resets)
 
     @TracebaseTestCase.assertNotWarns()
     def test_get_context_data(self):
