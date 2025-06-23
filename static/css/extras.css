@@ -11,6 +11,7 @@
 .newlines {
   white-space: pre;
 }
+
 .no-newlines {
   white-space: nowrap;
 }
