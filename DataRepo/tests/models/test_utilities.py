@@ -10,11 +10,12 @@ from django.db.models import (
     Field,
     FloatField,
     ForeignKey,
+    Func,
     ManyToManyField,
     Min,
     Value,
 )
-from django.db.models.functions import Concat, Lower, Upper
+from django.db.models.functions import Concat, Extract, Lower, Upper
 from django.db.models.query_utils import DeferredAttribute
 from django.forms import ValidationError, model_to_dict
 from django.test import override_settings
@@ -371,6 +372,29 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
         self.assertEqual(
             "Unexpected field_or_expression type: 'int'.",
             str(ar.exception),
+        )
+
+        # Test deeper field_path expression and filtering out expressions without field_paths
+        self.assertEqual(
+            "time_collected",
+            resolve_field_path(
+                Extract(
+                    F("time_collected"),
+                    "epoch",
+                )
+                / Value(60),
+            ),
+        )
+        self.assertEqual(
+            "date",
+            resolve_field_path(
+                Func(
+                    F("date"),
+                    Value("YYYY-MM-DD"),
+                    output_field=CharField(),
+                    function="to_char",
+                ),
+            ),
         )
 
     def test_get_distinct_fields_nonkeyfield(self):

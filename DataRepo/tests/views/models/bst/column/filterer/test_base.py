@@ -1,4 +1,4 @@
-from django.db.models import CharField
+from django.db.models import CharField, Q
 from django.test import override_settings
 
 from DataRepo.tests.tracebase_test_case import (
@@ -54,3 +54,8 @@ class BSTFiltererTests(TracebaseTestCase):
         f = FiltererTest("name", choices=get_choices_dict)
         self.assertDictEquivalent(expected, f.choices)
         self.assertEqual(BSTBaseFilterer.INPUT_METHODS.SELECT, f.input_method)
+
+    @TracebaseTestCase.assertNotWarns()
+    def test_create_q_exp(self):
+        f = FiltererTest("name")
+        self.assertEqual(Q(**{"name__isnull": True}), f.create_q_exp("None"))
