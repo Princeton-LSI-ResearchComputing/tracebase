@@ -1,0 +1,8 @@
+<a
+    class="dropdown-item test"
+    name="{{ widget.option_name }}"
+    data-value="{{ widget.value }}"
+    {# Include custom attributes #}
+    {% for name, value in widget.attrs.items %}
+        {% if value is not False %} {{ name }}{% if value is not True %}="{{ value|stringformat:'s' }}"{% endif %}{% endif %}
+    {% endfor %}>{{ widget.label }}</a>
