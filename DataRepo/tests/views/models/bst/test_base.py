@@ -574,6 +574,8 @@ class BSTBaseListViewTests(TracebaseTestCase):
                     "treatment__desc",
                     "desc",
                     "name",
+                    "samples",
+                    "samples_mm_count",
                 ]
             ),
             set(list(alv.columns.keys())),
