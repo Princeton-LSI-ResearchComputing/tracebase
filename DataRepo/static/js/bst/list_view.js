@@ -435,15 +435,35 @@ function toggleCollapse () {
  */
 function setCollapse (collapse) {
   if (typeof collapse === 'undefined') collapse = true
-  const cellElems = document.getElementsByClassName('table-cell')
-  for (let i = 0; i < cellElems.length; i++) {
-    const cellElem = cellElems[i]
+
+  // table-cell-nobr - These are td elements whose content we collapse/expand
+  const nobrCellElems = document.getElementsByClassName('table-cell-nobr')
+  for (let i = 0; i < nobrCellElems.length; i++) {
+    const cellElem = nobrCellElems[i]
     if (collapse) cellElem.classList.add('nobr')
     else cellElem.classList.remove('nobr')
   }
-  const wrapElems = document.getElementsByClassName('cell-wrap')
-  for (let i = 0; i < wrapElems.length; i++) {
-    const wrapElem = wrapElems[i]
+
+  // table-cell-newlines - These are td elements whose content we collapse/expand, but use a different strategy: they
+  // have content whose line breaks are controlled using pre tag behavior (via CSS)
+  const nonewlinesCellElems = document.getElementsByClassName('table-cell-newlines')
+  for (let i = 0; i < nonewlinesCellElems.length; i++) {
+    const cellElem = nonewlinesCellElems[i]
+    if (collapse) {
+      // cellElem.classList.add('nobr')
+      cellElem.classList.add('no-newlines')
+      cellElem.classList.remove('newlines')
+    } else {
+      // cellElem.classList.remove('nobr')
+      cellElem.classList.add('newlines')
+      cellElem.classList.remove('no-newlines')
+    }
+  }
+
+  // These are <br> tags that have the 'cell-wrap' class.  They are collapsed by adding the d-none class.
+  const brElems = document.getElementsByClassName('cell-wrap')
+  for (let i = 0; i < brElems.length; i++) {
+    const wrapElem = brElems[i]
     if (collapse) wrapElem.classList.add('d-none')
     else wrapElem.classList.remove('d-none')
   }

@@ -74,6 +74,10 @@ class SampleListView(BSTListView):
         },
         "animal__feeding_status": {"filterer": {"distinct_choices": True}},
         "researcher": {"filterer": {"choices": Researcher.get_researchers}},
+        "animal__infusate": {
+            "td_template": "models/sample/infusate_td.html",
+            "value_template": "models/sample/infusate_value.html",
+        },
 
         # Annotation column customizations
         "time_collected_mins": {
@@ -92,12 +96,16 @@ class SampleListView(BSTListView):
         # Many-related model column customizations
 
         # Tracer columns
-        "animal__infusate__tracer_links__tracer": {"header": "Tracer"},
+        "animal__infusate__tracer_links__tracer": {
+            "limit": 10,
+        },
         "animal__infusate__tracer_links__tracer__compound": {
-            "header": "Tracer Compound"
+            "header": "Tracer Compound",
+            "limit": 10,
         },
         "animal__infusate__tracer_links__concentration": {
-            "header": "Tracer Concentration (mM)"
+            "header": "Tracer Concentration (mM)",
+            "limit": 10,
         },
 
         # MSRun columns
