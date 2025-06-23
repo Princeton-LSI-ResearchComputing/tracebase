@@ -193,8 +193,8 @@ class BSTRelatedColumnTests(TracebaseTestCase):
         self.assertFalse(c.sortable)
         self.assertEqual(
             (
-                "Test tooltip.  Search and sort is disabled for this column because the displayed values do not exist "
-                "in the database as a single field"
+                "Test tooltip.\n\nSearch and sort is disabled for this column because the displayed values do not "
+                "exist in the database as a single field"
             ),
             BSTRelatedColumn(
                 "norep",
@@ -340,4 +340,4 @@ class BSTRelatedColumnTests(TracebaseTestCase):
         # Test that every other field uses - underscored_to_title("_".join(path_tail))
         c = BSTRelatedColumn("sample__animal__sex", BSTRCMSRunSampleTestModel)
         sh = c.generate_header()
-        self.assertEqual(underscored_to_title("animal_sex"), sh)
+        self.assertEqual(underscored_to_title("sex"), sh)

@@ -75,7 +75,7 @@ BSTCMSRunSampleTestModel = create_test_model(
 )
 BSTCTissueTestModel = create_test_model(
     "BSTCTissueTestModel",
-    {"name": CharField(max_length=255)},
+    {"name": CharField(max_length=255, help_text="Tissue name.")},
 )
 
 
@@ -252,3 +252,7 @@ class BSTColumnTests(TracebaseTestCase):
         self.assertTrue(BSTColumn("name", BSTCAnimalTestModel).has_detail())
         # Has a unique field, but no get_absolute_url method
         self.assertFalse(BSTColumn("name", BSTCStudyTestModel).has_detail())
+
+    def test_tooltip(self):
+        c = BSTColumn("name", BSTCTissueTestModel)
+        self.assertEqual("Tissue name.", c.tooltip)
