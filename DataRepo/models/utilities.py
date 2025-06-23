@@ -148,7 +148,8 @@ def resolve_field(
 
 
 def resolve_field_path(
-    field_or_expression: Union[str, Combinable, DeferredAttribute, Field]
+    field_or_expression: Union[str, Combinable, DeferredAttribute, Field],
+    _level=0,
 ) -> str:
     """Takes a representation of a field, e.g. from Model._meta.ordering, which can have transform functions applied
     (like Lower('field_name')) and returns the field path.
@@ -171,6 +172,7 @@ def resolve_field_path(
     Args:
         field_or_expression (Union[str, Combinable]): A str (e.g. a field path), Combinable (e.g. an F, Transform [like
             Lower("name")], Expression, etc object), or a Model Field.
+        _level (int): Recursion level, used to determine whether to raise an exception or return ""
     Exceptions:
         ValueError when the field_or_expression contains multiple field paths.
     Returns
@@ -187,28 +189,34 @@ def resolve_field_path(
     elif isinstance(field_or_expression, DeferredAttribute):
         return field_or_expression.field.name
     elif isinstance(field_or_expression, Expression):
-        field_reps = field_or_expression.get_source_expressions()
+        field_reps = [
+            f if isinstance(f, str) else resolve_field_path(f, _level=_level + 1)
+            for f in field_or_expression.get_source_expressions()
+        ]
+        # Filter out empty strings, which indicate no fields found
+        field_reps = [f for f in field_reps if f != ""]
 
         if len(field_reps) == 0:
-            raise NoFields("No field name in field representation.")
+            if _level > 0:
+                # Return an empty string (to stay type-consistent) to indicate no fields detected in the expression(s)
+                return ""
+            else:
+                # If we're back to the original caller and there are still no expressions, raise an exception.
+                raise NoFields("No field name in field representation.")
         elif len(field_reps) > 1:
             raise MultipleFields(
-                f"Multiple field names in field representation {[f.name for f in field_reps]}."
+                f"Multiple field names in field representation {field_reps}."
             )
-
-        if isinstance(field_reps[0], Expression):
-            return resolve_field_path(field_reps[0])
-        elif isinstance(field_reps[0], F):
-            return resolve_field_path(field_reps[0].name)
-        else:
-            raise ProgrammingError(
-                f"Unexpected field_or_expression type: '{type(field_or_expression).__name__}'."
-            )
+        else:  # Assumes field_reps[0] is a str based on the above code
+            # Strings need processing too, in case this comes from an order-by expression with a leading dash (for
+            # reversing the order)
+            return resolve_field_path(field_reps[0], _level=_level + 1)
     elif isinstance(field_or_expression, F):
         return field_or_expression.name
     else:
         raise ProgrammingError(
-            f"Unexpected field_or_expression type: '{type(field_or_expression).__name__}'."
+            f"Unexpected field_or_expression type: '{type(field_or_expression).__name__}' for expression: "
+            f"{field_or_expression}."
         )
 
 
