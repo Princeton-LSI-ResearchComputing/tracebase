@@ -88,7 +88,7 @@ function createTestTable () {
   button.appendChild(icon)
   fixture.append(button)
 
-  // Create a table with a td containing 'table-cell' and a br containing 'cell-wrap'
+  // Create a table with a td containing 'table-cell-nobr' and a br containing 'cell-wrap'
   const table = document.createElement('table')
   // This is the default ID defined in DataRepo/static/js/bst/list_view.js
   table.id = 'bstlistviewtable'
@@ -103,7 +103,7 @@ function createTestTable () {
   const tr = document.createElement('tr')
   const td = document.createElement('td')
   td.id = 'test2'
-  td.classList.add('table-cell')
+  td.classList.add('table-cell-nobr')
   td.classList.add('nobr')
   const textOne = document.createTextNode('First line ')
   const br = document.createElement('br')
@@ -132,7 +132,7 @@ function createTestTable2 (tableID, columnNames) {
   // This is defined in tests.html and cleaned automatically by QUnit
   const fixture = document.querySelector('#qunit-fixture')
 
-  // Create a table with a td containing 'table-cell' and a br containing 'cell-wrap'
+  // Create a table with a td containing 'table-cell-nobr' and a br containing 'cell-wrap'
   const table = document.createElement('table')
   // This is the default ID defined in DataRepo/static/js/bst/list_view.js
   table.id = tableID
@@ -151,7 +151,7 @@ function createTestTable2 (tableID, columnNames) {
   const tr = document.createElement('tr')
   for (let i = 0; i < columnNames.length; i++) {
     const td = document.createElement('td')
-    td.classList.add('table-cell')
+    td.classList.add('table-cell-nobr')
     td.classList.add('nobr')
     td.id = 'test2'
     const textOne = document.createTextNode('First line ')
