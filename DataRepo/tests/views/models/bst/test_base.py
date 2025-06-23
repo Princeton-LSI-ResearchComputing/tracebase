@@ -100,7 +100,6 @@ class BSTBaseListViewTests(TracebaseTestCase):
         self.assertEqual([], blv.warnings)
         self.assertEqual({}, blv.columns)
         self.assertEqual({}, blv.groups)
-        self.assertEqual([], blv.searchcols)
 
     @TracebaseTestCase.assertNotWarns()
     def test_init_success_cookies(self):
@@ -623,4 +622,91 @@ class BSTBaseListViewTests(TracebaseTestCase):
                 "animals": BSTManyRelatedColumn("animals", BSTBLVStudyTestModel),
             },
             context["columns"],
+        )
+
+    @TracebaseTestCase.assertNotWarns()
+    def test_add_check_groups(self):
+        class AnimalWithAddedStudyColsBLV(BSTBaseListView):
+            model = BSTBLVAnimalTestModel
+            exclude = ["id", "studies"]
+
+        awasc = AnimalWithAddedStudyColsBLV()
+
+        # Now let's manually add a couple columns (avoiding the constructor so that add_check_groups isn't
+        # automatically called and we can isolate it
+        awasc.column_settings["studies__name"] = BSTManyRelatedColumn(
+            "studies__name", BSTBLVAnimalTestModel
+        )
+        awasc.column_settings["studies__desc"] = BSTManyRelatedColumn(
+            "studies__desc", BSTBLVAnimalTestModel
+        )
+        awasc.column_ordering.append("studies__name")
+        awasc.column_ordering.append("studies__desc")
+        awasc.init_column("studies__name")
+        awasc.init_column("studies__desc")
+
+        awasc.add_check_groups()
+
+        self.assertIn("studies_group", awasc.groups.keys())
+        self.assertEqual(2, len(awasc.groups["studies_group"].columns))
+        self.assertEqual(
+            set(["studies__name", "studies__desc"]),
+            set([c.name for c in awasc.groups["studies_group"].columns]),
+        )
+
+        # Now test the warning
+        class StudyWithAddedAnimalColsBLV(BSTBaseListView):
+            model = BSTBLVStudyTestModel
+            exclude = ["id", "animals"]
+
+        swaac = StudyWithAddedAnimalColsBLV()
+
+        # Now let's manually add a couple columns (avoiding the constructor so that add_check_groups isn't
+        # automatically called and we can isolate it
+        swaac.column_settings["animals_group"] = BSTColumnGroup(
+            BSTManyRelatedColumn("animals__name", BSTBLVStudyTestModel),
+            BSTManyRelatedColumn("animals__desc", BSTBLVStudyTestModel),
+        )
+        swaac.groups["animals_group"] = swaac.column_settings["animals_group"]
+        swaac.column_settings["animals_group"] = BSTManyRelatedColumn(
+            "animals__name", BSTBLVStudyTestModel
+        )
+        swaac.column_settings["animals__desc"] = BSTManyRelatedColumn(
+            "animals__desc", BSTBLVStudyTestModel
+        )
+        # This added many-related column that's not in the group should cause a DeveloperWarning
+        swaac.column_settings["animals__treatment__name"] = BSTManyRelatedColumn(
+            "animals__treatment__name", BSTBLVStudyTestModel
+        )
+        swaac.column_ordering.append("animals__name")
+        swaac.column_ordering.append("animals__desc")
+        swaac.column_ordering.append("animals__treatment__name")
+        swaac.init_column("animals__name")
+        swaac.init_column("animals__desc")
+        swaac.init_column("animals__treatment__name")
+
+        with self.assertWarns(DeveloperWarning) as aw:
+            swaac.add_check_groups()
+
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn(
+            "Manually created column group 'animals_group'", str(aw.warnings[0].message)
+        )
+        self.assertIn("related model 'animals'", str(aw.warnings[0].message))
+        self.assertIn(
+            "1 column(s) that go through the same many-related model",
+            str(aw.warnings[0].message),
+        )
+        self.assertIn(
+            "not in the group: {'animals__treatment__name'}.",
+            str(aw.warnings[0].message),
+        )
+        self.assertIn("add them", str(aw.warnings[0].message))
+
+        self.assertIn("animals_group", swaac.groups.keys())
+        # The custom group should not have been changed
+        self.assertEqual(2, len(swaac.groups["animals_group"].columns))
+        self.assertEqual(
+            set(["animals__name", "animals__desc"]),
+            set([c.name for c in swaac.groups["animals_group"].columns]),
         )
