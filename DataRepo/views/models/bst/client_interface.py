@@ -345,14 +345,14 @@ class BSTClientInterface(ListView):
         elif boolstr.lower().startswith("f"):
             return False
 
-        cookie_name = self.get_cookie_name(name)
-        if cookie_name not in self.cookie_resets:
-            self.cookie_resets.append(cookie_name)
+        if name not in self.cookie_resets:
+            self.cookie_resets.append(name)
             warning = (
                 f"Invalid '{name}' value encountered: '{boolstr}'.  Resetting cookie."
             )
             self.warnings.append(warning)
             if settings.DEBUG:
+                cookie_name = self.get_cookie_name(name)
                 warn(warning + f"  '{cookie_name}'", DeveloperWarning)
 
         return default
@@ -415,9 +415,9 @@ class BSTClientInterface(ListView):
             elif boolstr.lower().startswith("f"):
                 bools_dict[colname] = False
             else:
-                cookie_name = self.get_column_cookie_name(colname, name)
-                if cookie_name not in self.cookie_resets:
-                    self.cookie_resets.append(cookie_name)
+                view_cookie_name = f"{name}-{colname}"
+                if view_cookie_name not in self.cookie_resets:
+                    self.cookie_resets.append(view_cookie_name)
                     # TODO: Change the column name to the header
                     warning = (
                         f"Invalid '{name}' cookie value encountered for column '{colname}': '{boolstr}'.  "
@@ -425,6 +425,7 @@ class BSTClientInterface(ListView):
                     )
                     self.warnings.append(warning)
                     if settings.DEBUG:
+                        cookie_name = self.get_column_cookie_name(colname, name)
                         warn(warning + f"  '{cookie_name}'", DeveloperWarning)
         return bools_dict
 
@@ -466,7 +467,7 @@ class BSTClientInterface(ListView):
             )
         cookie_name = self.get_column_cookie_name(str(column), name)
         if cookie_name not in self.cookie_resets:
-            self.cookie_resets.append(cookie_name)
+            self.cookie_resets.append(f"{name}-{column}")
 
     def reset_column_cookies(self, columns: List[Union[str, BSTBaseColumn]], name: str):
         """Adds cookies to the cookie_resets list.
@@ -499,7 +500,7 @@ class BSTClientInterface(ListView):
         cookie_name = self.get_cookie_name(name)
         if cookie_name not in self.cookie_resets:
             delete_cookie(self.request, cookie_name)
-            self.cookie_resets.append(cookie_name)
+            self.cookie_resets.append(name)
 
     def reset_all_cookies(self):
         """Sets clear_cookies to True and removes all cookies from the request object.
