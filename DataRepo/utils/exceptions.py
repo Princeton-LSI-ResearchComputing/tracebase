@@ -4428,7 +4428,7 @@ def summarize_int_list(intlist):
     return sum_list
 
 
-def trace():
+def trace(exc: Optional[Exception] = None):
     """
     Creates a pseudo-traceback for debugging.  Tracebacks are only built as the raised exception travels the stack to
     where it's caught.  traceback.format_stack yields the entire stack, but that's overkill, so this loop filters out
@@ -4438,7 +4438,22 @@ def trace():
 
     The string is intended to only be used to debug a problem.  Print it inside an except block if you want to find the
     cause of any particular buffered exception.
+
+    Args:
+        exc (Optional[Exception]): An optional caught exception to include a partial traceback with the returned trace.
+    Exceptions:
+        None
+    Returns:
+        trace (str): A string formatted stack trace (not including the optional exception's message)
     """
-    return "".join(
+    trace = "".join(
         [str(step) for step in traceback.format_stack() if "site-packages" not in step]
     )
+    if (
+        isinstance(exc, Exception)
+        and hasattr(exc, "__traceback__")
+        and exc.__traceback__ is not None
+    ):
+        trace += "\nThe above caught exception had a partial traceback:\n\n"
+        trace += "".join(traceback.format_tb(exc.__traceback__))
+    return trace

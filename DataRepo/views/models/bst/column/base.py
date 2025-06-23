@@ -67,6 +67,7 @@ class BSTBaseColumn(ABC):
         self,
         name: str,
         header: Optional[str] = None,
+        tooltip: Optional[str] = None,
         searchable: Optional[bool] = None,
         sortable: Optional[bool] = None,
         visible: bool = True,
@@ -85,6 +86,7 @@ class BSTBaseColumn(ABC):
                 and filtering operations.
             header (Optional[str]) [auto]: The column header to display in the template.  Will be automatically
                 generated using the title case conversion of the last (2, if present) dunderscore-delimited name values.
+            tooltip (Optional[str]): A tooltip to display on hover over the column header.
 
             searchable (Optional[bool]) [auto]: Whether or not a column is searchable.  This affects whether the column
                 is searched as a part of the table's search box and whether the column filter input will be enabled.
@@ -122,6 +124,7 @@ class BSTBaseColumn(ABC):
 
         self.name = name
         self.header = header
+        self.tooltip = tooltip
         self.searchable = searchable
         self.sortable = sortable
         self.visible = visible

@@ -35,6 +35,7 @@ class ThTemplateTests(TracebaseTestCase):
         self.assertIn('data-sorter="djangoSorter"', html)
         self.assertIn('data-visible="true"', html)
         self.assertIn("Colname", html)
+        self.assertNotIn('<sup class="bi-question-circle" title="', html)
 
     def test_th_booleans(self):
         col = BSTAnnotColumn(
@@ -89,3 +90,14 @@ class ThTemplateTests(TracebaseTestCase):
         )
         html = self.render_th_template(col)
         self.assertIn('data-filter-default="searchterm"', html)
+
+    def test_th_tooltip(self):
+        col = BSTAnnotColumn(
+            "colname",
+            Lower("name", output_field=CharField()),
+            tooltip="This is header info.",
+        )
+        html = self.render_th_template(col)
+        self.assertIn(
+            '<sup class="bi-question-circle" title="This is header info."></sup>', html
+        )

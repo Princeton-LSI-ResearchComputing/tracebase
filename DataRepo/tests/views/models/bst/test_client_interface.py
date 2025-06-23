@@ -369,6 +369,9 @@ class BSTClientInterfaceTests(TracebaseTestCase):
             ),
             set(context.keys()),
         )
+        # Not a standard Paginator.  Having is_paginated=None prevents the base.html template from rendering the vanilla
+        # paginator under the SizedPaginator
+        self.assertIsNone(context["is_paginated"])
         self.assertEqual("BSTClientInterface-", context["cookie_prefix"])
         self.assertFalse(context["clear_cookies"])
         self.assertEqual([], context["cookie_resets"])
@@ -391,7 +394,6 @@ class BSTClientInterfaceTests(TracebaseTestCase):
         slv2 = StudyBCI(request=request)
         slv2.init_interface()
         with self.assertNumQueries(1):
-            # There is a count query if get_queryset hasn't been called, because slv2.total is 0
             self.assertEqual(30, slv2.get_paginate_by(qs))
 
         # Defaults to paginate_by if cookie limit is 0
@@ -400,7 +402,6 @@ class BSTClientInterfaceTests(TracebaseTestCase):
         slv2.init_interface()
         qs = slv2.get_queryset()
         with self.assertNumQueries(0):
-            # There is no count query if get_queryset has been called, because slv2.total is >0
             self.assertEqual(slv1.paginate_by, slv2.get_paginate_by(qs))
 
         # Sets to the param value
@@ -409,7 +410,6 @@ class BSTClientInterfaceTests(TracebaseTestCase):
         slv3.init_interface()
         qs = slv3.get_queryset()
         with self.assertNumQueries(0):
-            # There is no count query if get_queryset has been called, because slv2.total is >0
             self.assertEqual(20, slv3.get_paginate_by(qs))
 
         # Defaults to count if param limit is 0
@@ -418,17 +418,15 @@ class BSTClientInterfaceTests(TracebaseTestCase):
         slv4.init_interface()
         qs = slv4.get_queryset()
         with self.assertNumQueries(0):
-            # There is no count query if get_queryset has been called, because slv2.total is >0
             self.assertEqual(50, slv4.get_paginate_by(qs))
 
-        # Defaults to count if limit is greater than count
+        # Stays at user-selected rows per page, even if fewer results
         request.GET = {"limit": "60"}
         slv5 = StudyBCI(request=request)
         slv5.init_interface()
         qs = slv5.get_queryset()
         with self.assertNumQueries(0):
-            # There is no count query if get_queryset has been called, because slv2.total is >0
-            self.assertEqual(50, slv5.get_paginate_by(qs))
+            self.assertEqual(60, slv5.get_paginate_by(qs))
 
     @TracebaseTestCase.assertNotWarns()
     def test_get_queryset(self):
