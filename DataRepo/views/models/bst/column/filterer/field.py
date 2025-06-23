@@ -104,7 +104,15 @@ class BSTFilterer(BSTBaseFilterer):
             and self.field.choices is not None
             and len(self.field.choices) > 0
         ):
-            choices = dict(self.field.choices)
+            choices = dict(
+                (
+                    (k, v)
+                    if str(k).lower().replace(" ", "")
+                    == str(v).lower().replace(" ", "")
+                    else (k, f"{k} ({v})")
+                )
+                for k, v in self.field.choices
+            )
 
         if client_filterer is None:
             if _server_filterer is not None:

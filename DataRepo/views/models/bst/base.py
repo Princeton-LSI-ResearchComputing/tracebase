@@ -10,6 +10,7 @@ from django.db.models.aggregates import Count
 from django.db.models.expressions import Combinable
 
 from DataRepo.models.utilities import (
+    field_path_to_model_path,
     is_many_related_to_root,
     is_related,
     model_path_to_model,
@@ -133,6 +134,10 @@ class BSTBaseListView(BSTClientInterface):
         """
         super().__init__(**kwargs)
 
+        # This is to be able to insert automatically generated count columns before the first column that displays many-
+        # related values from the model the count column counts.  col name -> many-related model path.
+        self.count_cols: Dict[str, str] = {}
+
         # Copy what's in the class attribute to start
         self.column_settings = deepcopy(type(self).column_settings)
         # Initialize column settings
@@ -158,7 +163,9 @@ class BSTBaseListView(BSTClientInterface):
                 self.ordered = True
             else:
                 raise ProgrammingError(
-                    "Invalid return from select_representative_field"
+                    "Invalid return from select_representative_field when looking for a representative for model "
+                    f"'{self.model.__name__}' using the column subset {self.column_ordering}.  "
+                    f"Got a '{type(sort_field).__name__}' instead of a str."
                 )
         elif len(self.columns.keys()) > 0:
             # Arbitrary column - does not matter without a model
@@ -503,6 +510,9 @@ class BSTBaseListView(BSTClientInterface):
         """Adds an automatically generated count column to complement each many-related column (if that column is not
         excluded).
 
+        NOTE: This intentionally does not use the related model's verbose_name because the name of the foreign key can
+        provide context.
+
         NOTE: The count added here is distinct and results may not be what you might expect.  For example:
         Animal.last_serum_sample links to Sample using ForeignKey.  You might think this is a 1:1 relationship, but that
         is wrong.  When gathering many-related fields for the Sample model, "Animal.last_serum_sample's related name is
@@ -519,38 +529,101 @@ class BSTBaseListView(BSTClientInterface):
         Returns:
             None
         """
-        mmfields = [
-            f
-            for f in self.model._meta.get_fields()
-            if is_many_related_to_root(f.name, self.model)
+        all_colnames = []
+        if self.column_ordering is not None:
+            # self.column_ordering hasn't been set yet, but a derived class may have set it and may not have set any
+            # custom settings for it, so we must check it
+            all_colnames = self.column_ordering.copy()
+        for colname, colobj in self.column_settings.items():
+            if (
+                not isinstance(colobj, (BSTAnnotColumn, BSTColumnGroup))
+                and colname not in all_colnames
+                and colname not in self.exclude
+            ):
+                all_colnames.append(colname)
+        mm_colnames = []
+        # column_ordering may be empty, as it may not have been initialized yet, but a derived class may have populated
+        # its class attribute.
+        mm_colnames = [
+            cname
+            for cname in all_colnames
+            if (
+                cname not in self.annotations
+                and (
+                    cname not in self.column_settings
+                    or not isinstance(self.column_settings[cname], BSTAnnotColumn)
+                )
+                # self.count_cols is first set below, but we check it here in case this is being called by other
+                # code outside this class.
+                and cname not in self.count_cols.keys()
+                # This is to filter out dict column_settings (that were added above) for annotation columns
+                and hasattr(self.model, cname.split("__")[0])
+                and is_many_related_to_root(cname, self.model)
+            )
         ]
-        for fld in mmfields:
-            count_annot_name = BSTManyRelatedColumn.get_count_name(fld.name, self.model)
+        mm_colnames.extend(
+            [
+                fld.name
+                for fld in self.model._meta.get_fields()
+                if (
+                    fld.name not in self.exclude
+                    and fld.name not in mm_colnames
+                    and is_many_related_to_root(fld.name, self.model)
+                )
+            ]
+        )
+        for colname in mm_colnames:
+            mr_model_path = field_path_to_model_path(
+                self.model, colname, many_related=True
+            )
+            count_annot_name = BSTManyRelatedColumn.get_count_name(
+                mr_model_path, self.model
+            )
 
             if (
-                (
-                    fld.name not in self.exclude
-                    or self.many_related_columns_exist(fld.name)
-                )
-                and count_annot_name not in self.exclude
-                and count_annot_name not in self.column_settings.keys()
+                colname not in self.exclude or self.many_related_columns_exist(colname)
+            ) and (
+                count_annot_name not in self.column_settings.keys()
+                or isinstance(self.column_settings[count_annot_name], dict)
             ):
-                self.column_settings[count_annot_name] = BSTAnnotColumn(
-                    count_annot_name,
-                    Count(fld.name, output_field=IntegerField(), distinct=True),
-                    header=(
+                # Track created columns to insert them before the related columns in the column_ordering
+                if count_annot_name not in self.column_ordering:
+                    self.count_cols[count_annot_name] = mr_model_path
+
+                # Allow the derived class to have added custom settings for the count column
+                kwargs = {
+                    "header": (
                         underscored_to_title(
-                            BSTManyRelatedColumn.get_attr_stub(fld.name, self.model)
+                            BSTManyRelatedColumn.get_attr_stub(
+                                mr_model_path, self.model
+                            )
                         )
                         + " Count"
                     ),
-                    filterer="strictFilterer",
-                    sorter="numericSorter",
+                    "filterer": "strictFilterer",
+                    "sorter": "numericSorter",
+                }
+                if count_annot_name in self.column_settings.keys():
+                    kwargs.update(self.column_settings[count_annot_name])
+
+                # Allow the user to supply a custom count converter
+                if "converter" in kwargs.keys():
+                    converter = kwargs.pop("converter")
+                else:
+                    converter = Count(
+                        mr_model_path, output_field=IntegerField(), distinct=True
+                    )
+
+                self.column_settings[count_annot_name] = BSTAnnotColumn(
+                    count_annot_name,
+                    converter,
+                    **kwargs,
                 )
 
     def many_related_columns_exist(self, mr_model_path: str):
         """Checks if a supplied many-related model path is the parent of any field among the column_settings keys or
-        column_ordering field paths.
+        column_ordering field paths.  The purpose of this check is because the foreign key itself may have been
+        excluded, but other fields from that many-related model are *included*.  This catches that case.
 
         Assumptions:
             1. mr_model_path ends in a foreign key field
@@ -647,24 +720,16 @@ class BSTBaseListView(BSTClientInterface):
                 f for f in self.column_ordering if f not in self.exclude
             ]
 
-        # Supporting the model being None to mimmick Django's ListView
+        # Add the default columns (Supporting the model being None to mimmick Django's ListView)
         if self.model is not None:
-            # Add the defaults
-
-            for fld, many_related in sorted(
+            # Sorting many-related to the end
+            for fld, _ in sorted(
                 [
                     (f, is_many_related_to_root(f.name, self.model))
                     for f in self.model._meta.get_fields()
                 ],
                 key=lambda tpl: tpl[1] is True,
             ):
-                if many_related is True:
-                    # Add an automatically generated count column to complement many-related columns
-                    count_annot_name = BSTManyRelatedColumn.get_count_name(
-                        fld.name, self.model
-                    )
-                    if fld.name not in self.exclude:
-                        self.add_to_column_ordering(count_annot_name, _warn=False)
                 self.add_to_column_ordering(fld.name, _warn=False)
 
         # Add from the annotations
@@ -673,10 +738,33 @@ class BSTBaseListView(BSTClientInterface):
 
         # Add from the settings dict
         for colname, obj in self.column_settings.items():
-            self.add_to_column_ordering(colname)
+            # The automatically generated count columns will be inserted before the first related column
+            if colname not in self.count_cols.keys():
+                self.add_to_column_ordering(colname)
+            # Recursively add columns contained in a group
             if isinstance(obj, BSTColumnGroup):
                 for col in obj.columns:  # pylint: disable=no-member
                     self.add_to_column_ordering(col.name)
+
+        # Insert the automatically generated count columns immediately before the column whose values it counts
+        # NOTE: This assumes that this does not include excluded columns or count columns that were manually added.
+        for count_colname, mr_model_path in self.count_cols.items():
+            # Get the indexes of every column that comes from the many-related model
+            start_indexes = [
+                self.column_ordering.index(colname)
+                for colname in self.column_ordering
+                if colname.startswith(mr_model_path)
+            ]
+            if len(start_indexes) == 0:
+                # If the related model path and the count column itself are not excluded.  Append the count column.
+                if (
+                    mr_model_path not in self.exclude
+                    and count_colname not in self.exclude
+                ):
+                    self.add_to_column_ordering(count_colname)
+            else:
+                # Insert the count column at the occurrence of the first related column
+                self.column_ordering.insert(start_indexes[0], count_colname)
 
     def add_to_column_ordering(self, colname: str, _warn=True):
         """This takes a column name and adds it to self.column_ordering if it is not among the excludes and hasn't
@@ -786,9 +874,23 @@ class BSTBaseListView(BSTClientInterface):
             else:
                 self.columns[colname] = BSTColumn(colname, self.model, **kwargs)
 
-        elif colname is not None and "converter" in kwargs.keys():
+        elif (
+            colname is not None
+            and "converter" in kwargs.keys()
+            or colname in self.annotations.keys()
+        ):
 
-            converter = kwargs.pop("converter")
+            if colname in self.annotations.keys() and "converter" not in kwargs.keys():
+                converter = self.annotations[colname]
+            else:
+                # This assumes that the converter in annotations is the same, as conflicts are caught earlier
+                converter = kwargs.pop("converter")
+
+            # Adding the model enables BSTAnnotColumn to add a tooltip to the header if a single field_path extracted
+            # from the converter is a model field
+            if "model" not in kwargs.keys() or kwargs["model"] is None:
+                kwargs["model"] = self.model
+
             self.columns[colname] = BSTAnnotColumn(colname, converter, **kwargs)
 
         elif len(kwargs.keys()) > 0 and not hasattr(self.model, first_field):
