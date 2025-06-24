@@ -408,12 +408,7 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
         )
 
     def test_get_distinct_fields_nonkeyfield(self):
-        with self.assertRaises(ValueError) as ar:
-            self.assertEqual(["name"], get_distinct_fields(Tracer, "name"))
-        self.assertEqual(
-            "The path provided must have at least 1 foreign key to extract the related model path.",
-            str(ar.exception),
-        )
+        self.assertEqual(["name"], get_distinct_fields(Tracer, "name"))
 
     def test_get_distinct_fields_keyfield_with_expression(self):
         # Tracer has 'Lower' in its meta ordering
