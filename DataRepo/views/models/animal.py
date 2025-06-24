@@ -63,6 +63,10 @@ class AnimalListView(BSTListView):
             "header": "MSRuns",
             "tooltip": "Total number of MSRuns.",
         },
+        "infusate": {
+            "td_template": "models/animal/infusate_td.html",
+            "value_template": "models/animal/infusate_value.html",
+        },
         "labels_mm_count": {
             "header": "Tracer Label Count",
             "tooltip": "Total number of Tracer Labels.",
