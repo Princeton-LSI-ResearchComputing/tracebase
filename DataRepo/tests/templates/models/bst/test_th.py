@@ -99,5 +99,6 @@ class ThTemplateTests(TracebaseTestCase):
         )
         html = self.render_th_template(col)
         self.assertIn(
-            '<sup class="bi-info-circle" title="This is header info."></sup>', html
+            '<sup class="bi-info-circle th-info-tooltip" title="This is header info."></sup>',
+            html,
         )

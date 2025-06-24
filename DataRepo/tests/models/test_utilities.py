@@ -291,6 +291,11 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
             "peak_groups__peak_data",
             field_path_to_model_path(ArchiveFile, "peak_groups__peak_data"),
         )
+        # Test that empty string is returned when no foreign key
+        self.assertEqual(
+            "",
+            field_path_to_model_path(ArchiveFile, "filename"),
+        )
 
     def test_model_path_to_model(self):
         # Reverse relation
@@ -310,6 +315,11 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
             model_path_to_model(
                 ArchiveFile, "peak_groups__msrun_sample__sample__animal__studies"
             ),
+        )
+        # empty path - return root model
+        self.assertEqual(
+            ArchiveFile,
+            model_path_to_model(ArchiveFile, ""),
         )
 
     def test_is_string_field(self):
