@@ -35,7 +35,7 @@ class TdTemplateTests(BaseTemplateTests):
         }
         # Ignoring leading/trailing whitespace characters from the template code...
         html = self.render_td_template(context).strip()
-        self.assertIn('<td class="table-cell-nobr">', html)
+        self.assertIn('<td class="table-cell-nobr nobr">', html)
         self.assertIn("t1", html)
 
     def test_bst_column_field(self):
@@ -47,7 +47,7 @@ class TdTemplateTests(BaseTemplateTests):
         }
         # Ignoring leading/trailing whitespace characters from the template code...
         html = self.render_td_template(context).strip()
-        self.assertIn('<td class="table-cell-nobr">', html)
+        self.assertIn('<td class="table-cell-nobr nobr">', html)
         self.assertIn("A1", html)
 
     def test_bst_column_object(self):
@@ -60,7 +60,7 @@ class TdTemplateTests(BaseTemplateTests):
         # Ignoring leading/trailing whitespace characters from the template code...
         html = self.render_td_template(context).strip()
         self.assertIn('<a href="thisisaurl">T1</a>', html)
-        self.assertIn('<td class="table-cell-nobr">', html)
+        self.assertIn('<td class="table-cell-nobr nobr">', html)
 
     def test_bst_related_column_field(self):
         treatdesccol = BSTRelatedColumn("treatment__desc", BTTAnimalTestModel)
@@ -71,7 +71,7 @@ class TdTemplateTests(BaseTemplateTests):
         }
         # Ignoring leading/trailing whitespace characters from the template code...
         html = self.render_td_template(context).strip()
-        self.assertIn('<td class="table-cell-nobr">', html)
+        self.assertIn('<td class="table-cell-nobr nobr">', html)
         self.assertIn("t1", html)
 
     def test_bst_related_column_object(self):
@@ -83,7 +83,7 @@ class TdTemplateTests(BaseTemplateTests):
         }
         # Ignoring leading/trailing whitespace characters from the template code...
         html = self.render_td_template(context).strip()
-        self.assertIn('<td class="table-cell-nobr">', html)
+        self.assertIn('<td class="table-cell-nobr nobr">', html)
         self.assertIn('<a href="thisisaurl">T1</a>', html)
 
     @override_settings(DEBUG=True)
@@ -102,8 +102,10 @@ class TdTemplateTests(BaseTemplateTests):
         )
         # NOTE: The descending order here is due to the manual subrecs query and the model's ordering.
         # In BSTListView, applying the column's ordering happens via the get_user_queryset.
-        self.assertIn('<td class="table-cell-nobr">', html)
-        self.assertIn('>s2; </span><br class="cell-wrap"><span class="nobr">s1', html)
+        self.assertIn('<td class="table-cell-nobr nobr"><span class="nobr">', html)
+        self.assertIn(
+            '>s2; </span><br class="cell-wrap d-none"><span class="nobr">s1', html
+        )
 
     @override_settings(DEBUG=True)
     def test_bst_many_related_column_object(self):
@@ -121,10 +123,10 @@ class TdTemplateTests(BaseTemplateTests):
         )
         # NOTE: The descending order here is due to the manual subrecs query and the model's ordering.
         # In BSTListView, applying the column's ordering happens via the get_user_queryset.
-        self.assertIn('<td class="table-cell-nobr">', html)
+        self.assertIn('<td class="table-cell-nobr nobr"><span class="nobr">', html)
         # This avoids matching the primary key, which is not durable from test to test
         self.assertIn("BTTStudyTestModel object (", html)
         self.assertIn(
-            '); </span><br class="cell-wrap"><span class="nobr">BTTStudyTestModel object (',
+            '); </span><br class="cell-wrap d-none"><span class="nobr">BTTStudyTestModel object (',
             html,
         )
