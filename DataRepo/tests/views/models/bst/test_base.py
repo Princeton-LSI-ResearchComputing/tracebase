@@ -804,6 +804,49 @@ class BSTBaseListViewTests(TracebaseTestCase):
             clv.column_settings,
         )
 
+        # Test that an excluded many-related FK, but included count in the column_ordering, gets an annotation added
+        class AnimalWithStudiesExcCountIncOrderBLV(BSTBaseListView):
+            model = BSTBLVAnimalTestModel
+            column_ordering = ["name", "studies_mm_count"]
+            exclude = ["id", "studies", "samples"]
+
+        clv = AnimalWithStudiesExcCountIncOrderBLV()
+        clv.add_default_many_related_column_settings()
+        self.assertDictEquivalent(
+            {
+                "studies_mm_count": BSTAnnotColumn(
+                    "studies_mm_count",
+                    Count("studies", output_field=IntegerField(), distinct=True),
+                    header="Studies Count",
+                    filterer="strictFilterer",
+                    sorter="numericSorter",
+                ),
+            },
+            clv.column_settings,
+        )
+
+        # Test that an excluded many-related FK, but included count in the column_settings, gets an annotation added
+        class AnimalWithStudiesExcCountIncSetBLV(BSTBaseListView):
+            model = BSTBLVAnimalTestModel
+            column_ordering = ["name"]
+            exclude = ["id", "studies", "samples"]
+            column_settings = {"studies_mm_count": {"header": "Studies Count"}}
+
+        clv = AnimalWithStudiesExcCountIncSetBLV()
+        clv.add_default_many_related_column_settings()
+        self.assertDictEquivalent(
+            {
+                "studies_mm_count": BSTAnnotColumn(
+                    "studies_mm_count",
+                    Count("studies", output_field=IntegerField(), distinct=True),
+                    header="Studies Count",
+                    filterer="strictFilterer",
+                    sorter="numericSorter",
+                ),
+            },
+            clv.column_settings,
+        )
+
     def test_many_related_columns_exist(self):
         alv1 = AnimalWithMultipleStudyColsBLV()
         self.assertTrue(alv1.many_related_columns_exist("studies"))

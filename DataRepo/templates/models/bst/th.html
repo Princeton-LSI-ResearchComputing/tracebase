@@ -1,4 +1,6 @@
-<th data-field="{{ column.name }}"
+<th class="th-inner"
+    data-field="{{ column.name }}"
+    data-switchable-label="{{ column.header }}"
 
 {% if column.searchable %}
     data-filter-control="{{ column.filterer.input_method }}"
@@ -15,6 +17,6 @@
     {% if column.hidable %}data-visible="{{ column.visible|lower }}"{% endif %}
     data-switchable="{{ column.hidable|lower }}">
     {{ column.header }}
-    {% if column.tooltip %}<sup class="bi-info-circle" title="{{ column.tooltip }}"></sup>{% endif %}
+    {% if column.tooltip %}<sup class="bi-info-circle th-info-tooltip" title="{{ column.tooltip }}"></sup>{% endif %}
 
 </th>
