@@ -1,13 +1,12 @@
 /* customize Bootstrap-table settings for th */
 .bootstrap-table .fixed-table-container .table thead th .th-inner {
   position: relative;
+  vertical-align: top;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: normal !important;
-}
-
-/* Overriding the vertical align in the th-inner above does not work, seemingly due to javascript application of CSS
-styling by bootstrap */
-.table > thead > tr > th {
-  vertical-align: bottom !important;
+  height: 5rem;
+  min-width: 2rem !important;
 }
 
 /* Position the tooltip (i) icon at the top-right. This was intended to be relative of the th tag, but its

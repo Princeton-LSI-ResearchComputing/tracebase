@@ -26,7 +26,6 @@ class ThTemplateTests(TracebaseTestCase):
         html = self.render_th_template(col)
         self.assertIn("<th", html)
         self.assertIn('data-field="colname"', html)
-        self.assertIn('data-valign="top"', html)
         self.assertIn('data-filter-control="input"', html)
         self.assertIn('data-filter-custom-search="djangoFilterer"', html)
         self.assertNotIn("data-filter-data", html)
