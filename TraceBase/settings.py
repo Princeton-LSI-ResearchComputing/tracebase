@@ -344,6 +344,8 @@ if (
     )
 ):
     # On the dev site, you need to run `python manage.py collectstatic` to be able to use the toolbar
+    # NOTE: Running collectstatic puts the aggregated static files in tracebase/static.  After running it, (which you
+    # should only need to do once), run `mv TraceBase/static static`.
     PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
     STATIC_ROOT = os.path.join(PROJECT_DIR, "static")
 
