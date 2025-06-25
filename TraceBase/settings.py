@@ -343,6 +343,10 @@ if (
         ]
     )
 ):
+    # On the dev site, you need to run `python manage.py collectstatic` to be able to use the toolbar
+    PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
+    STATIC_ROOT = os.path.join(PROJECT_DIR, "static")
+
     DEBUG_TOOLBAR_ENABLED = True
     INSTALLED_APPS.append("debug_toolbar")
     # See https://django-debug-toolbar.readthedocs.io/en/latest/installation.html#add-the-middleware
