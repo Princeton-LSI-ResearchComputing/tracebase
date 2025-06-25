@@ -10,7 +10,11 @@ var djangoLimitDefault = 15 // eslint-disable-line no-var
 var djangoLimit = djangoLimitDefault // eslint-disable-line no-var
 var djangoPerPage = djangoLimitDefault // eslint-disable-line no-var
 var djangoRawTotal = 0 // eslint-disable-line no-var
+<<<<<<< HEAD
 var djangoTotal = djangoRawTotal // eslint-disable-line no-var, no-unused-vars
+=======
+var djangoTotal = djangoRawTotal // eslint-disable-line no-var
+>>>>>>> Moved the static files from DataRepo/static to static due to apache config issues and security issues.
 var columnNames = [] // eslint-disable-line no-var
 
 var sortCookieName = 'sort' // eslint-disable-line no-var, no-unused-vars
@@ -148,7 +152,10 @@ function initBST ( // eslint-disable-line no-unused-vars
 
   // Set a variable to be able to forgo events from BST during init
   let loading = true
+<<<<<<< HEAD
   let doingNonTableSearch = false
+=======
+>>>>>>> Moved the static files from DataRepo/static to static due to apache config issues and security issues.
   $(jqTableID).bootstrapTable({ // eslint-disable-line no-undef
     onSort: function (orderBy, orderDir) {
       // Sort is just a click, and it appears that sort is not called for each column on load like onColumnSearch
@@ -159,6 +166,10 @@ function initBST ( // eslint-disable-line no-unused-vars
       // 1. BST sort and server side sort sometimes sort differently (c.i.p. imported_timestamp)
       // 2. BST sort completely fails when the number of rows is very large
       // ...so we will always let the sort hit the server to be on the safe side.
+<<<<<<< HEAD
+=======
+      console.log('Sorting by ' + orderBy + ', ' + orderDir)
+>>>>>>> Moved the static files from DataRepo/static to static due to apache config issues and security issues.
       updatePage(1)
     },
     onSearch: function (searchTerm) {
@@ -171,6 +182,7 @@ function initBST ( // eslint-disable-line no-unused-vars
         if (oldTermDefined !== newTermDefined || (oldTermDefined && newTermDefined && oldTerm !== searchTerm)) {
           setViewCookie(searchCookieName, searchTerm) // eslint-disable-line no-undef
           // No need to hit the server if we're displaying all results. Just let BST do it.
+<<<<<<< HEAD
           // TODO: Everything is currently server-side.  The conditional here does not work when the filterer is set as
           // 'djangoFilterer'.  Fix this so that it knows to update the page when the filterer is 'djangoFilterer'.
           // if ((djangoLimit > 0 && djangoLimit < djangoTotal) || djangoTotal < djangoRawTotal) {
@@ -184,11 +196,19 @@ function initBST ( // eslint-disable-line no-unused-vars
             if (numDeleted > 0) {
               updatePage(1)
             }
+=======
+          if ((djangoLimit > 0 && djangoLimit < djangoTotal) || djangoTotal < djangoRawTotal) {
+            updatePage(1)
+>>>>>>> Moved the static files from DataRepo/static to static due to apache config issues and security issues.
           }
         }
       }
     },
     onColumnSearch: function (columnName, searchTerm) {
+<<<<<<< HEAD
+=======
+      console.log('Filtering column ' + columnName + ' with term: ' + searchTerm)
+>>>>>>> Moved the static files from DataRepo/static to static due to apache config issues and security issues.
       if (!loading) {
         // NOTE: Turns out that on page load, a column search event is triggered, so we check to see if anything
         // changed before triggering a page update.
@@ -196,6 +216,7 @@ function initBST ( // eslint-disable-line no-unused-vars
         const oldTermDefined = typeof oldTerm !== 'undefined' && oldTerm
         const newTermDefined = typeof searchTerm !== 'undefined' && searchTerm
         if (oldTermDefined !== newTermDefined || (oldTermDefined && newTermDefined && oldTerm !== searchTerm)) {
+<<<<<<< HEAD
           doingNonTableSearch = true
           setViewColumnCookie(columnName, filterCookieName, searchTerm) // eslint-disable-line no-undef
           // No need to hit the server if we're displaying all results. Just let BST do it.
@@ -207,10 +228,18 @@ function initBST ( // eslint-disable-line no-unused-vars
           // This is necessary because onSearch is always triggered after this event and we don't want that to clear the
           // column filters
           setTimeout(function () { doingNonTableSearch = false }, 1000)
+=======
+          setViewColumnCookie(columnName, filterCookieName, searchTerm) // eslint-disable-line no-undef
+          // No need to hit the server if we're displaying all results. Just let BST do it.
+          if ((djangoLimit > 0 && djangoLimit < djangoTotal) || djangoTotal < djangoRawTotal) {
+            updatePage(1)
+          }
+>>>>>>> Moved the static files from DataRepo/static to static due to apache config issues and security issues.
         }
       }
     },
     onColumnSwitch: function (columnName, visible) {
+<<<<<<< HEAD
       doingNonTableSearch = true
       updateVisible(visible, columnName)
       // This is necessary because onSearch is always triggered after this event and we don't want that to clear the
@@ -228,6 +257,15 @@ function initBST ( // eslint-disable-line no-unused-vars
       doingNonTableSearch = true
       console.error("BootstrapTable Error.  Status: '" + status + "' Data:", jqXHR)
       setTimeout(function () { doingNonTableSearch = false }, 1000)
+=======
+      updateVisible(visible, columnName)
+    },
+    onColumnSwitchAll: function (visible) {
+      updateVisible(visible)
+    },
+    onLoadError: function (status, jqXHR) {
+      console.error("BootstrapTable Error.  Status: '" + status + "' Data:", jqXHR)
+>>>>>>> Moved the static files from DataRepo/static to static due to apache config issues and security issues.
     }
   })
 
@@ -442,6 +480,7 @@ function toggleCollapse () {
  */
 function setCollapse (collapse) {
   if (typeof collapse === 'undefined') collapse = true
+<<<<<<< HEAD
 
   // table-cell-nobr - These are td elements whose content we collapse/expand
   const nobrCellElems = document.getElementsByClassName('table-cell-nobr')
@@ -471,6 +510,17 @@ function setCollapse (collapse) {
   const brElems = document.getElementsByClassName('cell-wrap')
   for (let i = 0; i < brElems.length; i++) {
     const wrapElem = brElems[i]
+=======
+  const cellElems = document.getElementsByClassName('table-cell')
+  for (let i = 0; i < cellElems.length; i++) {
+    const cellElem = cellElems[i]
+    if (collapse) cellElem.classList.add('nobr')
+    else cellElem.classList.remove('nobr')
+  }
+  const wrapElems = document.getElementsByClassName('cell-wrap')
+  for (let i = 0; i < wrapElems.length; i++) {
+    const wrapElem = wrapElems[i]
+>>>>>>> Moved the static files from DataRepo/static to static due to apache config issues and security issues.
     if (collapse) wrapElem.classList.add('d-none')
     else wrapElem.classList.remove('d-none')
   }
