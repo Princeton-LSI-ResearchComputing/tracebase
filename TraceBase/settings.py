@@ -348,3 +348,5 @@ if (
     # See https://django-debug-toolbar.readthedocs.io/en/latest/installation.html#add-the-middleware
     MIDDLEWARE.insert(0, "debug_toolbar.middleware.DebugToolbarMiddleware")
     INTERNAL_IPS = ALLOWED_HOSTS[:]
+    # Override the debug toolbar's logic to decide whether to run or not (we're using the conditional logic above)
+    DEBUG_TOOLBAR_CONFIG = {"SHOW_TOOLBAR_CALLBACK": lambda: True}
