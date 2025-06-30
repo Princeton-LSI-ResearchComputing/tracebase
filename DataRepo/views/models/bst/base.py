@@ -568,7 +568,7 @@ class BSTBaseListView(BSTClientInterface):
                 and is_many_related_to_root(cname, self.model)
             )
         ]
-        # Add any default columns that are not exluded or their count columns have been explicitly included or there
+        # Add any default columns that are not excluded or their count columns have been explicitly included or there
         # exist columns that go through the many-related model path
         mm_colnames.extend(
             [
