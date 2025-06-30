@@ -6,7 +6,7 @@ from django.conf import settings
 from django.db.models import Model
 
 from DataRepo.models.utilities import get_field_val_by_iteration
-from DataRepo.utils.exceptions import DeveloperWarning
+from DataRepo.utils.exceptions import DeveloperWarning, trace
 from DataRepo.views.models.bst.column.base import BSTBaseColumn
 from DataRepo.views.models.bst.column.many_related_field import (
     BSTManyRelatedColumn,
@@ -59,21 +59,34 @@ def get_rec_val(rec: Model, column: BSTBaseColumn) -> Any:
         (Any): a field value or a list of field values (if the column is from a field in a many-related model)
     """
     if isinstance(column, BSTManyRelatedColumn):
-        default: list = []
+        list_default: list = []
         try:
             vals = getattr(rec, column.list_attr_name)
         except AttributeError as ae:
             if settings.DEBUG:
                 warn(
                     f"Attribute '{column.list_attr_name}' not found in '{type(rec).__name__}' record: '{rec}'.\n"
-                    f"Returning default '{default}'.\n"
+                    f"Returning default '{list_default}'.\n"
                     f"Original error: {type(ae).__name__}: {str(ae)}",
                     category=DeveloperWarning,
                     stacklevel=0,
                 )
-            vals = default
+            vals = list_default
         return vals
-    return get_field_val_by_iteration(rec, column.name.split("__"))
+
+    default = "ERROR"
+    try:
+        val = get_field_val_by_iteration(rec, column.name.split("__"))
+    except AttributeError as ae:
+        if settings.DEBUG:
+            warning = (
+                f"A problem was encountered while processing {type(column).__name__} '{column}':\n"
+                f"Exception:\n{trace(ae)}\n{type(ae).__name__}: {ae}"
+            )
+            warn(warning, DeveloperWarning)
+        val = default
+
+    return val
 
 
 @register.filter
@@ -83,3 +96,9 @@ def get_absolute_url(model_object: Model):
     if url is not None and url != "":
         return url
     return None
+
+
+@register.filter
+def keys(dct: dict):
+    """Return ordered dict keys as a list"""
+    return list(dct.keys()) if isinstance(dct, dict) else []

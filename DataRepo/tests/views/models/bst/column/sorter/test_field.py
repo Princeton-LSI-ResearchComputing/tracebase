@@ -1,5 +1,6 @@
-from django.db.models import CharField, F, IntegerField
-from django.db.models.functions import Lower, Upper
+from django.db.models import CharField, DateField, F, IntegerField
+from django.db.models.aggregates import Count
+from django.db.models.functions import Lower, Trunc, Upper
 from django.test import override_settings
 
 from DataRepo.tests.tracebase_test_case import (
@@ -14,6 +15,7 @@ BSTSTestModel = create_test_model(
     {
         "name": CharField(max_length=255),
         "value": IntegerField(),
+        "date": DateField(),
     },
 )
 
@@ -148,3 +150,29 @@ class BSTSorterTests(TracebaseTestCase):
             ),
         )
         self.assertEqual(F, BSTSorter.get_server_sorter_matching_expression(F("test")))
+
+    def test_init_str_server_sorter(self):
+        bs1 = BSTSorter("name", BSTSTestModel)
+        self.assertEqual(BSTSorter.SERVER_SORTERS.ALPHANUMERIC, bs1._server_sorter)
+        bs2 = BSTSorter("value", BSTSTestModel)
+        self.assertEqual(BSTSorter.SERVER_SORTERS.NUMERIC, bs2._server_sorter)
+        bs3 = BSTSorter("date", BSTSTestModel)
+        self.assertEqual(BSTSorter.SERVER_SORTERS.UNKNOWN, bs3._server_sorter)
+
+    def test_init_field_server_sorter(self):
+        bs1 = BSTSorter(CharField(name="name", max_length=255), BSTSTestModel)
+        self.assertEqual(BSTSorter.SERVER_SORTERS.ALPHANUMERIC, bs1._server_sorter)
+        bs2 = BSTSorter(IntegerField(name="value"), BSTSTestModel)
+        self.assertEqual(BSTSorter.SERVER_SORTERS.NUMERIC, bs2._server_sorter)
+        bs3 = BSTSorter(DateField(name="date"), BSTSTestModel)
+        self.assertEqual(BSTSorter.SERVER_SORTERS.UNKNOWN, bs3._server_sorter)
+
+    def test_init_transform_server_sorter(self):
+        tas1 = BSTSorter(Lower("name", output_field=CharField()), BSTSTestModel)
+        self.assertEqual(BSTSorter.SERVER_SORTERS.ALPHANUMERIC, tas1._server_sorter)
+        tas2 = BSTSorter(Count("value", output_field=IntegerField()), BSTSTestModel)
+        self.assertEqual(BSTSorter.SERVER_SORTERS.NUMERIC, tas2._server_sorter)
+        tas3 = BSTSorter(
+            Trunc("date", kind="year", output_field=DateField()), BSTSTestModel
+        )
+        self.assertEqual(Trunc, tas3._server_sorter)

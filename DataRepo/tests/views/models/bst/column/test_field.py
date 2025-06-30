@@ -75,7 +75,7 @@ BSTCMSRunSampleTestModel = create_test_model(
 )
 BSTCTissueTestModel = create_test_model(
     "BSTCTissueTestModel",
-    {"name": CharField(max_length=255)},
+    {"name": CharField(max_length=255, help_text="Tissue name.")},
 )
 
 
@@ -170,7 +170,7 @@ class BSTColumnTests(TracebaseTestCase):
         with self.assertRaises(TypeError) as ar:
             BSTColumn(fld, mdl, sorter=1)
         self.assertIn(
-            "sorter must be a str or a BSTBaseSorter, not a 'int'", str(ar.exception)
+            "sorter must be a str or a BSTSorter, not a 'int'", str(ar.exception)
         )
 
     def test_init_filterer_wrong_type(self):
@@ -180,16 +180,13 @@ class BSTColumnTests(TracebaseTestCase):
         with self.assertRaises(TypeError) as ar:
             BSTColumn(fld, mdl, filterer=1)
         self.assertIn(
-            "filterer must be a str or a BSTBaseFilterer, not a 'int'",
+            "filterer must be a str or a BSTFilterer, not a 'int'",
             str(ar.exception),
         )
 
     def test_init_is_fk(self):
         self.assertTrue(BSTColumn("animal", BSTCSampleTestModel).is_fk)
         self.assertFalse(BSTColumn("name", BSTCSampleTestModel).is_fk)
-        # TODO: Put this test in the tests for BSTRelatedColumn
-        # self.assertTrue(BSTColumn("animal__studies", BSTCSampleTestModel).is_fk)
-        # self.assertFalse(BSTColumn("animal__studies__name", BSTCSampleTestModel).is_fk)
 
     def test_eq(self):
         # Test __eq__ works when other val is string
@@ -249,3 +246,13 @@ class BSTColumnTests(TracebaseTestCase):
         c = BSTColumn("name", BSTCTissueTestModel)
         th = c.generate_header()
         self.assertEqual(underscored_to_title("name"), th)
+
+    def test_has_detail(self):
+        # Has unique field and a get_absolute_url method
+        self.assertTrue(BSTColumn("name", BSTCAnimalTestModel).has_detail())
+        # Has a unique field, but no get_absolute_url method
+        self.assertFalse(BSTColumn("name", BSTCStudyTestModel).has_detail())
+
+    def test_tooltip(self):
+        c = BSTColumn("name", BSTCTissueTestModel)
+        self.assertEqual("Tissue name.", c.tooltip)

@@ -1,4 +1,4 @@
-from typing import Type, Union
+from typing import Optional, Type, Union
 
 from django.db.models import F, Field, Model
 from django.db.models.expressions import Combinable
@@ -6,12 +6,10 @@ from django.db.models.expressions import Combinable
 from DataRepo.models.utilities import (
     field_path_to_field,
     is_number_field,
+    is_string_field,
     resolve_field_path,
 )
-from DataRepo.views.models.bst.column.sorter.base import (
-    BSTBaseSorter,
-    IdentityServerSorter,
-)
+from DataRepo.views.models.bst.column.sorter.base import BSTBaseSorter
 
 
 class BSTSorter(BSTBaseSorter):
@@ -76,7 +74,7 @@ class BSTSorter(BSTBaseSorter):
         self.field_path: str = resolve_field_path(field_expression)
         self.field = None
         expression = kwargs.get("expression")
-        client_sorter = kwargs.get("client_sorter")
+        _server_sorter: Optional[Type[Combinable]] = kwargs.get("_server_sorter")
 
         if field_expression is None:
             raise ValueError("field_expression must not be None.")
@@ -89,7 +87,7 @@ class BSTSorter(BSTBaseSorter):
                 "It is automatically discerned from field_expression."
             )
 
-        # Set self.model_field
+        # Set self.field
         if isinstance(field_expression, Field):
             self.field = field_expression
         else:
@@ -103,44 +101,40 @@ class BSTSorter(BSTBaseSorter):
                 else:
                     raise ae
 
-        # Set _server_sorter
-        _server_sorter: Type[Combinable] = self.SERVER_SORTERS.UNKNOWN
-        if self.field is not None and (
-            # The field_expression is a raw field
-            isinstance(field_expression, str)
-            or isinstance(field_expression, F)
-            or isinstance(field_expression, Field)
+        # Set _server_sorter: The superclass cannot derive the field type from a str or F expression, and cannot handle
+        # a Field object.  It can only determine field type from a 'Transform' (a subclass of Combinable) object's
+        # output_field attribute, so we set the _server_sorter based on the Model Field.
+        if (
+            _server_sorter is None
+            and self.field is not None
+            and (
+                # The field_expression is a raw field
+                isinstance(field_expression, str)
+                or isinstance(field_expression, F)
+                or isinstance(field_expression, Field)
+            )
         ):
-            if is_number_field(self.field):
-                if self.SERVER_SORTERS.NUMERIC is not None:
-                    _server_sorter = self.SERVER_SORTERS.NUMERIC
-            elif self.SERVER_SORTERS.ALPHANUMERIC is not None:
+            if is_number_field(self.field) and self.SERVER_SORTERS.NUMERIC is not None:
+                _server_sorter = self.SERVER_SORTERS.NUMERIC
+            elif (
+                is_string_field(self.field)
+                and self.SERVER_SORTERS.ALPHANUMERIC is not None
+            ):
                 _server_sorter = self.SERVER_SORTERS.ALPHANUMERIC
+            else:
+                _server_sorter = self.SERVER_SORTERS.UNKNOWN
 
-        # Set expression
+        # Derive expression from field_expression
         if isinstance(field_expression, Field):
-            if _server_sorter is not IdentityServerSorter:
-                expression = _server_sorter(self.field.name)
-            else:
-                expression = F(self.field.name)
-        elif isinstance(field_expression, F):
-            if _server_sorter is not IdentityServerSorter:
-                expression = _server_sorter(self.field_path)
-            else:
-                expression = F(self.field_path)
-        elif isinstance(field_expression, str):
-            if _server_sorter is not IdentityServerSorter:
-                expression = _server_sorter(field_expression)
-            else:
-                expression = F(field_expression)
-        else:  # Combinable
+            # Set expression: The superclass does not take a Field, so convert it.
+            expression = F(self.field.name)
+        elif isinstance(field_expression, (Combinable, str)):
             expression = field_expression
+        else:
+            raise TypeError(
+                f"field_expression must be a Union[Combinable, Field, str], not '{type(field_expression).__name__}'."
+            )
 
-        kwargs.update(
-            {
-                "client_sorter": client_sorter,
-                "_server_sorter": _server_sorter,
-            }
-        )
+        kwargs.update({"_server_sorter": _server_sorter})
 
         super().__init__(expression, *args, **kwargs)

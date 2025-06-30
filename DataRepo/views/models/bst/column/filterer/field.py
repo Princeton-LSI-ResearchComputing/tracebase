@@ -38,8 +38,10 @@ class BSTFilterer(BSTBaseFilterer):
                 order to automatically select a client_filterer and input_method (if model is provided - if model is not
                 provided, it is assumed to be an annotation).
             model (Optional[Model]): The root model that the field starts from.  Ignored unless field is provided.
-                Used to change the default client_filterer when the input_method ends up being "select" but the field is
-                a many-related field.
+                Used for 2 purposes:
+                    1. to change the default client_filterer when the input_method ends up being "select" but the field
+                       is a many-related field.  (See Explanation below.)
+                    2. to populate a select list if distinct_choices is True.
                 Explanation: Many-related fields are displayed as delimited values, but the client filterer javascript
                 code is unaware of that, so the default of strict (full match) filtering will not match any delimited
                 values.  Many to many relations can be changed without the source model, but one to many related fields
@@ -55,6 +57,12 @@ class BSTFilterer(BSTBaseFilterer):
         """
 
         self.field_path = field_path
+        # TODO: Make model an optional keyword argument and:
+        # 1. Raise an exception if not set and distinct_choices is True
+        # 2. Create a BSTManyRelatedFilterer that autoimatically sets the client filterer to contains (thereby no longer
+        #    needing model to determine if the field is many-related).  Maybe name it as BSTDelimitedFilterer?
+        # OR OPTIONALLY: Change the model argument to a QuerySet argument and move it into the BSTBaseFilterer class so
+        #                that it can work on annotations as well.
         self.model = model
         self.distinct_choices = distinct_choices
 
@@ -74,11 +82,11 @@ class BSTFilterer(BSTBaseFilterer):
             else:
                 raise ae
 
-        if choices is not None and len(choices) > 0 and distinct_choices:
+        if choices is not None and distinct_choices:
             raise ValueError(
                 f"choices {choices} and distinct_choices '{distinct_choices}' are mutually exclusive."
             )
-        elif (choices is None or len(choices) == 0) and distinct_choices:
+        elif choices is None and distinct_choices:
             # If field_path is a foreign key, the way to construct the query is by getting all of the related model's
             # ordering fields, to avoid errors
             distinct_fields = get_distinct_fields(self.model, self.field_path)
@@ -91,14 +99,20 @@ class BSTFilterer(BSTBaseFilterer):
                 # The displayed and searchable values will be how the related model's objects render in string context
                 choices[str(val)] = str(val)
         elif (
-            (choices is None or len(choices) == 0)
+            choices is None
             and hasattr(self.field, "choices")
             and self.field.choices is not None
             and len(self.field.choices) > 0
         ):
-            choices = dict(self.field.choices)
-        elif choices is not None and len(choices) == 0:
-            choices = None
+            choices = dict(
+                (
+                    (k, v)
+                    if str(k).lower().replace(" ", "")
+                    == str(v).lower().replace(" ", "")
+                    else (k, f"{k} ({v})")
+                )
+                for k, v in self.field.choices
+            )
 
         if client_filterer is None:
             if _server_filterer is not None:
@@ -156,12 +170,12 @@ class BSTFilterer(BSTBaseFilterer):
         Returns:
             (str): A value from self.CLIENT_FILTERERS
         """
-        select_list = (
+        has_select_list = (
             self.distinct_choices
             or choices is not None
             or (self.field.choices is not None and len(self.field.choices) > 0)
         )
-        if select_list:
+        if has_select_list:
             return (
                 self.CLIENT_FILTERERS.STRICT_MULTIPLE
                 if self.many_related

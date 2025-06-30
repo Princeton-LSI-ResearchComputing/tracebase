@@ -12,9 +12,10 @@ from DataRepo.models.utilities import (
     MultipleFields,
     NoFields,
     is_number_field,
+    is_string_field,
     resolve_field_path,
 )
-from DataRepo.utils.exceptions import DeveloperWarning
+from DataRepo.utils.exceptions import DeveloperWarning, RequiredArgument
 
 
 class ClientSorters(NamedTuple):
@@ -70,6 +71,7 @@ class BSTBaseSorter(ABC):
 
     is_annotation = False
     ascending: bool = True
+    sort_annot_suffix = "_bstrowsort"
 
     def __init__(
         self,
@@ -92,7 +94,8 @@ class BSTBaseSorter(ABC):
                 numericSorter is set.
             client_mode (bool) [False]: Set to True if the initial table is not filtered and the page queryset is the
                 same size as the total queryset.
-            name (Optional[str]) [auto]: The name of the BSTColumn being sorted.  Will be inferred from expression.
+            name (Optional[str]) [auto]: The name of the BSTBaseColumn being sorted.  Will be derived from expression.
+                Must be a valid BSTBaseColumn name.
                 NOTE: Required if unable to unambiguously discern from expression.
             _server_sorter (Optional[Type[Combinable]]) [auto]: Explicitly set the server sorter to a Combinable
                 (see super().SERVER_SORTERS for the defaults).  Set this to override (or apply on top of) the value
@@ -100,12 +103,15 @@ class BSTBaseSorter(ABC):
                 an output_field set, but note that BSTSorter (and its derived classes) automatically sets
                 _server_sorter.
         Exceptions:
-            ValueError when an argument is invalid.
+            ValueError when an argument is invalid or the client and server sorters are conflicting.
+            AttributeError when an expression's output_field attribute is invalid.
+            RequiredArgument when the expression argument is None.
+            ProgrammingError when the expression's field type cannot be derived.
         Returns:
             None
         """
         self.expression: Combinable
-        self.name = name
+        self.name: str
         self.asc = asc if asc is not None else self.ascending
         self.client_sorter = client_sorter
         self.client_mode = client_mode
@@ -149,26 +155,28 @@ class BSTBaseSorter(ABC):
                         f"from SERVER_SORTERS or a custom client_sorter to the constructor.",
                         DeveloperWarning,
                     )
+        elif expression is None:
+            raise RequiredArgument("expression", methodname=self.__class__.__name__)
 
         if _server_sorter is None:
             if isinstance(sort_field, Field):
-                if not is_number_field(sort_field):
-                    self._server_sorter = self.SERVER_SORTERS.ALPHANUMERIC
-                elif is_number_field(sort_field):
+                if is_number_field(sort_field):
                     self._server_sorter = self.SERVER_SORTERS.NUMERIC
+                elif is_string_field(sort_field):
+                    self._server_sorter = self.SERVER_SORTERS.ALPHANUMERIC
                 else:
                     self._server_sorter = (
                         type(expression)
                         if isinstance(expression, Combinable)
-                        else self.SERVER_SORTERS.UNKNOWN
+                        else self.SERVER_SORTERS.NONE  # Let the DB do its default sort behavior for the Field
                     )
             elif isinstance(expression, Expression) and hasattr(
                 expression, "output_field"
             ):
-                if not is_number_field(expression.output_field):
-                    self._server_sorter = self.SERVER_SORTERS.ALPHANUMERIC
-                elif is_number_field(expression.output_field):
+                if is_number_field(expression.output_field):
                     self._server_sorter = self.SERVER_SORTERS.NUMERIC
+                elif is_string_field(expression.output_field):
+                    self._server_sorter = self.SERVER_SORTERS.ALPHANUMERIC
                 elif type(expression) in self.SERVER_SORTERS:
                     self._server_sorter = type(expression)
                 else:
@@ -179,7 +187,7 @@ class BSTBaseSorter(ABC):
             ):
                 self._server_sorter = type(expression)
             else:
-                self._server_sorter = self.SERVER_SORTERS.UNKNOWN
+                self._server_sorter = self.SERVER_SORTERS.UNKNOWN  # This is a problem
         else:
             self._server_sorter = _server_sorter
 
@@ -191,7 +199,9 @@ class BSTBaseSorter(ABC):
             and self._server_sorter != self.SERVER_SORTERS.UNKNOWN
         )
 
-        if name is None:
+        if isinstance(name, str):
+            self.name = name
+        else:
             try:
                 self.name = resolve_field_path(expression)
             except (NoFields, MultipleFields) as fe:
@@ -200,7 +210,7 @@ class BSTBaseSorter(ABC):
                     f"due to '{type(fe).__name__}' error: {fe}.)"
                 )
 
-        self.annot_name = f"{self.name}_bstrowsort"
+        self.annot_name = self.name + self.sort_annot_suffix
 
         # Set the default client_sorter to match the server sorter
         if client_sorter is None:
@@ -236,6 +246,15 @@ class BSTBaseSorter(ABC):
             raise ValueError(
                 f"Conflicting client '{self.client_sorter}' and server '{self._server_sorter}' sorters."
             )
+
+    @classmethod
+    def is_sort_annotation(cls, annot_name: str):
+        return annot_name.endswith(cls.sort_annot_suffix)
+
+    @classmethod
+    def sort_annot_name_to_col_name(cls, annot_name: str):
+        """This converts the name of an annotation from a sort annotation name to a column name."""
+        return annot_name.replace(cls.sort_annot_suffix, "")
 
     def __str__(self) -> str:
         return self.sorter
@@ -358,7 +377,7 @@ class BSTBaseSorter(ABC):
         Args:
             expression (Combinable): E.g. the converter of an annotation.
         Exceptions:
-            None
+            ProgrammingError when a Field cannot be resolved from the supplied expression
         Returns:
             _server_sorter (Type[Combinable])
         """
@@ -375,10 +394,16 @@ class BSTBaseSorter(ABC):
                     f"argument with a Field instance to the expression.\nOriginal error: {ae}"
                 ).with_traceback(ae.__traceback__)
 
-            if not is_number_field(output_field):
-                _server_sorter = cls.SERVER_SORTERS.ALPHANUMERIC
-            elif is_number_field(output_field):
+            if is_number_field(output_field):
                 _server_sorter = cls.SERVER_SORTERS.NUMERIC
+            elif is_string_field(expression.output_field):
+                _server_sorter = cls.SERVER_SORTERS.ALPHANUMERIC
+            elif type(expression) in cls.SERVER_SORTERS:
+                _server_sorter = type(expression)
+            else:
+                raise ProgrammingError(
+                    f"Unable to resolve field type from expression '{expression}'."
+                )
         elif type(expression) in cls.SERVER_SORTERS:
             _server_sorter = type(expression)
         return _server_sorter

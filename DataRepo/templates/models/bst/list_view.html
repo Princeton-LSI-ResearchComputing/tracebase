@@ -1,7 +1,12 @@
 {% extends "base/base.html" %}
 {% load customtags %}
+{% load static %}
 
 {% block title %}{{ table_name }}{% endblock %}
+
+{% block head_extras %}
+    <link href="{% static 'css/bst.css' %}" rel="stylesheet">
+{% endblock %}
 
 {% block content %}
 

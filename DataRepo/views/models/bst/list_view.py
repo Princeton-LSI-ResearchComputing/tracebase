@@ -13,7 +13,7 @@ from DataRepo.models.utilities import (
     get_field_val_by_iteration,
     get_many_related_field_val_by_subquery,
 )
-from DataRepo.utils.exceptions import DeveloperWarning
+from DataRepo.utils.exceptions import DeveloperWarning, trace
 from DataRepo.views.models.bst.base import BSTBaseListView
 from DataRepo.views.models.bst.column.annotation import BSTAnnotColumn
 from DataRepo.views.models.bst.column.base import BSTBaseColumn
@@ -21,6 +21,7 @@ from DataRepo.views.models.bst.column.many_related_field import (
     BSTManyRelatedColumn,
 )
 from DataRepo.views.models.bst.column.related_field import BSTRelatedColumn
+from DataRepo.views.models.bst.column.sorter.base import BSTBaseSorter
 from DataRepo.views.models.bst.column.sorter.many_related_field import (
     BSTManyRelatedSorter,
 )
@@ -58,6 +59,19 @@ class BSTListView(BSTBaseListView):
                 # All of the other model fields are auto-added
                 columns = {"field1": {"visible": False}}
                 super().__init__(columns)
+
+        # Customize the fields without extending the constructor
+        class SampleList(BSTBaseListView):
+            model = Sample
+            column_ordering = ["name", "tissue", "animal", "time_collected", "handler"]
+            exclude = ["id", "msrun_samples"]
+            column_settings = {
+                # You only need to include columns and their options when you want something other than the default
+                "handler": {
+                    "header": "Researcher",
+                    filterer: {"choices": get_researchers}  # BSTBaseFilterer.__init__'s choices arg takes a callable
+                }
+            }
     """
 
     QueryModes = ["iterate", "subquery"]
@@ -117,7 +131,7 @@ class BSTListView(BSTBaseListView):
                 )
                 if settings.DEBUG:
                     warn(
-                        f"{warning}\nCookies: {bad_cookies}\nException: {type(e).__name__}: {e}",
+                        f"{trace(e)}\n{warning}\nCookies: {bad_cookies}\nException: {type(e).__name__}: {e}",
                         DeveloperWarning,
                     )
                 self.warnings.append(warning)
@@ -465,7 +479,7 @@ class BSTListView(BSTBaseListView):
                 else:
                     annotations_before_filter[column.name] = column.converter
             if column.name == self.sort_col.name:
-                annotations_before_filter[column.sorter.annot_name] = (
+                annotations_after_filter[column.sorter.annot_name] = (
                     column.sorter.expression
                 )
             # NOTE: The many-related sorter annot_name and many_expression are not added here.  They are added in a
@@ -490,15 +504,29 @@ class BSTListView(BSTBaseListView):
             try:
                 qs = qs.annotate(**{annot_name: expression})
             except Exception as e:
-                # Attempt to recover by filling in "ERROR".  This will raise an exception if the name is the problem
+                # Attempt to recover by filling in "ERROR".  This will raise an exception if the name is the problem.
                 qs = qs.annotate(**{annot_name: Value("ERROR")})
-                # The fallback is to have the template render the database values in the default manner.  Searching will
-                # disabled.  Sorting will be a string sort (which is not ideal, e.g. if the value is a datetime).
-                self.columns[annot_name].searchable = False
-                self.columns[annot_name].sortable = False
-                msg = f"Annotation column '{annot_name}' has a problem: {type(e).__name__}: {e}"
+
+                # Account for the fact that a sort annotation does not exist as a column object, but it does reference a
+                # real column.  We will use the annotation name to detect if this is a sort annotation and if so, derive
+                # the column name.
+                if BSTBaseSorter.is_sort_annotation(annot_name):
+                    colname = BSTBaseSorter.sort_annot_name_to_col_name(annot_name)
+                else:
+                    colname = annot_name
+
+                # Disable searching and sorting.
+                self.columns[colname].searchable = False
+                self.columns[colname].sortable = False
+
+                if colname == annot_name:
+                    msg = f"The expression '{expression}' for the annotation column '{colname}' "
+                else:
+                    msg = f"The sort expression '{expression}' for column '{colname}' "
+                msg += f"has a problem: {type(e).__name__}: {e}"
+
                 if settings.DEBUG:
-                    warn(msg, DeveloperWarning)
+                    warn(trace() + msg, DeveloperWarning)
                 self.warnings.append(msg)
         return qs
 
