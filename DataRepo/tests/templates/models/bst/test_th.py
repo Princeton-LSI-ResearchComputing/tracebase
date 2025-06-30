@@ -35,7 +35,7 @@ class ThTemplateTests(TracebaseTestCase):
         self.assertIn('data-sorter="djangoSorter"', html)
         self.assertIn('data-visible="true"', html)
         self.assertIn("Colname", html)
-        self.assertNotIn('<sup class="bi-question-circle" title="', html)
+        self.assertNotIn('<sup class="bi-info-circle" title="', html)
 
     def test_th_booleans(self):
         col = BSTAnnotColumn(
@@ -99,5 +99,5 @@ class ThTemplateTests(TracebaseTestCase):
         )
         html = self.render_th_template(col)
         self.assertIn(
-            '<sup class="bi-question-circle" title="This is header info."></sup>', html
+            '<sup class="bi-info-circle" title="This is header info."></sup>', html
         )

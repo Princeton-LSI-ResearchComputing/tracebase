@@ -1,7 +1,10 @@
-from typing import Optional
+from typing import Optional, Type
+from warnings import warn
 
+from django.db.models import Model
 from django.db.models.expressions import Combinable
 
+from DataRepo.models.utilities import field_path_to_field, resolve_field_path
 from DataRepo.views.models.bst.column.base import BSTBaseColumn
 from DataRepo.views.models.bst.column.filterer.annotation import (
     BSTAnnotFilterer,
@@ -51,6 +54,7 @@ class BSTAnnotColumn(BSTBaseColumn):
         self,
         name: str,
         converter: Combinable,
+        model: Optional[Type[Model]] = None,
         **kwargs,
     ):
         """Constructor.
@@ -82,12 +86,35 @@ class BSTAnnotColumn(BSTBaseColumn):
                     Build your own:
                         Func
                         etc.
+            model (Optional[Type[Model]]): If provided, an attempt will be made to resolve the field from the converter.
+                If exactly 1 exists, it will be used to set (or prepend to) the tooltip.
         Exceptions:
             None
         Returns:
             None
         """
         self.converter = converter
+        self.model = model
+
+        # If we have a model, see if we can extract a field from the combinable in order to populate the tooltip with
+        # the field's help_text
+        if model is not None:
+            try:
+                field_path = resolve_field_path(converter)
+            except ValueError as ve:
+                field_path = None
+                warn(
+                    f"Unable to get help_text from field from model '{model.__name__}' in annotation '{name}' "
+                    f"expression '{converter}'.  {ve}"
+                )
+            if field_path is not None:
+                field = field_path_to_field(model, field_path)
+                if field.help_text is not None:
+                    new_tooltip = field.help_text
+                    if "tooltip" in kwargs.keys() and kwargs["tooltip"] is not None:
+                        new_tooltip += "\n\n" + kwargs["tooltip"]
+                    kwargs.update({"tooltip": new_tooltip})
+
         super().__init__(name, **kwargs)
 
     def create_sorter(self, **kwargs) -> BSTAnnotSorter:
