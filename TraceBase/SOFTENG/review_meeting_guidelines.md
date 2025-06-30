@@ -58,9 +58,9 @@ None
 
 - Calls, schedules, and runs review meetings.
 - Manages the scope and pace of a review meeting using the following actions:
-  - Declare a topic/discussion _Beyond Meeting Scope_^3
-  - Declare a topic/discussion _Beyond Document Scope_^4
-  - Change or table discussion topics in the interests of _Time_^5
+  - Declare a topic/discussion *Beyond Meeting Scope*^3
+  - Declare a topic/discussion *Beyond Document Scope*^4
+  - Change or table discussion topics in the interests of *Time*^5
 - Ends a review meeting once all major and higher severity issues have been communicated and understood.
 - Can assign reviewers to a pull request.
 
@@ -171,9 +171,9 @@ An author or reviewer can request the CM to schedule a review meeting if they ar
       - May ask a question to clear up confusion about the review issue
       - Responds to any question the reviewer posed about confusion they have about the changes
    3. The CM leader may interject at any point to:
-      - Declare a topic/discussion _Beyond Meeting Scope_^3
-      - Declare a topic/discussion _Beyond Document Scope_^4
-      - Change or table discussion topics in the interests of _Time_^5
+      - Declare a topic/discussion *Beyond Meeting Scope*^3
+      - Declare a topic/discussion *Beyond Document Scope*^4
+      - Change or table discussion topics in the interests of *Time*^5
       - End the meeting
 3. Once all review issues have been covered, the CM ends the meeting
 
@@ -181,16 +181,16 @@ After the meeting, the review/re-review process continues, but the CM may take a
 
 ## FOOTNOTES
 
-1. _Unless the changes being reviewed are requirements or design, all planning leading up to the implementation of a change request are beyond the scope of a review meeting.  If any such defect arises during a review meeting, the parties broaching the issue will be directed by the CM leader to create an issue to be addressed as a change request._
-2. _Defects involving project-level topics such as project planning, principles, conventions, general requirements, etc. are beyond the scope of a review meeting._
-3. _If interactions between meeting members strays beyond the reviewer conveying defects found during their review, or a clarification of the changes, the CM Leader may declare the topic "beyond meeting scope" and either direct the reviewer to advance to the next issue or re-orient the discussion back toward the identification of the reviewer's interpretation of defects and ensure that the defect pointed out is understood by the author._
-4. _If the CM Leader determines that the discussion of an issue has gone beyond the scope of the changes in the documents, the CM Leader may declare the topic "beyond document scope" and either direct the reviewer to advance to the next issue or re-orient the discussion back toward the identification of the reviewer's interpretation of defects and ensure that the defect pointed out is understood by then author._
-5. _If the CM Leader determines that a discussion, while productive, may be more effectively/efficiently addressed outside of the meeting, he/she may suggest that the topic be discussed after the meeting and direct the reviewer to advance to the next issue._
-6. _The change request approval process should involve prioritization and estimation of cost that govern when an issue is available to be taken up by an author._
-7. _For the purposes of succinctness, "design" encompasses requirements, limitations, assumptions, affected components, etc._
+1. *Unless the changes being reviewed are requirements or design, all planning leading up to the implementation of a change request are beyond the scope of a review meeting.  If any such defect arises during a review meeting, the parties broaching the issue will be directed by the CM leader to create an issue to be addressed as a change request.*
+2. *Defects involving project-level topics such as project planning, principles, conventions, general requirements, etc. are beyond the scope of a review meeting.*
+3. *If interactions stray beyond the conveyance of defects found, or a clarification of changes, the CM Leader may declare the topic "beyond meeting scope" and either direct the reviewer to advance to the next issue or re-orient the discussion back toward the identification of the reviewer's interpretation of defects and ensure that the defect pointed out is understood by the author.*
+4. *If the CM Leader determines that the discussion has gone beyond the scope of document changes, the CM Leader may declare the topic "beyond document scope" and either direct the reviewer to advance to the next issue or re-orient the discussion back toward the identification of the reviewer's interpretation of defects and ensure that the defect pointed out is understood by then author.*
+5. *If the CM Leader determines that a discussion, while productive, may be more effectively/efficiently addressed outside of the meeting, they may suggest that the topic be discussed after the meeting and direct the reviewer to advance to the next issue.*
+6. *The change request approval process should involve prioritization and estimation of cost that govern when an issue is available to be taken up by an author.*
+7. *For the purposes of succinctness, "design" encompasses requirements, limitations, assumptions, affected components, etc.*
 
 ## REFERENCES
 
-1. `document_review_form.txt` version 1.3 _from the TreeView3 project_
-2. `review_meeting_guidelines.txt` version 1.3 _from the TreeView3 project_
-3. `SCMP_TreeView3.doc` 8/14/2015 _from the TreeView3 project_
+1. `document_review_form.txt` version 1.3 *from the TreeView3 project*
+2. `review_meeting_guidelines.txt` version 1.3 *from the TreeView3 project*
+3. `SCMP_TreeView3.doc` 8/14/2015 *from the TreeView3 project*
