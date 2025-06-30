@@ -69,6 +69,7 @@ class BSTRelatedColumn(BSTColumn):
             None
         """
         self.display_field_path = display_field_path
+        tooltip = kwargs.get("tooltip")
 
         # Get some superclass instance members we need for checks
         field_path: str = cast(str, args[0])
@@ -122,6 +123,12 @@ class BSTRelatedColumn(BSTColumn):
                         "display_field_path could not be determined.  Supply display_field_path to allow search/sort."
                     )
 
+                tooltip = "" if tooltip is None else tooltip + "\n\n"
+                tooltip += (
+                    "Search and sort is disabled for this column because the displayed values do not exist in the "
+                    "database as a single field"
+                )
+
                 # Fall back to the actual foreign key as the display field.  This will end up rendering related objects
                 # in string context, which is what is not searchable/sortable.
                 self.display_field_path = field_path
@@ -130,6 +137,7 @@ class BSTRelatedColumn(BSTColumn):
                     {
                         "searchable": False,
                         "sortable": False,
+                        "tooltip": tooltip,
                     }
                 )
         elif not self.display_field_path.startswith(field_path):
@@ -212,19 +220,23 @@ class BSTRelatedColumn(BSTColumn):
             None
         """
         # Grab as many of the last 2 items from the field_path as is present
-        path_tail = self.field_path.split("__")[-2:]
+        path = self.field_path.split("__")
 
         # If the length is greater than 1, the last element is "name", and the field is unique, use the name of the
         # foreign key to this model's field only.
-        if (
-            len(path_tail) == 2
-            and path_tail[1] == "name"
-            and is_unique_field(self.field)
-        ):
-            return underscored_to_title(path_tail[0])
+        if len(path) > 1 and path[-1] == "name" and is_unique_field(self.field):
+            return underscored_to_title(path[-2])
+
+        # If the field has a verbose name different from name (because it's automatically filled in with name), use it
+        if self.field.name != self.field.verbose_name:
+            if any(c.isupper() for c in self.field.verbose_name):
+                # If the field has a verbose name with caps, use it as-is
+                return self.field.verbose_name
+            else:
+                return underscored_to_title(self.field.verbose_name)
 
         # Otherwise, use the last 2 elements of the path
-        return underscored_to_title("_".join(path_tail))
+        return underscored_to_title(path[-1])
 
     def create_sorter(
         self, field: Optional[Union[Combinable, Field, str]] = None, **kwargs

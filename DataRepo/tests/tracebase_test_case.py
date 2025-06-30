@@ -155,34 +155,17 @@ def test_case_class_factory(base_class: Type[T]) -> Type[T]:
                 return
             primitives = (bool, str, int, float, type(None))
             if isinstance(o1, primitives):
-                try:
-                    self.assertEqual(o1, o2, **kwargs)
-                except AssertionError as ae:
-                    if _path is None:
-                        raise ae
-                    raise AssertionError(
-                        f"Object path: {_path} difference: {ae}"
-                    ).with_traceback(ae.__traceback__)
+                self.assertEqual(o1, o2, **kwargs, msg=f"Object path: {_path}")
             elif type(o1).__name__ == "function":
-                try:
-                    self.assertEqual(o1, o2, **kwargs)
-                except AssertionError as ae:
-                    if _path is None:
-                        raise ae
-                    raise AssertionError(
-                        f"Object path: {_path} difference: {ae}"
-                    ).with_traceback(ae.__traceback__)
+                self.assertEqual(o1, o2, **kwargs, msg=f"Object path: {_path}")
             else:
-                self.assertIsInstance(o2, type(o1), **kwargs)
+                self.assertIsInstance(
+                    o2, type(o1), **kwargs, msg=f"Object path: {_path}"
+                )
                 if isinstance(o1, (list, tuple)) and isinstance(o2, (list, tuple)):
-                    try:
-                        self.assertEqual(len(o1), len(o2), **kwargs)
-                    except AssertionError as ae:
-                        if _path is None:
-                            raise ae
-                        raise AssertionError(
-                            f"Object path: {_path} difference: {ae}"
-                        ).with_traceback(ae.__traceback__)
+                    self.assertEqual(
+                        len(o1), len(o2), **kwargs, msg=f"Object path: {_path}"
+                    )
                     for i in range(len(o1)):
                         self.assertEquivalent(
                             o1[i],

@@ -1,12 +1,10 @@
-from typing import Optional, Union
+from typing import Optional, Type
 from warnings import warn
 
-from django.conf import settings
-from django.db.models import Field
+from django.db.models import Model
 from django.db.models.expressions import Combinable
-from django.db.models.functions import Coalesce
 
-from DataRepo.utils.exceptions import DeveloperWarning
+from DataRepo.models.utilities import field_path_to_field, resolve_field_path
 from DataRepo.views.models.bst.column.base import BSTBaseColumn
 from DataRepo.views.models.bst.column.filterer.annotation import (
     BSTAnnotFilterer,
@@ -56,6 +54,7 @@ class BSTAnnotColumn(BSTBaseColumn):
         self,
         name: str,
         converter: Combinable,
+        model: Optional[Type[Model]] = None,
         **kwargs,
     ):
         """Constructor.
@@ -87,57 +86,45 @@ class BSTAnnotColumn(BSTBaseColumn):
                     Build your own:
                         Func
                         etc.
+            model (Optional[Type[Model]]): If provided, an attempt will be made to resolve the field from the converter.
+                If exactly 1 exists, it will be used to set (or prepend to) the tooltip.
         Exceptions:
-            TypeError when the provided sorter/filterer is the wrong type
+            None
         Returns:
             None
         """
         self.converter = converter
-        sorter = kwargs.get("sorter")
-        filterer = kwargs.get("filterer")
+        self.model = model
 
-        server_sorter = BSTAnnotSorter.get_server_sorter_matching_expression(converter)
-        if sorter is None:
-            sorter = BSTAnnotSorter(name, name=name, _server_sorter=server_sorter)
-        elif isinstance(sorter, str):
-            sorter = BSTAnnotSorter(
-                name, name=name, client_sorter=sorter, _server_sorter=server_sorter
-            )
-        elif not isinstance(sorter, BSTAnnotSorter):
-            raise TypeError(
-                f"sorter must be a BSTAnnotSorter, not {type(sorter).__name__}"
-            )
-
-        if filterer is None:
-            filterer = BSTAnnotFilterer(name)
-        elif isinstance(filterer, str):
-            filterer = BSTAnnotFilterer(name, client_filterer=filterer)
-        elif not isinstance(filterer, BSTAnnotFilterer):
-            raise TypeError(
-                f"filterer must be a BSTAnnotFilterer, not {type(filterer).__name__}"
-            )
-
-        if settings.DEBUG and isinstance(self.converter, Coalesce):
-            warn(
-                "Usage of Coalesce in annotations is discouraged due to performance in searches and sorting.  Try "
-                "changing the converter to a different function, such as 'Case'.",
-                DeveloperWarning,
-            )
-
-        kwargs.update(
-            {
-                "sorter": sorter,
-                "filterer": filterer,
-            }
-        )
+        # If we have a model, see if we can extract a field from the combinable in order to populate the tooltip with
+        # the field's help_text
+        if model is not None:
+            try:
+                field_path = resolve_field_path(converter)
+            except ValueError as ve:
+                field_path = None
+                warn(
+                    f"Unable to get help_text from field from model '{model.__name__}' in annotation '{name}' "
+                    f"expression '{converter}'.  {ve}"
+                )
+            if field_path is not None:
+                field = field_path_to_field(model, field_path)
+                if field.help_text is not None:
+                    new_tooltip = field.help_text
+                    if "tooltip" in kwargs.keys() and kwargs["tooltip"] is not None:
+                        new_tooltip += "\n\n" + kwargs["tooltip"]
+                    kwargs.update({"tooltip": new_tooltip})
 
         super().__init__(name, **kwargs)
 
-    def create_sorter(
-        self, field: Optional[Union[Combinable, Field, str]] = None, **kwargs
-    ) -> BSTAnnotSorter:
-        field_expression = field if field is not None else self.name
-        return BSTAnnotSorter(field_expression, **kwargs)
+    def create_sorter(self, **kwargs) -> BSTAnnotSorter:
+        if "_server_sorter" not in kwargs.keys() or kwargs["_server_sorter"] is None:
+            kwargs["_server_sorter"] = (
+                BSTAnnotSorter.get_server_sorter_matching_expression(self.converter)
+            )
+        if "name" not in kwargs.keys() or kwargs["name"] is None:
+            kwargs["name"] = self.name
+        return BSTAnnotSorter(self.converter, **kwargs)
 
     def create_filterer(
         self, field: Optional[str] = None, **kwargs

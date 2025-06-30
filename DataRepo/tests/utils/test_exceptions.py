@@ -60,6 +60,7 @@ from DataRepo.utils.exceptions import (
     UnskippedBlanks,
     generate_file_location_string,
     summarize_int_list,
+    trace,
 )
 
 
@@ -1340,3 +1341,9 @@ class ExceptionTests(TracebaseTestCase):
         self.assertIn("s1: ['s1_pos', 's1_neg']", str(pdse))
         # Check suggestion exists
         self.assertIn("associated with the same tracebase sample", str(pdse))
+
+    def test_trace(self):
+        trc = trace()
+        self.assertIn("trc = trace()", trc, msg=f"trace() output:\n{trc}")
+        self.assertIn("test_exceptions.py", trc, msg=f"trace() output:\n{trc}")
+        self.assertNotIn("site-packages", trc, msg=f"trace() output:\n{trc}")

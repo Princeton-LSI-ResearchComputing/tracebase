@@ -4426,3 +4426,34 @@ def summarize_int_list(intlist):
         else:
             sum_list.append(f"{str(waiting_num)}-{str(last_num)}")
     return sum_list
+
+
+def trace(exc: Optional[Exception] = None):
+    """
+    Creates a pseudo-traceback for debugging.  Tracebacks are only built as the raised exception travels the stack to
+    where it's caught.  traceback.format_stack yields the entire stack, but that's overkill, so this loop filters out
+    anything that contains "site-packages" so that we only see our own code's steps.  This should effectively show us
+    only the bottom of the stack, though there's a chance that intermediate steps could be excluded.  I don't think
+    that's likely to happen, but we should be aware that it's a possibility.
+
+    The string is intended to only be used to debug a problem.  Print it inside an except block if you want to find the
+    cause of any particular buffered exception.
+
+    Args:
+        exc (Optional[Exception]): An optional caught exception to include a partial traceback with the returned trace.
+    Exceptions:
+        None
+    Returns:
+        trace (str): A string formatted stack trace (not including the optional exception's message)
+    """
+    trace = "".join(
+        [str(step) for step in traceback.format_stack() if "site-packages" not in step]
+    )
+    if (
+        isinstance(exc, Exception)
+        and hasattr(exc, "__traceback__")
+        and exc.__traceback__ is not None
+    ):
+        trace += "\nThe above caught exception had a partial traceback:\n\n"
+        trace += "".join(traceback.format_tb(exc.__traceback__))
+    return trace

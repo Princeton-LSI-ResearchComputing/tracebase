@@ -10,11 +10,12 @@ from django.db.models import (
     Field,
     FloatField,
     ForeignKey,
+    Func,
     ManyToManyField,
     Min,
     Value,
 )
-from django.db.models.functions import Concat, Lower, Upper
+from django.db.models.functions import Concat, Extract, Lower, Upper
 from django.db.models.query_utils import DeferredAttribute
 from django.forms import ValidationError, model_to_dict
 from django.test import override_settings
@@ -368,9 +369,32 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
         )
         with self.assertRaises(ProgrammingError) as ar:
             resolve_field_path(1)
-        self.assertEqual(
-            "Unexpected field_or_expression type: 'int'.",
+        self.assertIn(
+            "Unexpected field_or_expression type: 'int'",
             str(ar.exception),
+        )
+
+        # Test deeper field_path expression and filtering out expressions without field_paths
+        self.assertEqual(
+            "time_collected",
+            resolve_field_path(
+                Extract(
+                    F("time_collected"),
+                    "epoch",
+                )
+                / Value(60),
+            ),
+        )
+        self.assertEqual(
+            "date",
+            resolve_field_path(
+                Func(
+                    F("date"),
+                    Value("YYYY-MM-DD"),
+                    output_field=CharField(),
+                    function="to_char",
+                ),
+            ),
         )
 
     def test_get_distinct_fields_nonkeyfield(self):
@@ -456,6 +480,23 @@ MUQStudyTestModel = create_test_model(
     },
 )
 
+MUQInfusateTestModel = create_test_model(
+    "MUQInfusateTestModel",
+    {"name": CharField(max_length=255, unique=True)},
+)
+
+MUQTracerTestModel = create_test_model(
+    "MUQTracerTestModel",
+    {
+        "name": CharField(max_length=255, unique=True),
+        "infusate": ForeignKey(
+            to="loader.MUQInfusateTestModel",
+            related_name="tracers",
+            on_delete=CASCADE,
+        ),
+    },
+)
+
 MUQAnimalTestModel = create_test_model(
     "MUQAnimalTestModel",
     {
@@ -467,6 +508,12 @@ MUQAnimalTestModel = create_test_model(
         "treatment": ForeignKey(
             to="loader.MUQTreatmentTestModel",
             related_name="animals",
+            on_delete=CASCADE,
+        ),
+        "infusate": ForeignKey(
+            to="loader.MUQInfusateTestModel",
+            null=True,
+            related_name="infused_animals",
             on_delete=CASCADE,
         ),
     },
@@ -505,7 +552,7 @@ class ModelUtilityQueryTests(TracebaseTestCase):
         super().setUpTestData()
 
     @TracebaseTestCase.assertNotWarns()
-    def test_get_field_val_by_iteration(self):
+    def test_get_field_val_by_iteration_helper_basic(self):
         with self.assertNumQueries(0):
             # NOTE: Not sure yet why this performs no queries
             val, sval, id = _get_field_val_by_iteration_helper(
@@ -529,12 +576,31 @@ class ModelUtilityQueryTests(TracebaseTestCase):
             )
         expected1 = set([self.s2, self.s1])
         expected2 = set(["s1", "s2"])
-        vals1 = set([v[0] for v in vals])
-        vals2 = set([v[1] for v in vals])
-        vals3 = set([v[2] for v in vals])
+        self.assertIsInstance(vals, list)
+        self.assertIsInstance(vals[0], tuple)
+        self.assertIsInstance(vals[1], tuple)
+        self.assertEqual(2, len(vals))
+        # Tests above assures that the unsubscriptable-object errors from pylint are false positives
+        vals1 = set([v[0] for v in vals])  # pylint: disable=unsubscriptable-object
+        vals2 = set([v[1] for v in vals])  # pylint: disable=unsubscriptable-object
+        vals3 = set([v[2] for v in vals])  # pylint: disable=unsubscriptable-object
         self.assertEqual(expected1, vals1)
         self.assertEqual(expected2, vals2)
         self.assertTrue(all(isinstance(v3, int) for v3 in vals3))
+
+    @TracebaseTestCase.assertNotWarns()
+    def test_get_field_val_by_iteration_helper_manycheck(self):
+        """This test ensures that an empty list instead of None is returned when the field path doesn't make it to the
+        many-related portion of the path before hitting a None value.  E.g. Animal's field path:
+        infusate__tracers__name should return an empty list instead of None when no animal has an infusate.
+        """
+        vals = _get_field_val_by_iteration_helper(
+            self.a2,
+            ["infusate", "tracers", "name"],
+            related_limit=2,
+            sort_field_path=["name"],
+        )
+        self.assertEqual([], vals)
 
     @TracebaseTestCase.assertNotWarns()
     def test__get_field_val_by_iteration_onerelated_helper(self):

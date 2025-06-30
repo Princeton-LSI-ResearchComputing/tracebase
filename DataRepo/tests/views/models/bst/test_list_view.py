@@ -136,15 +136,15 @@ class BSTListViewTests(TracebaseTestCase):
         self.assertEqual(Q(), slv.filters)
         self.assertDictEquivalent(
             {
-                "animals_mm_count": Count("animals", output_field=IntegerField()),
+                "name_bstrowsort": Lower("name"),
                 "description": Upper("desc", output_field=CharField()),
+                "animals_mm_count": Count(
+                    "animals", output_field=IntegerField(), distinct=True
+                ),
             },
             slv.postfilter_annots,
         )
-        self.assertDictEquivalent(
-            {"name_bstrowsort": Lower("name")},
-            slv.prefilter_annots,
-        )
+        self.assertDictEquivalent({}, slv.prefilter_annots)
 
     @TracebaseTestCase.assertNotWarns()
     def test_init_search_cookie(self):
@@ -159,13 +159,16 @@ class BSTListViewTests(TracebaseTestCase):
         self.assertEqual(q, slv.filters)
         self.assertDictEquivalent(
             {
-                "name_bstrowsort": Lower("name"),
-                "animals_mm_count": Count("animals", output_field=IntegerField()),
+                "animals_mm_count": Count(
+                    "animals", output_field=IntegerField(), distinct=True
+                ),
                 "description": Upper("desc", output_field=CharField()),
             },
             slv.prefilter_annots,
         )
-        self.assertEqual(0, len(slv.postfilter_annots))
+        self.assertDictEquivalent(
+            {"name_bstrowsort": Lower("name")}, slv.postfilter_annots
+        )
 
     @TracebaseTestCase.assertNotWarns()
     def test_init_filter_cookie(self):
@@ -174,14 +177,14 @@ class BSTListViewTests(TracebaseTestCase):
         slv = StudyLV(request=request)
         slv.init_interface()
         q = Q(**{"name__icontains": "test"})
-        self.assertDictEquivalent(
-            {"name_bstrowsort": Lower("name")},
-            slv.prefilter_annots,
-        )
+        self.assertDictEquivalent({}, slv.prefilter_annots)
         self.assertEqual(q, slv.filters)
         self.assertDictEquivalent(
             {
-                "animals_mm_count": Count("animals", output_field=IntegerField()),
+                "name_bstrowsort": Lower("name"),
+                "animals_mm_count": Count(
+                    "animals", output_field=IntegerField(), distinct=True
+                ),
                 "description": Upper("desc", output_field=CharField()),
             },
             slv.postfilter_annots,
@@ -199,14 +202,14 @@ class BSTListViewTests(TracebaseTestCase):
         slv = StudyLV(request=request)
         slv.init_interface()
         self.assertEqual(Q(), slv.filters)
-        self.assertDictEquivalent(
-            {"name_bstrowsort": Lower("name")},
-            slv.prefilter_annots,
-        )
+        self.assertDictEquivalent({}, slv.prefilter_annots)
         self.assertDictEquivalent(
             {
-                "animals_mm_count": Count("animals", output_field=IntegerField()),
                 "description": Upper("desc", output_field=CharField()),
+                "name_bstrowsort": Lower("name"),
+                "animals_mm_count": Count(
+                    "animals", output_field=IntegerField(), distinct=True
+                ),
             },
             slv.postfilter_annots,
         )
@@ -362,12 +365,14 @@ class BSTListViewTests(TracebaseTestCase):
         alv = AnimalWithMultipleStudyColsLV(request=request)
         alv.init_interface()
         self.assertEqual(
-            "(OR: ('name__icontains', 'test1'), "
-            "('desc__icontains', 'test1'), "
-            "('treatment__name__icontains', 'test1'), "
-            "('studies__name__icontains', 'test1'), "
-            "('studies__desc__icontains', 'test1'), "
-            "('studies_mm_count__iexact', 'test1'))",
+            (
+                "(OR: ('name__icontains', 'test1'), "
+                "('desc__icontains', 'test1'), "
+                "('treatment__name__icontains', 'test1'), "
+                "('studies_mm_count__iexact', 'test1'), "
+                "('studies__name__icontains', 'test1'), "
+                "('studies__desc__icontains', 'test1'))"
+            ),
             str(alv.search()),
         )
 
@@ -378,12 +383,15 @@ class BSTListViewTests(TracebaseTestCase):
         before, after = alv1.get_annotations()
         self.assertDictEquivalent(
             {
-                "animals_mm_count": Count("animals", output_field=IntegerField()),
+                "name_bstrowsort": Lower("name"),
+                "animals_mm_count": Count(
+                    "animals", output_field=IntegerField(), distinct=True
+                ),
                 "description": Upper("desc", output_field=CharField()),
             },
             after,
         )
-        self.assertDictEquivalent({"name_bstrowsort": Lower("name")}, before)
+        self.assertDictEquivalent({}, before)
 
         # Search
         request = HttpRequest()
@@ -393,13 +401,14 @@ class BSTListViewTests(TracebaseTestCase):
         before, after = alv2.get_annotations()
         self.assertDictEquivalent(
             {
-                "name_bstrowsort": Lower("name"),
-                "animals_mm_count": Count("animals", output_field=IntegerField()),
+                "animals_mm_count": Count(
+                    "animals", output_field=IntegerField(), distinct=True
+                ),
                 "description": Upper("desc", output_field=CharField()),
             },
             before,
         )
-        self.assertDictEqual({}, after)
+        self.assertDictEqual({"name_bstrowsort": Lower("name")}, after)
 
         # Filter
         request.COOKIES = {"StudyLV-filter-description": "test1"}
@@ -407,14 +416,17 @@ class BSTListViewTests(TracebaseTestCase):
         alv3.init_interface()
         before, after = alv3.get_annotations()
         self.assertDictEquivalent(
-            {
-                "name_bstrowsort": Lower("name"),
-                "description": Upper("desc", output_field=CharField()),
-            },
+            {"description": Upper("desc", output_field=CharField())},
             before,
         )
         self.assertDictEquivalent(
-            {"animals_mm_count": Count("animals", output_field=IntegerField())}, after
+            {
+                "name_bstrowsort": Lower("name"),
+                "animals_mm_count": Count(
+                    "animals", output_field=IntegerField(), distinct=True
+                ),
+            },
+            after,
         )
 
         # No search or filter (but cookies)
@@ -422,10 +434,32 @@ class BSTListViewTests(TracebaseTestCase):
         alv4 = StudyLV(request=request)
         alv4.init_interface()
         before, after = alv4.get_annotations()
-        self.assertDictEquivalent({"name_bstrowsort": Lower("name")}, before)
+        self.assertDictEquivalent({}, before)
         self.assertDictEquivalent(
             {
-                "animals_mm_count": Count("animals", output_field=IntegerField()),
+                "name_bstrowsort": Lower("name"),
+                "animals_mm_count": Count(
+                    "animals", output_field=IntegerField(), distinct=True
+                ),
+                "description": Upper("desc", output_field=CharField()),
+            },
+            after,
+        )
+
+        # Sort with an annotation
+        request.COOKIES = {"StudyLV-sortcol": "animals_mm_count", "StudyLV-asc": "true"}
+        alv5 = StudyLV(request=request)
+        alv5.init_interface()
+        before, after = alv5.get_annotations()
+        self.assertDictEquivalent({}, before)
+        self.assertDictEquivalent(
+            {
+                "animals_mm_count_bstrowsort": Count(
+                    "animals", output_field=IntegerField(), distinct=True
+                ),
+                "animals_mm_count": Count(
+                    "animals", output_field=IntegerField(), distinct=True
+                ),
                 "description": Upper("desc", output_field=CharField()),
             },
             after,
@@ -476,9 +510,7 @@ class BSTListViewTests(TracebaseTestCase):
             BSTLVStudyTestModel.objects.all(),
             fqs,
         )
-        self.assertEqual(
-            [f"StudyLV-{StudyLV.filter_cookie_name}-desc"], slv.cookie_resets
-        )
+        self.assertEqual([f"{StudyLV.filter_cookie_name}-desc"], slv.cookie_resets)
 
     @TracebaseTestCase.assertNotWarns()
     def test_paginate_queryset(self):

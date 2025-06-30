@@ -55,17 +55,21 @@ class BSTRowsPerPageSelect(Select):
         )
         self.total_rows = total_rows
 
+        # Selected rows per page
+        self.selected = selected if selected is not None else self.all_page_sizes[0]
+
         # Filter the page sizes
         self.page_sizes = self.filter_page_sizes()
 
-        # Selected rows per page
-        self.selected = selected if selected is not None else self.page_sizes[0]
+        if self.selected not in self.page_sizes:
+            if self.selected == self.total_rows:
+                self.selected = 0
+            else:
+                self.page_sizes.append(self.selected)
+
         self._selected_label: Union[int, str] = (
             self.selected if self.selected > 0 else self.all_label
         )
-
-        if self.selected not in self.page_sizes:
-            self.page_sizes.append(self.selected)
 
         # Sort the page sizes
         self.page_sizes = sorted(
@@ -86,8 +90,16 @@ class BSTRowsPerPageSelect(Select):
         super().__init__(choices=page_size_tuples)
 
     def filter_page_sizes(self):
-        """Filters all_page sizes using self.total_rows.  Keeps 0, which represents "all rows"."""
-        return [s for s in self.all_page_sizes if s == 0 or s < self.total_rows]
+        """Filters all_page sizes using self.total_rows and self.selected.
+
+        Keeps 0, which represents "all rows".  Maintains the user's selection, even if they filtered to a total lower
+        than the selected rows per page.
+        """
+        return [
+            s
+            for s in self.all_page_sizes
+            if s == 0 or s < self.total_rows or s <= self.selected
+        ]
 
     def __str__(self):
         """This allows the select list to be rendered via the paginator object in the template by simple including
