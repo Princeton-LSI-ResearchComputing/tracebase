@@ -1,3 +1,4 @@
+from django.db import ProgrammingError
 from django.db.models import (
     CASCADE,
     CharField,
@@ -5,6 +6,7 @@ from django.db.models import (
     ForeignKey,
     IntegerField,
     ManyToManyField,
+    Value,
 )
 from django.db.models.functions import Lower
 from django.http import HttpRequest
@@ -52,6 +54,18 @@ BSTBLVAnimalTestModel = create_test_model(
         "treatment": ForeignKey(
             to="loader.BSTBLVTreatmentTestModel",
             related_name="animals",
+            on_delete=CASCADE,
+        ),
+    },
+)
+
+BSTBLVSampleTestModel = create_test_model(
+    "BSTBLVSampleTestModel",
+    {
+        "name": CharField(max_length=255, unique=True),
+        "animal": ForeignKey(
+            to="loader.BSTBLVAnimalTestModel",
+            related_name="samples",
             on_delete=CASCADE,
         ),
     },
@@ -156,6 +170,7 @@ class BSTBaseListViewTests(TracebaseTestCase):
                     filterer=BSTFilterer(
                         "desc", BSTBLVStudyTestModel, initial="description"
                     ),
+                    visible=False,
                 ),
                 "animals_mm_count": BSTAnnotColumn(
                     "animals_mm_count",
@@ -200,9 +215,7 @@ class BSTBaseListViewTests(TracebaseTestCase):
             ],
             blv.warnings,
         )
-        self.assertEqual(
-            ["StudyBLV-visible-desc", "StudyBLV-filter-stale"], blv.cookie_resets
-        )
+        self.assertEqual(["visible-desc", "filter-stale"], blv.cookie_resets)
 
     def test_init_class_attr_column_settings(self):
         """This tests that you can use the column_settings class attribute to avoid extending the constructor"""
@@ -351,6 +364,75 @@ class BSTBaseListViewTests(TracebaseTestCase):
         )
         self.assertIsInstance(blv.column_settings["animals_group"], BSTColumnGroup)
 
+    def test_init_column_settings_dict_and_annotation(self):
+        """This tests that an annotation can be in both the column_settings dict and in the annotations, as long as both
+        don't specify the converter"""
+        blv = BSTBaseListView()
+        blv.annotations = {"annot": Value("no error expected")}
+
+        # test = No error
+        blv.init_column_settings(
+            {"annot": {"visible": False}},
+            clear=True,
+        )
+
+        # test = error when BSTAnnotColumn supplied
+        with self.assertRaises(ProgrammingError) as ar:
+            # not str, dict, BSTBaseColumn, or BSTColumnGroup -> TypeError
+            blv.init_column_settings(
+                {"annot": BSTAnnotColumn("annot", Value("error expected"))}, clear=True
+            )
+        self.assertIn(
+            "Multiple column settings defined for annotation column 'annot'",
+            str(ar.exception),
+        )
+        self.assertIn("'dict' and 'BSTAnnotColumn' were supplied.", str(ar.exception))
+
+        # test = error when converter supplied
+        with self.assertRaises(ProgrammingError) as ar:
+            # not str, dict, BSTBaseColumn, or BSTColumnGroup -> TypeError
+            blv.init_column_settings(
+                {"annot": {"converter": Value("error expected")}}, clear=True
+            )
+        self.assertIn("Multiple BSTAnnotColumn converters", str(ar.exception))
+        self.assertIn("Class default: 'Value('no error expected')'", str(ar.exception))
+        self.assertIn(
+            "Supplied via the constructor: 'Value('error expected')'.",
+            str(ar.exception),
+        )
+
+        # test = No error when set in the class attribute (simulated)
+        blv.column_settings = {"annot": {"visible": False}}
+        blv.init_column_settings()
+
+        # test = error when BSTAnnotColumn set in the class attribute (simulated)
+        blv.column_settings = {
+            "annot": BSTAnnotColumn("annot", Value("error expected"))
+        }
+        with self.assertRaises(ProgrammingError) as ar:
+            # not str, dict, BSTBaseColumn, or BSTColumnGroup -> TypeError
+            blv.init_column_settings()
+        self.assertIn(
+            "The annotation column 'annot' has been defined twice", str(ar.exception)
+        )
+        self.assertIn(
+            "BSTBaseListView.column_settings and once in BSTBaseListView.annotations.",
+            str(ar.exception),
+        )
+
+        # test = error when converter set in the class attribute (simulated)
+        blv.column_settings = {"annot": {"converter": Value("error expected")}}
+        with self.assertRaises(ProgrammingError) as ar:
+            # not str, dict, BSTBaseColumn, or BSTColumnGroup -> TypeError
+            blv.init_column_settings()
+        self.assertIn(
+            "The annotation column 'annot' has been defined twice", str(ar.exception)
+        )
+        self.assertIn(
+            "BSTBaseListView.column_settings and once in BSTBaseListView.annotations",
+            str(ar.exception),
+        )
+
     def test_prepare_column_kwargs(self):
         blv = BSTBaseListView()
 
@@ -419,7 +501,28 @@ class BSTBaseListViewTests(TracebaseTestCase):
         slv.column_settings = {}
         slv.column_ordering = []
         slv.init_column_ordering()
-        self.assertEqual(["name", "desc", "id"], slv.column_ordering)
+        self.assertNotIn("animals_mm_count", slv.column_ordering)
+
+        # Check that MR count col inserted before first MR column relation when self.column_ordering contains an MR
+        # relation that is not the first in the path
+        class SampleBLV(BSTBaseListView):
+            model = BSTBLVSampleTestModel
+            column_ordering = ["name", "animal__studies__name", "animal__studies__desc"]
+            exclude = ["id", "animal", "animal__studies"]
+
+        mlv = SampleBLV()
+        # Reset the column_ordering to isolate it
+        mlv.column_ordering = ["name", "animal__studies__name", "animal__studies__desc"]
+        mlv.init_column_ordering()
+        self.assertEqual(
+            [
+                "name",
+                "studies_mm_count",
+                "animal__studies__name",
+                "animal__studies__desc",
+            ],
+            mlv.column_ordering,
+        )
 
     @TracebaseTestCase.assertNotWarns(DeveloperWarning)
     def test_add_to_column_ordering(self):
@@ -457,18 +560,22 @@ class BSTBaseListViewTests(TracebaseTestCase):
             ]
         )
         alv.columns = {}
-        # Re-init the column_settings for study_count, because the forst pass would have removed the name:
+        # NOTE: This was changed to remove references to studies_mm_count because the way the count columns are added
+        # was changed in a way that allows the derived class to supply settings for the count columns, so the count
+        # column key in the settings does not exist.  It is left clear for custom settings to be supplied.
         alv.init_columns()
         self.assertEqual(
             set(
                 [
+                    "studies_mm_count",
                     "studies__name",
                     "studies__desc",
                     "treatment",
                     "treatment__desc",
                     "desc",
                     "name",
-                    "studies_mm_count",
+                    "samples",
+                    "samples_mm_count",
                 ]
             ),
             set(list(alv.columns.keys())),
@@ -507,8 +614,11 @@ class BSTBaseListViewTests(TracebaseTestCase):
         )
         alv.column_settings["study_count"] = {"converter": Count("studies")}
         alv.init_column("study_count")
-        self.assertEqual(
-            BSTAnnotColumn("study_count", Count("studies")), alv.columns["study_count"]
+        self.assertEquivalent(
+            BSTAnnotColumn(
+                "study_count", Count("studies"), model=BSTBLVAnimalTestModel
+            ),
+            alv.columns["study_count"],
         )
 
     @TracebaseTestCase.assertNotWarns()
@@ -592,6 +702,106 @@ class BSTBaseListViewTests(TracebaseTestCase):
                 ),
             },
             slv.column_settings,
+        )
+
+        # Set self.column_ordering containing a MR relation that is not the first in the path and
+        # check that count col is added to the settings, even if the FK field is excluded
+        class SampleBLV(BSTBaseListView):
+            model = BSTBLVSampleTestModel
+            column_ordering = ["name", "animal__studies__name", "animal__studies__desc"]
+            exclude = ["id", "animal__studies"]
+
+        mlv = SampleBLV()
+        mlv.add_default_many_related_column_settings()
+        self.assertDictEquivalent(
+            {
+                "studies_mm_count": BSTAnnotColumn(
+                    "studies_mm_count",
+                    Count(
+                        "animal__studies", output_field=IntegerField(), distinct=True
+                    ),
+                    header="Studies Count",
+                    filterer="strictFilterer",
+                    sorter="numericSorter",
+                ),
+            },
+            mlv.column_settings,
+        )
+
+        # Check that having count col manually entered as dict into column_settings class attribute without a setting
+        # for converter still auto-creates count col in column_settings, preserving those settings, e.g. visible=False
+        class CustomSampleBLV(BSTBaseListView):
+            model = BSTBLVSampleTestModel
+            column_ordering = ["name", "animal__studies__name", "animal__studies__desc"]
+            exclude = ["id", "animal__studies"]
+            column_settings = {"studies_mm_count": {"visible": False}}
+
+        clv = CustomSampleBLV()
+        clv.add_default_many_related_column_settings()
+        self.assertDictEquivalent(
+            {
+                "studies_mm_count": BSTAnnotColumn(
+                    "studies_mm_count",
+                    Count(
+                        "animal__studies", output_field=IntegerField(), distinct=True
+                    ),
+                    header="Studies Count",
+                    filterer="strictFilterer",
+                    sorter="numericSorter",
+                    visible=False,
+                ),
+            },
+            clv.column_settings,
+        )
+
+        # Test that a dict for an annot col in the annotations class attribute creates a BSTAnnotColumn in
+        # self.columns[colname] using that converter
+        class SampleWithAnnotBLV(BSTBaseListView):
+            model = BSTBLVSampleTestModel
+            column_ordering = ["name", "animal__studies__name", "animal__studies__desc"]
+            exclude = ["id", "animal__studies"]
+            # Custom count annotation (could be anything, but arbitrarily using Value, just to have something different
+            # and confirm it is used)
+            annotations = {"studies_mm_count": Value(5)}
+
+        clv = SampleWithAnnotBLV()
+        clv.add_default_many_related_column_settings()
+        self.assertDictEquivalent(
+            {
+                "studies_mm_count": BSTAnnotColumn(
+                    "studies_mm_count",
+                    Value(5),
+                    header="Studies Count",
+                    filterer="strictFilterer",
+                    sorter="numericSorter",
+                ),
+            },
+            clv.column_settings,
+        )
+
+        # Test that a dict for an annot col with a converter in the column_settings class attribute creates a
+        # BSTAnnotColumn in self.columns[colname] using that converter (same as above, only different attribute)
+        class SampleWithAnnotSettingBLV(BSTBaseListView):
+            model = BSTBLVSampleTestModel
+            column_ordering = ["name", "animal__studies__name", "animal__studies__desc"]
+            exclude = ["id", "animal__studies"]
+            # Custom count annotation (could be anything, but arbitrarily using Value, just to have something different
+            # and confirm it is used)
+            column_settings = {"studies_mm_count": {"converter": Value(5)}}
+
+        clv = SampleWithAnnotSettingBLV()
+        clv.add_default_many_related_column_settings()
+        self.assertDictEquivalent(
+            {
+                "studies_mm_count": BSTAnnotColumn(
+                    "studies_mm_count",
+                    Value(5),
+                    header="Studies Count",
+                    filterer="strictFilterer",
+                    sorter="numericSorter",
+                ),
+            },
+            clv.column_settings,
         )
 
     def test_many_related_columns_exist(self):
@@ -771,7 +981,8 @@ class BSTBaseListViewTests(TracebaseTestCase):
             model = BSTBLVNoRepTestModel
 
         nrblv = NoRepBLV()
-        self.assertIsNone(nrblv.representative_column)
+        # An arbitrary representative is selected
+        self.assertIsNotNone(nrblv.representative_column)
         self.assertIn("details", nrblv.columns.keys())
         self.assertIn("details", nrblv.column_ordering)
         self.assertTrue(nrblv.columns["details"].linked)
