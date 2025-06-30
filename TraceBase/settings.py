@@ -343,8 +343,20 @@ if (
         ]
     )
 ):
+    # On the dev site, you need to run `python manage.py collectstatic` to be able to use the toolbar
+    # NOTE: Running collectstatic puts the aggregated static files in tracebase/static.  After running it, (which you
+    # should only need to do once), run `mv TraceBase/static static`.
+    PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
+    STATIC_ROOT = os.path.join(PROJECT_DIR, "static")
+
     DEBUG_TOOLBAR_ENABLED = True
     INSTALLED_APPS.append("debug_toolbar")
     # See https://django-debug-toolbar.readthedocs.io/en/latest/installation.html#add-the-middleware
     MIDDLEWARE.insert(0, "debug_toolbar.middleware.DebugToolbarMiddleware")
     INTERNAL_IPS = ALLOWED_HOSTS[:]
+    # Override the debug toolbar's logic to decide whether to run or not (we're using the conditional logic above)
+    DEBUG_TOOLBAR_CONFIG = {
+        "SHOW_TOOLBAR_CALLBACK": lambda _: True,
+        "SHOW_COLLAPSED": True,
+        "SQL_WARNING_THRESHOLD": 70,
+    }

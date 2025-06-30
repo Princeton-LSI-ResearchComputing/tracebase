@@ -5,12 +5,12 @@
     {% for column_value in column_values %}
         {% if column_value|is_model_obj and column_value|has_attr:"get_absolute_url" %}
             {# Render model object in string context for the link's display value #}
-            <span class="nobr"><a href="{{ column_value|get_absolute_url }}">{{ column_value }}</a>{% if not forloop.last %}{{ column.delim }}</span><br class="cell-wrap">{% else %}</span>{% endif %}
+            <span class="nobr"><a href="{{ column_value|get_absolute_url }}">{{ column_value }}</a>{% if not forloop.last %}{{ column.delim }}</span><br class="cell-wrap d-none">{% else %}</span>{% endif %}
         {% else %}
             {% if column_value is None %}
-                <span class="text-muted">None</span>{% if not forloop.last %}{{ column.delim }}<br class="cell-wrap">{% endif %}
+                <span class="text-muted">None</span>{% if not forloop.last %}{{ column.delim }}<br class="cell-wrap d-none">{% endif %}
             {% else %}
-                <span class="nobr">{{ column_value }}{% if not forloop.last %}{{ column.delim }}</span><br class="cell-wrap">{% else %}</span>{% endif %}
+                <span class="nobr">{{ column_value }}{% if not forloop.last %}{{ column.delim }}</span><br class="cell-wrap d-none">{% else %}</span>{% endif %}
             {% endif %}
         {% endif %}
     {% empty %}
