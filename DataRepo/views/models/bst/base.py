@@ -1,4 +1,5 @@
 from collections import defaultdict
+from copy import deepcopy
 from typing import Dict, List, Optional, Union, cast
 from warnings import warn
 
@@ -9,6 +10,7 @@ from django.db.models.aggregates import Count
 from django.db.models.expressions import Combinable
 
 from DataRepo.models.utilities import (
+    field_path_to_model_path,
     is_many_related_to_root,
     is_related,
     model_path_to_model,
@@ -36,6 +38,35 @@ class BSTBaseListView(BSTClientInterface):
     Generally, this is a generic class-based view for a Model record list to make pages load faster, using server-side
     behavior for pagination.
 
+    Examples:
+        Note that you should inherit from BSTListView, but this is here in this middle class because this is the class
+        that does the column setup.
+
+        Simplest fully working example:
+
+            class SampleList(BSTBaseListView):
+                model = Sample
+
+        Custom column selection example:
+
+            class SampleList(BSTBaseListView):
+                model = Sample
+                column_ordering = ["name", "tissue", "animal", "time_collected", "handler"]
+                exclude = ["id", "msrun_samples"]
+
+        Fully customized example:
+
+            class SampleList(BSTBaseListView):
+                model = Sample
+                column_ordering = ["name", "tissue", "animal", "time_collected", "handler"]
+                exclude = ["id", "msrun_samples"]
+                column_settings = {
+                    "handler": {
+                        "header": "Researcher",
+                        filterer: {"choices": get_researchers}
+                    }
+                }
+
     Class Attributes:
         column_ordering (List[str]) [[]]: This is a list of column names (which can be a field_path, an annotation name,
             or a column group name).  An instance attribute is created and initialized using a copy of this class
@@ -44,6 +75,10 @@ class BSTBaseListView(BSTClientInterface):
             list.  The default is an empty list, but the instance attribute automatically gets fields from self.model
             added in the order defined in the model class (except with many-related fields put at the end).  It is
             further appended to by columns supplied to the constructor (from the column_settings dict keys).
+        column_settings (Dict[str, Union[dict, BSTBaseColumn, BSTColumnGroup]]): A dict keyed on column (or column
+            group) name.  The name will be either a field path or annotation name.  The value can either be a dict of
+            keyword arguments to the column or column group's constructor or an instance of BSTBaseColumn or
+            BSTColumnGroup.
         annotations (Dict[str, Combinable]) [{}]: The bare minumum definition of annotations defined by a dict where the
             keys are the annotation name and the values are Combinables, e.g. 'Lower("fieldname")'.  The annotation name
             may be in column_ordering and the value can be overridden by what is provided to the constructor.
@@ -65,9 +100,10 @@ class BSTBaseListView(BSTClientInterface):
         sort_col (BSTBaseColumn): A shortcut to the user-selected sort-column, found via cookie.
     """
 
-    column_ordering: List[str] = []
-    annotations: Dict[str, Combinable] = {}
     # column_ordering default comes from: self.model._meta.get_fields()
+    column_ordering: List[str] = []
+    column_settings: Dict[str, Union[dict, BSTBaseColumn, BSTColumnGroup]] = {}
+    annotations: Dict[str, Combinable] = {}
     exclude: List[str] = ["id"]
 
     def __init__(
@@ -98,12 +134,17 @@ class BSTBaseListView(BSTClientInterface):
         """
         super().__init__(**kwargs)
 
+        # This is to be able to insert automatically generated count columns before the first column that displays many-
+        # related values from the model the count column counts.  col name -> many-related model path.
+        self.count_cols: Dict[str, str] = {}
+
+        # Copy what's in the class attribute to start
+        self.column_settings = deepcopy(type(self).column_settings)
         # Initialize column settings
-        self.column_settings: Dict[str, Union[dict, BSTBaseColumn, BSTColumnGroup]] = {}
         self.init_column_settings(columns)
 
         # Initialize column order
-        self.column_ordering: List[str] = self.__class__.column_ordering.copy()
+        self.column_ordering: List[str] = type(self).column_ordering.copy()
         self.init_column_ordering()
 
         # Initialize columns (NOTE: This could add a Details BSTAnnotColumn)
@@ -122,7 +163,9 @@ class BSTBaseListView(BSTClientInterface):
                 self.ordered = True
             else:
                 raise ProgrammingError(
-                    "Invalid return from select_representative_field"
+                    "Invalid return from select_representative_field when looking for a representative for model "
+                    f"'{self.model.__name__}' using the column subset {self.column_ordering}.  "
+                    f"Got a '{type(sort_field).__name__}' instead of a str."
                 )
         elif len(self.columns.keys()) > 0:
             # Arbitrary column - does not matter without a model
@@ -134,7 +177,8 @@ class BSTBaseListView(BSTClientInterface):
         self.add_check_groups()
 
     def init_interface(self):
-        """An extension of the BSTClientInterface init_interface method, used here to set the sort_col.
+        """An extension of the BSTClientInterface init_interface method, used here to set the sort_col, and check and
+        set the filter_terms and visibles that are a part of the user-controlled interface.
 
         Call this method after setting the class's request object in the get method, but before calling super().get().
 
@@ -180,6 +224,32 @@ class BSTBaseListView(BSTClientInterface):
         # Delete any bad filter term so that it doesn't come up in BSTListView when creating a Q expression
         for colname in bad_filter_entries:
             del self.filter_terms[colname]
+
+        # Set initial filter terms
+        bad_visibles_entries = []
+        for colname, visible in self.visibles.items():
+            if colname not in self.columns.keys():
+                bad_visibles_entries.append(colname)
+                self.reset_column_cookie(colname, self.visible_cookie_name)
+                warning = (
+                    f"Invalid '{self.visible_cookie_name}' column encountered: '{colname}'.  "
+                    "Resetting visible cookie."
+                )
+                self.warnings.append(warning)
+                if settings.DEBUG:
+                    warn(
+                        warning
+                        + f"  '{self.get_column_cookie_name(colname, self.visible_cookie_name)}'",
+                        DeveloperWarning,
+                    )
+            elif self.columns[colname].hidable:
+                self.columns[colname].visible = visible
+            else:
+                self.columns[colname].visible = True
+
+        # Delete any bad visible value
+        for colname in bad_visibles_entries:
+            del self.visibles[colname]
 
     def init_column_settings(
         self,
@@ -236,7 +306,22 @@ class BSTBaseListView(BSTClientInterface):
         # Add any annotations that were defined in the class attribute
         # NOTE: This could get overridden by what's in columns
         for annot_name, annot_expression in self.annotations.items():
-            self.column_settings[annot_name] = {"converter": annot_expression}
+            if annot_name in self.column_settings.keys():
+                if isinstance(
+                    self.column_settings[annot_name], (BSTBaseColumn, BSTColumnGroup)
+                ) or (
+                    isinstance(self.column_settings[annot_name], dict)
+                    and "converter" in self.column_settings[annot_name].keys()  # type: ignore[union-attr]
+                ):
+                    raise ProgrammingError(
+                        f"The annotation column '{annot_name}' has been defined twice: once in "
+                        f"{type(self).__name__}.column_settings and once in {type(self).__name__}.annotations."
+                    )
+                # self.column_settings[annot_name] must be a dict (without a converter key) or an exception would have
+                # been raised above
+                self.column_settings[annot_name]["converter"] = annot_expression  # type: ignore[index]
+            else:
+                self.column_settings[annot_name] = {"converter": annot_expression}
 
         if isinstance(columns, list):
             # CASE 1: A list was supplied, potentially containing:
@@ -312,7 +397,8 @@ class BSTBaseListView(BSTClientInterface):
                 value of the "name" key, or in the case of a str, the value of the str).
         Exceptions:
             TypeError when a colobj type is not supported.
-            ValueError when a name does not match the colkey or when duplicate conflicting settings encountered.
+            ValueError when a name does not match the colkey.
+            ProgrammingError when duplicate conflicting settings encountered.
         Returns:
             None
         """
@@ -344,8 +430,8 @@ class BSTBaseListView(BSTClientInterface):
             if isinstance(colobj, str):
                 if settings.DEBUG:
                     warn(
-                        f"Ignoring duplicate column setting (with just the column name) for column {colkey}.  Silence "
-                        "this warning by removing the duplicate setting."
+                        f"Ignoring duplicate column setting (with just the column name) for column '{colkey}'.  "
+                        "Silence this warning by removing the duplicate setting."
                     )
             elif isinstance(colobj, dict):
                 if isinstance(self.column_settings[colkey], str):
@@ -354,7 +440,7 @@ class BSTBaseListView(BSTClientInterface):
                     if settings.DEBUG:
                         warn(
                             "Overwriting duplicate column settings (with just the column name) with the supplied dict "
-                            f"for column {colkey}.  Silence this warning by removing the duplicate setting."
+                            f"for column '{colkey}'.  Silence this warning by removing the duplicate setting."
                         )
                 if isinstance(self.column_settings[colkey], dict):
                     # If the settings are a supplied annotation and the only key in the settings is the converter
@@ -367,7 +453,7 @@ class BSTBaseListView(BSTClientInterface):
                         self.column_settings[colkey].keys()  # type: ignore[union-attr]
                     ) == ["converter"]:
                         if "converter" in colobj.keys():
-                            raise ValueError(
+                            raise ProgrammingError(
                                 f"Multiple BSTAnnotColumn converters defined.  "
                                 f"Class default: '{self.annotations[colkey]}'.  "
                                 f"Supplied via the constructor: '{colobj['converter']}'."
@@ -381,17 +467,22 @@ class BSTBaseListView(BSTClientInterface):
                         # attribute "update"  [union-attr]
                         self.column_settings[colkey].update(colobj)  # type: ignore[union-attr]
                     else:
-                        raise ValueError(
-                            f"Multiple column settings dicts defined for column {colkey}."
+                        raise ProgrammingError(
+                            f"Multiple column settings dicts defined for column '{colkey}'."
                         )
                 else:
-                    raise ValueError(
-                        f"Multiple column settings defined for column {colkey}.  A "
+                    raise ProgrammingError(
+                        f"Multiple column settings defined for column '{colkey}'.  A "
                         f"'{type(self.column_settings[colkey]).__name__}' and 'dict' were supplied."
                     )
+            elif colkey in self.annotations.keys():
+                raise ProgrammingError(
+                    f"Multiple column settings defined for annotation column '{colkey}'.  A "
+                    f"'{type(self.column_settings[colkey]).__name__}' and '{type(colobj).__name__}' were supplied."
+                )
             else:
-                raise ValueError(
-                    f"Multiple column settings defined for column {colkey}.  A "
+                raise ProgrammingError(
+                    f"Multiple column settings defined for column '{colkey}'.  A "
                     f"'{type(self.column_settings[colkey]).__name__}' and '{type(colobj).__name__}' were supplied."
                 )
         else:
@@ -419,6 +510,9 @@ class BSTBaseListView(BSTClientInterface):
         """Adds an automatically generated count column to complement each many-related column (if that column is not
         excluded).
 
+        NOTE: This intentionally does not use the related model's verbose_name because the name of the foreign key can
+        provide context.
+
         NOTE: The count added here is distinct and results may not be what you might expect.  For example:
         Animal.last_serum_sample links to Sample using ForeignKey.  You might think this is a 1:1 relationship, but that
         is wrong.  When gathering many-related fields for the Sample model, "Animal.last_serum_sample's related name is
@@ -435,38 +529,101 @@ class BSTBaseListView(BSTClientInterface):
         Returns:
             None
         """
-        mmfields = [
-            f
-            for f in self.model._meta.get_fields()
-            if is_many_related_to_root(f.name, self.model)
+        all_colnames = []
+        if self.column_ordering is not None:
+            # self.column_ordering hasn't been set yet, but a derived class may have set it and may not have set any
+            # custom settings for it, so we must check it
+            all_colnames = self.column_ordering.copy()
+        for colname, colobj in self.column_settings.items():
+            if (
+                not isinstance(colobj, (BSTAnnotColumn, BSTColumnGroup))
+                and colname not in all_colnames
+                and colname not in self.exclude
+            ):
+                all_colnames.append(colname)
+        mm_colnames = []
+        # column_ordering may be empty, as it may not have been initialized yet, but a derived class may have populated
+        # its class attribute.
+        mm_colnames = [
+            cname
+            for cname in all_colnames
+            if (
+                cname not in self.annotations
+                and (
+                    cname not in self.column_settings
+                    or not isinstance(self.column_settings[cname], BSTAnnotColumn)
+                )
+                # self.count_cols is first set below, but we check it here in case this is being called by other
+                # code outside this class.
+                and cname not in self.count_cols.keys()
+                # This is to filter out dict column_settings (that were added above) for annotation columns
+                and hasattr(self.model, cname.split("__")[0])
+                and is_many_related_to_root(cname, self.model)
+            )
         ]
-        for fld in mmfields:
-            count_annot_name = BSTManyRelatedColumn.get_count_name(fld.name, self.model)
+        mm_colnames.extend(
+            [
+                fld.name
+                for fld in self.model._meta.get_fields()
+                if (
+                    fld.name not in self.exclude
+                    and fld.name not in mm_colnames
+                    and is_many_related_to_root(fld.name, self.model)
+                )
+            ]
+        )
+        for colname in mm_colnames:
+            mr_model_path = field_path_to_model_path(
+                self.model, colname, many_related=True
+            )
+            count_annot_name = BSTManyRelatedColumn.get_count_name(
+                mr_model_path, self.model
+            )
 
             if (
-                (
-                    fld.name not in self.exclude
-                    or self.many_related_columns_exist(fld.name)
-                )
-                and count_annot_name not in self.exclude
-                and count_annot_name not in self.column_settings.keys()
+                colname not in self.exclude or self.many_related_columns_exist(colname)
+            ) and (
+                count_annot_name not in self.column_settings.keys()
+                or isinstance(self.column_settings[count_annot_name], dict)
             ):
-                self.column_settings[count_annot_name] = BSTAnnotColumn(
-                    count_annot_name,
-                    Count(fld.name, output_field=IntegerField(), distinct=True),
-                    header=(
+                # Track created columns to insert them before the related columns in the column_ordering
+                if count_annot_name not in self.column_ordering:
+                    self.count_cols[count_annot_name] = mr_model_path
+
+                # Allow the derived class to have added custom settings for the count column
+                kwargs = {
+                    "header": (
                         underscored_to_title(
-                            BSTManyRelatedColumn.get_attr_stub(fld.name, self.model)
+                            BSTManyRelatedColumn.get_attr_stub(
+                                mr_model_path, self.model
+                            )
                         )
                         + " Count"
                     ),
-                    filterer="strictFilterer",
-                    sorter="numericSorter",
+                    "filterer": "strictFilterer",
+                    "sorter": "numericSorter",
+                }
+                if count_annot_name in self.column_settings.keys():
+                    kwargs.update(self.column_settings[count_annot_name])
+
+                # Allow the user to supply a custom count converter
+                if "converter" in kwargs.keys():
+                    converter = kwargs.pop("converter")
+                else:
+                    converter = Count(
+                        mr_model_path, output_field=IntegerField(), distinct=True
+                    )
+
+                self.column_settings[count_annot_name] = BSTAnnotColumn(
+                    count_annot_name,
+                    converter,
+                    **kwargs,
                 )
 
     def many_related_columns_exist(self, mr_model_path: str):
         """Checks if a supplied many-related model path is the parent of any field among the column_settings keys or
-        column_ordering field paths.
+        column_ordering field paths.  The purpose of this check is because the foreign key itself may have been
+        excluded, but other fields from that many-related model are *included*.  This catches that case.
 
         Assumptions:
             1. mr_model_path ends in a foreign key field
@@ -556,31 +713,23 @@ class BSTBaseListView(BSTClientInterface):
         """
         if self.column_ordering is None:
             # Initialize if None
-            self.column_ordering = self.__class__.column_ordering.copy()
+            self.column_ordering = type(self).column_ordering.copy()
         else:
             # Remove excludes
             self.column_ordering = [
                 f for f in self.column_ordering if f not in self.exclude
             ]
 
-        # Supporting the model being None to mimmick Django's ListView
+        # Add the default columns (Supporting the model being None to mimmick Django's ListView)
         if self.model is not None:
-            # Add the defaults
-
-            for fld, many_related in sorted(
+            # Sorting many-related to the end
+            for fld, _ in sorted(
                 [
                     (f, is_many_related_to_root(f.name, self.model))
                     for f in self.model._meta.get_fields()
                 ],
                 key=lambda tpl: tpl[1] is True,
             ):
-                if many_related is True:
-                    # Add an automatically generated count column to complement many-related columns
-                    count_annot_name = BSTManyRelatedColumn.get_count_name(
-                        fld.name, self.model
-                    )
-                    if fld.name not in self.exclude:
-                        self.add_to_column_ordering(count_annot_name, _warn=False)
                 self.add_to_column_ordering(fld.name, _warn=False)
 
         # Add from the annotations
@@ -589,10 +738,33 @@ class BSTBaseListView(BSTClientInterface):
 
         # Add from the settings dict
         for colname, obj in self.column_settings.items():
-            self.add_to_column_ordering(colname)
+            # The automatically generated count columns will be inserted before the first related column
+            if colname not in self.count_cols.keys():
+                self.add_to_column_ordering(colname)
+            # Recursively add columns contained in a group
             if isinstance(obj, BSTColumnGroup):
-                for col in obj.columns:
+                for col in obj.columns:  # pylint: disable=no-member
                     self.add_to_column_ordering(col.name)
+
+        # Insert the automatically generated count columns immediately before the column whose values it counts
+        # NOTE: This assumes that this does not include excluded columns or count columns that were manually added.
+        for count_colname, mr_model_path in self.count_cols.items():
+            # Get the indexes of every column that comes from the many-related model
+            start_indexes = [
+                self.column_ordering.index(colname)
+                for colname in self.column_ordering
+                if colname.startswith(mr_model_path)
+            ]
+            if len(start_indexes) == 0:
+                # If the related model path and the count column itself are not excluded.  Append the count column.
+                if (
+                    mr_model_path not in self.exclude
+                    and count_colname not in self.exclude
+                ):
+                    self.add_to_column_ordering(count_colname)
+            else:
+                # Insert the count column at the occurrence of the first related column
+                self.column_ordering.insert(start_indexes[0], count_colname)
 
     def add_to_column_ordering(self, colname: str, _warn=True):
         """This takes a column name and adds it to self.column_ordering if it is not among the excludes and hasn't
@@ -635,10 +807,10 @@ class BSTBaseListView(BSTClientInterface):
 
             # See if the derived class specified a linked column (to the row's details page)
             if colname not in self.groups.keys() and self.columns[colname].linked:
-                details_link_exists = True
                 # Only make the first linked column the representative (if there are multiple)
                 if not details_link_exists:
                     self.representative_column = self.columns[colname]
+                details_link_exists = True
 
         # If no representative exists and the model has a detail page, automatically set a representative
         if not details_link_exists and BSTBaseColumn.has_detail(self.model):
@@ -655,8 +827,14 @@ class BSTBaseListView(BSTClientInterface):
                 self.columns[rep_colname].linked = True
                 self.representative_column = self.columns[rep_colname]
 
+        # The representative column is either the first linked column or the first column
+        # Allowing no model is purely for testing, since this isn't an abstract base class
+        if self.representative_column is None and self.model is not None:
+            self.representative_column = list(self.columns.values())[0]
+
     def init_column(self, colname: str):
-        """Takes a column name, creates a derived instance of the BSTBaseColumn class, and adds it to self.columns.
+        """Takes a column name and sets or creates a derived instance of the BSTBaseColumn class, adding it to
+        self.columns.
 
         Assumptions:
             1. The legnth of the colname string is greater than 0.
@@ -696,9 +874,23 @@ class BSTBaseListView(BSTClientInterface):
             else:
                 self.columns[colname] = BSTColumn(colname, self.model, **kwargs)
 
-        elif colname is not None and "converter" in kwargs.keys():
+        elif (
+            colname is not None
+            and "converter" in kwargs.keys()
+            or colname in self.annotations.keys()
+        ):
 
-            converter = kwargs.pop("converter")
+            if colname in self.annotations.keys() and "converter" not in kwargs.keys():
+                converter = self.annotations[colname]
+            else:
+                # This assumes that the converter in annotations is the same, as conflicts are caught earlier
+                converter = kwargs.pop("converter")
+
+            # Adding the model enables BSTAnnotColumn to add a tooltip to the header if a single field_path extracted
+            # from the converter is a model field
+            if "model" not in kwargs.keys() or kwargs["model"] is None:
+                kwargs["model"] = self.model
+
             self.columns[colname] = BSTAnnotColumn(colname, converter, **kwargs)
 
         elif len(kwargs.keys()) > 0 and not hasattr(self.model, first_field):
@@ -823,7 +1015,11 @@ class BSTBaseListView(BSTClientInterface):
             subset=relative_subset,
         )
         # This assumes that there are not duplicate columns
-        representative = orig_subset_lookup[str(relative_representative)]
+        representative = (
+            orig_subset_lookup[str(relative_representative)]
+            if relative_representative is not None
+            else None
+        )
 
         return representative
 

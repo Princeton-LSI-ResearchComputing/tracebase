@@ -6,7 +6,7 @@ from django.conf import settings
 from django.db.models import Model
 
 from DataRepo.models.utilities import get_field_val_by_iteration
-from DataRepo.utils.exceptions import DeveloperWarning
+from DataRepo.utils.exceptions import DeveloperWarning, trace
 from DataRepo.views.models.bst.column.base import BSTBaseColumn
 from DataRepo.views.models.bst.column.many_related_field import (
     BSTManyRelatedColumn,
@@ -78,11 +78,12 @@ def get_rec_val(rec: Model, column: BSTBaseColumn) -> Any:
     try:
         val = get_field_val_by_iteration(rec, column.name.split("__"))
     except AttributeError as ae:
-        warning = (
-            f"A problem was encountered while processing {type(column).__name__} '{column}':\n"
-            f"Exception: {type(ae).__name__}: {ae}"
-        )
-        warn(warning, DeveloperWarning)
+        if settings.DEBUG:
+            warning = (
+                f"A problem was encountered while processing {type(column).__name__} '{column}':\n"
+                f"Exception:\n{trace(ae)}\n{type(ae).__name__}: {ae}"
+            )
+            warn(warning, DeveloperWarning)
         val = default
 
     return val
@@ -95,3 +96,9 @@ def get_absolute_url(model_object: Model):
     if url is not None and url != "":
         return url
     return None
+
+
+@register.filter
+def keys(dct: dict):
+    """Return ordered dict keys as a list"""
+    return list(dct.keys()) if isinstance(dct, dict) else []
