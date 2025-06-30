@@ -15,6 +15,7 @@ class InfusateTracer(MaintainedModel):
         "DataRepo.Tracer",
         on_delete=models.CASCADE,
         related_name="infusate_links",
+        help_text="A tracer belonging to an infusate.",
     )
     concentration = models.FloatField(
         null=False,

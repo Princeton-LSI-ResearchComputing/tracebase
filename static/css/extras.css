@@ -12,6 +12,10 @@
   white-space: pre;
 }
 
+.no-newlines {
+  white-space: nowrap;
+}
+
 .tiny {
   font-size: 0.6em;
 }

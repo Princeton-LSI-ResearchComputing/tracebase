@@ -86,6 +86,7 @@ class Tracer(MaintainedModel, ElementLabel):
         on_delete=models.RESTRICT,
         null=False,
         related_name="tracers",
+        help_text="A compound used as a tracer, containing some elements replaced with isotopes.",
     )
     label_combo = models.CharField(
         max_length=16,  # Max of 8, 2-letter elements
