@@ -194,10 +194,12 @@ class BSTListViewTests(BaseTemplateTests):
         slv.init_interface()
         template_str = self.render_list_view_template(slv)
         expected_ordered_substrings = [
-            '<th data-field="name"',
-            '<th data-field="animals_mm_count"',
-            '<th data-field="animals"',
-            '<th data-field="description"',
+            '<th class="th-inner"',
+            'data-field="name"',
+            'data-switchable-label="BTT Study Test Model"',
+            'data-field="animals_mm_count"',
+            'data-field="animals"',
+            'data-field="description"',
             # NOTE: The default row order is determined by the model's ordering (which is descending)
             '<td class="table-cell-nobr nobr">',
             "S2",

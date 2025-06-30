@@ -529,24 +529,31 @@ class BSTBaseListView(BSTClientInterface):
         Returns:
             None
         """
-        all_colnames = []
+        # This includes column group names and annotations in addition to fields
+        all_included_colnames = list(
+            set(self.column_ordering).union(set(list(self.column_settings.keys())))
+        )
+
+        # This is only columns based directly on fields (i.e. not annotations or groups)
+        all_field_colnames = []
         if self.column_ordering is not None:
             # self.column_ordering hasn't been set yet, but a derived class may have set it and may not have set any
             # custom settings for it, so we must check it
-            all_colnames = self.column_ordering.copy()
+            all_field_colnames = self.column_ordering.copy()
         for colname, colobj in self.column_settings.items():
             if (
                 not isinstance(colobj, (BSTAnnotColumn, BSTColumnGroup))
-                and colname not in all_colnames
+                and colname not in all_field_colnames
                 and colname not in self.exclude
             ):
-                all_colnames.append(colname)
+                all_field_colnames.append(colname)
+
+        # All many-related field-based column names
         mm_colnames = []
-        # column_ordering may be empty, as it may not have been initialized yet, but a derived class may have populated
-        # its class attribute.
+        # Initialize based on self.column_ordering
         mm_colnames = [
             cname
-            for cname in all_colnames
+            for cname in all_field_colnames
             if (
                 cname not in self.annotations
                 and (
@@ -561,17 +568,30 @@ class BSTBaseListView(BSTClientInterface):
                 and is_many_related_to_root(cname, self.model)
             )
         ]
+        # Add any default columns that are not exluded or their count columns have been explicitly included or there
+        # exist columns that go through the many-related model path
         mm_colnames.extend(
             [
                 fld.name
                 for fld in self.model._meta.get_fields()
                 if (
-                    fld.name not in self.exclude
-                    and fld.name not in mm_colnames
+                    fld.name not in mm_colnames
                     and is_many_related_to_root(fld.name, self.model)
+                    and (
+                        fld.name not in self.exclude
+                        or BSTManyRelatedColumn.get_count_name(
+                            field_path_to_model_path(
+                                self.model, fld.name, many_related=True
+                            ),
+                            self.model,
+                        )
+                        in all_included_colnames
+                    )
                 )
             ]
         )
+
+        # Now process the many-related columns to add their count annotations to the self.column_settings
         for colname in mm_colnames:
             mr_model_path = field_path_to_model_path(
                 self.model, colname, many_related=True
@@ -581,7 +601,9 @@ class BSTBaseListView(BSTClientInterface):
             )
 
             if (
-                colname not in self.exclude or self.many_related_columns_exist(colname)
+                colname not in self.exclude
+                or count_annot_name in all_included_colnames
+                or self.many_related_columns_exist(colname)
             ) and (
                 count_annot_name not in self.column_settings.keys()
                 or isinstance(self.column_settings[count_annot_name], dict)

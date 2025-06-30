@@ -2,14 +2,14 @@ from django.db.models import CharField, F, Func, Value
 from django.db.models.functions import Extract
 from django.views.generic import DetailView
 
-from DataRepo.models import Sample
-from DataRepo.models.researcher import Researcher
+from DataRepo.models import (
+    DATE_FORMAT,
+    DBSTRING_FUNCTION,
+    DURATION_SECONDS_ATTRIBUTE,
+    Researcher,
+    Sample,
+)
 from DataRepo.views.models.bst.list_view import BSTListView
-
-# Postgres-specific function values for annotations
-DATE_FORMAT = "YYYY-MM-DD"  # Postgres date format syntax
-DBSTRING_FUNCTION = "to_char"  # Postgres function
-DURATION_SECONDS_ATTRIBUTE = "epoch"  # Postgres interval specific
 
 
 class SampleListView(BSTListView):

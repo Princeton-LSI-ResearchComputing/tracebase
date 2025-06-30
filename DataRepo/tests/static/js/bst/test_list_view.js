@@ -90,7 +90,7 @@ function createTestTable () {
 
   // Create a table with a td containing 'table-cell-nobr' and a br containing 'cell-wrap'
   const table = document.createElement('table')
-  // This is the default ID defined in DataRepo/static/js/bst/list_view.js
+  // This is the default ID defined in /static/js/bst/list_view.js
   table.id = 'bstlistviewtable'
 
   // Create a thead row
@@ -134,7 +134,7 @@ function createTestTable2 (tableID, columnNames) {
 
   // Create a table with a td containing 'table-cell-nobr' and a br containing 'cell-wrap'
   const table = document.createElement('table')
-  // This is the default ID defined in DataRepo/static/js/bst/list_view.js
+  // This is the default ID defined in /static/js/bst/list_view.js
   table.id = tableID
   // This makes sure that there's always at least 1 column visible
   table.setAttribute('data-show-columns', 'true')
