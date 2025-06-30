@@ -18,6 +18,11 @@ from django.db.models.fields.related_descriptors import (
 from django.db.models.query_utils import DeferredAttribute
 from django.urls import resolve
 
+# Postgres-specific function values for annotations
+DATE_FORMAT = "YYYY-MM-DD"  # Postgres date format syntax
+DBSTRING_FUNCTION = "to_char"  # Postgres function
+DURATION_SECONDS_ATTRIBUTE = "epoch"  # Postgres interval specific
+
 # Generally, child tables are at the top and parent tables are at the bottom
 ALL_MODELS_IN_SAFE_DELETION_ORDER = [
     "Compound",
@@ -414,7 +419,7 @@ def field_path_to_model_path(
         ValueError if the field path is too short, a model is missing a field in the field path, or if a many-related
             model was requested and none was found.
     Returns:
-        _output (str): The path to the last foreign key ("model") in the supplied path or None if there are no foreign
+        _output (str): The path to the last foreign key ("model") in the supplied path or "" if there are no foreign
             keys in the path (i.e. it's just a field name).
     """
     if len(path) == 0:
@@ -449,11 +454,8 @@ def field_path_to_model_path(
             tail = resolve_field(getattr(model, path[0]))
             if tail.is_relation:
                 return new_output
-            elif _output == "":
-                raise ValueError(
-                    "The path provided must have at least 1 foreign key to extract the related model path."
-                )
             else:
+                # A model path of "" indicates the root model
                 return _output
         raise ValueError(
             f"Model: '{model.__name__}' does not have a field attribute named: '{path[0]}'."
@@ -623,19 +625,19 @@ def is_key_field(
 
 def model_path_to_model(model: Type[Model], path: Union[str, List[str]]) -> Type[Model]:
     """Recursive method to take a root model and a dunderscore-delimited path and return the model class at the end of
-    the path.
+    the path (or if the path is empty, the root model).
 
     Args:
         model (Type[Model]): Model class at the root of the path.
         path (Union[str, List[str]]): Dunderscore-delimited field path string or list of dunderscore-split fields.
     Exceptions:
-        ValueError when an argument is invalid.
         AttributeError when any field in the path is not present on the associated model.
     Returns:
         (Type[Model]): The model class associated with the last foreign key field in the path.
     """
     if len(path) == 0:
-        raise ValueError("path string/list must have a non-zero length.")
+        # If the path is empty, return the root model
+        return model
     if isinstance(path, str):
         return model_path_to_model(model, path.split("__"))
     if len(path) == 1:
