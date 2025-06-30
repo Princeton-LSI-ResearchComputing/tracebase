@@ -26,7 +26,7 @@ class BSTClientInterface(ListView):
     Class Attributes:
         Templates:
             template_name (str) ["models/bst/list_view.html"]: The template used to render the Bootstrap Table.
-            scripts (List[str]) ["DataRepo/static/js/bst/cookies.js", "DataRepo/static/js/bst/list_view.js"]
+            scripts (List[str]) ["js/bst/cookies.js", "js/bst/list_view.js"]
         Pagination:
             paginator_class (Type[Paginator]) [SizedPaginator]: The paginator class set for the ListView (super) class.
             paginate_by (int) [15]: The default number of rows per page.
