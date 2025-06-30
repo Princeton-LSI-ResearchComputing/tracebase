@@ -94,6 +94,7 @@ class BSTColumn(BSTBaseColumn):
 
         # Get some superclass instance members we need for checks
         linked = kwargs.get("linked")
+        tooltip = kwargs.get("tooltip")
 
         # Set the name for the superclass based on field_path
         name = self.field_path
@@ -106,7 +107,7 @@ class BSTColumn(BSTBaseColumn):
             raise ValueError(
                 "model is required for non-annotation fields.  Use BSTAnnotColumn for annotation fields."
             )
-        elif linked and not hasattr(model, "get_absolute_url"):
+        elif linked and not self.has_detail():
             # NOTE: An annotation can link as well, but no need to force supplying a model just to check for
             # get_absolute_url.  It will be checked in the template.
             raise ValueError(
@@ -137,6 +138,12 @@ class BSTColumn(BSTBaseColumn):
         self.field = field_path_to_field(self.model, self.field_path)
         if not hasattr(self, "is_fk") or getattr(self, "is_fk", None) is None:
             self.is_fk = is_key_field(self.field)
+
+        if self.field.help_text is not None and self.field.help_text != "":
+            new_tooltip = self.field.help_text
+            if tooltip is not None:
+                new_tooltip += "\n\n" + tooltip
+            kwargs.update({"tooltip": new_tooltip})
 
         super().__init__(name, *args, **kwargs)
 
@@ -196,3 +203,7 @@ class BSTColumn(BSTBaseColumn):
     def create_filterer(self, field: Optional[str] = None, **kwargs) -> BSTFilterer:
         field_path = field if field is not None else self.name
         return BSTFilterer(field_path, self.model, **kwargs)
+
+    def has_detail(self):
+        """Override of superclass class method."""
+        return hasattr(self.model, "get_absolute_url")

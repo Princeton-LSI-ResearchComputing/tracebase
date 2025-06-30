@@ -148,7 +148,8 @@ def resolve_field(
 
 
 def resolve_field_path(
-    field_or_expression: Union[str, Combinable, DeferredAttribute, Field]
+    field_or_expression: Union[str, Combinable, DeferredAttribute, Field],
+    _level=0,
 ) -> str:
     """Takes a representation of a field, e.g. from Model._meta.ordering, which can have transform functions applied
     (like Lower('field_name')) and returns the field path.
@@ -171,6 +172,7 @@ def resolve_field_path(
     Args:
         field_or_expression (Union[str, Combinable]): A str (e.g. a field path), Combinable (e.g. an F, Transform [like
             Lower("name")], Expression, etc object), or a Model Field.
+        _level (int): Recursion level, used to determine whether to raise an exception or return ""
     Exceptions:
         ValueError when the field_or_expression contains multiple field paths.
     Returns
@@ -187,28 +189,34 @@ def resolve_field_path(
     elif isinstance(field_or_expression, DeferredAttribute):
         return field_or_expression.field.name
     elif isinstance(field_or_expression, Expression):
-        field_reps = field_or_expression.get_source_expressions()
+        field_reps = [
+            f if isinstance(f, str) else resolve_field_path(f, _level=_level + 1)
+            for f in field_or_expression.get_source_expressions()
+        ]
+        # Filter out empty strings, which indicate no fields found
+        field_reps = [f for f in field_reps if f != ""]
 
         if len(field_reps) == 0:
-            raise NoFields("No field name in field representation.")
+            if _level > 0:
+                # Return an empty string (to stay type-consistent) to indicate no fields detected in the expression(s)
+                return ""
+            else:
+                # If we're back to the original caller and there are still no expressions, raise an exception.
+                raise NoFields("No field name in field representation.")
         elif len(field_reps) > 1:
             raise MultipleFields(
-                f"Multiple field names in field representation {[f.name for f in field_reps]}."
+                f"Multiple field names in field representation {field_reps}."
             )
-
-        if isinstance(field_reps[0], Expression):
-            return resolve_field_path(field_reps[0])
-        elif isinstance(field_reps[0], F):
-            return resolve_field_path(field_reps[0].name)
-        else:
-            raise ProgrammingError(
-                f"Unexpected field_or_expression type: '{type(field_or_expression).__name__}'."
-            )
+        else:  # Assumes field_reps[0] is a str based on the above code
+            # Strings need processing too, in case this comes from an order-by expression with a leading dash (for
+            # reversing the order)
+            return resolve_field_path(field_reps[0], _level=_level + 1)
     elif isinstance(field_or_expression, F):
         return field_or_expression.name
     else:
         raise ProgrammingError(
-            f"Unexpected field_or_expression type: '{type(field_or_expression).__name__}'."
+            f"Unexpected field_or_expression type: '{type(field_or_expression).__name__}' for expression: "
+            f"{field_or_expression}."
         )
 
 
@@ -487,10 +495,12 @@ def select_representative_field(
             and there are no unique fields that are not the arbitrary primary key or foreign keys.
         include_expression (bool) [False]: If a suitable single field is selected from the model's ordering, return it
             as-is, instead of just returning a string version of the field name.
-        subset (Optional[List[str]]): A subset of field names belonging to model to select from.  Use this to restrict
-            the representative field selection to only the provided fields.  Note, if forced, and there is no ideal,
-            field the first field not belonging to a related model is chosen, but if all there are is fields from
-            related models, the first relation chosen, which could be problematic.
+        subset (Optional[List[str]]): A subset of field names/paths to select from.  Use this to restrict the
+            representative field selection to only the provided fields.  Field paths to related fields can be supplied,
+            but they will be ignored and cannot be selected as a representiative.  Related fields can still be selected
+            as representatives, but only the foreign keys with a path length of 1 are considered (i.e. no field path
+            containing "__" is considered).  This will also ignore annotation fields.  Only fields that are attributes
+            of the model are considered.
     Exceptions:
         ProgrammingError when a supplied subset of fields has no suitable representative field (i.e. when all supplied
             fields are from a many-related model).
@@ -498,11 +508,18 @@ def select_representative_field(
         (Optional[str]): The name of the selected field to represent the model.
     """
     if subset is not None and len(subset) > 0:
-        all_fields = [field_path_to_field(model, fld) for fld in subset]
+        all_fields = [
+            field_path_to_field(model, fld)
+            for fld in subset
+            if "__" not in fld and hasattr(model, fld)
+        ]
         all_names = subset.copy()
     else:
         all_fields = model._meta.get_fields()
         all_names = [f.name for f in all_fields]
+
+    if len(all_fields) == 0:
+        return None
 
     if (
         len(model._meta.ordering) == 1
@@ -991,11 +1008,6 @@ def get_field_val_by_iteration(
             for tpl in sorted(val, key=lambda t: t[1], reverse=not asc)
         ]
 
-    if not isinstance(val, tuple) or len(val) != 3:
-        raise ProgrammingError(
-            f"3-member tuple not returned from _get_field_val_by_iteration_helper '{type(val).__name__}': {val}."
-        )
-
     # Convert empty strings in the tuple's return value to None
     return val[0] if not isinstance(val[0], str) or val[0] != "" else None
 
@@ -1049,12 +1061,27 @@ def _get_field_val_by_iteration_helper(
         (Union[List[Tuple[Any, Any, Any]]], Tuple[Any, Any, Any]): A list of 3-membered tuples or a 3-membered
             tuple.  Each tuple contains the value, a sort value, and a unique value.
     """
-    if len(field_path) == 0 or rec is None:
-        return None
+    if len(field_path) == 0:
+        raise ProgrammingError("A non-zero length field_path is required")
+
+    if rec is None:
+        if is_many_related_to_root(field_path, type(rec)):
+            return []
+        else:
+            return None, None, None
 
     if is_many_related_to_parent(field_path[0], type(rec)):
         # This method handles only fields that are many-related to their immediate parent
-        return _get_field_val_by_iteration_manyrelated_helper(
+        retval = _get_field_val_by_iteration_manyrelated_helper(
+            rec,
+            field_path,
+            related_limit=related_limit,
+            sort_field_path=sort_field_path,
+            _sort_val=_sort_val,
+        )
+    else:
+        # This method handles only fields that are singly related to their immediate parent
+        retval = _get_field_val_by_iteration_onerelated_helper(
             rec,
             field_path,
             related_limit=related_limit,
@@ -1062,14 +1089,32 @@ def _get_field_val_by_iteration_helper(
             _sort_val=_sort_val,
         )
 
-    # This method handles only fields that are singly related to their immediate parent
-    return _get_field_val_by_iteration_onerelated_helper(
-        rec,
-        field_path,
-        related_limit=related_limit,
-        sort_field_path=sort_field_path,
-        _sort_val=_sort_val,
-    )
+    # A many-related field can return a single (tuple) value instead of a list if a None exists on the path before the
+    # first many-related model is encountered.  E.g. animal__infusate__tracer_links__tracer is many-related to Sample,
+    # thus we expect a list, but if the animal has no infusate, a tuple would be returned because we haven't gotten to
+    # the many-related relationship with tracer_links yet.  The following catches that and performs type checking.
+    # NOTE: hasattr assumes that if the model doesn't have the first field, then it is an annotation and is by
+    # definition, not many-related
+    if hasattr(type(rec), field_path[0]) and is_many_related_to_root(
+        field_path, type(rec)
+    ):
+        if (
+            isinstance(retval, tuple) and (len(retval) != 3 or retval[0] is not None)
+        ) and not isinstance(retval, list):
+            raise ProgrammingError(
+                f"Expected a list, but got '{type(retval).__name__}': '{retval}' when looking for many-related field "
+                f"'{'__'.join(field_path)}' in a '{type(rec).__name__}' record: '{rec}'."
+            )
+        if isinstance(retval, tuple):
+            return []
+    else:
+        if not isinstance(retval, tuple) or len(retval) != 3:
+            raise ProgrammingError(
+                f"Expected a 3-member tuple, but got '{type(retval).__name__}': '{retval}' when looking for one-"
+                f"related field '{'__'.join(field_path)}' in a '{type(rec).__name__}' record: '{rec}'."
+            )
+
+    return retval
 
 
 def _get_field_val_by_iteration_onerelated_helper(
@@ -1138,6 +1183,10 @@ def _get_field_val_by_iteration_onerelated_helper(
             uniq_val = val_or_rec.pk
         # NOTE: Returning the value, a value to sort by, and a value that makes it unique per record (or field)
         return val_or_rec, _sort_val, uniq_val
+
+    # The foreign key is None and iterating deeper would cause an exception, so return a None tuple
+    if val_or_rec is None:
+        return None, None, None
 
     return _get_field_val_by_iteration_helper(
         val_or_rec,

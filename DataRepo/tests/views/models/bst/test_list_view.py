@@ -365,12 +365,14 @@ class BSTListViewTests(TracebaseTestCase):
         alv = AnimalWithMultipleStudyColsLV(request=request)
         alv.init_interface()
         self.assertEqual(
-            "(OR: ('name__icontains', 'test1'), "
-            "('desc__icontains', 'test1'), "
-            "('treatment__name__icontains', 'test1'), "
-            "('studies__name__icontains', 'test1'), "
-            "('studies__desc__icontains', 'test1'), "
-            "('studies_mm_count__iexact', 'test1'))",
+            (
+                "(OR: ('name__icontains', 'test1'), "
+                "('desc__icontains', 'test1'), "
+                "('treatment__name__icontains', 'test1'), "
+                "('studies_mm_count__iexact', 'test1'), "
+                "('studies__name__icontains', 'test1'), "
+                "('studies__desc__icontains', 'test1'))"
+            ),
             str(alv.search()),
         )
 
@@ -508,9 +510,7 @@ class BSTListViewTests(TracebaseTestCase):
             BSTLVStudyTestModel.objects.all(),
             fqs,
         )
-        self.assertEqual(
-            [f"StudyLV-{StudyLV.filter_cookie_name}-desc"], slv.cookie_resets
-        )
+        self.assertEqual([f"{StudyLV.filter_cookie_name}-desc"], slv.cookie_resets)
 
     @TracebaseTestCase.assertNotWarns()
     def test_paginate_queryset(self):

@@ -1,6 +1,19 @@
-from django.db.models import Value
+from django.db.models import (
+    CASCADE,
+    CharField,
+    DurationField,
+    F,
+    ForeignKey,
+    IntegerField,
+    Value,
+)
+from django.db.models.aggregates import Count
+from django.db.models.functions import Extract, Lower
 
-from DataRepo.tests.tracebase_test_case import TracebaseTestCase
+from DataRepo.tests.tracebase_test_case import (
+    TracebaseTestCase,
+    create_test_model,
+)
 from DataRepo.tests.views.models.bst.column.test_field import (
     BSTCStudyTestModel,
 )
@@ -48,3 +61,50 @@ class BSTAnnotColumnTests(TracebaseTestCase):
         an = c.generate_header()
         self.assertEqual(underscored_to_title(ann), an)
         self.assertEqual("Meaning of Life", an)
+
+    def test_tooltip(self):
+        # Models
+        BACSampleTestModel = create_test_model(
+            "BACSampleTestModel",
+            {
+                "name": CharField(
+                    max_length=255, unique=True, help_text="Sample name."
+                ),
+                "time": DurationField(help_text="Storage time."),
+                "tissue": ForeignKey(
+                    to="loader.BACTissueTestModel",
+                    related_name="samples",
+                    on_delete=CASCADE,
+                ),
+            },
+        )
+        BACTissueTestModel = create_test_model(
+            "BACTissueTestModel",
+            {"name": CharField(max_length=255, help_text="Tissue name.")},
+        )
+
+        # basic case
+        c = BSTAnnotColumn(
+            "lower_name",
+            Lower(F("name"), output_field=CharField()),
+            model=BACTissueTestModel,
+        )
+        self.assertEqual("Tissue name.", c.tooltip)
+
+        # More complex case
+        converter = Extract(
+            F("time"),
+            "epoch",
+        ) / Value(604800)
+        c = BSTAnnotColumn("time_weeks", converter, model=BACSampleTestModel)
+        self.assertEqual("Storage time.", c.tooltip)
+
+        # Related model case
+        converter = Count("samples__name", output_field=IntegerField(), distinct=True)
+        c = BSTAnnotColumn(
+            "sample_count",
+            converter,
+            tooltip="Count of sample names.",
+            model=BACTissueTestModel,
+        )
+        self.assertEqual("Sample name.\n\nCount of sample names.", c.tooltip)
