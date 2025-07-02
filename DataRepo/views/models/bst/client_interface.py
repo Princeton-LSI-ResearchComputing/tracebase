@@ -27,6 +27,10 @@ class BSTClientInterface(ListView):
         Templates:
             template_name (str) ["models/bst/list_view.html"]: The template used to render the Bootstrap Table.
             scripts (List[str]) ["js/bst/cookies.js", "js/bst/list_view.js"]
+        Interface defaults
+            ordered_default (bool) [True]
+            asc_default (bool) [True]
+            collapsed_default (bool) [True]
         Pagination:
             paginator_class (Type[Paginator]) [SizedPaginator]: The paginator class set for the ListView (super) class.
             paginate_by (int) [15]: The default number of rows per page.
@@ -37,6 +41,8 @@ class BSTClientInterface(ListView):
             sortcol_cookie_name (str) ["sortcol"]
             asc_cookie_name (str) ["asc"]
             limit_cookie_name (str) ["limit"]
+            collapsed_cookie_name (str) ["collapsed"]
+            collapsed (bool) [True]
             page_var_name (str) ["page"]
             cookie_prefix_var_name (str) ["cookie_prefix"]
             cookie_resets_var_name (str) ["cookie_resets"]
@@ -63,6 +69,11 @@ class BSTClientInterface(ListView):
     paginator_class = SizedPaginator
     paginate_by = 15
 
+    # Interface defaults
+    ordered_default: bool = False
+    asc_default: bool = True
+    collapsed_default: bool = True
+
     # Context variable names
 
     # Cookie names (also used in browser cookies)
@@ -72,6 +83,7 @@ class BSTClientInterface(ListView):
     sortcol_cookie_name = "sortcol"
     asc_cookie_name = "asc"
     limit_cookie_name = "limit"  # Also a URL param name
+    collapsed_cookie_name = "collapsed"
 
     # Cookie operations
     cookie_prefix_var_name = "cookie_prefix"
@@ -154,8 +166,9 @@ class BSTClientInterface(ListView):
         self.filter_terms: Dict[str, str] = {}
         self.visibles: Dict[str, bool] = {}
         self.sort_name: Optional[str] = None
-        self.ordered = False
-        self.asc: bool = True
+        self.ordered = self.ordered_default
+        self.asc: bool = self.asc_default
+        self.collapsed: bool = self.collapsed_default
 
         # Initialize default values that will be obtained from URL parameters (or cookies)
         self.page = 1
@@ -190,7 +203,10 @@ class BSTClientInterface(ListView):
         self.visibles = self.get_boolean_column_cookie_dict(self.visible_cookie_name)
         self.sort_name: Optional[str] = self.get_cookie(self.sortcol_cookie_name)
         self.ordered = self.sort_name is not None
-        self.asc: bool = self.get_boolean_cookie(self.asc_cookie_name, True)
+        self.asc: bool = self.get_boolean_cookie(self.asc_cookie_name, self.asc_default)
+        self.collapsed: bool = self.get_boolean_cookie(
+            self.collapsed_cookie_name, self.collapsed_default
+        )
 
         # Initialize values obtained from URL parameters (or cookies)
         page_param = self.get_param(self.page_var_name)
@@ -570,6 +586,7 @@ class BSTClientInterface(ListView):
                 self.cookie_prefix_var_name: self.cookie_prefix,
                 self.cookie_resets_var_name: self.cookie_resets,
                 self.clear_cookies_var_name: self.clear_cookies,
+                self.collapsed_cookie_name: self.collapsed,
                 # A unique set of javascripts needed for the BST interface
                 self.scripts_var_name: self.javascripts,
                 # General table details
@@ -593,6 +610,7 @@ class BSTClientInterface(ListView):
                 "asc_cookie_name": self.asc_cookie_name,
                 "limit_cookie_name": self.limit_cookie_name,
                 "page_cookie_name": self.page_var_name,
+                "collapsed_cookie_name": self.collapsed_cookie_name,
                 # Override Django's is_paginated to not trigger the base.html template from adding vanilla pagination
                 "is_paginated": None,
             }

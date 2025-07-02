@@ -132,7 +132,12 @@ def test_case_class_factory(base_class: Type[T]) -> Type[T]:
             _path = "" if _path is None else _path
             if len(_path.split(",")) >= max_depth:
                 return
-            ignores = ["creation_counter", "identity"]
+            ignores = [
+                "creation_counter",
+                "identity",
+                "_django_version",
+                "fields_cache",
+            ]
             self.assertEqual(
                 set([k for k in d1.keys() if k not in ignores]),
                 set([k for k in d2.keys() if k not in ignores]),

@@ -369,6 +369,8 @@ class BSTClientInterfaceTests(TracebaseTestCase):
                     "limit_cookie_name",
                     "page_cookie_name",
                     "visible_cookie_name",
+                    "collapsed",
+                    "collapsed_cookie_name",
                 ]
             ),
             set(context.keys()),
