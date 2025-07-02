@@ -139,8 +139,17 @@ class BSTColumn(BSTBaseColumn):
         if not hasattr(self, "is_fk") or getattr(self, "is_fk", None) is None:
             self.is_fk = is_key_field(self.field)
 
-        if self.field.help_text is not None and self.field.help_text != "":
-            new_tooltip = self.field.help_text
+        # Reverse relations do not have a help_text attribute
+        # TODO: Put this hasattr logic in the related_field file
+        remote_field = field_path_to_field(
+            self.model, self.field_path, ignore_reverse_related=False
+        )
+        if (
+            hasattr(remote_field, "help_text")
+            and remote_field.help_text is not None
+            and remote_field.help_text != ""
+        ):
+            new_tooltip = remote_field.help_text
             if tooltip is not None:
                 new_tooltip += "\n\n" + tooltip
             kwargs.update({"tooltip": new_tooltip})

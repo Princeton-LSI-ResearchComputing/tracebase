@@ -1,5 +1,5 @@
 import importlib
-from typing import List, Optional, Type, Union
+from typing import Any, List, Optional, Type, Union
 from warnings import warn
 
 from chempy import Substance
@@ -8,18 +8,21 @@ from django.apps import apps
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import ProgrammingError
-from django.db.models import Expression, F, Field, Model, QuerySet
+from django.db.models import Expression, F, Field, Model, Q, QuerySet
 from django.db.models.expressions import Combinable
 from django.db.models.fields.related_descriptors import (
     ForwardManyToOneDescriptor,
     ManyToManyDescriptor,
     ReverseManyToOneDescriptor,
+    ReverseOneToOneDescriptor,
 )
+from django.db.models.fields.reverse_related import ForeignObjectRel
 from django.db.models.query_utils import DeferredAttribute
 from django.urls import resolve
 
 # Postgres-specific function values for annotations
 DATE_FORMAT = "YYYY-MM-DD"  # Postgres date format syntax
+DATETIME_FORMAT = "YYYY-MM-DD HH24:MI:SS"  # Postgres date format syntax
 DBSTRING_FUNCTION = "to_char"  # Postgres function
 DURATION_SECONDS_ATTRIBUTE = "epoch"  # Postgres interval specific
 
@@ -48,6 +51,28 @@ ALL_MODELS_IN_SAFE_DELETION_ORDER = [
     "InfusateTracer",
     "Protocol",
     "Study",
+]
+
+DJANGO_LOOKUPS = [
+    "exact",
+    "iexact",
+    "contains",
+    "icontains",
+    "in",
+    "gt",
+    "gte",
+    "lt",
+    "lte",
+    "startswith",
+    "istartswith",
+    "endswith",
+    "iendswith",
+    "range",
+    "year",
+    "month",
+    "day",
+    "week_day",
+    "isnull",
 ]
 
 
@@ -128,32 +153,46 @@ def resolve_field(
         ForwardManyToOneDescriptor,
         ManyToManyDescriptor,
         ReverseManyToOneDescriptor,
-    ]
+        ReverseOneToOneDescriptor,
+    ],
+    model: Optional[Type[Model]] = None,
 ) -> Field:
-    """A field at the end of a model path can be a deferred attribute or any of a series of 4 descriptors.  This method
-    takes the field and returns the actual field (if it is deferred or a descriptor, otherwise, the supplied field).
+    """A field at the end of a model path can be a deferred attribute or a descriptor.  If a model is not supplied, this
+    method takes the field and returns the actual field (if it is deferred or a descriptor, otherwise, the supplied
+    field).  If a model is supplied, it returns the field directly associated with the model, whether it is real or
+    not, which includes reverse relations.
 
     Args:
         field (Union[Field, DeferredAttribute, ForwardManyToOneDescriptor, ManyToManyDescriptor,
             ReverseManyToOneDescriptor]): A representation of a Field.
+        model (Optional[Type[Model]]): Supplying a model tells this method that you want the field directly associated
+            with the model, even if it is an automatically created reverse-relation field that doesn't have attributes
+            like help_text or choices.  Use this if you need the field that is an attribute of a specific model instead
+            of the "remote" field created in the related model.
     Exceptions:
         None
     Returns:
         (Field): A Field instance, resolved from one of a number of representations of a Field.
     """
-    field_containers = [
+    field_containers = (
         DeferredAttribute,
         ForwardManyToOneDescriptor,
         ManyToManyDescriptor,
         ReverseManyToOneDescriptor,
-    ]
-    return (
-        field.field if any(isinstance(field, fc) for fc in field_containers) else field
     )
+    if isinstance(field, field_containers):
+        # To get the field from the model where it was defined (i.e. a real field)
+        if model is not None and not hasattr(model, field.field.name):
+            return field.rel
+        # Otherwise return a reverse related field (not a real field):
+        return field.field
+    elif isinstance(field, ReverseOneToOneDescriptor):
+        return field.related
+    return field
 
 
 def resolve_field_path(
-    field_or_expression: Union[str, Combinable, DeferredAttribute, Field],
+    field_or_expression: Union[str, Combinable, DeferredAttribute, Field, Q, List[str]],
     _level=0,
 ) -> str:
     """Takes a representation of a field, e.g. from Model._meta.ordering, which can have transform functions applied
@@ -175,11 +214,15 @@ def resolve_field_path(
     Limitations:
         1. Only supports a single source field path.
     Args:
-        field_or_expression (Union[str, Combinable]): A str (e.g. a field path), Combinable (e.g. an F, Transform [like
-            Lower("name")], Expression, etc object), or a Model Field.
+        field_or_expression (Union[str, Combinable, DeferredAttribute, Field, Q, List[str]]): A str (e.g. a field path),
+            Combinable (e.g. an F, Transform [like Lower("name")], Expression, etc object), a Model Field (or a
+            DeferredAttribute representing a Model Field), a Q object (e.g. an expression inside a SubQuery Combinable),
+            or a str list (because extracting field paths from a Q object can return multiple paths).
         _level (int): Recursion level, used to determine whether to raise an exception or return ""
     Exceptions:
         ValueError when the field_or_expression contains multiple field paths.
+        MultipleFields
+        NoFields
     Returns
         field_path (str): The field path that either was the field_or_expression or its wrapper
     """
@@ -191,11 +234,32 @@ def resolve_field_path(
         )
     elif isinstance(field_or_expression, Field):
         return field_or_expression.name
+    elif isinstance(field_or_expression, Q):
+        return resolve_field_path(
+            extract_field_paths_from_q(field_or_expression), _level=_level + 1
+        )
+    elif isinstance(field_or_expression, list):
+        if len(field_or_expression) == 0:
+            if _level > 0:
+                # Return an empty string (to stay type-consistent) to indicate no fields detected in the expression(s)
+                return ""
+            else:
+                # If we're back to the original caller and there are still no expressions, raise an exception.
+                raise NoFields("No field name in field representation.")
+        elif len(field_or_expression) > 1:
+            raise MultipleFields(
+                f"Multiple field names in field representation {field_or_expression}."
+            )
+        return field_or_expression[0]
     elif isinstance(field_or_expression, DeferredAttribute):
         return field_or_expression.field.name
     elif isinstance(field_or_expression, Expression):
         field_reps = [
-            f if isinstance(f, str) else resolve_field_path(f, _level=_level + 1)
+            (
+                f
+                if isinstance(f, str) and f != ""
+                else resolve_field_path(f, _level=_level + 1)
+            )
             for f in field_or_expression.get_source_expressions()
         ]
         # Filter out empty strings, which indicate no fields found
@@ -219,9 +283,9 @@ def resolve_field_path(
     elif isinstance(field_or_expression, F):
         return field_or_expression.name
     else:
-        raise ProgrammingError(
-            f"Unexpected field_or_expression type: '{type(field_or_expression).__name__}' for expression: "
-            f"{field_or_expression}."
+        raise NoFields(
+            f"Unsupported field_or_expression type: '{type(field_or_expression).__name__}' for expression: "
+            f"{field_or_expression}.  Returning empty string."
         )
 
 
@@ -241,7 +305,7 @@ def is_related(field_path: str, model: Type[Model]):
     return "__" in field_path or first_field.is_relation
 
 
-def is_many_related(field: Field, source_model: Optional[Model] = None):
+def is_many_related(field: Field, source_model: Optional[Type[Model]] = None):
     """Takes a field (and optional source model) and returns whether that field is many-related relative to the source
     model.
 
@@ -255,7 +319,7 @@ def is_many_related(field: Field, source_model: Optional[Model] = None):
         1. source_model is assumed to be the model where the field was defined, if source_model is None.
     Args:
         field (Field): A Field instance.
-        source_model (Optional[Model]): The model where field is being accessed.
+        source_model (Optional[Type[Model]]): The model where field is being accessed.
             NOTE: A related field has 2 associated models, one of which may not be many-related with the other that is,
             so the result depends on the source_model from which you are accessing the field.
     Exceptions:
@@ -274,6 +338,12 @@ def is_many_related(field: Field, source_model: Optional[Model] = None):
         )
         or (source_model is None and field.one_to_many)
     )
+
+
+def is_reverse_related_field(field: Field) -> bool:
+    # NOTE: remote_field being defined is not always a good indicator that a field is a reverse relation.
+    # E.g. ReverseOneToOneDescriptor
+    return field.auto_created or isinstance(field, ForeignObjectRel)
 
 
 def is_many_related_to_root(
@@ -342,13 +412,17 @@ def is_many_related_to_parent(
     )
 
 
-def field_path_to_field(model: Type[Model], path: Union[str, List[str]]) -> Field:
+def field_path_to_field(
+    model: Type[Model], path: Union[str, List[str]], ignore_reverse_related: bool = True
+) -> Field:
     """Recursive method to take a root model and a dunderscore-delimited path and return the Field class at the end of
     the path.  The intention is so that the Field can be interrogated as to type or retrieve choices, etc.
 
     Args:
         model (Type[Model]): Model class at the root of the path.
         path (Union[str, List[str]]): Dunderscore-delimited field path string or list of dunderscore-split fields.
+        ignore_reverse_related (bool): Only return actual fields, not reverse related fields.
+            NOTE: Reverse related fields don't have help_text, choices, etc.
     Exceptions:
         ValueError when an argument is invalid.
         AttributeError when any field in the path is not present on the associated model.
@@ -360,15 +434,24 @@ def field_path_to_field(model: Type[Model], path: Union[str, List[str]]) -> Fiel
     if path is None or len(path) == 0:
         raise ValueError("path string/list must have a non-zero length.")
     if isinstance(path, str):
-        return field_path_to_field(model, path.split("__"))
+        return field_path_to_field(
+            model, path.split("__"), ignore_reverse_related=ignore_reverse_related
+        )
     if len(path) == 1:
         name = resolve_field_path(path[0])
         if hasattr(model, name):
-            return resolve_field(getattr(model, name))
+            # print(f"XX model {model.__name__} field: {name}")
+            if ignore_reverse_related:
+                return resolve_field(getattr(model, name))
+            return resolve_field(getattr(model, name), model=model)
         raise AttributeError(
             f"Model: {model.__name__} does not have a field attribute named: '{name}'."
         )
-    return field_path_to_field(get_next_model(model, path[0]), path[1:])
+    return field_path_to_field(
+        get_next_model(model, path[0]),
+        path[1:],
+        ignore_reverse_related=ignore_reverse_related,
+    )
 
 
 def get_next_model(current_model: Model, field_name: str) -> Type[Model]:
@@ -840,7 +923,11 @@ def dereference_field(field_name: str, model_name: str) -> str:
     return deref_field
 
 
-def get_model_by_name(model_name):
+def get_model_by_name(model_name: str):
+    if "." in model_name:
+        # This is mainly for the tests which supply "loader.ModelName"
+        return apps.get_model(*list(model_name.split(".")))
+    model_name = model_name.replace("DataRepo.", "")
     return apps.get_model("DataRepo", model_name)
 
 
@@ -1019,7 +1106,8 @@ def _get_field_val_by_iteration_helper(
     field_path: List[str],
     related_limit: int = 5,
     sort_field_path: Optional[List[str]] = None,
-    _sort_val: Optional[List[str]] = None,
+    _sort_val: Optional[Any] = None,
+    _uniq_val: Optional[Any] = None,
 ):
     """Private recursive method that takes a record and a path and traverses the record along the path to return
     whatever value is at the end of the path.  If it traverses through a many-related model, it returns a list of
@@ -1053,8 +1141,10 @@ def _get_field_val_by_iteration_helper(
         related_limit (int) [5]: Truncate/stop at this many (many-related) records.
         sort_field_path (Optional[List[str]]): A path from the rec object to a sort field, that has been split by
             dunderscores.  Only relevant if you know the field path to traverse through a many-related model.
-        _sort_val (Optional[List[str]]): Do not supply.  This holds the sort value if the field path is longer than
+        _sort_val (Optional[Any]): Do not supply.  This holds the sort value if the field path is longer than
             the sort field path.
+        _uniq_val (Optional[Any]): Do not supply.  This holds the unique value if the field path is longer than
+            the path to the last many-related model.
         NOTE: We don't need to know if sorting is forward or reverse.  We are only returning tuples containing the
         sort value.  The sort must be done later, by the caller.
     Exceptions:
@@ -1089,6 +1179,7 @@ def _get_field_val_by_iteration_helper(
             related_limit=related_limit,
             sort_field_path=sort_field_path,
             _sort_val=_sort_val,
+            _uniq_val=_uniq_val,
         )
 
     # A many-related field can return a single (tuple) value instead of a list if a None exists on the path before the
@@ -1124,7 +1215,8 @@ def _get_field_val_by_iteration_onerelated_helper(
     field_path: List[str],
     related_limit: int = 5,
     sort_field_path: Optional[List[str]] = None,
-    _sort_val: Optional[List[str]] = None,
+    _sort_val: Optional[Any] = None,
+    _uniq_val: Optional[Any] = None,
 ):
     """Private recursive method that takes a field_path and a record (that is 1:1 related with the first element in
     the remaining field_path) and traverses the record along the path to return whatever ORM object's field value is
@@ -1142,8 +1234,10 @@ def _get_field_val_by_iteration_onerelated_helper(
         related_limit (int) [5]: Truncate/stop at this many (many-related) records.
         sort_field_path (Optional[List[str]]): A path from the rec object to a sort field, that has been split by
             dunderscores.  Only relevant if you know the field path to traverse through a many-related model.
-        _sort_val (Optional[List[str]]): Do not supply.  This holds the sort value if the field path is longer than
+        _sort_val (Optional[Any]): Do not supply.  This holds the sort value if the field path is longer than
             the sort field path.
+        _uniq_val (Optional[Any]): Do not supply.  This holds the unique value if the field path is longer than
+            the path to the last many-related model.
     Exceptions:
         ValueError when the sort field returns more than 1 value.
     Returns:
@@ -1180,11 +1274,10 @@ def _get_field_val_by_iteration_onerelated_helper(
         _sort_val = sort_val
 
     if len(field_path) == 1:
-        uniq_val = val_or_rec
-        if isinstance(val_or_rec, Model):
-            uniq_val = val_or_rec.pk
+        if _uniq_val is None:
+            _uniq_val = rec.pk
         # NOTE: Returning the value, a value to sort by, and a value that makes it unique per record (or field)
-        return val_or_rec, _sort_val, uniq_val
+        return val_or_rec, _sort_val, _uniq_val
 
     # The foreign key is None and iterating deeper would cause an exception, so return a None tuple
     if val_or_rec is None:
@@ -1196,6 +1289,7 @@ def _get_field_val_by_iteration_onerelated_helper(
         related_limit=related_limit,
         sort_field_path=next_sort_field_path,
         _sort_val=_sort_val,
+        _uniq_val=_uniq_val,
     )
 
 
@@ -1204,7 +1298,7 @@ def _get_field_val_by_iteration_manyrelated_helper(
     field_path: List[str],
     related_limit: int = 5,
     sort_field_path: Optional[List[str]] = None,
-    _sort_val: Optional[List[str]] = None,
+    _sort_val: Optional[Any] = None,
 ):
     """Private recursive method that takes a field_path and a record (that is many:1_or_many related with the first
     element in the remaining field_path) and traverses the record along the path to return values found at the end
@@ -1217,6 +1311,9 @@ def _get_field_val_by_iteration_manyrelated_helper(
     - _last_many_rec_iterator
     - _recursive_many_rec_iterator
 
+    NOTE: Being many-related, _uniq_val is not needed as an argument, because primary key in this model is the source of
+    the _uniq_val.
+
     Assumptions:
         1. The sort_field_path value starts with the field_path
     Args:
@@ -1226,8 +1323,8 @@ def _get_field_val_by_iteration_manyrelated_helper(
         related_limit (int) [5]: Truncate/stop at this many (many-related) records.
         sort_field_path (Optional[List[str]]): A path from the rec object to a sort field, that has been split by
             dunderscores.  Only relevant if you know the field path to traverse through a many-related model.
-        _sort_val (Optional[List[str]]): Do not supply.  This holds the sort value if the field path is longer than
-            the sort field path.
+        _sort_val (Optional[Any]): Do not supply.  This holds the sort value if the field path is longer than the sort
+            field path.
     Exceptions:
         ValueError when the sort field returns more than 1 value.
     Returns:
@@ -1302,6 +1399,9 @@ def _last_many_rec_iterator(
 
     NOTE: This lower-cases the sort value (if it is a str).
 
+    NOTE: Being many-related, _uniq_val is not needed as an argument, because primary key in this model is the source of
+    the _uniq_val.
+
     Args:
         mr_qs: (QuerySet): A queryset of values that are many-related to self.model.
         next_sort_field_path (Optional[List[str]]): The next sort_field_path that can be supplied directly to
@@ -1344,6 +1444,9 @@ def _recursive_many_rec_iterator(
     reaches its goal.  This is called when a many-related model is encountered before we're at the end of the
     field_path.
 
+    NOTE: Being many-related, _uniq_val is not needed as an argument, because primary key in this model updates the
+    _uniq_val.
+
     Args:
         mr_qs: (QuerySet): A queryset of values that are many-related to the model the queryset comes from.
         field_path (List[str])
@@ -1358,6 +1461,7 @@ def _recursive_many_rec_iterator(
         (Tuple[Any, Any, Any]): The value, sort-value, and primary key of the many-related model
     """
     mr_rec: Model
+    # TODO: The prototype uses .distinct() here.  See if that improves performance...
     for mr_rec in mr_qs.all():
         val = _get_field_val_by_iteration_helper(
             mr_rec,
@@ -1365,6 +1469,8 @@ def _recursive_many_rec_iterator(
             related_limit=related_limit,
             sort_field_path=next_sort_field_path,
             _sort_val=_sort_val,
+            # At every point in the field_path that is many-related to its parent, update the unique val
+            _uniq_val=mr_rec.pk,
         )
         if isinstance(val, tuple):
             yield val
@@ -1397,7 +1503,7 @@ def get_many_related_field_val_by_subquery(
             This will be prepended with the field_path and appended with the primary key of the last many-related
             model foreign key in the field_path.
     Exceptions:
-        None
+        ProgrammingError
     Returns:
         vals_list (list): A unique list of values from the many-related model at the end of the field path.
     """
@@ -1413,19 +1519,41 @@ def get_many_related_field_val_by_subquery(
     related_model = model_path_to_model(rec.__class__, related_model_path)
     is_fk = related_model_path == field_path
 
+    # TODO: Add the ability to handle foreign keys in the order_bys and distincts arguments.  RN, the developer has to
+    # supply the pre-determined values that account for model ordering fields.  In other words, the supplied order_bys
+    # and distincts are put directly into the query without ensuring there aren't other fields that Django will
+    # automatically add from the model ordering, which is what causes exceptions about order-bys having to match
+    # distincts.
+
     # Append the actual field from the column (which may differ from the sort's field [c.i.p. as happens in column
     # groups])
-    order_bys.append(field_path)
+    if is_fk:
+        # If this is a foreign key, django incorporates the related model's ordering fields.  We must incorporate them
+        # to avoid a ProgrammingError arisen from Django's core code
+        ob_fields = get_distinct_fields(type(rec), field_path)
+        order_bys.extend(ob_fields)
+    else:
+        ob_fields = [field_path]
+        order_bys.append(field_path)
     # Append the many-related model's primary key in order to force a value for each distinct record
     order_bys.append(f"{many_related_model_path}__pk")
+    order_bys.append(f"{related_model_path}__pk")
 
-    # Prepend the actual field from the column (which may differ from the sort).  We put it first so we can easily
-    # extract it in the values_list.  This is necessary because Django's combination of annotate, distinct, and
+    # Prepend the actual field (or fields) from the column (which may differ from the sort).  We put it first so we can
+    # easily extract it in the values_list.  This is necessary because Django's combination of annotate, distinct, and
     # values_list have some quirks that prevent an intuitive usage of just flattening with the one value you want.
     # I tried many different versions of this before figuring this out.
-    distincts.insert(0, field_path)
-    # Append the many-related model's primary key in order to force a value for each distinct record
-    distincts.append(f"{many_related_model_path}__pk")
+    if is_fk:
+        distincts = (
+            [f"{related_model_path}__pk", f"{many_related_model_path}__pk"]
+            + ob_fields
+            + distincts
+        )
+    else:
+        distincts = ob_fields + distincts
+        # Append the many-related model's primary key in order to force a value for each distinct record
+        distincts.append(f"{related_model_path}__pk")
+        distincts.append(f"{many_related_model_path}__pk")
 
     # We re-perform (essentially) the same query that generated the table, but for one root-table record, and with
     # all of the many-related values joined in to "split" the row, but we're only going to keep those many-related
@@ -1433,7 +1561,8 @@ def get_many_related_field_val_by_subquery(
     # will represent a unique many-related model record.  Furthermore, if the column is in a column group, the
     # order-bys will by based on the same field expression, because BSTColumnGroup modifies col.sorter.
     qs = (
-        rec.__class__.objects
+        type(rec)
+        .objects
         # Filter for the current root model record
         .filter(pk=rec.pk)
         # The annotation is for use in the order_by, since it needs to be supplied to .distinct()
@@ -1445,15 +1574,76 @@ def get_many_related_field_val_by_subquery(
         # NOTE: This makes it distinct per the target many-related model record, even if there exist multiple many-
         # related models in the field path.
         .distinct(*distincts)
+        .values_list(*distincts)
     )
 
-    vals_list = [
-        # Return an object, like an actual queryset does, if val is a foreign key field
-        related_model.objects.get(pk=val) if is_fk else val
-        for val in list(v[0] for v in qs.values_list(*distincts)[0:related_limit])
-    ]
+    try:
+        vals_list = [
+            # Return an object, like an actual queryset does, if val is a foreign key field
+            related_model.objects.get(pk=val) if is_fk and val is not None else val
+            for val in list(v[0] for v in qs[0:related_limit])
+        ]
+    except (ProgrammingError, ObjectDoesNotExist) as pe:
+        raise ProgrammingError(
+            f"Error executing (0-{related_limit} sliced) query:\n\n"
+            f"QUERY: {qs.query}\n\n"
+            f"ERROR: {pe}\n"
+            "using:\n\n"
+            f"\tMODEL: {type(rec).__name__}\n"
+            f"\tFILTER: pk={rec.pk}\n"
+            f"\tANNOTATIONS: {annotations}\n"
+            f"\tORDER_BYS: {order_bys}\n"
+            f"\tDISTINCTS: {distincts}\n"
+            f"\tVALUES_LIST: {distincts}\n"
+        )
 
     return vals_list
+
+
+def extract_field_paths_from_q(q_obj: Q) -> List[str]:
+    """Recursively extracts all field paths from a Django Q object.
+
+    Example:
+        extract_field_paths_from_q(Q(animal__name__icontains="test") | Q(animal__study__pk=5))
+        # ["animal__name", "animal__study__pk"]
+    Limitations:
+        1. Only supports a simple lookup, where the first element of the tuple is assumed to be the field path
+    Args:
+        q_obj (Q)
+        model (Type[Model])
+    Exceptions:
+        None
+    Returns:
+        field_paths (List[str]): A list of field_paths extracted from the Q expression(s) from the left hand side (with
+            lookups removed).
+    """
+    field_paths = set()
+    for child in q_obj.children:
+        if isinstance(child, Q):
+            field_paths.update(extract_field_paths_from_q(child))
+        else:
+            field_paths.add(remove_lookup(child[0]))
+    return list(field_paths)
+
+
+def remove_lookup(field_path: Union[List[str], str]):
+    """Chops off the lookup (if present) from the end of a field_path by checking it against a list of known django
+    lookups
+
+    Examples:
+        remove_lookup("sample__name__icontains")  # "sample__name"
+    Args:
+        field_path (Union[List[str], str])
+    Exceptions:
+        None
+    Returns:
+        (str)
+    """
+    if not isinstance(field_path, list):
+        return remove_lookup(field_path.split("__"))
+    if field_path[-1] in DJANGO_LOOKUPS:
+        field_path.pop()
+    return "__".join(field_path)
 
 
 # TODO: This should be removed and the BSTManyRelatedColumn class should have a python sort method to take its place
