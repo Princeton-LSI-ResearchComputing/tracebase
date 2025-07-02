@@ -1,10 +1,23 @@
 from typing import Optional, Type
 from warnings import warn
 
-from django.db.models import Model
-from django.db.models.expressions import Combinable
+from django.conf import settings
+from django.db.models import Field, Model
+from django.db.models.expressions import Combinable, Expression
 
-from DataRepo.models.utilities import field_path_to_field, resolve_field_path
+from DataRepo.models.utilities import (
+    MultipleFields,
+    NoFields,
+    field_path_to_field,
+    get_model_by_name,
+    is_key_field,
+    is_number_field,
+    is_reverse_related_field,
+    is_string_field,
+    model_path_to_model,
+    resolve_field_path,
+)
+from DataRepo.utils.exceptions import DeveloperWarning, trace
 from DataRepo.views.models.bst.column.base import BSTBaseColumn
 from DataRepo.views.models.bst.column.filterer.annotation import (
     BSTAnnotFilterer,
@@ -87,33 +100,83 @@ class BSTAnnotColumn(BSTBaseColumn):
                         Func
                         etc.
             model (Optional[Type[Model]]): If provided, an attempt will be made to resolve the field from the converter.
-                If exactly 1 exists, it will be used to set (or prepend to) the tooltip.
+                If exactly 1 exists, it will be used to populate (or add to) the column header's tooltip.
         Exceptions:
             None
         Returns:
             None
         """
         self.converter = converter
-        self.model = model
+
+        # self.model is used in conjunction with the field_path extracted from self.converter to set an initial value
+        # for self.related_model.  This is dependent on whether a single field_path can be extracted from
+        # self.converter.  But note that there is a chance that this won't work to create a link (or create an incorrect
+        # link), because it assumes that the output of the annotation is a key field if the extracted field_path from
+        # the converter is a key field.  This may not be the case.  This can be overridden by the output_field (also
+        # derived from the converter), if it is a key field.
+        self.model: Optional[Type[Model]] = model
+
+        # NOTE: self.related_model will only be set if the output of the converter is a foreign key.
+        # It enables get_model_object to be able to return a model object of the related_model when supplied with the
+        # annotation value (an 'id').
+        self.related_model: Optional[Model] = None
+
+        # output_field is used to set (/override) self.related_model if it is a key field (e.g. ForeignKey or
+        # ManyToManyField) (whether model is provided or not).
+        output_field: Optional[Field] = None
 
         # If we have a model, see if we can extract a field from the combinable in order to populate the tooltip with
         # the field's help_text
         if model is not None:
             try:
                 field_path = resolve_field_path(converter)
-            except ValueError as ve:
+            except (ValueError, NoFields, MultipleFields) as ve:
                 field_path = None
                 warn(
                     f"Unable to get help_text from field from model '{model.__name__}' in annotation '{name}' "
                     f"expression '{converter}'.  {ve}"
                 )
             if field_path is not None:
-                field = field_path_to_field(model, field_path)
-                if field.help_text is not None:
-                    new_tooltip = field.help_text
+                remote_field = field_path_to_field(
+                    model, field_path, ignore_reverse_related=False
+                )
+                if (
+                    not is_reverse_related_field(remote_field)
+                    and remote_field.help_text is not None
+                ):
+                    new_tooltip = remote_field.help_text
                     if "tooltip" in kwargs.keys() and kwargs["tooltip"] is not None:
                         new_tooltip += "\n\n" + kwargs["tooltip"]
                     kwargs.update({"tooltip": new_tooltip})
+
+                # If this is a key field, we will assume that the annotation output is the ID of a record from that
+                # model, so we can link it.
+                if is_key_field(field_path, model=model):
+                    self.related_model = model_path_to_model(model, field_path)
+
+        if isinstance(self.converter, Expression):
+            try:
+                if isinstance(self.converter.output_field, type):
+                    output_field = self.converter.output_field()
+                else:
+                    output_field = self.converter.output_field
+            except AttributeError as ae:
+                raise AttributeError(
+                    f"Missing required output_field in expression '{self.converter}'.\nPlease supply the "
+                    f"'output_field' argument with a Field instance to the expression.\nOriginal error: {ae}"
+                ).with_traceback(ae.__traceback__)
+
+            if not is_number_field(output_field) and not is_string_field(output_field):
+                kwargs["sortable"] = False
+                kwargs["searchable"] = False
+        else:
+            kwargs["sortable"] = False
+            kwargs["searchable"] = False
+
+        # # If we have an output field that is a key field (overriding any model as could have been derived from a
+        # field_path extracted from the converter)
+        if output_field is not None and is_key_field(output_field):
+            self.related_model = get_model_by_name(output_field.related_model)
 
         super().__init__(name, **kwargs)
 
@@ -131,3 +194,36 @@ class BSTAnnotColumn(BSTBaseColumn):
     ) -> BSTAnnotFilterer:
         field_path = field if field is not None else self.name
         return BSTAnnotFilterer(field_path, **kwargs)
+
+    def get_model_object(self, id: int):
+        """If the field extracted from the converter is a foreign key and its output field is a foreign key, call this
+        method, supplying it the annotation value), to get the model object.
+
+        Assumptions:
+            1. If self.related_model is not None, then the output of the annotation is a foreign key value that can be
+                looked up.
+        Limitations:
+            1. Does not raise an exception if the record is not found
+        Args:
+            id (int): A model key value
+        Exceptions:
+            None
+        Returns:
+            (Optional[Model])
+        """
+        if (
+            self.related_model is not None
+            and issubclass(self.related_model, Model)
+            and isinstance(id, int)
+        ):
+            obj = self.related_model.objects.filter(pk=id).first()
+            if settings.DEBUG and obj is None:
+                warn(
+                    (
+                        f"{trace()}\n{self.related_model.__name__} record not found using annotation value '{id}' from "
+                        f"annotation column '{self.name}'."
+                    ),
+                    DeveloperWarning,
+                )
+            return obj
+        return None

@@ -90,7 +90,7 @@ class SampleListView(BSTListView):
             "tooltip": "Units: weeks.",
         },
         "date_str": {"header": "Date"},
-        "tracer_links_mm_count": {"header": "Tracer Count"},
+        "animal_infusate_tracer_links_mm_count": {"header": "Tracer Count"},
         "msrun_samples_mm_count": {"header": "MSRun Count"},
 
         # Many-related model column customizations
