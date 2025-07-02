@@ -4,6 +4,7 @@ from django.db.models import (
     FloatField,
     ForeignKey,
     ManyToManyField,
+    OneToOneField,
 )
 from django.db.models.functions import Lower
 from django.test import override_settings
@@ -41,6 +42,12 @@ BSTRCAnimalTestModel = create_test_model(
             related_name="animals",
             on_delete=CASCADE,
         ),
+        "weirdone": OneToOneField(
+            to="loader.BSTRCWeirdOneTestModel",
+            on_delete=CASCADE,
+            primary_key=True,
+            related_name="weird_animal",
+        ),
     },
     attrs={
         "get_absolute_url": lambda self: f"/DataRepo/animal/{self.pk}/",
@@ -54,6 +61,10 @@ BSTRCAnimalTestModel = create_test_model(
             },
         ),
     },
+)
+BSTRCWeirdOneTestModel = create_test_model(
+    "BSTRCWeirdOneTestModel",
+    {"name": CharField(max_length=255, unique=True)},
 )
 BSTRCSampleTestModel = create_test_model(
     "BSTRCSampleTestModel",
@@ -203,6 +214,10 @@ class BSTRelatedColumnTests(TracebaseTestCase):
             ).tooltip,
         )
 
+        # Make sure that the 1:1 reverse relation gets the right tooltip
+        c = BSTRelatedColumn("weirdone", BSTRCAnimalTestModel)
+        self.assertEqual(underscored_to_title("weirdone"), c.generate_header())
+
     @TracebaseTestCase.assertNotWarns()
     def test_init_display_field_nonfk(self):
         c = BSTRelatedColumn("sample__characteristic", BSTRCMSRunSampleTestModel)
@@ -341,3 +356,7 @@ class BSTRelatedColumnTests(TracebaseTestCase):
         c = BSTRelatedColumn("sample__animal__sex", BSTRCMSRunSampleTestModel)
         sh = c.generate_header()
         self.assertEqual(underscored_to_title("sex"), sh)
+
+        # Make sure that the 1:1 reverse relation gets the right header
+        c = BSTRelatedColumn("weirdone", BSTRCAnimalTestModel)
+        self.assertEqual(underscored_to_title("weirdone"), c.generate_header())

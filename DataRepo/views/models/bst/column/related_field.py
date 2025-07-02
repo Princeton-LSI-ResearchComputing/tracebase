@@ -11,11 +11,13 @@ from DataRepo.models.utilities import (
     field_path_to_field,
     field_path_to_model_path,
     is_key_field,
+    is_many_related,
+    is_reverse_related_field,
     is_unique_field,
     model_path_to_model,
     select_representative_field,
 )
-from DataRepo.utils.exceptions import DeveloperWarning
+from DataRepo.utils.exceptions import DeveloperWarning, trace
 from DataRepo.utils.text_utils import underscored_to_title
 from DataRepo.views.models.bst.column.field import BSTColumn
 from DataRepo.views.models.bst.column.filterer.field import BSTFilterer
@@ -150,6 +152,26 @@ class BSTRelatedColumn(BSTColumn):
 
         super().__init__(*args, **kwargs)
 
+        # Reverse relations do not have a help_text attribute
+        remote_field = field_path_to_field(
+            self.model, self.field_path, ignore_reverse_related=False
+        )
+        if not hasattr(remote_field, "help_text"):
+            is_mr = is_many_related(remote_field, source_model=self.model)
+            if is_reverse_related_field(remote_field) and not is_mr:
+                new_tooltip = (
+                    f"This is a reverse relationship to a single record of the '{self.related_model.__name__}' "
+                    "model."
+                )
+                if self.tooltip is not None:
+                    new_tooltip = f"{new_tooltip}\n\n{self.tooltip}"
+                self.tooltip = new_tooltip
+            elif not is_mr:
+                warn(
+                    f"{trace()}\nNo help_text found for field {self.model.__name__}.{remote_field.name}",
+                    DeveloperWarning,
+                )
+
         if self.is_fk:
             # To use .distinct(), you need the ordering fields from the related model, otherwise you get an exception
             # about the order_by and distinct fields being different
@@ -207,17 +229,20 @@ class BSTRelatedColumn(BSTColumn):
         return full_rep_field
 
     def generate_header(self):
-        """Generate a column header from the field_path.  Overrides super().generate_header.  This explicitly does not
-        use the field's name or its verbose name because the related_name (set by the linking model) of the foreign key
-        provides context that the field name or the related model name does not provide.  E.g. Compound.name linked to
-        from Tracer or PeakGroup could be "measured compound" or "tracer compound".
+        """Generate a column header from the field_path.  Overrides super().generate_header.  This only uses the field's
+        name or verbose_name if the field is not a reverse relation.  The field names of reverse relations refer to the
+        model that linked to it, which is "backwards".  For example, such a column header for a reverse relation off the
+        root model would end up with a header that is the same as the root model.  This also does not use the model name
+        of related model unless the leaf of the field path is "name".  The leaf of the field path provides context that
+        the field name or the related model name does not provide.  E.g. Compound linked to from Tracer or PeakGroup
+        could be "measured_compound" or "tracer_compound".
 
         Args:
             None
         Exceptions:
             None
         Returns:
-            None
+            (str): A header string, with pretty capitalization and underscores removed.
         """
         # Grab as many of the last 2 items from the field_path as is present
         path = self.field_path.split("__")
@@ -227,13 +252,21 @@ class BSTRelatedColumn(BSTColumn):
         if len(path) > 1 and path[-1] == "name" and is_unique_field(self.field):
             return underscored_to_title(path[-2])
 
-        # If the field has a verbose name different from name (because it's automatically filled in with name), use it
-        if self.field.name != self.field.verbose_name:
-            if any(c.isupper() for c in self.field.verbose_name):
+        # If the field belongs to the model of the last foreign key in the field_path (because the verbose name of a
+        # reverse relation refers to the reverse model) and has a verbose name different from name (because it's
+        # automatically filled in with name), use it
+        remote_field = field_path_to_field(
+            self.model, self.field_path, ignore_reverse_related=False
+        )
+        if (
+            not is_reverse_related_field(remote_field)
+            and remote_field.name != remote_field.verbose_name
+        ):
+            if any(c.isupper() for c in remote_field.verbose_name):
                 # If the field has a verbose name with caps, use it as-is
-                return self.field.verbose_name
+                return remote_field.verbose_name
             else:
-                return underscored_to_title(self.field.verbose_name)
+                return underscored_to_title(remote_field.verbose_name)
 
         # Otherwise, use the last 2 elements of the path
         return underscored_to_title(path[-1])
