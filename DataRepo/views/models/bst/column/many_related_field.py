@@ -25,6 +25,21 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
     """Class to represent the interface between a bootstrap column and a many-related Model field.  Many-related fields
     are displayed as delimited values in a table cell.
 
+    Out of the box, Django will pre-fetch many-related model objects, but they are not included among the fields in the
+    SQL query (at least, there is not a conventional join).  This is indicated by the fact that the count of the root
+    model objects reflects the actual number of root model objects.  Had there been a join, the total would have
+    reflected the joined rows.  Django manages those many-related objects effectively magically and you don't need to
+    understand it.  However, what WILL inflate the record count (and render more rows in the ListView) is if you sort on
+    a field from a many-related model field.  (Filtering is fine - it will not inflate the count.)  So what this class
+    does is, based on the sort direction, it applies aggregate functions in the sorter (Min() or Max()).  In the derived
+    class, you don't have to worry about it.  A BSTManyRelatedColumn can be treated like any other column.
+
+    And normally, in a relugar django ListView, you would have to iterate over the many-related nested models in the
+    template to render the values.  This class however, provides an attribute name that BSTListView uses to put the
+    distinct many-related values in a list attribute off the root model's record objects.  So in the template, you just
+    have to iterate over that one list attribute.  (But you can still iterate over the model objects in the standard
+    django way too).
+
     Usage:
         You can create a simple model field column using field paths like this:
 
@@ -37,6 +52,8 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
         This creates attribute names that can be used to assign many-related data to root model objects in the queryset.
         For example:
 
+            # YOU DON'T NEED TO DO THIS.  THIS IS FOR INFORMATIONAL PURPOSES ONLY.  THIS CODE ALREADY EXISTS IN
+            # BSTListView.  YOU CAN OVERRIDE THIS BY OVERRIDING THE paginate_queryset METHOD.
             study_list = []
             for object in BSTListView.paginate_queryset():
                 for study in object.studies.distinct():
@@ -45,6 +62,8 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
 
         Then, in the template, you can iterate over those objects:
 
+            {# NOR DO YOU NEED TO DO THIS.  THIS IS FOR INFORMATIONAL PURPOSES ONLY.  THIS CODE ALREADY EXISTS IN A #}
+            {# GENERIC TEMPLATE.  YOU CAN OVERRIDE IT WITH A CUSTOM TEMPLATE. #}
             {% for study in object|get_attr:studycol.list_attr_name %}
                 <a href="{{ study|get_detail_url }}">{{ study }}</a>{% if not forloop.last %}{{ studycol.delim }}<br>
                 {% endif %}
