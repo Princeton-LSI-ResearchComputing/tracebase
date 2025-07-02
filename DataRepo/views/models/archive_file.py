@@ -8,7 +8,7 @@ from django.db.models import (
     Value,
     When,
 )
-from django.db.models.aggregates import Count
+from django.db.models.aggregates import Count, Min
 from django.views.generic import DetailView
 
 from DataRepo.models import DATETIME_FORMAT, DBSTRING_FUNCTION, ArchiveFile
@@ -67,21 +67,23 @@ class ArchiveFileListView(BSTListView):
             output_field=CharField(),
             function=DBSTRING_FUNCTION,
         ),
-        "studies": Case(
-            When(
-                data_format__code="mzxml",
-                then="mz_to_msrunsamples__sample__animal__studies",
+        "studies": Min(
+            Case(
+                When(
+                    data_format__code="mzxml",
+                    then="mz_to_msrunsamples__sample__animal__studies",
+                ),
+                When(
+                    data_format__code="ms_raw",
+                    then="raw_to_msrunsamples__sample__animal__studies",
+                ),
+                When(
+                    data_type__code="ms_peak_annotation",
+                    then="peak_groups__msrun_sample__sample__animal__studies",
+                ),
+                default=Value(None),
+                output_field=ManyToManyField(to="DataRepo.Study"),
             ),
-            When(
-                data_format__code="ms_raw",
-                then="raw_to_msrunsamples__sample__animal__studies",
-            ),
-            When(
-                data_type__code="ms_peak_annotation",
-                then="peak_groups__msrun_sample__sample__animal__studies",
-            ),
-            default=Value(None),
-            output_field=ManyToManyField(to="DataRepo.Study"),
         ),
         "studies_count": Case(
             When(
