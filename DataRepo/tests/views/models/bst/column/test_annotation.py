@@ -4,11 +4,13 @@ from django.db.models import (
     DurationField,
     F,
     ForeignKey,
+    Func,
     IntegerField,
     Value,
 )
 from django.db.models.aggregates import Count
 from django.db.models.functions import Extract, Lower
+from django.test import override_settings
 
 from DataRepo.tests.tracebase_test_case import (
     TracebaseTestCase,
@@ -17,6 +19,7 @@ from DataRepo.tests.tracebase_test_case import (
 from DataRepo.tests.views.models.bst.column.test_field import (
     BSTCStudyTestModel,
 )
+from DataRepo.utils.exceptions import DeveloperWarning
 from DataRepo.utils.text_utils import underscored_to_title
 from DataRepo.views.models.bst.column.annotation import BSTAnnotColumn
 from DataRepo.views.models.bst.column.filterer.annotation import (
@@ -25,6 +28,24 @@ from DataRepo.views.models.bst.column.filterer.annotation import (
 from DataRepo.views.models.bst.column.filterer.field import BSTFilterer
 from DataRepo.views.models.bst.column.sorter.annotation import BSTAnnotSorter
 from DataRepo.views.models.bst.column.sorter.field import BSTSorter
+
+BACSampleTestModel = create_test_model(
+    "BACSampleTestModel",
+    {
+        "name": CharField(max_length=255, unique=True, help_text="Sample name."),
+        "time": DurationField(help_text="Storage time.", null=True),
+        "tissue": ForeignKey(
+            to="loader.BACTissueTestModel",
+            related_name="samples",
+            on_delete=CASCADE,
+        ),
+    },
+)
+
+BACTissueTestModel = create_test_model(
+    "BACTissueTestModel",
+    {"name": CharField(max_length=255, help_text="Tissue name.")},
+)
 
 
 class BSTAnnotColumnTests(TracebaseTestCase):
@@ -63,26 +84,6 @@ class BSTAnnotColumnTests(TracebaseTestCase):
         self.assertEqual("Meaning of Life", an)
 
     def test_tooltip(self):
-        # Models
-        BACSampleTestModel = create_test_model(
-            "BACSampleTestModel",
-            {
-                "name": CharField(
-                    max_length=255, unique=True, help_text="Sample name."
-                ),
-                "time": DurationField(help_text="Storage time."),
-                "tissue": ForeignKey(
-                    to="loader.BACTissueTestModel",
-                    related_name="samples",
-                    on_delete=CASCADE,
-                ),
-            },
-        )
-        BACTissueTestModel = create_test_model(
-            "BACTissueTestModel",
-            {"name": CharField(max_length=255, help_text="Tissue name.")},
-        )
-
         # basic case
         c = BSTAnnotColumn(
             "lower_name",
@@ -108,3 +109,41 @@ class BSTAnnotColumnTests(TracebaseTestCase):
             model=BACTissueTestModel,
         )
         self.assertEqual("Sample name.\n\nCount of sample names.", c.tooltip)
+
+    def test_get_model_object_fk_output(self):
+        """This tests that when a converter's output_field is a ForeignKey field, get_model_object will retrieve the
+        model object"""
+        nog = BACTissueTestModel.objects.create(id=1, name="noggin")
+        c = BSTAnnotColumn(
+            "tissue_annot",
+            Value(
+                1,
+                output_field=ForeignKey(
+                    to="loader.BACTissueTestModel", on_delete=CASCADE
+                ),
+            ),
+        )
+        self.assertEquivalent(nog, c.get_model_object(1))
+
+    @override_settings(DEBUG=True)
+    def test_get_model_object_extracted_from_field_path(self):
+        """This tests that when a converter contains a field path to a foreign key (even if the output_field is not a
+        key field), get_model_object will retrieve the model object"""
+        nog = BACTissueTestModel.objects.create(id=5, name="noggin")
+        BACSampleTestModel.objects.create(id=1, name="s1", tissue=nog)
+        c = BSTAnnotColumn(
+            "lower_tissue",
+            # All I need is an expression that takes the foreign key field path to be extracted
+            Func("tissue", output_field=IntegerField()),
+            model=BACSampleTestModel,
+        )
+        self.assertEqual(c.related_model, BACTissueTestModel)
+        self.assertEquivalent(nog, c.get_model_object(5))
+        # Assert that when the record is not found, it returns None
+        with self.assertWarns(DeveloperWarning) as aw:
+            self.assertIsNone(c.get_model_object(6))
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn(
+            "BACTissueTestModel record not found using annotation value '6' from annotation column 'lower_tissue'.",
+            str(aw.warnings[0].message),
+        )
