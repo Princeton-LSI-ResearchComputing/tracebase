@@ -537,8 +537,8 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
 
     def test_extract_field_paths_from_q(self):
         self.assertEqual(
-            ["test", "field"],
-            extract_field_paths_from_q(Q(field="val") | Q(test="test")),
+            set(["test", "field"]),
+            set(extract_field_paths_from_q(Q(field="val") | Q(test="test"))),
         )
 
 
