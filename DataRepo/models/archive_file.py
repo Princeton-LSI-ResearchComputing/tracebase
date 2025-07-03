@@ -252,9 +252,22 @@ class ArchiveFile(models.Model):
         help_text="The path of the archived file on the filesystem",
     )
 
-    data_type = models.ForeignKey(DataType, on_delete=models.PROTECT)
+    data_type = models.ForeignKey(
+        DataType,
+        on_delete=models.PROTECT,
+        verbose_name="Data Type",
+        help_text="A categorization of data, e.g. 'raw mass spectrometry data'.",
+    )
 
-    data_format = models.ForeignKey(DataFormat, on_delete=models.PROTECT)
+    data_format = models.ForeignKey(
+        DataFormat,
+        on_delete=models.PROTECT,
+        verbose_name="Data Format",
+        help_text=(
+            "A description of how data is organized, usually associated with a specific tool version that generated "
+            "it, e.g. 'AccuCor'."
+        ),
+    )
 
     class Meta:
         verbose_name = "Archive File"

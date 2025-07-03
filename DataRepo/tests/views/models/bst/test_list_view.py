@@ -7,6 +7,7 @@ from django.db.models import (
     IntegerField,
     ManyToManyField,
     Q,
+    Value,
 )
 from django.db.models.aggregates import Count, Max
 from django.db.models.functions import Lower, Upper
@@ -28,7 +29,7 @@ from DataRepo.views.models.bst.column.related_field import BSTRelatedColumn
 from DataRepo.views.models.bst.column.sorter.many_related_field import (
     BSTManyRelatedSorter,
 )
-from DataRepo.views.models.bst.list_view import BSTListView
+from DataRepo.views.models.bst.list_view import BSTListView, QueryMode
 from DataRepo.views.utils import GracefulPaginator
 
 BSTLVStudyTestModel = create_test_model(
@@ -145,6 +146,13 @@ class BSTListViewTests(TracebaseTestCase):
             slv.postfilter_annots,
         )
         self.assertDictEquivalent({}, slv.prefilter_annots)
+
+    @TracebaseTestCase.assertNotWarns()
+    def test_init_query_mode(self):
+        slv1 = StudyLV()
+        self.assertEqual(QueryMode.iterate, slv1.query_mode)
+        slv2 = StudyLV(query_mode=QueryMode.subquery)
+        self.assertEqual(QueryMode.subquery, slv2.query_mode)
 
     @TracebaseTestCase.assertNotWarns()
     def test_init_search_cookie(self):
@@ -539,6 +547,34 @@ class BSTListViewTests(TracebaseTestCase):
         self.assertEqual("<Page 1 of 2>", str(page))
         self.assertQuerySetEqual(qs.all()[0:1], object_list)
         self.assertTrue(is_paginated)
+
+    def test_paginate_queryset_with_key_annot(self):
+        # NOTE: This test raises 2 expected warnings:
+        # 1. From the attempt to get help text:
+        #    Unable to get help_text from field from model 'BSTLVAnimalTestModel' in annotation 'studyannot' expression
+        #    'Value(1)'.  No field name in field representation.
+        # 2. From the sorter:
+        #    Unsupported field type 'ManyToManyField' from expression 'Value(1)'.
+        # These can be ignored.
+
+        class AnimalWithFKAnnotColLV(BSTListView):
+            model = BSTLVAnimalTestModel
+            annotations = {
+                "studyannot": Value(
+                    1, output_field=ManyToManyField(to="loader.BSTLVStudyTestModel")
+                ),
+            }
+
+        request = HttpRequest()
+        qs = BSTLVAnimalTestModel.objects.all()
+        alv = AnimalWithFKAnnotColLV(request=request)
+        alv.init_interface()
+        qs = alv.get_queryset()
+
+        _, _, object_list, _ = alv.paginate_queryset(qs, 1)
+
+        self.assertIsInstance(object_list[0].studyannot, BSTLVStudyTestModel)
+        self.assertEquivalent(self.s1, object_list[0].studyannot)
 
     @TracebaseTestCase.assertNotWarns()
     def test_set_list_attr(self):

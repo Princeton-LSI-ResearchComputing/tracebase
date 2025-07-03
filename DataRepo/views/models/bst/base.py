@@ -599,6 +599,14 @@ class BSTBaseListView(BSTClientInterface):
             count_annot_name = BSTManyRelatedColumn.get_count_name(
                 mr_model_path, self.model
             )
+            count_annot_header = (
+                underscored_to_title(
+                    BSTManyRelatedColumn.get_attr_stub(
+                        mr_model_path, self.model, succinct=True
+                    )
+                )
+                + " Count"
+            )
 
             if (
                 colname not in self.exclude
@@ -614,14 +622,7 @@ class BSTBaseListView(BSTClientInterface):
 
                 # Allow the derived class to have added custom settings for the count column
                 kwargs = {
-                    "header": (
-                        underscored_to_title(
-                            BSTManyRelatedColumn.get_attr_stub(
-                                mr_model_path, self.model
-                            )
-                        )
-                        + " Count"
-                    ),
+                    "header": count_annot_header,
                     "filterer": "strictFilterer",
                     "sorter": "numericSorter",
                 }
@@ -896,10 +897,8 @@ class BSTBaseListView(BSTClientInterface):
             else:
                 self.columns[colname] = BSTColumn(colname, self.model, **kwargs)
 
-        elif (
-            colname is not None
-            and "converter" in kwargs.keys()
-            or colname in self.annotations.keys()
+        elif colname is not None and (
+            "converter" in kwargs.keys() or colname in self.annotations.keys()
         ):
 
             if colname in self.annotations.keys() and "converter" not in kwargs.keys():
@@ -917,14 +916,26 @@ class BSTBaseListView(BSTClientInterface):
 
         elif len(kwargs.keys()) > 0 and not hasattr(self.model, first_field):
             raise ValueError(
-                f"Unable to determine column type for column '{colname}'.  The column name does not appear to be a "
-                "field path (no occurrences of '__') or annotation (no converter[/expression] in the column settings) "
-                f"and '{first_field}' is not a field in the model '{self.model.__name__}'."
+                f"Unable to determine column type for column '{colname}'.  The column name does not appear to be "
+                f"either a valid field path (because the model '{self.model.__name__}' has no attribute named "
+                f"'{first_field}') or annotation (because there is no converter in the column settings: {kwargs} and "
+                f"the column name does not appear in the annotations keys: {list(self.annotations.keys())})."
             )
         else:
+            def_count_cols = [
+                BSTManyRelatedColumn.get_count_name(
+                    field_path_to_model_path(self.model, f.name, many_related=True),
+                    self.model,
+                )
+                for f in self.model._meta.get_fields()
+                if is_many_related_to_root(f.name, self.model)
+            ]
             raise ValueError(
-                f"Unable to determine column type for column '{colname}'.  There was no 'converter' provided in the "
-                f"kwargs: {kwargs}."
+                f"Unable to determine column type for column '{colname}'.  It doesn't appear to be an annotation, "
+                f"because there was no 'converter' provided in the kwargs: {kwargs} and there was no matching "
+                f"annotation name: {list(self.annotations.keys())}, no column object in the column settings has a "
+                f"matching name: {list(self.column_settings.keys())}, and there are no default count columns that "
+                f"would generate a matching name: {def_count_cols}."
             )
 
         # Collect a unique set of javascripts needed by the columns

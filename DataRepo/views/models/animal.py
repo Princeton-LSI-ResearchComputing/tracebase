@@ -72,15 +72,21 @@ class AnimalListView(BSTListView):
             "tooltip": "Total number of Tracer Labels.",
             "visible": False,
         },
-        "tracer_links_mm_count": {
+        "infusate_tracer_links_mm_count": {
             "header": "Tracer Count",
             "tooltip": "Total number of Tracers.",
             "visible": False,
         },
-        "infusate__tracer_links__tracer": {"header": "Tracer(s)", "visible": False},
+        "infusate__tracer_links__tracer": {
+            "header": "Tracer(s)",
+            "visible": False,
+            "limit": 10,
+        },
+        "infusate__tracer_links__concentration": {"limit": 10},
         "infusate__tracer_links__tracer__compound": {
             "header": "Tracer Compound",
             "visible": False,
+            "limit": 10,
         },
         "studies_mm_count": {"tooltip": "Total number of Studies.", "visible": False},
     }

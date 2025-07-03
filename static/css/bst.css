@@ -7,7 +7,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: normal !important;
-  height: 5rem;
+  height: auto;
   min-width: 2rem !important;
 }
 

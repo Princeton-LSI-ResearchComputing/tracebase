@@ -222,7 +222,7 @@ class BSTManyRelatedColumnTests(TracebaseTestCase):
 
     def test_get_attr_stub(self):
         self.assertEqual(
-            "animal_body_weight",
+            "samples_animal_body_weight",
             BSTManyRelatedColumn.get_attr_stub(
                 "samples__animal__body_weight", BSTMRCTissueTestModel
             ),
@@ -248,7 +248,7 @@ class BSTManyRelatedColumnTests(TracebaseTestCase):
 
     def test_get_list_name(self):
         self.assertEqual(
-            f"animal_body_weight{BSTManyRelatedColumn._list_attr_tail}",
+            f"samples_animal_body_weight{BSTManyRelatedColumn._list_attr_tail}",
             BSTManyRelatedColumn.get_list_name(
                 "samples__animal__body_weight", BSTMRCTissueTestModel
             ),
@@ -259,6 +259,20 @@ class BSTManyRelatedColumnTests(TracebaseTestCase):
         c = BSTManyRelatedColumn("msrun_samples__name", BSTMRCSampleTestModel)
         sh = c.generate_header()
         self.assertEqual(underscored_to_title("msrun_samples"), sh)
+
+    def test_generate_header_reverse_relation(self):
+        # Test that the field name "animal" is not used
+        c = BSTManyRelatedColumn("samples", BSTMRCAnimalTestModel)
+        sh = c.generate_header()
+        self.assertEqual(underscored_to_title("samples"), sh)
+
+        c = BSTManyRelatedColumn("samples__name", BSTMRCAnimalTestModel)
+        sh = c.generate_header()
+        self.assertEqual(underscored_to_title("samples"), sh)
+
+        c = BSTManyRelatedColumn("samples__characteristic", BSTMRCAnimalTestModel)
+        sh = c.generate_header()
+        self.assertEqual(underscored_to_title("characteristic"), sh)
 
     def test_init_is_fk(self):
         self.assertTrue(

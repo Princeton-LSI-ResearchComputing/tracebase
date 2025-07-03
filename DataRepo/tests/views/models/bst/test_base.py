@@ -517,7 +517,7 @@ class BSTBaseListViewTests(TracebaseTestCase):
         self.assertEqual(
             [
                 "name",
-                "studies_mm_count",
+                "animal_studies_mm_count",
                 "animal__studies__name",
                 "animal__studies__desc",
             ],
@@ -715,8 +715,8 @@ class BSTBaseListViewTests(TracebaseTestCase):
         mlv.add_default_many_related_column_settings()
         self.assertDictEquivalent(
             {
-                "studies_mm_count": BSTAnnotColumn(
-                    "studies_mm_count",
+                "animal_studies_mm_count": BSTAnnotColumn(
+                    "animal_studies_mm_count",
                     Count(
                         "animal__studies", output_field=IntegerField(), distinct=True
                     ),
@@ -734,14 +734,14 @@ class BSTBaseListViewTests(TracebaseTestCase):
             model = BSTBLVSampleTestModel
             column_ordering = ["name", "animal__studies__name", "animal__studies__desc"]
             exclude = ["id", "animal__studies"]
-            column_settings = {"studies_mm_count": {"visible": False}}
+            column_settings = {"animal_studies_mm_count": {"visible": False}}
 
         clv = CustomSampleBLV()
         clv.add_default_many_related_column_settings()
         self.assertDictEquivalent(
             {
-                "studies_mm_count": BSTAnnotColumn(
-                    "studies_mm_count",
+                "animal_studies_mm_count": BSTAnnotColumn(
+                    "animal_studies_mm_count",
                     Count(
                         "animal__studies", output_field=IntegerField(), distinct=True
                     ),
@@ -762,14 +762,14 @@ class BSTBaseListViewTests(TracebaseTestCase):
             exclude = ["id", "animal__studies"]
             # Custom count annotation (could be anything, but arbitrarily using Value, just to have something different
             # and confirm it is used)
-            annotations = {"studies_mm_count": Value(5)}
+            annotations = {"animal_studies_mm_count": Value(5)}
 
         clv = SampleWithAnnotBLV()
         clv.add_default_many_related_column_settings()
         self.assertDictEquivalent(
             {
-                "studies_mm_count": BSTAnnotColumn(
-                    "studies_mm_count",
+                "animal_studies_mm_count": BSTAnnotColumn(
+                    "animal_studies_mm_count",
                     Value(5),
                     header="Studies Count",
                     filterer="strictFilterer",
@@ -787,14 +787,14 @@ class BSTBaseListViewTests(TracebaseTestCase):
             exclude = ["id", "animal__studies"]
             # Custom count annotation (could be anything, but arbitrarily using Value, just to have something different
             # and confirm it is used)
-            column_settings = {"studies_mm_count": {"converter": Value(5)}}
+            column_settings = {"animal_studies_mm_count": {"converter": Value(5)}}
 
         clv = SampleWithAnnotSettingBLV()
         clv.add_default_many_related_column_settings()
         self.assertDictEquivalent(
             {
-                "studies_mm_count": BSTAnnotColumn(
-                    "studies_mm_count",
+                "animal_studies_mm_count": BSTAnnotColumn(
+                    "animal_studies_mm_count",
                     Value(5),
                     header="Studies Count",
                     filterer="strictFilterer",
@@ -893,6 +893,8 @@ class BSTBaseListViewTests(TracebaseTestCase):
                     "limit_cookie_name",
                     "page_cookie_name",
                     "visible_cookie_name",
+                    "collapsed",
+                    "collapsed_cookie_name",
                     # columns is from this class
                     "columns",
                 ]

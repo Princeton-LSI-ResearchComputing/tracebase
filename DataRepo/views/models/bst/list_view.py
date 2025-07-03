@@ -74,13 +74,16 @@ class BSTListView(BSTBaseListView):
             }
     """
 
-    QueryModes = ["iterate", "subquery"]
+    query_mode = QueryMode.iterate
 
-    def __init__(self, *args, query_mode: QueryMode = QueryMode.iterate, **kwargs):
+    def __init__(self, *args, query_mode: Optional[QueryMode] = None, **kwargs):
         super().__init__(*args, **kwargs)
 
         # Change the query mode based on the data-influenced performance
-        self.query_mode = query_mode
+        if isinstance(query_mode, QueryMode):
+            self.query_mode = query_mode
+        else:
+            self.query_mode = type(self).query_mode
 
         # We can get the prefetches right away, because none of that is based on cookies.
         self.prefetches: List[str] = self.get_prefetches()
@@ -278,8 +281,11 @@ class BSTListView(BSTBaseListView):
             *args, **kwargs
         )
 
-        # If there are any many-related columns
-        if any(isinstance(c, BSTManyRelatedColumn) for c in self.columns.values()):
+        # If there are any many-related or annotated columns
+        if any(
+            isinstance(c, (BSTManyRelatedColumn, BSTAnnotColumn))
+            for c in self.columns.values()
+        ):
 
             # For each record on this page, compile all of the many-related records and save them in an attribute off
             # the root model.
@@ -304,6 +310,16 @@ class BSTListView(BSTBaseListView):
                             )
 
                         column.set_list_attr(rec, subrecs)
+
+                    elif isinstance(column, BSTAnnotColumn):
+
+                        # See if there are any foreign key annotations
+                        model_obj: Model = column.get_model_object(
+                            getattr(rec, column.name)
+                        )
+
+                        if model_obj is not None:
+                            setattr(rec, column.name, model_obj)
 
         return paginator, page, object_list, is_paginated
 
@@ -606,7 +622,7 @@ class BSTListView(BSTBaseListView):
                 sort_field_path = col.sorter.field_path.split("__")
             else:
                 raise ProgrammingError(
-                    "BSTManyRelatedColumn encountered without a BSTManyRelatedSorter"
+                    f"BSTManyRelatedColumn '{col.name}' does not have a BSTManyRelatedSorter"
                 )
             asc = col.asc
         elif isinstance(col, BSTAnnotColumn):
@@ -640,7 +656,11 @@ class BSTListView(BSTBaseListView):
         if not isinstance(col, BSTManyRelatedColumn):
             raise TypeError(f"Column '{col}' is not many-related.")
 
-        count = getattr(rec, col.count_attr_name, None)
+        count_annot_name = BSTManyRelatedColumn.get_count_name(
+            col.many_related_model_path, self.model
+        )
+
+        count = getattr(rec, count_annot_name, None)
         # It's faster to skip if we already know there are no records
         if count is not None and count == 0:
             return []

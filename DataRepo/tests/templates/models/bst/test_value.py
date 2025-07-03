@@ -104,7 +104,7 @@ class ValueTemplateTests(BaseTemplateTests):
         # NOTE: The descending order here is due to the manual subrecs query and the model's ordering.
         # In BSTListView, applying the column's ordering happens via the get_user_queryset.
         self.assertEqual(
-            '<span class="nobr">s2; </span><br class="cell-wrap d-none"><span class="nobr">s1</span>',
+            '<span class="nobr">s2; </span><br class="cell-wrap"><span class="nobr">s1</span>',
             html,
         )
 
@@ -127,6 +127,6 @@ class ValueTemplateTests(BaseTemplateTests):
         # This avoids matching the primary key, which is not durable from test to test
         self.assertIn("BTTStudyTestModel object (", html)
         self.assertIn(
-            '); </span><br class="cell-wrap d-none"><span class="nobr">BTTStudyTestModel object (',
+            '); </span><br class="cell-wrap"><span class="nobr">BTTStudyTestModel object (',
             html,
         )

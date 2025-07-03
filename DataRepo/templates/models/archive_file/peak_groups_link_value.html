@@ -1,0 +1,21 @@
+{% load bsttags %}
+
+{% with column_value=object|get_rec_val:column type=object.data_type.code format=object.data_format.code norecs="No peak group records are linked to this file, probably because it was not used in the production of a peak annotation file. Click to search for peak groups linked to other files that have the same name." %}
+    <span class="nobr">
+        {% if type == "ms_peak_annotation" %}
+            <a href="{% url 'search_basic' 'PeakAnnotationFile' 'id' 'iexact' object.id 'peakgroups' %}"
+                {% if object.peak_groups.count == 0 %}title="{{ norecs }}"{% endif %}
+            >{{ column_value }}</a>
+        {% elif format == "ms_raw" %}
+            <a href="{% url 'search_basic' 'RAWFile' 'id' 'iexact' object.id 'peakgroups' %}"
+                {% if object.raw_to_msrunsamples.count == 0 %}title="{{ norecs }}"{% endif %}
+            >{{ column_value }}</a>
+        {% elif format == "mzxml" %}
+            <a href="{% url 'search_basic' 'MZFile' 'id' 'iexact' object.id 'peakgroups' %}"
+                {% if object.mz_to_msrunsamples.count == 0 %}title="{{ norecs }}"{% endif %}
+            >{{ column_value }}</a>
+        {% else %}
+            <span title="No peak group records are linked to this file" class="text-muted">None</span>
+        {% endif %}
+    </span>
+{% endwith %}
