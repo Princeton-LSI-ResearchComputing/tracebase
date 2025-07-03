@@ -34,7 +34,7 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
     does is, based on the sort direction, it applies aggregate functions in the sorter (Min() or Max()).  In the derived
     class, you don't have to worry about it.  A BSTManyRelatedColumn can be treated like any other column.
 
-    And normally, in a relugar django ListView, you would have to iterate over the many-related nested models in the
+    And normally, in a regular Django ListView, you would have to iterate over the many-related nested models in the
     template to render the values.  This class however, provides an attribute name that BSTListView uses to put the
     distinct many-related values in a list attribute off the root model's record objects.  So in the template, you just
     have to iterate over that one list attribute.  (But you can still iterate over the model objects in the standard
