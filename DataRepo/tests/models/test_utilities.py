@@ -846,7 +846,7 @@ class ModelUtilityQueryTests(TracebaseTestCase):
 
     @TracebaseTestCase.assertNotWarns()
     def test_get_many_related_field_val_by_subquery_key_field_ordering(self):
-        """This tests that querying a foreign key adds the model's ordering field (otherwise, django qould raise a
+        """This tests that querying a foreign key adds the model's ordering field (otherwise, Django would raise a
         ProgrammingError about the order-by fields not matching the distinct fields because it implicitly adds those in
         its order-by SQL expression)."""
         qs = MUQAnimalTestModel.objects.all()
