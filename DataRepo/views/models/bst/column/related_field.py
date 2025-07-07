@@ -127,7 +127,7 @@ class BSTRelatedColumn(BSTColumn):
 
                 tooltip = "" if tooltip is None else tooltip + "\n\n"
                 tooltip += (
-                    "Search and sort is disabled for this column because the displayed values do not exist in the "
+                    "Search and sort is disabled for this field because the displayed values do not exist in the "
                     "database as a single field"
                 )
 
@@ -228,7 +228,7 @@ class BSTRelatedColumn(BSTColumn):
 
         return full_rep_field
 
-    def generate_header(self):
+    def generate_header(self, **_):
         """Generate a column header from the field_path.  Overrides super().generate_header.  This only uses the field's
         name or verbose_name if the field is not a reverse relation.  The field names of reverse relations refer to the
         model that linked to it, which is "backwards".  For example, such a column header for a reverse relation off the

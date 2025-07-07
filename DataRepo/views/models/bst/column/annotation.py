@@ -124,6 +124,7 @@ class BSTAnnotColumn(BSTBaseColumn):
         # output_field is used to set (/override) self.related_model if it is a key field (e.g. ForeignKey or
         # ManyToManyField) (whether model is provided or not).
         output_field: Optional[Field] = None
+        self.is_fk = False
 
         # If we have a model, see if we can extract a field from the combinable in order to populate the tooltip with
         # the field's help_text
@@ -153,6 +154,9 @@ class BSTAnnotColumn(BSTBaseColumn):
                 # model, so we can link it.
                 if is_key_field(field_path, model=model):
                     self.related_model = model_path_to_model(model, field_path)
+                    # This *might* be a foreign key (i.e. is_fk = True), but we don't know for sure yet.  We would only
+                    # be guessing based on the field the annotation is based on.  We set is_fk below once we do know for
+                    # sure based on the output_field.
 
         if isinstance(self.converter, Expression):
             try:
@@ -177,6 +181,7 @@ class BSTAnnotColumn(BSTBaseColumn):
         # field_path extracted from the converter)
         if output_field is not None and is_key_field(output_field):
             self.related_model = get_model_by_name(output_field.related_model)
+            self.is_fk = True
 
         super().__init__(name, **kwargs)
 
@@ -211,6 +216,18 @@ class BSTAnnotColumn(BSTBaseColumn):
         Returns:
             (Optional[Model])
         """
+        fk_warning: Optional[str] = None
+        if not self.is_fk:
+            fk_warning = f"get_model_object called on a non-foreign key annotation column ('{self.name}')."
+
+        if not isinstance(id, int):
+            if fk_warning != "":
+                fk_warning += "\n"
+            fk_warning = (
+                f"get_model_object was supplied a {type(id).__name__}: '{id}' instead of the expected integer for "
+                f"annotation column '{self.name}'."
+            )
+
         if (
             self.related_model is not None
             and issubclass(self.related_model, Model)
@@ -225,5 +242,12 @@ class BSTAnnotColumn(BSTBaseColumn):
                     ),
                     DeveloperWarning,
                 )
+            elif fk_warning is not None:
+                warn(f"{trace()}\n{fk_warning}", DeveloperWarning)
+
             return obj
+
+        elif fk_warning is not None:
+            warn(f"{trace()}\n{fk_warning}", DeveloperWarning)
+
         return None

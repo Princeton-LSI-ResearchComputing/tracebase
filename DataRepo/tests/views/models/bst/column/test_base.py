@@ -6,6 +6,7 @@ from DataRepo.tests.tracebase_test_case import (
     TracebaseTestCase,
     create_test_model,
 )
+from DataRepo.utils.text_utils import underscored_to_title
 from DataRepo.views.models.bst.column.base import BSTBaseColumn
 from DataRepo.views.models.bst.column.filterer.base import BSTBaseFilterer
 from DataRepo.views.models.bst.column.filterer.field import BSTFilterer
@@ -62,3 +63,7 @@ class BSTBaseColumnTests(TracebaseTestCase):
         bstbct2 = BSTBaseColumnTest("name", hidable=True, visible=False)
         self.assertTrue(bstbct2.hidable)
         self.assertFalse(bstbct2.visible)  # visible=False ignored, since not hidable
+
+    def test_generate_header(self):
+        bstbct = BSTBaseColumnTest("name")
+        self.assertEqual(underscored_to_title("name"), bstbct.generate_header())

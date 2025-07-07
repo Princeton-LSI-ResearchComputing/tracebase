@@ -29,8 +29,18 @@ from DataRepo.views.models.bst.column.related_field import BSTRelatedColumn
 from DataRepo.views.models.bst.column.sorter.many_related_field import (
     BSTManyRelatedSorter,
 )
-from DataRepo.views.models.bst.list_view import BSTListView, QueryMode
+from DataRepo.views.models.bst.query import (
+    BSTDetailView,
+    BSTListView,
+    QueryMode,
+)
 from DataRepo.views.utils import GracefulPaginator
+
+
+class BSTQueryViewTests(TracebaseTestCase):
+    # NOTE: BSTQueryView's methods are tested via its derived classes
+    pass
+
 
 BSTLVStudyTestModel = create_test_model(
     "BSTLVStudyTestModel",
@@ -74,6 +84,44 @@ BSTLVTreatmentTestModel = create_test_model(
     "BSTLVTreatmentTestModel",
     {"name": CharField(unique=True), "desc": CharField()},
 )
+
+
+class TreatmentDetailView(BSTDetailView):
+    annotations = {"sample_count": Count("samples", output_field=IntegerField())}
+
+
+class BSTDetailViewTests(TracebaseTestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.tr = BSTLVTreatmentTestModel.objects.create(id=1, name="T1", desc="t1")
+        BSTLVAnimalTestModel.objects.create(name="A1", treatment=cls.tr)
+        super().setUpTestData()
+
+    def test_BSTDetailView(self):
+        bdv = TreatmentDetailView()
+        self.assertEquivalent(
+            {"sample_count": Count("samples", output_field=IntegerField())},
+            bdv.annots,
+        )
+
+    def test_get_object(self):
+        class TreatmentDetailView(BSTDetailView):
+            model = BSTLVTreatmentTestModel
+            exclude = ["animals"]
+
+        bdv = TreatmentDetailView()
+        bdv.kwargs = {"pk": 1}
+        self.assertEquivalent(
+            self.tr,
+            bdv.get_object(),
+        )
+
+    def test_get_annotations(self):
+        bdv = TreatmentDetailView()
+        self.assertEquivalent(
+            {"sample_count": Count("samples", output_field=IntegerField())},
+            bdv.get_annotations(),
+        )
 
 
 class StudyLV(BSTListView):

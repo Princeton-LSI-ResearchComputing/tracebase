@@ -4,13 +4,9 @@ from warnings import warn
 from django.conf import settings
 from django.db.models import QuerySet
 from django.utils.functional import classproperty
-from django.views.generic import ListView
+from django.views.generic import DetailView, ListView
 
-from DataRepo.models.utilities import (
-    model_title,
-    model_title_plural,
-    select_representative_field,
-)
+from DataRepo.models.utilities import model_title, model_title_plural
 from DataRepo.utils.exceptions import DeveloperWarning
 from DataRepo.utils.text_utils import camel_to_title
 from DataRepo.views.models.bst.column.base import BSTBaseColumn
@@ -18,10 +14,48 @@ from DataRepo.views.models.bst.utils import SizedPaginator
 from DataRepo.views.utils import delete_cookie, get_cookie, get_cookie_dict
 
 
-class BSTClientInterface(ListView):
-    """This is a server-side interface to the Bootstrap Table javascript and cookies in the client's browser.  It
-    encapsulates the javascript and cookie structure/functions and is tightly integrated with BSTListView (which is
-    intended to inherit from this class).  This is not intended to be used on its own.
+class BSTClientInterface:
+    """The client interface is responsible for server/client communication.
+
+    This class represents the common components of detail and list views.  It establishes the context variables for
+    page-level metadata (like the context variable names and information about warnings, should they arise).
+
+    Classes derived from this class define the basis of the interface between Django's handling of client requests and
+    DB queries and Bootstrap Table's display of data and user interface elements that allow users to tweak the queries.
+
+    Class Attributes:
+        model_var_name (str) ["model"]
+        table_id_var_name (str) ["table_id"]
+        title_var_name (str) ["table_name"]
+        columns_var_name (str) ["columns"]
+        limit_default_var_name (str) ["limit_default"]
+        warnings_var_name (str) ["warnings"]
+    Instance Attributes:
+        warnings (List[str]) [[]]
+    """
+
+    # Table/column/page related
+    model_var_name = "model"
+    table_id_var_name = "table_id"
+    title_var_name = "table_name"
+    columns_var_name = "columns"
+    warnings_var_name = "warnings"
+
+    def __init__(self):
+        self.warnings: List[str] = []
+
+
+class BSTListViewClient(BSTClientInterface, ListView):
+    """This is a server-side interface to the Bootstrap Table javascript and cookies in the client's browser,
+    specifically for the Django ListView class.  It integrates features of Django ListView and Bootstrap Table to
+    automatically handle server side pagination, searching, and sorting.  It encapsulates the javascript and cookie
+    structure/functions.  This is not intended to be used on its own, but is intended to be able to be swapped out with
+    other javascript functionality (e.g. DataTables).
+
+    This class inherits a small portion of its functionality that it has in common with the BSTDetailViewClient from
+    BSTClientInterface.
+
+    For automatic column configuration, see BSTBaseListView.  And for query functionality, see BSTListView.
 
     Class Attributes:
         Templates:
@@ -47,15 +81,26 @@ class BSTClientInterface(ListView):
             cookie_prefix_var_name (str) ["cookie_prefix"]
             cookie_resets_var_name (str) ["cookie_resets"]
             clear_cookies_var_name (str) ["clear_cookies"]
-            model_var_name (str) ["model"]
-            table_id_var_name (str) ["table_id"]
-            title_var_name (str) ["table_name"]
-            columns_var_name (str) ["columns"]
             scripts_var_name (str) ["scripts"]
-            limit_default_var_name (str) ["limit_default"]
-            warnings_var_name (str) ["warnings"]
             raw_total_var_name (str) ["raw_total"]
             total_var_name (str) ["total"]
+    Instance Attributes:
+        kwargs (dict)
+        javascripts (List[str]) [__class__.scripts]: List of javascript paths relative to the static directory.
+        cookie_prefix (f"{self.__class__.__name__}-")
+        cookie_resets (List[str]) [[]]: Cookie names (relative to the view, i.e. no prefix) to reset in the browser.
+        clear_cookies (bool) [False]: Whether to delete all cookies for this page/view in the browser.
+        search_term (Optional[str]): Search terms the user entered/selected for all searchable columns.
+        filter_terms (Dict[str, str]) [{}]: Search terms the user entered/selected for a column, keyed on column name.
+        visibles (Dict[str, bool]) [{}]: Booleans indicating the initial visible column state, keyed on column name.
+        sort_name (Optional[str]): The name of the column the user wants to sort the rows by.
+        ordered (bool) [ordered_default]: Whether the table rows are sorted.
+        asc (bool) [asc_default]: Sort direction is ascending.
+        collapsed (bool) [collapsed_default]: The current row collapsed state.  Turns off soft-wrap in the table cells.
+        page (int) [1]
+        limit (int) [self.paginate_by]
+        total (int) [0]
+        raw_total (int) [0]
     """
 
     template_name = "models/bst/list_view.html"
@@ -90,19 +135,12 @@ class BSTClientInterface(ListView):
     cookie_resets_var_name = "cookie_resets"
     clear_cookies_var_name = "clear_cookies"
 
-    # Table/column/page related
-    model_var_name = "model"
-    table_id_var_name = "table_id"
-    title_var_name = "table_name"
-    columns_var_name = "columns"
-
     # JavaScript
     scripts_var_name = "scripts"
 
     # Basics
     page_var_name = "page"
     limit_default_var_name = "limit_default"
-    warnings_var_name = "warnings"
 
     # QuerySet metadata
     raw_total_var_name = "raw_total"
@@ -123,43 +161,22 @@ class BSTClientInterface(ListView):
         # The Django core code needed this set.  Not used in this class.
         self.kwargs = kwargs
 
-        super().__init__(**kwargs)
+        BSTClientInterface.__init__(self)
+        ListView.__init__(self, **kwargs)
 
         # Allow derived classes to *add* scripts for import
         self.javascripts: List[str]
         if hasattr(self, "javascripts") and isinstance(self.javascripts, list):
-            for script in list(reversed(BSTClientInterface.scripts)):
+            for script in list(reversed(__class__.scripts)):  # type: ignore[name-defined]
                 if script not in self.javascripts:
                     self.javascripts.insert(0, script)
         else:
-            self.javascripts = [*BSTClientInterface.scripts]
+            self.javascripts = [*__class__.scripts]  # type: ignore[name-defined]
 
         # Cookie controls
         self.cookie_prefix = f"{self.__class__.__name__}-"
         self.cookie_resets: List[str] = []
         self.clear_cookies = clear_cookies
-
-        self.warnings: List[str] = []
-
-        # This is an override of ListView.ordering, defined here to silence this warning from Django:
-        #   Pagination may yield inconsistent results with an unordered object_list:
-        #   <class 'DataRepo.tests.tracebase_test_case.BSTLVAnimalTestModel'> QuerySet.
-        # It specifies the default *row* ordering of the model objects, which is already set in the model.
-        self.ordering: Optional[list]
-        has_ordering = (
-            hasattr(self, "ordering")
-            and self.ordering is not None
-            and len(self.ordering) > 0
-        )
-        if self.model is not None and not has_ordering:
-            # Bootstrap Table only supports a single ordering column.  The model can provide multiple, but there is no
-            # way to apply that ordering by the user.  It is just the default initial ordering.
-            ordering_field = select_representative_field(
-                self.model, force=True, include_expression=True
-            )
-            self.ordering = [ordering_field]
-        elif not has_ordering:
-            self.ordering = ["id"]
 
         # Initialize default values that will be obtained from cookies
         self.search_term: Optional[str] = None
@@ -557,20 +574,6 @@ class BSTClientInterface(ListView):
             else f"{camel_to_title(cls.__name__)}s"  # pylint: disable=no-member
         )
 
-    @classproperty
-    def model_title(cls):  # pylint: disable=no-self-argument
-        """Creates a title-case string from self.model (if defined), accounting for potentially set verbose settings.
-        Pays particular attention to pre-capitalized values in the model name, and ignores the potentially poorly
-        automated title-casing in existing verbose values of the model so as to not lower-case acronyms in the model
-        name, e.g. MSRunSample (which automatically gets converted to Msrun Sample instead of the preferred MS Run
-        Sample).  If cls.model is not defined, the class name is used as a default.
-        """
-        return (
-            model_title(cls.model)
-            if cls.model is not None
-            else camel_to_title(cls.__name__)  # pylint: disable=no-member
-        )
-
     def get_context_data(self, **kwargs):
         """An override of the superclass method to provide context variables to the page.  All of the values are
         specific to pagination and BST operations."""
@@ -622,5 +625,63 @@ class BSTClientInterface(ListView):
             # results in the event that a user filtered or searched, resulting in 0 filtered results.  We need a
             # page_obj in order for the user to be able to clear their search term that resulted in no matches.
             context["page_obj"] = self.get_paginator([], self.limit).page(1)
+
+        return context
+
+
+class BSTDetailViewClient(DetailView, BSTClientInterface):
+    """This is an interface to Bootstrap Table and cookies in the client's browser, specifically for the Django
+    DetailView class.  It integrates features of Django DetailView and Bootstrap Table to automatically display of a
+    Model record.  This is not intended to be used on its own, but is intended to be able to be swapped out with other
+    functionality (e.g. DataTables).
+
+    This class inherits a small portion of its functionality that it has in common with the BSTListViewClient from
+    BSTClientInterface.
+
+    For automatic column configuration, see BSTBaseDetailView.  And for query functionality (of included many-related
+    columns), see BSTDetailView.
+
+    Class Attributes:
+        template_name (str) ["models/bst/detail_view.html"]: The template used to render the Bootstrap Table.
+    Instance Attributes:
+        None
+    """
+
+    template_name = "models/bst/detail_view.html"
+
+    def __init__(self, **kwargs):
+        DetailView.__init__(self, **kwargs)
+        BSTClientInterface.__init__(self)
+
+    @classproperty
+    def model_title(cls):  # pylint: disable=no-self-argument
+        """Creates a title-case string from self.model (if defined), accounting for potentially set verbose settings.
+        Pays particular attention to pre-capitalized values in the model name, and ignores the potentially poorly
+        automated title-casing in existing verbose values of the model so as to not lower-case acronyms in the model
+        name, e.g. MSRunSample (which automatically gets converted to Msrun Sample instead of the preferred MS Run
+        Sample).  If cls.model is not defined, the class name is used as a default.
+        """
+        return (
+            model_title(cls.model)
+            if cls.model is not None
+            else camel_to_title(cls.__name__)  # pylint: disable=no-member
+        )
+
+    def get_context_data(self, **kwargs):
+        """An override of the superclass method to provide context variables to the page.  All of the values are
+        specific to pagination and BST operations."""
+
+        # context = super().get_context_data(**kwargs)
+        context = super().get_context_data()
+
+        context.update(
+            {
+                # The basic ListView attribute
+                self.model_var_name: self.model,
+                # General table details
+                self.table_id_var_name: type(self).__name__,
+                self.title_var_name: self.model_title,
+            }
+        )
 
         return context

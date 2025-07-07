@@ -30,6 +30,8 @@ from .views import (
     StudyListView,
     TissueDetailView,
     TissueListView,
+    TracerDetailView,
+    TracerListView,
     home,
     search_basic,
     study_summary,
@@ -153,5 +155,11 @@ urlpatterns = [
         "infusates/<int:pk>/",
         InfusateDetailView.as_view(),
         name=InfusateDetailView.model.detail_name,
+    ),
+    path("tracers/", TracerListView.as_view(), name="tracer_list"),
+    path(
+        "tracers/<int:pk>/",
+        TracerDetailView.as_view(),
+        name=TracerDetailView.model.detail_name,
     ),
 ]

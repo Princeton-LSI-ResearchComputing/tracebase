@@ -12,7 +12,7 @@ from DataRepo.views.models.bst.column.many_related_field import (
     BSTManyRelatedColumn,
 )
 from DataRepo.views.models.bst.column.many_related_group import BSTColumnGroup
-from DataRepo.views.models.bst.list_view import BSTListView
+from DataRepo.views.models.bst.query import BSTListView
 
 
 class StudyLV(BSTListView):

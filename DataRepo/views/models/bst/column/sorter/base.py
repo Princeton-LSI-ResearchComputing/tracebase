@@ -11,6 +11,7 @@ from django.db.models.functions import Lower
 from DataRepo.models.utilities import (
     MultipleFields,
     NoFields,
+    is_key_field,
     is_number_field,
     is_string_field,
     resolve_field_path,
@@ -400,6 +401,11 @@ class BSTBaseSorter(ABC):
                 _server_sorter = cls.SERVER_SORTERS.ALPHANUMERIC
             elif type(expression) in cls.SERVER_SORTERS:
                 _server_sorter = type(expression)
+            elif is_key_field(expression.output_field):
+                _server_sorter = cls.SERVER_SORTERS.NONE
+                warn(
+                    f"Sorting of key fields such as '{type(expression.output_field).__name__}' is not yet supported."
+                )
             else:
                 _server_sorter = cls.SERVER_SORTERS.NONE
                 warn(

@@ -156,7 +156,7 @@ class BSTColumn(BSTBaseColumn):
 
         super().__init__(name, *args, **kwargs)
 
-    def generate_header(self):
+    def generate_header(self, real: bool = False, **_):
         """Generate a column header from the field_path, field.name, or the field's verbose_name.
         Overrides super().generate_header.
 
@@ -179,7 +179,7 @@ class BSTColumn(BSTBaseColumn):
                 return underscored_to_title(self.field.verbose_name)
 
         # Special case: If the name of the field is name, use the model name
-        if self.field_path == "name" and is_unique_field(self.field):
+        if real is False and self.field_path == "name" and is_unique_field(self.field):
             verbose_model_name_without_automods = self.model._meta.__dict__[
                 "verbose_name"
             ].replace(" ", "")

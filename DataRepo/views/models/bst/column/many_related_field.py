@@ -183,9 +183,16 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
         )
         if not hasattr(remote_field, "help_text"):
             if is_reverse_related_field(remote_field):
+                example = f"'{self.delim}'"
+                if self.delim == " ":
+                    example = "spaces"
+                elif self.delim == "\n":
+                    example = "new lines"
+                elif self.delim == "\t":
+                    example = "tabs"
                 new_tooltip = (
                     f"This is a reverse relationship to multiple sorted records of the '{self.related_model.__name__}' "
-                    f"model, delimited by '{self.delim}'."
+                    f"model, delimited by {example}."
                 )
                 if self.tooltip is not None:
                     new_tooltip = f"{new_tooltip}\n\n{self.tooltip}"

@@ -203,6 +203,9 @@ class BSTBaseColumn(ABC):
 
         if self.header is None:
             self.header = self.generate_header()
+            self.real_header = self.generate_header(real=True)
+        else:
+            self.real_header = header
 
         # NOTE: We set a sorter even if the field is not sortable.
         if sorter is None:
@@ -289,7 +292,7 @@ class BSTBaseColumn(ABC):
                 f"Equivalence of {__class__.__name__} to {type(other).__name__} not implemented."  # type: ignore
             )
 
-    def generate_header(self):
+    def generate_header(self, **_):
         """Generate a column header from the column name."""
         return underscored_to_title(self.name)
 

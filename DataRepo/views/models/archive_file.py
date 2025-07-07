@@ -12,7 +12,7 @@ from django.db.models.aggregates import Count, Min
 from django.views.generic import DetailView
 
 from DataRepo.models import DATETIME_FORMAT, DBSTRING_FUNCTION, ArchiveFile
-from DataRepo.views.models.bst.list_view import BSTListView, QueryMode
+from DataRepo.views.models.bst.query import BSTListView, QueryMode
 
 
 class ArchiveFileListView(BSTListView):
