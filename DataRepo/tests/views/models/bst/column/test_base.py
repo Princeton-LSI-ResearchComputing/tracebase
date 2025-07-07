@@ -78,3 +78,7 @@ class BSTBaseColumnTests(TracebaseTestCase):
         bstbct2 = BSTBaseColumnTest("name", hidable=True, visible=False)
         self.assertTrue(bstbct2.hidable)
         self.assertFalse(bstbct2.visible)  # visible=False ignored, since not hidable
+
+    def test_generate_header(self):
+        bstbct = BSTBaseColumnTest("name")
+        self.assertEqual(underscored_to_title("name"), bstbct.generate_header())
