@@ -5,7 +5,7 @@ from warnings import warn
 
 from django.conf import settings
 from django.db import ProgrammingError
-from django.db.models import IntegerField, Value
+from django.db.models import IntegerField, Model, Value
 from django.db.models.aggregates import Count
 from django.db.models.expressions import Combinable
 
@@ -18,7 +18,10 @@ from DataRepo.models.utilities import (
 )
 from DataRepo.utils.exceptions import DeveloperWarning
 from DataRepo.utils.text_utils import underscored_to_title
-from DataRepo.views.models.bst.client_interface import BSTClientInterface
+from DataRepo.views.models.bst.client_interface import (
+    BSTDetailViewClient,
+    BSTListViewClient,
+)
 from DataRepo.views.models.bst.column.annotation import BSTAnnotColumn
 from DataRepo.views.models.bst.column.base import BSTBaseColumn
 from DataRepo.views.models.bst.column.field import BSTColumn
@@ -29,43 +32,16 @@ from DataRepo.views.models.bst.column.many_related_group import BSTColumnGroup
 from DataRepo.views.models.bst.column.related_field import BSTRelatedColumn
 
 
-class BSTBaseListView(BSTClientInterface):
-    """This "base" class (which inherits the client interface and Django ListView) is responsible for all of the
-    automatic initialization of the columns in the Bootstrap Table, based on the model (set by a derivation of this
-    class).  It uses the client interface to set the values that will be used in BSTListView to perform queries and
-    serve results.
+class BSTBaseView:
+    """BSTBaseView is responsible for column/row setup.
 
-    Generally, this is a generic class-based view for a Model record list to make pages load faster, using server-side
-    behavior for pagination.
+    This class represents the common components of detail and list views.
 
-    Examples:
-        Note that you should inherit from BSTListView, but this is here in this middle class because this is the class
-        that does the column setup.
+    This base view will default-select what model fields and related model fields will be in the view (list view or
+    detail view).  It adds annotations and defines how search/sort should work for each field.
 
-        Simplest fully working example:
-
-            class SampleList(BSTBaseListView):
-                model = Sample
-
-        Custom column selection example:
-
-            class SampleList(BSTBaseListView):
-                model = Sample
-                column_ordering = ["name", "tissue", "animal", "time_collected", "handler"]
-                exclude = ["id", "msrun_samples"]
-
-        Fully customized example:
-
-            class SampleList(BSTBaseListView):
-                model = Sample
-                column_ordering = ["name", "tissue", "animal", "time_collected", "handler"]
-                exclude = ["id", "msrun_samples"]
-                column_settings = {
-                    "handler": {
-                        "header": "Researcher",
-                        filterer: {"choices": get_researchers}
-                    }
-                }
+    Classes derived from this class can configure the assortment of included model fields and can tweak the options for
+    each field using class attribute overrides.
 
     Class Attributes:
         column_ordering (List[str]) [[]]: This is a list of column names (which can be a field_path, an annotation name,
@@ -108,17 +84,18 @@ class BSTBaseListView(BSTClientInterface):
 
     def __init__(
         self,
+        model: Model,
         columns: Optional[
             Union[
                 List[Union[str, dict, BSTBaseColumn, BSTColumnGroup]],
                 Dict[str, Union[str, dict, BSTBaseColumn, BSTColumnGroup]],
             ]
         ] = None,
-        **kwargs,
     ):
         """An extension of the ListView constructor intended to initialize the columns.
 
         Args:
+            model (Model)
             columns (Optional[Union[
                 List[Union[str, dict, BSTBaseColumn, BSTColumnGroup]],
                 Dict[str, Union[str, dict, BSTBaseColumn, BSTColumnGroup]]
@@ -132,7 +109,7 @@ class BSTBaseListView(BSTClientInterface):
         Returns:
             None
         """
-        super().__init__(**kwargs)
+        self.model = model
 
         # This is to be able to insert automatically generated count columns before the first column that displays many-
         # related values from the model the count column counts.  col name -> many-related model path.
@@ -153,103 +130,9 @@ class BSTBaseListView(BSTClientInterface):
         self.groups: Dict[str, BSTColumnGroup] = {}
         self.init_columns()
 
-        # Default the sort_col to the best representative
-        if self.model is not None:
-            sort_field = select_representative_field(
-                self.model, force=True, subset=self.column_ordering
-            )
-            if isinstance(sort_field, str):
-                self.sort_col = self.columns[sort_field]
-                self.ordered = True
-            else:
-                raise ProgrammingError(
-                    "Invalid return from select_representative_field when looking for a representative for model "
-                    f"'{self.model.__name__}' using the column subset {self.column_ordering}.  "
-                    f"Got a '{type(sort_field).__name__}' instead of a str."
-                )
-        elif len(self.columns.keys()) > 0:
-            # Arbitrary column - does not matter without a model
-            self.sort_col = list(self.columns.values())[0]
-            self.ordered = True
-
         # Go through the columns and make sure that multiple many-related columns from the same related model are in
         # groups so that their delimited values sort together.
         self.add_check_groups()
-
-    def init_interface(self):
-        """An extension of the BSTClientInterface init_interface method, used here to set the sort_col, and check and
-        set the filter_terms and visibles that are a part of the user-controlled interface.
-
-        Call this method after setting the class's request object in the get method, but before calling super().get().
-
-        Example:
-            class MyBSTListView(BSTListView):
-                def get(request, *args, **kwargs):
-                    self.request = request
-                    self.init_interface()
-                    return super().get(request, *args, **kwargs)
-        Args:
-            None
-        Exceptions:
-            None
-        Returns:
-            response (HttpResponse)
-        """
-        super().init_interface()
-
-        # Initialize a sort column (sort_col) based on the saved sort cookie (sort_name)
-        if isinstance(self.sort_name, str):
-            self.sort_col = self.columns[self.sort_name]
-
-        # Set initial filter terms
-        bad_filter_entries = []
-        for colname, filter_term in self.filter_terms.items():
-            if colname not in self.columns.keys():
-                bad_filter_entries.append(colname)
-                self.reset_column_cookie(colname, self.filter_cookie_name)
-                warning = (
-                    f"Invalid '{self.filter_cookie_name}' column encountered: '{colname}'.  "
-                    "Resetting filter cookie."
-                )
-                self.warnings.append(warning)
-                if settings.DEBUG:
-                    warn(
-                        warning
-                        + f"  '{self.get_column_cookie_name(colname, self.filter_cookie_name)}'",
-                        DeveloperWarning,
-                    )
-            else:
-                self.columns[colname].filterer.initial = filter_term
-
-        # Delete any bad filter term so that it doesn't come up in BSTListView when creating a Q expression
-        for colname in bad_filter_entries:
-            del self.filter_terms[colname]
-
-        # Set initial filter terms
-        bad_visibles_entries = []
-        for colname, visible in self.visibles.items():
-            if colname not in self.columns.keys():
-                bad_visibles_entries.append(colname)
-                self.reset_column_cookie(colname, self.visible_cookie_name)
-                warning = (
-                    f"Invalid '{self.visible_cookie_name}' column encountered: '{colname}'.  "
-                    "Resetting visible cookie."
-                )
-                self.warnings.append(warning)
-                if settings.DEBUG:
-                    warn(
-                        warning
-                        + f"  '{self.get_column_cookie_name(colname, self.visible_cookie_name)}'",
-                        DeveloperWarning,
-                    )
-            elif self.columns[colname].hidable:
-                self.columns[colname].visible = visible
-            else:
-                self.columns[colname].visible = True
-
-        # Delete any bad visible value
-        for colname in bad_visibles_entries:
-            del self.visibles[colname]
 
     def init_column_settings(
         self,
@@ -930,18 +813,23 @@ class BSTBaseListView(BSTClientInterface):
                 for f in self.model._meta.get_fields()
                 if is_many_related_to_root(f.name, self.model)
             ]
-            raise ValueError(
+            msg = (
                 f"Unable to determine column type for column '{colname}'.  It doesn't appear to be an annotation, "
                 f"because there was no 'converter' provided in the kwargs: {kwargs} and there was no matching "
                 f"annotation name: {list(self.annotations.keys())}, no column object in the column settings has a "
                 f"matching name: {list(self.column_settings.keys())}, and there are no default count columns that "
                 f"would generate a matching name: {def_count_cols}."
             )
-
-        # Collect a unique set of javascripts needed by the columns
-        for script in self.columns[colname].javascripts:
-            if script not in self.javascripts:
-                self.javascripts.append(script)
+            if any(
+                hasattr(BSTBaseColumn, cn) for cn in list(self.column_settings.keys())
+            ):
+                example = {"COLUMN_NAME_HERE": {colname: self.column_settings[colname]}}
+                msg += (
+                    f"  The column name '{colname}' appears to match an attribute of the column classes, so it appears "
+                    "you may have neglected to name the column that you are trying to apply settings to.  Try "
+                    f"inserting a column key, like this:\n\n{example}"
+                )
+            raise ValueError(msg)
 
     def add_check_groups(self):
         """Go through the columns and make sure that multiple columns from the same related model are in a column group
@@ -1056,13 +944,223 @@ class BSTBaseListView(BSTClientInterface):
 
         return representative
 
+
+class BSTBaseListView(BSTListViewClient, BSTBaseView):
+    """This "base" class (which inherits the BSTListViewClient [which is derived from Django's ListView class]) and from
+    BSTBaseView (where most of the column setup is performed) is responsible for on-the-fly column/row configuration.
+    It uses the fields initially configured in BSTBaseView and updates them based on user requests, like column
+    visibility and filtering.
+
+    Examples:
+        Note that you should inherit from BSTListView, but this is here in this middle class because this is the class
+        that does the column setup.
+
+        Simplest fully working example:
+
+            class SampleList(BSTBaseListView):
+                model = Sample
+
+        Custom column selection example:
+
+            class SampleList(BSTBaseListView):
+                model = Sample
+                column_ordering = ["name", "tissue", "animal", "time_collected", "handler"]
+                exclude = ["id", "msrun_samples"]
+
+        Fully customized example:
+
+            class SampleList(BSTBaseListView):
+                model = Sample
+                column_ordering = ["name", "tissue", "animal", "time_collected", "handler"]
+                exclude = ["id", "msrun_samples"]
+                column_settings = {
+                    "handler": {
+                        "header": "Researcher",
+                        filterer: {"choices": get_researchers}
+                    }
+                }
+    """
+
+    def __init__(self, columns=None, **kwargs):
+        # This initializes the Django ListView and the client interface
+        BSTListViewClient.__init__(self, **kwargs)
+        # This initializes all of the model fields/columns
+        BSTBaseView.__init__(self, self.model, columns=columns)
+
+        # Default the sort_col to the best representative
+        if self.model is not None:
+            sort_field = select_representative_field(
+                self.model, force=True, subset=self.column_ordering
+            )
+            if isinstance(sort_field, str):
+                self.sort_col = self.columns[sort_field]
+                self.ordered = True
+            else:
+                raise ProgrammingError(
+                    "Invalid return from select_representative_field when looking for a representative for model "
+                    f"'{self.model.__name__}' using the column subset {self.column_ordering}.  "
+                    f"Got a '{type(sort_field).__name__}' instead of a str."
+                )
+        elif len(self.columns.keys()) > 0:
+            # Arbitrary column - does not matter without a model
+            self.sort_col = list(self.columns.values())[0]
+            self.ordered = True
+
+        # Collect a unique set of javascripts needed by the columns
+        for col in self.columns.values():
+            for script in col.javascripts:
+                if script not in self.javascripts:
+                    self.javascripts.append(script)
+
+        # This is an override of ListView.ordering, defined here to silence this warning from Django:
+        #   Pagination may yield inconsistent results with an unordered object_list:
+        #   <class 'DataRepo.tests.tracebase_test_case.BSTLVAnimalTestModel'> QuerySet.
+        # It specifies the default *row* ordering of the model objects, which is already set in the model.
+        self.ordering: Optional[list]
+        has_ordering = (
+            hasattr(self, "ordering")
+            and self.ordering is not None
+            and len(self.ordering) > 0
+        )
+        if self.model is not None and not has_ordering:
+            # Bootstrap Table only supports a single ordering column.  The model can provide multiple, but there is no
+            # way to apply that ordering by the user.  It is just the default initial ordering.
+            ordering_field = select_representative_field(
+                self.model, force=True, include_expression=True
+            )
+            self.ordering = [ordering_field]
+        elif not has_ordering:
+            self.ordering = ["id"]
+
+    def init_interface(self):
+        """An extension of the BSTClientInterface init_interface method, used here to set the sort_col, and check and
+        set the filter_terms and visibles that are a part of the user-controlled interface.
+
+        Call this method after setting the class's request object in the get method, but before calling super().get().
+
+        Example:
+            class MyBSTListView(BSTListView):
+                def get(request, *args, **kwargs):
+                    self.request = request
+                    self.init_interface()
+                    return super().get(request, *args, **kwargs)
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            response (HttpResponse)
+        """
+        super().init_interface()
+
+        # Initialize a sort column (sort_col) based on the saved sort cookie (sort_name)
+        if isinstance(self.sort_name, str):
+            self.sort_col = self.columns[self.sort_name]
+
+        # Set initial filter terms
+        bad_filter_entries = []
+        for colname, filter_term in self.filter_terms.items():
+            if colname not in self.columns.keys():
+                bad_filter_entries.append(colname)
+                self.reset_column_cookie(colname, self.filter_cookie_name)
+                warning = (
+                    f"Invalid '{self.filter_cookie_name}' column encountered: '{colname}'.  "
+                    "Resetting filter cookie."
+                )
+                self.warnings.append(warning)
+                if settings.DEBUG:
+                    warn(
+                        warning
+                        + f"  '{self.get_column_cookie_name(colname, self.filter_cookie_name)}'",
+                        DeveloperWarning,
+                    )
+            else:
+                self.columns[colname].filterer.initial = filter_term
+
+        # Delete any bad filter term so that it doesn't come up in BSTListView when creating a Q expression
+        for colname in bad_filter_entries:
+            del self.filter_terms[colname]
+
+        # Set initial filter terms
+        bad_visibles_entries = []
+        for colname, visible in self.visibles.items():
+            if colname not in self.columns.keys():
+                bad_visibles_entries.append(colname)
+                self.reset_column_cookie(colname, self.visible_cookie_name)
+                warning = (
+                    f"Invalid '{self.visible_cookie_name}' column encountered: '{colname}'.  "
+                    "Resetting visible cookie."
+                )
+                self.warnings.append(warning)
+                if settings.DEBUG:
+                    warn(
+                        warning
+                        + f"  '{self.get_column_cookie_name(colname, self.visible_cookie_name)}'",
+                        DeveloperWarning,
+                    )
+            elif self.columns[colname].hidable:
+                self.columns[colname].visible = visible
+            else:
+                self.columns[colname].visible = True
+
+        # Delete any bad visible value
+        for colname in bad_visibles_entries:
+            del self.visibles[colname]
+
     def get_context_data(self, **_):
         """An override of the superclass method to provide context variables to the page.  All of the values are
         specific to pagination and BST operations."""
-
         context = super().get_context_data()
-
-        # The column objects contain all of the column details
         context.update({self.columns_var_name: self.columns})
+        return context
 
+
+class BSTBaseDetailView(BSTDetailViewClient, BSTBaseView):
+    """This "base" class (which inherits the BSTDetailViewClient [which is derived from Django's DetailView class]) and
+    from BSTBaseView (where most of the row setup is performed) is responsible for on-the-fly column/row configuration
+    (of which there are currently none, but is the foundation for such interations to be added in the future).
+
+    Examples:
+        Note that you should inherit from BSTDetailView, but this is here in this middle class because this is the class
+        that does the column setup.
+
+        Simplest fully working example:
+
+            class SampleDetail(BSTBaseDetailView):
+                model = Sample
+
+        Custom row selection example:
+
+            class SampleDetail(BSTBaseDetailView):
+                model = Sample
+                # NOTE: 'column_ordering' is a misnomer.  It simply says what fields should be included in the view.
+                column_ordering = ["name", "tissue", "animal", "time_collected", "handler"]
+                exclude = ["id", "msrun_samples"]
+
+        Fully customized example:
+
+            class SampleDetail(BSTBaseDetailView):
+                model = Sample
+                # NOTE: 'column_ordering' is a misnomer.  It simply says what fields should be included in the view.
+                column_ordering = ["name", "tissue", "animal", "time_collected", "handler"]
+                exclude = ["id", "msrun_samples"]
+                column_settings = {
+                    "handler": {
+                        "header": "Researcher",
+                        filterer: {"choices": get_researchers}
+                    }
+                }
+    """
+
+    def __init__(self, **kwargs):
+        # This initializes the Django DetailView and the client interface
+        BSTDetailViewClient.__init__(self, **kwargs)
+        # This initializes all of the model fields/columns
+        BSTBaseView.__init__(self, self.model)
+
+    def get_context_data(self, **_):
+        """An override of the superclass method to provide context variables to the page.  All of the values are
+        specific to pagination and BST operations."""
+        context = super().get_context_data()
+        context.update({self.columns_var_name: self.columns})
         return context
