@@ -17,7 +17,6 @@ from DataRepo.tests.tracebase_test_case import (
     create_test_model,
 )
 from DataRepo.utils.exceptions import DeveloperWarning
-from DataRepo.views.models.bst.base import BSTBaseListView
 from DataRepo.views.models.bst.column.annotation import BSTAnnotColumn
 from DataRepo.views.models.bst.column.field import BSTColumn
 from DataRepo.views.models.bst.column.filterer.field import BSTFilterer
@@ -26,6 +25,16 @@ from DataRepo.views.models.bst.column.many_related_field import (
 )
 from DataRepo.views.models.bst.column.many_related_group import BSTColumnGroup
 from DataRepo.views.models.bst.column.related_field import BSTRelatedColumn
+from DataRepo.views.models.bst.column_setup import (
+    BSTBaseDetailView,
+    BSTBaseListView,
+)
+
+
+class BSTBaseViewTests(TracebaseTestCase):
+    # NOTE: BSTBaseView's methods are tested via its derived classes
+    pass
+
 
 BSTBLVStudyTestModel = create_test_model(
     "BSTBLVStudyTestModel",
@@ -75,6 +84,45 @@ BSTBLVTreatmentTestModel = create_test_model(
     "BSTBLVTreatmentTestModel",
     {"name": CharField(unique=True), "desc": CharField()},
 )
+
+
+class BSTBaseDetailViewTests(TracebaseTestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.tr = BSTBLVTreatmentTestModel.objects.create(id=1, name="T1", desc="t1")
+        BSTBLVAnimalTestModel.objects.create(name="A1", treatment=cls.tr)
+        super().setUpTestData()
+
+    def test_BSTBaseDetailView(self):
+        class TreatmentDetailView(BSTBaseDetailView):
+            model = BSTBLVTreatmentTestModel
+            exclude = ["animals"]
+
+        bbdv = TreatmentDetailView()
+        self.assertEqual(BSTBLVTreatmentTestModel, bbdv.model)
+        self.assertEqual(3, len(bbdv.columns.keys()))
+
+    def test_get_context_data(self):
+        class TreatmentDetailView(BSTBaseDetailView):
+            model = BSTBLVTreatmentTestModel
+            exclude = ["animals"]
+
+        bbdv = TreatmentDetailView()
+        bbdv.object = self.tr
+        self.assertEqual(
+            set(
+                [
+                    "bstblvtreatmenttestmodel",
+                    "columns",
+                    "model",
+                    "table_id",
+                    "table_name",
+                    "view",
+                    "object",
+                ]
+            ),
+            set(list(bbdv.get_context_data().keys())),
+        )
 
 
 class StudyBLV(BSTBaseListView):

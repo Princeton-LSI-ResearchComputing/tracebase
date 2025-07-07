@@ -440,7 +440,6 @@ def field_path_to_field(
     if len(path) == 1:
         name = resolve_field_path(path[0])
         if hasattr(model, name):
-            # print(f"XX model {model.__name__} field: {name}")
             if ignore_reverse_related:
                 return resolve_field(getattr(model, name))
             return resolve_field(getattr(model, name), model=model)
@@ -1080,6 +1079,7 @@ def get_field_val_by_iteration(
     related_limit: int = 5,
     sort_field_path: Optional[List[str]] = None,
     asc: bool = True,
+    value_unique: bool = False,
 ):
     """User-facing interface to _get_field_val_by_iteration_helper, which returns either a tuple or list of tuples,
     where each tuple contains the value of interest, the sort value, and a unique value (e.g. primary key).
@@ -1092,13 +1092,28 @@ def get_field_val_by_iteration(
         sort_field_path (Optional[List[str]]): A path from the rec object to a sort field, that has been split by
             dunderscores.  Only relevant if the field path traverses through a many-related model.
         asc (bool) [True]: Sort is ascending.  Only relevant if the field path traverses through a many-related model.
+        value_unique (bool) [False]: For columns whose field_path passes through a many-related model, only list a
+            unique set of values.  The opposite behavior (default behavior, i.e. False) is to show all values associated
+            with a unique set of the last many-related model records in the field_path.
+            Example:
+                If the the field_path is mdla.mdlb__mdlc__mdld__name
+                where mdla is the model of rec
+                the relationships are M:M, M:M, and 1:M respectively
+                there are 5 unique mdld records
+                but 2 unique name values among them
+                When value_unique = True, this method will return 2 names
+                When value_unique = False, this method will return 5 names
     Exceptions:
         None
     Returns:
         (Any): Either a field value or a list of field values.
     """
     val = _get_field_val_by_iteration_helper(
-        rec, field_path, related_limit=related_limit, sort_field_path=sort_field_path
+        rec,
+        field_path,
+        related_limit=related_limit,
+        sort_field_path=sort_field_path,
+        value_unique=value_unique,
     )
 
     # Many-related columns should return lists
@@ -1121,6 +1136,7 @@ def _get_field_val_by_iteration_helper(
     sort_field_path: Optional[List[str]] = None,
     _sort_val: Optional[Any] = None,
     _uniq_val: Optional[Any] = None,
+    value_unique: bool = False,
 ):
     """Private recursive method that takes a record and a path and traverses the record along the path to return
     whatever value is at the end of the path.  If it traverses through a many-related model, it returns a list of
@@ -1157,7 +1173,11 @@ def _get_field_val_by_iteration_helper(
         _sort_val (Optional[Any]): Do not supply.  This holds the sort value if the field path is longer than
             the sort field path.
         _uniq_val (Optional[Any]): Do not supply.  This holds the unique value if the field path is longer than
-            the path to the last many-related model.
+            the path to the last many-related model.  Only used when value_unique is False.
+        value_unique (bool) [False]: For columns whose field_path passes through a many-related model, only list a
+            unique set of values.  The opposite behavior (default behavior, i.e. False) is to show all values associated
+            with a unique set of the last many-related model records in the field_path.  See get_field_val_by_iteration
+            for an example.
         NOTE: We don't need to know if sorting is forward or reverse.  We are only returning tuples containing the
         sort value.  The sort must be done later, by the caller.
     Exceptions:
@@ -1183,6 +1203,7 @@ def _get_field_val_by_iteration_helper(
             related_limit=related_limit,
             sort_field_path=sort_field_path,
             _sort_val=_sort_val,
+            value_unique=value_unique,
         )
     else:
         # This method handles only fields that are singly related to their immediate parent
@@ -1193,6 +1214,7 @@ def _get_field_val_by_iteration_helper(
             sort_field_path=sort_field_path,
             _sort_val=_sort_val,
             _uniq_val=_uniq_val,
+            value_unique=value_unique,
         )
 
     # A many-related field can return a single (tuple) value instead of a list if a None exists on the path before the
@@ -1230,6 +1252,7 @@ def _get_field_val_by_iteration_onerelated_helper(
     sort_field_path: Optional[List[str]] = None,
     _sort_val: Optional[Any] = None,
     _uniq_val: Optional[Any] = None,
+    value_unique: bool = False,
 ):
     """Private recursive method that takes a field_path and a record (that is 1:1 related with the first element in
     the remaining field_path) and traverses the record along the path to return whatever ORM object's field value is
@@ -1251,6 +1274,10 @@ def _get_field_val_by_iteration_onerelated_helper(
             the sort field path.
         _uniq_val (Optional[Any]): Do not supply.  This holds the unique value if the field path is longer than
             the path to the last many-related model.
+        value_unique (bool) [False]: For columns whose field_path passes through a many-related model, only list a
+            unique set of values.  The opposite behavior (default behavior, i.e. False) is to show all values associated
+            with a unique set of the last many-related model records in the field_path.  See get_field_val_by_iteration
+            for an example.
     Exceptions:
         ValueError when the sort field returns more than 1 value.
     Returns:
@@ -1287,7 +1314,11 @@ def _get_field_val_by_iteration_onerelated_helper(
         _sort_val = sort_val
 
     if len(field_path) == 1:
-        if _uniq_val is None:
+        if value_unique is True:
+            _uniq_val = val_or_rec
+            if isinstance(val_or_rec, Model):
+                _uniq_val = val_or_rec.pk
+        elif _uniq_val is None:
             _uniq_val = rec.pk
         # NOTE: Returning the value, a value to sort by, and a value that makes it unique per record (or field)
         return val_or_rec, _sort_val, _uniq_val
@@ -1303,6 +1334,7 @@ def _get_field_val_by_iteration_onerelated_helper(
         sort_field_path=next_sort_field_path,
         _sort_val=_sort_val,
         _uniq_val=_uniq_val,
+        value_unique=value_unique,
     )
 
 
@@ -1312,6 +1344,7 @@ def _get_field_val_by_iteration_manyrelated_helper(
     related_limit: int = 5,
     sort_field_path: Optional[List[str]] = None,
     _sort_val: Optional[Any] = None,
+    value_unique: bool = False,
 ):
     """Private recursive method that takes a field_path and a record (that is many:1_or_many related with the first
     element in the remaining field_path) and traverses the record along the path to return values found at the end
@@ -1338,6 +1371,10 @@ def _get_field_val_by_iteration_manyrelated_helper(
             dunderscores.  Only relevant if you know the field path to traverse through a many-related model.
         _sort_val (Optional[Any]): Do not supply.  This holds the sort value if the field path is longer than the sort
             field path.
+        value_unique (bool) [False]: For columns whose field_path passes through a many-related model, only list a
+            unique set of values.  The opposite behavior (default behavior, i.e. False) is to show all values associated
+            with a unique set of the last many-related model records in the field_path.  See get_field_val_by_iteration
+            for an example.
     Exceptions:
         ValueError when the sort field returns more than 1 value.
     Returns:
@@ -1365,6 +1402,7 @@ def _get_field_val_by_iteration_manyrelated_helper(
             # We only expect 1 value and are going to assume that the sort field was properly checked/generated to
             # not go through another many-related relationship.  Still, we specify the limit to be safe.
             related_limit=1,
+            value_unique=value_unique,
         )
         if isinstance(sort_val, list):
             raise ProgrammingError(
@@ -1393,6 +1431,7 @@ def _get_field_val_by_iteration_manyrelated_helper(
             next_sort_field_path,
             related_limit,
             _sort_val,
+            value_unique=value_unique,
         ),
         [],
     )
@@ -1451,6 +1490,7 @@ def _recursive_many_rec_iterator(
     next_sort_field_path: List[str],
     related_limit: int,
     _sort_val,
+    value_unique: bool = False,
 ):
     """Private iterator to help _get_field_val_by_iteration_many_related_helper.  It iterates through the queryset,
     retrieving the values at the end of the path using recursive calls.  This allows the caller to stop when it
@@ -1468,6 +1508,10 @@ def _recursive_many_rec_iterator(
             the field_path), that work must be done before calling this method.
         related_limit (int)
         _sort_val (Any)
+        value_unique (bool) [False]: For columns whose field_path passes through a many-related model, only list a
+            unique set of values.  The opposite behavior (default behavior, i.e. False) is to show all values associated
+            with a unique set of the last many-related model records in the field_path.  See get_field_val_by_iteration
+            for an example.
     Exceptions:
         None
     Returns:
@@ -1484,6 +1528,7 @@ def _recursive_many_rec_iterator(
             _sort_val=_sort_val,
             # At every point in the field_path that is many-related to its parent, update the unique val
             _uniq_val=mr_rec.pk,
+            value_unique=value_unique,
         )
         if isinstance(val, tuple):
             yield val
@@ -1500,6 +1545,7 @@ def get_many_related_field_val_by_subquery(
     annotations: dict = {},
     order_bys: list = [],
     distincts: list = [],
+    value_unique: bool = False,
 ) -> list:
     """
 
@@ -1515,6 +1561,10 @@ def get_many_related_field_val_by_subquery(
         distincts (List[str]) [[]]: A list of field paths.  Must match the fields contained in the order_bys list.
             This will be prepended with the field_path and appended with the primary key of the last many-related
             model foreign key in the field_path.
+        value_unique (bool) [False]: For columns whose field_path passes through a many-related model, only list a
+            unique set of values.  The opposite behavior (default behavior, i.e. False) is to show all values associated
+            with a unique set of the last many-related model records in the field_path.  See get_field_val_by_iteration
+            for an example.
     Exceptions:
         ProgrammingError
     Returns:
@@ -1549,7 +1599,8 @@ def get_many_related_field_val_by_subquery(
         ob_fields = [field_path]
         order_bys.append(field_path)
     # Append the many-related model's primary key in order to force a value for each distinct record
-    order_bys.append(f"{many_related_model_path}__pk")
+    if value_unique is False:
+        order_bys.append(f"{many_related_model_path}__pk")
     order_bys.append(f"{related_model_path}__pk")
 
     # Prepend the actual field (or fields) from the column (which may differ from the sort).  We put it first so we can
@@ -1557,15 +1608,12 @@ def get_many_related_field_val_by_subquery(
     # values_list have some quirks that prevent an intuitive usage of just flattening with the one value you want.
     # I tried many different versions of this before figuring this out.
     if is_fk:
-        distincts = (
-            [f"{related_model_path}__pk", f"{many_related_model_path}__pk"]
-            + ob_fields
-            + distincts
-        )
+        distincts = [f"{related_model_path}__pk"] + ob_fields + distincts
     else:
         distincts = ob_fields + distincts
         # Append the many-related model's primary key in order to force a value for each distinct record
         distincts.append(f"{related_model_path}__pk")
+    if value_unique is False:
         distincts.append(f"{many_related_model_path}__pk")
 
     # We re-perform (essentially) the same query that generated the table, but for one root-table record, and with
