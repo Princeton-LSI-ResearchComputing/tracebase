@@ -9,7 +9,7 @@ from DataRepo.models import (
     Researcher,
     Sample,
 )
-from DataRepo.views.models.bst.list_view import BSTListView
+from DataRepo.views.models.bst.query import BSTListView
 
 
 class SampleListView(BSTListView):

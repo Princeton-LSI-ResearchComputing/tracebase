@@ -8,7 +8,11 @@ from DataRepo.tests.tracebase_test_case import (
     create_test_model,
 )
 from DataRepo.utils.exceptions import DeveloperWarning
-from DataRepo.views.models.bst.client_interface import BSTClientInterface
+from DataRepo.views.models.bst.client_interface import (
+    BSTClientInterface,
+    BSTDetailViewClient,
+    BSTListViewClient,
+)
 from DataRepo.views.models.bst.utils import SizedPaginator
 
 BCIStudyTestModel = create_test_model(
@@ -27,21 +31,65 @@ BCIStudyTestModel = create_test_model(
 )
 
 
-class StudyBCI(BSTClientInterface):
+class BSTClientInterfaceTests(TracebaseTestCase):
+    def test_BSTClientInterface(self):
+        ci = BSTClientInterface()
+        self.assertEqual("model", ci.model_var_name)
+        self.assertEqual("table_id", ci.table_id_var_name)
+        self.assertEqual("table_name", ci.title_var_name)
+        self.assertEqual("columns", ci.columns_var_name)
+        self.assertEqual("warnings", ci.warnings_var_name)
+        self.assertEqual([], ci.warnings)
+
+
+class StudyDetailBCI(BSTDetailViewClient):
+    model = BCIStudyTestModel
+
+
+class BSTDetailViewClientTests(TracebaseTestCase):
+    def test_BSTDetailViewClient(self):
+        dvc = BSTDetailViewClient()
+        self.assertEqual("models/bst/detail_view.html", dvc.template_name)
+
+    def test_model_title(self):
+        self.assertEqual("BCI Study Test Model", StudyDetailBCI.model_title)
+
+    def test_get_context_data(self):
+        request = HttpRequest()
+        dvc = BSTDetailViewClient(request=request)
+        dvc.object = []
+        context = dvc.get_context_data()
+        self.assertEqual(
+            set(
+                [
+                    "model",
+                    "view",
+                    "table_id",
+                    "table_name",
+                ]
+            ),
+            set(context.keys()),
+        )
+        # Not a standard Paginator.  Having is_paginated=None prevents the base.html template from rendering the vanilla
+        # paginator under the SizedPaginator
+        self.assertIsNone(context["model"])
+
+
+class StudyBCI(BSTListViewClient):
     model = BCIStudyTestModel
 
 
 @override_settings(DEBUG=True)
-class BSTClientInterfaceTests(TracebaseTestCase):
+class BSTListViewClientTests(TracebaseTestCase):
     @TracebaseTestCase.assertNotWarns()
     def test_init(self):
-        c = BSTClientInterface()
-        self.assertEqual("BSTClientInterface-", c.cookie_prefix)
+        c = BSTListViewClient()
+        self.assertEqual("BSTListViewClient-", c.cookie_prefix)
         self.assertEqual([], c.warnings)
         self.assertEqual([], c.cookie_resets)
         self.assertFalse(c.clear_cookies)
 
-        class MyBSTListView(BSTClientInterface):
+        class MyBSTListView(BSTListViewClient):
             pass
 
         m = MyBSTListView()
@@ -49,41 +97,41 @@ class BSTClientInterfaceTests(TracebaseTestCase):
 
     @TracebaseTestCase.assertNotWarns()
     def test_get_cookie_name(self):
-        c = BSTClientInterface()
-        self.assertEqual("BSTClientInterface-cname", c.get_cookie_name("cname"))
+        c = BSTListViewClient()
+        self.assertEqual("BSTListViewClient-cname", c.get_cookie_name("cname"))
 
     @TracebaseTestCase.assertNotWarns()
     def test_get_cookie(self):
         request = HttpRequest()
         view_cookie_name = "cname"
-        request.COOKIES = {f"BSTClientInterface-{view_cookie_name}": "test_value"}
-        c = BSTClientInterface(request=request)
+        request.COOKIES = {f"BSTListViewClient-{view_cookie_name}": "test_value"}
+        c = BSTListViewClient(request=request)
         c.init_interface()
         self.assertEqual("test_value", c.get_cookie(view_cookie_name))
-        request.COOKIES = {f"BSTClientInterface-{view_cookie_name}": ""}
+        request.COOKIES = {f"BSTListViewClient-{view_cookie_name}": ""}
         self.assertIsNone(c.get_cookie(view_cookie_name))
         request.COOKIES = {}
         self.assertIsNone(c.get_cookie(view_cookie_name))
         request.COOKIES = {}
         self.assertEqual("mydef", c.get_cookie(view_cookie_name, default="mydef"))
-        request.COOKIES = {f"BSTClientInterface-{view_cookie_name}": ""}
+        request.COOKIES = {f"BSTListViewClient-{view_cookie_name}": ""}
         self.assertEqual("mydef", c.get_cookie(view_cookie_name, default="mydef"))
 
     @TracebaseTestCase.assertNotWarns()
     def test_get_boolean_cookie_success(self):
         request = HttpRequest()
         view_cookie_name = "cname"
-        request.COOKIES = {f"BSTClientInterface-{view_cookie_name}": "TRUE"}
-        c = BSTClientInterface(request=request)
+        request.COOKIES = {f"BSTListViewClient-{view_cookie_name}": "TRUE"}
+        c = BSTListViewClient(request=request)
         c.init_interface()
         self.assertTrue(c.get_boolean_cookie(view_cookie_name))
-        request.COOKIES = {f"BSTClientInterface-{view_cookie_name}": "false"}
+        request.COOKIES = {f"BSTListViewClient-{view_cookie_name}": "false"}
         self.assertFalse(c.get_boolean_cookie(view_cookie_name))
         # default is False
-        request.COOKIES = {f"BSTClientInterface-{view_cookie_name}": ""}
+        request.COOKIES = {f"BSTListViewClient-{view_cookie_name}": ""}
         self.assertFalse(c.get_boolean_cookie(view_cookie_name))
         # explicit default
-        request.COOKIES = {f"BSTClientInterface-{view_cookie_name}": ""}
+        request.COOKIES = {f"BSTListViewClient-{view_cookie_name}": ""}
         self.assertTrue(c.get_boolean_cookie(view_cookie_name, default=True))
         # cookie absent
         request.COOKIES = {}
@@ -97,8 +145,8 @@ class BSTClientInterfaceTests(TracebaseTestCase):
     def test_get_boolean_cookie_warn(self):
         request = HttpRequest()
         view_cookie_name = "cname"
-        request.COOKIES = {f"BSTClientInterface-{view_cookie_name}": "wrong"}
-        c = BSTClientInterface(request=request)
+        request.COOKIES = {f"BSTListViewClient-{view_cookie_name}": "wrong"}
+        c = BSTListViewClient(request=request)
         c.init_interface()
         with self.assertWarns(DeveloperWarning) as aw:
             val = c.get_boolean_cookie(view_cookie_name)
@@ -116,7 +164,7 @@ class BSTClientInterfaceTests(TracebaseTestCase):
         self.assertEqual(1, len(c.cookie_resets))
         # The warning message gives the full cookie name, which the user does not need to know.
         self.assertEqual(
-            str(aw.warnings[0].message), c.warnings[0] + "  'BSTClientInterface-cname'"
+            str(aw.warnings[0].message), c.warnings[0] + "  'BSTListViewClient-cname'"
         )
         self.assertEqual(view_cookie_name, c.cookie_resets[0])
 
@@ -131,16 +179,16 @@ class BSTClientInterfaceTests(TracebaseTestCase):
         )
         # The warning message gives the full cookie name, which the user does not need to know.
         self.assertEqual(
-            str(aw.warnings[0].message), c.warnings[0] + "  'BSTClientInterface-cname'"
+            str(aw.warnings[0].message), c.warnings[0] + "  'BSTListViewClient-cname'"
         )
         self.assertEqual(1, len(c.cookie_resets))
         self.assertEqual(view_cookie_name, c.cookie_resets[0])
 
     @TracebaseTestCase.assertNotWarns()
     def test_get_column_cookie_name(self):
-        c = BSTClientInterface()
+        c = BSTListViewClient()
         self.assertEqual(
-            "BSTClientInterface-cname-column1",
+            "BSTListViewClient-cname-column1",
             c.get_column_cookie_name("column1", "cname"),
         )
 
@@ -148,13 +196,13 @@ class BSTClientInterfaceTests(TracebaseTestCase):
     def test_get_column_cookie_dict(self):
         request = HttpRequest()
         request.COOKIES = {
-            "BSTClientInterface-visible-column1": "a",
-            "BSTClientInterface-filter-column1": "b",
-            "BSTClientInterface-visible-column2": "c",
-            "BSTClientInterface-filter-column2": "d",
+            "BSTListViewClient-visible-column1": "a",
+            "BSTListViewClient-filter-column1": "b",
+            "BSTListViewClient-visible-column2": "c",
+            "BSTListViewClient-filter-column2": "d",
         }
         with self.assertWarns(DeveloperWarning) as aw:
-            c = BSTClientInterface(request=request)
+            c = BSTListViewClient(request=request)
             c.init_interface()
         self.assertIn(
             "Invalid 'visible' cookie value encountered for column 'column1': 'a'",
@@ -177,10 +225,10 @@ class BSTClientInterfaceTests(TracebaseTestCase):
     def test_get_boolean_column_cookie_dict_success(self):
         request = HttpRequest()
         request.COOKIES = {
-            "BSTClientInterface-visible-column1": "T",
-            "BSTClientInterface-visible-column2": "F",
+            "BSTListViewClient-visible-column1": "T",
+            "BSTListViewClient-visible-column2": "F",
         }
-        c = BSTClientInterface(request=request)
+        c = BSTListViewClient(request=request)
         c.init_interface()
         self.assertDictEqual(
             {"column1": True, "column2": False},
@@ -191,10 +239,10 @@ class BSTClientInterfaceTests(TracebaseTestCase):
     def test_get_boolean_column_cookie_dict_warn(self):
         request = HttpRequest()
         request.COOKIES = {
-            "BSTClientInterface-filter-column1": "b",
-            "BSTClientInterface-filter-column2": "d",
+            "BSTListViewClient-filter-column1": "b",
+            "BSTListViewClient-filter-column2": "d",
         }
-        c = BSTClientInterface(request=request)
+        c = BSTListViewClient(request=request)
         c.init_interface()
         with self.assertWarns(DeveloperWarning) as aw:
             c.get_boolean_column_cookie_dict("filter")
@@ -210,9 +258,9 @@ class BSTClientInterfaceTests(TracebaseTestCase):
         column_name = "column1"
         request = HttpRequest()
         request.COOKIES = {
-            f"BSTClientInterface-{view_cookie_name}-{column_name}": "testval"
+            f"BSTListViewClient-{view_cookie_name}-{column_name}": "testval"
         }
-        c = BSTClientInterface(request=request)
+        c = BSTListViewClient(request=request)
         c.init_interface()
         self.assertIsNone(c.get_column_cookie("column2", view_cookie_name))
         self.assertEqual(
@@ -232,7 +280,7 @@ class BSTClientInterfaceTests(TracebaseTestCase):
         param_name = "cname"
         request = HttpRequest()
         request.GET = {param_name: "x"}
-        c = BSTClientInterface(request=request)
+        c = BSTListViewClient(request=request)
         c.init_interface()
         self.assertEqual("x", c.get_param(param_name))
         self.assertEqual("mydef", c.get_param("notthere", default="mydef"))
@@ -245,17 +293,17 @@ class BSTClientInterfaceTests(TracebaseTestCase):
         request = HttpRequest()
         request.COOKIES.update(
             {
-                "BSTClientInterface-visible-name": "true",
-                "BSTClientInterface-visible-desc": "false",
-                "BSTClientInterface-search": "",
-                "BSTClientInterface-filter-name": "",
-                "BSTClientInterface-filter-desc": "description",
-                "BSTClientInterface-sortcol": "name",
-                "BSTClientInterface-asc": "false",
+                "BSTListViewClient-visible-name": "true",
+                "BSTListViewClient-visible-desc": "false",
+                "BSTListViewClient-search": "",
+                "BSTListViewClient-filter-name": "",
+                "BSTListViewClient-filter-desc": "description",
+                "BSTListViewClient-sortcol": "name",
+                "BSTListViewClient-asc": "false",
             }
         )
         request.GET.update({"limit": "20"})
-        bci = BSTClientInterface(request=request)
+        bci = BSTListViewClient(request=request)
         bci.init_interface()
         bci.reset_column_cookies(["name", "desc"], "visible")
         # Only deletes the ones that are "set" (and empty string is eval'ed as None)
@@ -269,17 +317,17 @@ class BSTClientInterfaceTests(TracebaseTestCase):
         request = HttpRequest()
         request.COOKIES.update(
             {
-                "BSTClientInterface-visible-name": "true",
-                "BSTClientInterface-visible-desc": "false",
-                "BSTClientInterface-filter-name": "",
-                "BSTClientInterface-filter-desc": "description",
-                "BSTClientInterface-search": "",
-                "BSTClientInterface-sortcol": "name",
-                "BSTClientInterface-asc": "false",
+                "BSTListViewClient-visible-name": "true",
+                "BSTListViewClient-visible-desc": "false",
+                "BSTListViewClient-filter-name": "",
+                "BSTListViewClient-filter-desc": "description",
+                "BSTListViewClient-search": "",
+                "BSTListViewClient-sortcol": "name",
+                "BSTListViewClient-asc": "false",
             }
         )
         request.GET.update({"limit": "20"})
-        bci = BSTClientInterface(request=request)
+        bci = BSTListViewClient(request=request)
         bci.init_interface()
         bci.reset_cookie("sortcol")
         # Only deletes the ones that are "set" (and empty string is eval'ed as None)
@@ -287,9 +335,6 @@ class BSTClientInterfaceTests(TracebaseTestCase):
 
     def test_model_title_plural(self):
         self.assertEqual("BCI Study Test Models", StudyBCI.model_title_plural)
-
-    def test_model_title(self):
-        self.assertEqual("BCI Study Test Model", StudyBCI.model_title)
 
     @TracebaseTestCase.assertNotWarns()
     def test_reset_filter_cookies(self):
@@ -335,7 +380,7 @@ class BSTClientInterfaceTests(TracebaseTestCase):
     @TracebaseTestCase.assertNotWarns()
     def test_get_context_data(self):
         request = HttpRequest()
-        bci = BSTClientInterface(request=request)
+        bci = BSTListViewClient(request=request)
         bci.init_interface()
         bci.object_list = []
         context = bci.get_context_data()
@@ -378,7 +423,7 @@ class BSTClientInterfaceTests(TracebaseTestCase):
         # Not a standard Paginator.  Having is_paginated=None prevents the base.html template from rendering the vanilla
         # paginator under the SizedPaginator
         self.assertIsNone(context["is_paginated"])
-        self.assertEqual("BSTClientInterface-", context["cookie_prefix"])
+        self.assertEqual("BSTListViewClient-", context["cookie_prefix"])
         self.assertFalse(context["clear_cookies"])
         self.assertEqual([], context["cookie_resets"])
         self.assertIsNone(context["model"])

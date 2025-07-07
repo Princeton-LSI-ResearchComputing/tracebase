@@ -41,6 +41,7 @@ BSTRCAnimalTestModel = create_test_model(
             to="loader.BSTRCTreatmentTestModel",
             related_name="animals",
             on_delete=CASCADE,
+            verbose_name="Animal Treatment",
         ),
         "weirdone": OneToOneField(
             to="loader.BSTRCWeirdOneTestModel",
@@ -65,6 +66,13 @@ BSTRCAnimalTestModel = create_test_model(
 BSTRCWeirdOneTestModel = create_test_model(
     "BSTRCWeirdOneTestModel",
     {"name": CharField(max_length=255, unique=True)},
+    attrs={
+        "Meta": type(
+            "Meta",
+            (),
+            {"app_label": "loader", "verbose_name": "BSTrcWeirdOneTestModel"},
+        ),
+    },
 )
 BSTRCSampleTestModel = create_test_model(
     "BSTRCSampleTestModel",
@@ -101,6 +109,13 @@ BSTRCMSRunSampleTestModel = create_test_model(
 BSTRCTissueTestModel = create_test_model(
     "BSTRCTissueTestModel",
     {"name": CharField(max_length=255)},
+    attrs={
+        "Meta": type(
+            "Meta",
+            (),
+            {"app_label": "loader", "verbose_name": "BSTrcTissueTestModel"},
+        ),
+    },
 )
 BSTRCTreatmentTestModel = create_test_model(
     "BSTRCTreatmentTestModel",
@@ -195,7 +210,7 @@ class BSTRelatedColumnTests(TracebaseTestCase):
         )
         self.assertEqual(
             (
-                "Search and sort is disabled for this column because the displayed values do not exist in the database "
+                "Search and sort is disabled for this field because the displayed values do not exist in the database "
                 "as a single field"
             ),
             c.tooltip,
@@ -204,7 +219,7 @@ class BSTRelatedColumnTests(TracebaseTestCase):
         self.assertFalse(c.sortable)
         self.assertEqual(
             (
-                "Test tooltip.\n\nSearch and sort is disabled for this column because the displayed values do not "
+                "Test tooltip.\n\nSearch and sort is disabled for this field because the displayed values do not "
                 "exist in the database as a single field"
             ),
             BSTRelatedColumn(
@@ -360,3 +375,47 @@ class BSTRelatedColumnTests(TracebaseTestCase):
         # Make sure that the 1:1 reverse relation gets the right header
         c = BSTRelatedColumn("weirdone", BSTRCAnimalTestModel)
         self.assertEqual(underscored_to_title("weirdone"), c.generate_header())
+
+    def test_generate_header_field_verbose_name(self):
+        # Test if field has verbose name with caps - return field.verbose_name
+        c = BSTRelatedColumn("treatment", BSTRCAnimalTestModel)
+        th = c.generate_header()
+        self.assertEqual(
+            BSTRCAnimalTestModel.treatment.field.verbose_name,  # pylint: disable=no-member
+            th,
+        )
+        self.assertEqual("Animal Treatment", th)
+
+    def test_generate_header_field_name_to_model_name(self):
+        # In a related model, instead of using the model name, the foreign key name is used, because it conveys context
+        c = BSTRelatedColumn("sample__name", BSTRCMSRunSampleTestModel)
+        sh = c.generate_header()
+        self.assertEqual(underscored_to_title("sample"), sh)
+
+    def test_generate_header_field_name_to_model_cap_verbose_name(self):
+        # Test caps model verbose_name NOT used because the foreign key is used for context
+        c = BSTRelatedColumn("weirdone__name", BSTRCAnimalTestModel)
+        sh = c.generate_header()
+        self.assertEqual(
+            underscored_to_title("weirdone"),
+            sh,
+        )
+
+    def test_generate_header_field_name_to_model_diff_verbose_name(self):
+        # Test diff model verbose_name used as-is
+        c = BSTRelatedColumn("animal__name", BSTRCSampleTestModel)
+        ah = c.generate_header()
+        self.assertEqual(
+            underscored_to_title(
+                BSTRCAnimalTestModel._meta.__dict__[  # pylint: disable=no-member
+                    "verbose_name"
+                ]
+            ),
+            ah,
+        )
+
+    def test_generate_header_field_name_not_unique_not_changed_to_model_name(self):
+        # Test diff model verbose_name used as-is
+        c = BSTRelatedColumn("tissue__name", BSTRCSampleTestModel)
+        th = c.generate_header()
+        self.assertEqual(underscored_to_title("name"), th)
