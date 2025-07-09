@@ -66,6 +66,8 @@ class BSTDetailViewClientTests(TracebaseTestCase):
                     "view",
                     "table_id",
                     "table_name",
+                    "above_template",
+                    "below_template",
                 ]
             ),
             set(context.keys()),
@@ -416,6 +418,8 @@ class BSTListViewClientTests(TracebaseTestCase):
                     "visible_cookie_name",
                     "collapsed",
                     "collapsed_cookie_name",
+                    "above_template",
+                    "below_template",
                 ]
             ),
             set(context.keys()),

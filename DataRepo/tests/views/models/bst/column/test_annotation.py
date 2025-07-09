@@ -108,7 +108,7 @@ class BSTAnnotColumnTests(TracebaseTestCase):
             tooltip="Count of sample names.",
             model=BACTissueTestModel,
         )
-        self.assertEqual("Sample name.\n\nCount of sample names.", c.tooltip)
+        self.assertEqual("Count of sample names.", c.tooltip)
 
     def test_get_model_object_fk_output(self):
         """This tests that when a converter's output_field is a ForeignKey field, get_model_object will retrieve the

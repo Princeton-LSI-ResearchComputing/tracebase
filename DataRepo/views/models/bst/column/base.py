@@ -75,6 +75,7 @@ class BSTBaseColumn(ABC):
         visible: bool = True,
         exported: bool = True,
         linked: bool = False,
+        wrapped: bool = False,
         sorter: Optional[Union[str, BSTBaseSorter, dict]] = None,
         filterer: Optional[Union[str, BSTBaseFilterer, dict]] = None,
         th_template: Optional[str] = None,
@@ -105,6 +106,7 @@ class BSTBaseColumn(ABC):
             linked (bool) [False]: Whether or not the value in the column should link to a detail page for the model
                 record the row represents.
                 NOTE: The model must have a "get_absolute_url" method.  Checked in the template.
+            wrapped (bool) [False]: Whether the field value should be allowed to soft-wrap.
 
             sorter (Optional[Union[str, BSTBaseSorter, dict]]) [auto]: If the value is a str, must be in
                 BSTBaseSorter.CLIENT_SORTERS.  Default will be based on the name and the sorter (if it is a str).  If
@@ -138,6 +140,7 @@ class BSTBaseColumn(ABC):
         self.visible = visible if hidable else True
         self.exported = exported
         self.linked = linked
+        self.wrapped = wrapped
         self.th_template = (
             th_template if isinstance(th_template, str) else self.th_template
         )

@@ -14,6 +14,11 @@
 
     <h4>{{ table_name }}</h4>
     <br>
+
+    {% if above_template %}
+        {% include above_template %}
+    {% endif %}
+
     <div>
         <table class="table table-sm table-hover table-bordered table-responsive-xl table-striped"
             id="{{ table_id }}"
@@ -60,5 +65,9 @@
     </div>
 
     {% include page_obj.paginator.template_name %}
+
+    {% if below_template %}
+        {% include below_template %}
+    {% endif %}
 
 {% endblock %}

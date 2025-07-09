@@ -40,6 +40,11 @@ class BSTClientInterface:
     title_var_name = "table_name"
     columns_var_name = "columns"
     warnings_var_name = "warnings"
+    above_var_name = "above_template"
+    below_var_name = "below_template"
+
+    above_template: Optional[str] = None
+    below_template: Optional[str] = None
 
     def __init__(self):
         self.warnings: List[str] = []
@@ -616,6 +621,9 @@ class BSTListViewClient(BSTClientInterface, ListView):
                 "collapsed_cookie_name": self.collapsed_cookie_name,
                 # Override Django's is_paginated to not trigger the base.html template from adding vanilla pagination
                 "is_paginated": None,
+                # Extra custom templates
+                self.above_var_name: self.above_template,
+                self.below_var_name: self.below_template,
             }
         )
 
@@ -681,6 +689,9 @@ class BSTDetailViewClient(DetailView, BSTClientInterface):
                 # General table details
                 self.table_id_var_name: type(self).__name__,
                 self.title_var_name: self.model_title,
+                # Extra custom templates
+                self.above_var_name: self.above_template,
+                self.below_var_name: self.below_template,
             }
         )
 

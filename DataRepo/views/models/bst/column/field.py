@@ -8,6 +8,7 @@ from django.db.models.expressions import Combinable
 from DataRepo.models.utilities import (
     field_path_to_field,
     is_key_field,
+    is_long_field,
     is_many_related_to_root,
     is_unique_field,
 )
@@ -95,6 +96,7 @@ class BSTColumn(BSTBaseColumn):
         # Get some superclass instance members we need for checks
         linked = kwargs.get("linked")
         tooltip = kwargs.get("tooltip")
+        wrapped = kwargs.get("wrapped")
 
         # Set the name for the superclass based on field_path
         name = self.field_path
@@ -153,6 +155,9 @@ class BSTColumn(BSTBaseColumn):
             if tooltip is not None:
                 new_tooltip += "\n\n" + tooltip
             kwargs.update({"tooltip": new_tooltip})
+
+        if wrapped is None and is_long_field(self.field):
+            kwargs.update({"wrapped": True})
 
         super().__init__(name, *args, **kwargs)
 

@@ -853,19 +853,28 @@ class BSTBaseView:
         for group in self.groups.values():
             existing_groups_by_model[group.many_related_model_path] = group
 
-        cols_by_model: Dict[str, List[BSTManyRelatedColumn]] = defaultdict(list)
+        non_uniq_cols_by_model: Dict[str, List[BSTManyRelatedColumn]] = defaultdict(
+            list
+        )
         for colname in self.column_ordering:
             # There can be group names in the column_rdering (to allow developers to shortcut its creation)
             if colname not in self.groups.keys():
                 col = self.columns[colname]
                 # If this is a many-related column that has a field_path longer than 1 foreign key (i.e. ignore sole
-                # many-related foreign keys that the developer should have removed)
-                if isinstance(col, BSTManyRelatedColumn) and "__" in col.field_path:
-                    cols_by_model[col.many_related_model_path].append(col)
+                # many-related foreign keys that the developer should have removed), and the column values are not set
+                # to be unique (i.e. the default is for the last many-related model record to be unique, but when
+                # column.unique is True, the actual values are made to be unique and thus will not visually align with
+                # neighboring columns from the same many-related model)
+                if (
+                    isinstance(col, BSTManyRelatedColumn)
+                    and "__" in col.field_path
+                    and col.unique is False
+                ):
+                    non_uniq_cols_by_model[col.many_related_model_path].append(col)
 
         # Loop through the automatically generated groups and if the group doesn't exist, create it.  If it does exist,
         # check it.
-        for mr_model_path, columns in cols_by_model.items():
+        for mr_model_path, columns in non_uniq_cols_by_model.items():
             if (
                 mr_model_path not in existing_groups_by_model.keys()
                 and len(columns) > 1

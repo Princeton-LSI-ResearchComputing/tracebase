@@ -19,3 +19,10 @@ th tag. */
   top: 1px;
   right: 15px;
 }
+
+/* This is for use in soft-wrapped td table cells so that they are not rendered too narrow. */
+.min-w25rem {
+  min-width: 25rem !important;
+  display: flex !important;
+  height: 100%;
+}

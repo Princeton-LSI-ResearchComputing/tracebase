@@ -190,7 +190,8 @@ class BSTQueryView:
             # If a many-related column is not in a column group (i.e. there are no other columns that pass through the
             # same many-related model), then make the displayed values unique.  Otherwise, show a value for every unique
             # many-related model record.
-            value_unique=not col._in_group,
+            value_unique=not col._in_group
+            or (isinstance(col, BSTManyRelatedColumn) and col.unique),
         )
 
     @classmethod
@@ -245,7 +246,7 @@ class BSTQueryView:
             # If a many-related column is not in a column group (i.e. there are no other columns that pass through the
             # same many-related model), then make the displayed values unique.  Otherwise, show a value for every unique
             # many-related model record.
-            value_unique=not col._in_group,
+            value_unique=not col._in_group or col.unique,
         )
 
     def apply_annotations(

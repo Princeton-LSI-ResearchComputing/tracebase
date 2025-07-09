@@ -4,6 +4,7 @@ from django.db.models import (
     FloatField,
     ForeignKey,
     ManyToManyField,
+    TextField,
 )
 
 from DataRepo.tests.tracebase_test_case import (
@@ -17,7 +18,11 @@ from DataRepo.views.models.bst.column.sorter.field import BSTSorter
 
 BSTCStudyTestModel = create_test_model(
     "BSTCStudyTestModel",
-    {"name": CharField(max_length=255, unique=True)},
+    {
+        "name": CharField(max_length=255, unique=True),
+        "desc": TextField(),
+        "comment": CharField(max_length=257),
+    },
     attrs={
         "Meta": type(
             "Meta",
@@ -187,6 +192,14 @@ class BSTColumnTests(TracebaseTestCase):
     def test_init_is_fk(self):
         self.assertTrue(BSTColumn("animal", BSTCSampleTestModel).is_fk)
         self.assertFalse(BSTColumn("name", BSTCSampleTestModel).is_fk)
+
+    def test_init_wrapped(self):
+        n = BSTColumn("name", BSTCStudyTestModel)
+        self.assertFalse(n.wrapped)
+        d = BSTColumn("desc", BSTCStudyTestModel)
+        self.assertTrue(d.wrapped)
+        c = BSTColumn("comment", BSTCStudyTestModel)
+        self.assertTrue(c.wrapped)
 
     def test_eq(self):
         # Test __eq__ works when other val is string

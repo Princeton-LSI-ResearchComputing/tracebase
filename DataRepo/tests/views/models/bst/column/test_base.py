@@ -55,14 +55,16 @@ class BSTBaseColumnTests(TracebaseTestCase):
             BSTBaseFilterer.INPUT_METHODS.SELECT, bstbct.filterer.input_method
         )
 
-    def test_init_hidable(self):
+    def test_BSTBaseColumn(self):
         bstbct1 = BSTBaseColumnTest("name", hidable=False, visible=False)
         self.assertFalse(bstbct1.hidable)
         self.assertTrue(bstbct1.visible)  # visible=False ignored, since not hidable
+        self.assertFalse(bstbct1.wrapped)
 
-        bstbct2 = BSTBaseColumnTest("name", hidable=True, visible=False)
+        bstbct2 = BSTBaseColumnTest("name", hidable=True, visible=False, wrapped=True)
         self.assertTrue(bstbct2.hidable)
         self.assertFalse(bstbct2.visible)  # visible=False ignored, since not hidable
+        self.assertTrue(bstbct2.wrapped)
 
     def test_generate_header(self):
         bstbct = BSTBaseColumnTest("name")
