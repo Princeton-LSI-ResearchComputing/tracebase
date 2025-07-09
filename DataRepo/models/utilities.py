@@ -838,6 +838,47 @@ def is_string_field(
     return default
 
 
+def is_long_field(
+    field: Optional[
+        Union[
+            Field,
+            DeferredAttribute,
+            ForwardManyToOneDescriptor,
+            ManyToManyDescriptor,
+            ReverseManyToOneDescriptor,
+        ]
+    ],
+    short_len: int = 256,
+    default: bool = False,
+) -> bool:
+    """Returns whether the supplied field can contain a value longer than short_len.  Intended for use in deciding
+    whether to allow field values to soft-wrap.
+
+    Args:
+        field (Optional[Union[Field, DeferredAttribute, ForwardManyToOneDescriptor, ManyToManyDescriptor,
+            ReverseManyToOneDescriptor]): A field or field representation.
+        short_len (int) [256]: The longest length of a "short" field.  If the number of characters the field allows (its
+            max_length) is longer than this number, returns True.
+        default (bool) [False]: What to return if field is None.
+    Exceptions:
+        None
+    Returns:
+        (bool): Whether the supplied field is a string/text-type field.
+    """
+    if field is not None:
+        nomax_field_names = [
+            "TextField",
+        ]
+
+        field = resolve_field(field)
+        return field.__class__.__name__ in nomax_field_names or (
+            hasattr(field, "max_length")
+            and isinstance(field.max_length, int)
+            and field.max_length > short_len
+        )
+    return default
+
+
 def is_number_field(
     field: Optional[
         Union[
@@ -1037,10 +1078,10 @@ def model_title(model: Type[Model]) -> str:
     from DataRepo.utils.text_utils import camel_to_title, underscored_to_title
 
     try:
-        vname: str = model._meta.__dict__["verbose_name"]
+        vname: str = model._meta.verbose_name
         sanitized = vname.replace(" ", "")
         sanitized = sanitized.replace("_", "")
-        if any([c.isupper() for c in vname]) and model.__name__.lower() == sanitized:
+        if any([c.isupper() for c in vname]) or model.__name__.lower() != sanitized:
             return underscored_to_title(vname)
         else:
             return camel_to_title(model.__name__)
@@ -1063,14 +1104,25 @@ def model_title_plural(model: Type[Model]) -> str:
     """
     from DataRepo.utils.text_utils import camel_to_title, underscored_to_title
 
+    plural_name = ""
     try:
-        vname: str = model._meta.__dict__["verbose_name_plural"]
-        if any([c.isupper() for c in vname]):
-            return underscored_to_title(vname)
+        if model is not None:
+            # If the model has a plural verbose name different from name (because it's automatically filled in with
+            # name), use it
+            if model.__name__.lower() != model._meta.verbose_name_plural.lower():
+                if any(c.isupper() for c in model._meta.verbose_name_plural):
+                    # If the field has a verbose name with caps, use it as-is
+                    plural_name = model._meta.verbose_name_plural
+                else:
+                    # Otherwise convert it to a title
+                    plural_name = underscored_to_title(model._meta.verbose_name_plural)
+            if model._meta.verbose_name_plural:
+                plural_name = underscored_to_title(model._meta.verbose_name_plural)
         else:
-            return f"{camel_to_title(model.__name__)}s"
+            plural_name = f"{camel_to_title(model.__name__)}s"
     except Exception:
-        return f"{camel_to_title(model.__name__)}s"
+        plural_name = f"{camel_to_title(model.__name__)}s"
+    return plural_name
 
 
 def get_field_val_by_iteration(
@@ -1122,7 +1174,9 @@ def get_field_val_by_iteration(
             # Returning the first value of the tuple - converting empty strings to None
             tpl[0] if not isinstance(tpl[0], str) or tpl[0] != "" else None
             # Sort based on the the sort value in the tuple (the second value at index 1)
-            for tpl in sorted(val, key=lambda t: t[1], reverse=not asc)
+            for tpl in sorted(
+                val, key=lambda t: (t[1] is not None, t[1]), reverse=not asc
+            )
         ]
 
     # Convert empty strings in the tuple's return value to None

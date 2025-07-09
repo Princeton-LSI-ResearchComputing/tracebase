@@ -38,6 +38,7 @@ class MSRunSequence(Model):
         blank=False,
         max_length=256,
         help_text="The name of the researcher who ran the mass spectrometer.",
+        verbose_name="MSRun Operator",
     )
     date = DateField(
         null=False,

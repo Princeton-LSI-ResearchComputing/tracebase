@@ -145,10 +145,11 @@ class BSTAnnotColumn(BSTBaseColumn):
                     not is_reverse_related_field(remote_field)
                     and remote_field.help_text is not None
                 ):
-                    new_tooltip = remote_field.help_text
-                    if "tooltip" in kwargs.keys() and kwargs["tooltip"] is not None:
-                        new_tooltip += "\n\n" + kwargs["tooltip"]
-                    kwargs.update({"tooltip": new_tooltip})
+                    # If no tooltip was provided and the extracted field has help text
+                    if (
+                        "tooltip" not in kwargs.keys() or kwargs["tooltip"] is None
+                    ) and remote_field.help_text is not None:
+                        kwargs.update({"tooltip": remote_field.help_text})
 
                 # If this is a key field, we will assume that the annotation output is the ID of a record from that
                 # model, so we can link it.
@@ -221,7 +222,7 @@ class BSTAnnotColumn(BSTBaseColumn):
             fk_warning = f"get_model_object called on a non-foreign key annotation column ('{self.name}')."
 
         if not isinstance(id, int):
-            if fk_warning != "":
+            if fk_warning is not None:
                 fk_warning += "\n"
             fk_warning = (
                 f"get_model_object was supplied a {type(id).__name__}: '{id}' instead of the expected integer for "
