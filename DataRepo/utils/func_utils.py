@@ -1,3 +1,8 @@
+import cProfile
+import io
+import pstats
+
+
 def reduceuntil(function, untilfunction, sequence, initial=None):
     """Like functools.reduce, but with a condition function that stops the reduction early if a condition is met.
 
@@ -41,3 +46,49 @@ def reduceuntil(function, untilfunction, sequence, initial=None):
             break
 
     return value
+
+
+def profile_method(sort_by="cumulative", n_rows=None, outfile=None):
+    """A decorator to profile a method using cProfile.  Intended for use profiling view get methods, since the django
+    debug toolbar is limited and slow.
+
+    Example:
+        class myClassView:
+            @profile_method()
+            def get(self, request, *args, **kwargs):
+                pass
+    Args:
+        sort_by (str) ["cumulative"] {"cumulative", "time", "calls"}: The key to sort the profiling results by.
+        n_rows (Optional[int]) [all]: Limit the number of rows in the output.
+        outfile (Optional[str]) [printed]: Path to a file to save the profiling results.
+    Exceptions:
+        None
+    Returns:
+        decorator
+    """
+
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            pr = cProfile.Profile()
+            pr.enable()
+            result = func(*args, **kwargs)
+            pr.disable()
+
+            s = io.StringIO()
+            ps = pstats.Stats(pr, stream=s).sort_stats(sort_by)
+            if n_rows:
+                ps.print_stats(n_rows)
+            else:
+                ps.print_stats()
+
+            if outfile:
+                with open(outfile, "w") as f:
+                    f.write(s.getvalue())
+            else:
+                print(s.getvalue())
+
+            return result
+
+        return wrapper
+
+    return decorator
