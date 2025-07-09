@@ -13,8 +13,10 @@ from DataRepo.models.utilities import (
     is_many_related_to_parent,
     is_many_related_to_root,
     is_reverse_related_field,
+    is_unique_field,
 )
 from DataRepo.utils.exceptions import DeveloperWarning, trace
+from DataRepo.utils.text_utils import get_plural, underscored_to_title
 from DataRepo.views.models.bst.column.related_field import BSTRelatedColumn
 from DataRepo.views.models.bst.column.sorter.many_related_field import (
     BSTManyRelatedSorter,
@@ -76,6 +78,7 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
     delimiter: str = "; "
     limit: int = 3
     ascending: bool = True
+    unique: bool = False
 
     # These ellipsis versions are used when the number of values displayed has been limited
     more_msg = "... (+{0} more)"
@@ -96,6 +99,7 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
         count_attr_name: Optional[str] = None,
         delim: Optional[str] = delimiter,
         limit: int = limit,
+        unique: Optional[bool] = None,
         sort_expression: Optional[Union[Combinable, Field, str]] = None,
         asc: Optional[bool] = None,
         **kwargs,
@@ -112,6 +116,10 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
                 model (NOTE: the template may add delimiting HTML).
             limit (int) [BSTManyRelatedColumn.limit]: A limit to the number of related model objects/field-values to
                 include.  Set to 0 for unlimited.
+            unique (bool) [False]: This specifies whether the delimited values should be distilled to the unique set or
+                not.  When False, unique is still applied, but to the last many-related model in the field_path, not to
+                the values.  The reason for this is so that when there are multiple columns from the same many-related
+                model, they visually align.
             sort_expression (Optional[Union[Combinable, Field, str]]) [auto]: Initial 'field' used to sort the delimited
                 values in the resulting Bootstrap Table.  The purpose of this argument is to provide a means of sorting
                 multiple fields (all from the same many-related model) the same, so that they visually align.  The
@@ -131,6 +139,7 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
         self.count_annot_name: str
         self.delim = delim
         self.limit = limit
+        self.unique = unique if unique is not None else __class__.unique  # type: ignore[name-defined]
         self.sort_expression = sort_expression
         self.asc = asc if asc is not None else self.ascending
         self._in_group = False  # Changed by BSTColumnGroup
@@ -318,8 +327,9 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
             n = self.limit + 1
             limited_subrecs = subrecs[0:n]
             if hasattr(rec, self.count_annot_name):
-                count = getattr(rec, self.count_annot_name)
-                limited_subrecs[-1] = self.more_msg.format(count - self.limit)
+                # TODO: Change len(subrecs) to getattr(rec, self.count_attr_name) once I've fixed it.  The size of
+                # subrecs is not intended to be the complete size (though it currently is)
+                limited_subrecs[-1] = self.more_msg.format(len(subrecs) - self.limit)
             else:
                 # The derived class must've eliminated the {colname}_mm_count column, so we cannot tell them how many
                 # there are left to display.
@@ -335,6 +345,56 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
             )
 
         setattr(rec, self.list_attr_name, limited_subrecs)
+
+    def generate_header(self, **_):
+        """Generate a plural column header from the field_path.  Overrides super().generate_header.  This only uses the
+        field's name or verbose_name if the field is not a reverse relation.  The field names of reverse relations refer
+        to the model that linked to it, which is "backwards".  For example, such a column header for a reverse relation
+        off the root model would end up with a header that is the same as the root model.  This also does not use the
+        model name of related model unless the leaf of the field path is "name".  The leaf of the field path provides
+        context that the field name or the related model name does not provide.  E.g. Compound linked to from Tracer or
+        PeakGroup could be "measured_compound" or "tracer_compound".
+
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            (str): A plural header string, with pretty capitalization and underscores removed.
+        """
+        # Grab as many of the last 2 items from the field_path as is present
+        path = self.field_path.split("__")
+
+        name = None
+
+        # If the length is greater than 1, the last element is "name", and the field is unique, use the name of the
+        # foreign key to this model's field only.
+        if len(path) > 1 and path[-1] == "name" and is_unique_field(self.field):
+            name = path[-2]
+        else:
+            # If the field belongs to the model of the last foreign key in the field_path (because the verbose name of a
+            # reverse relation refers to the reverse model) and has a verbose name different from name (because it's
+            # automatically filled in with name), use it
+            remote_field = field_path_to_field(
+                self.model, self.field_path, ignore_reverse_related=False
+            )
+            if (
+                not is_reverse_related_field(remote_field)
+                and remote_field.name != remote_field.verbose_name
+            ):
+                name = remote_field.verbose_name
+
+        if name is None:
+            name = path[-1]
+
+        plural_name = get_plural(name)
+
+        # If the field has a verbose name with caps, use it as-is
+        if any(c.isupper() for c in plural_name):
+            return plural_name
+
+        # Otherwise, use the last 2 elements of the path
+        return underscored_to_title(plural_name)
 
     def create_sorter(
         self, field: Optional[Union[Combinable, Field, str]] = None, **kwargs

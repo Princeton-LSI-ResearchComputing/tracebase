@@ -33,6 +33,7 @@ BSTMRCAnimalTestModel = create_test_model(
     {
         "name": CharField(max_length=255),
         "body_weight": FloatField(verbose_name="Weight (g)"),
+        "sex": CharField(choices=[("F", "female"), ("M", "male")]),
         "studies": ManyToManyField(
             to="loader.BSTMRCStudyTestModel", related_name="animals"
         ),
@@ -40,6 +41,17 @@ BSTMRCAnimalTestModel = create_test_model(
             to="loader.BSTMRCTreatmentTestModel",
             related_name="animals",
             on_delete=CASCADE,
+            verbose_name="Animal Treatment",
+        ),
+    },
+    attrs={
+        "Meta": type(
+            "Meta",
+            (),
+            {
+                "app_label": "loader",
+                "verbose_name_plural": "The Animals",
+            },
         ),
     },
 )
@@ -73,7 +85,17 @@ BSTMRCTissueTestModel = create_test_model(
 )
 BSTMRCTreatmentTestModel = create_test_model(
     "BSTMRCTreatmentTestModel",
-    {"name": CharField(), "desc": CharField()},
+    {"name": CharField(unique=True), "desc": CharField()},
+    attrs={
+        "Meta": type(
+            "Meta",
+            (),
+            {
+                "app_label": "loader",
+                "verbose_name_plural": "Animal Treatments",
+            },
+        ),
+    },
 )
 
 
@@ -86,6 +108,7 @@ class BSTManyRelatedColumnTests(TracebaseTestCase):
         # self.count_attr_name
         # self.delim
         # self.limit
+        # self.unique
         c = BSTManyRelatedColumn("studies__name", BSTMRCAnimalTestModel)
         self.assertEqual(
             f"studies_name{BSTManyRelatedColumn._list_attr_tail}", c.list_attr_name
@@ -96,6 +119,10 @@ class BSTManyRelatedColumnTests(TracebaseTestCase):
         self.assertEqual(BSTManyRelatedColumn.delimiter, c.delim)
         self.assertEqual(BSTManyRelatedColumn.limit, c.limit)
         self.assertEqual(BSTManyRelatedColumn.ascending, c.asc)
+        self.assertEqual(BSTManyRelatedColumn.unique, c.unique)
+
+        d = BSTManyRelatedColumn("studies__name", BSTMRCAnimalTestModel, unique=True)
+        self.assertTrue(d.unique)
 
     @TracebaseTestCase.assertNotWarns()
     def test_init_fk_field_attrs(self):
@@ -272,7 +299,7 @@ class BSTManyRelatedColumnTests(TracebaseTestCase):
 
         c = BSTManyRelatedColumn("samples__characteristic", BSTMRCAnimalTestModel)
         sh = c.generate_header()
-        self.assertEqual(underscored_to_title("characteristic"), sh)
+        self.assertEqual(underscored_to_title("characteristics"), sh)
 
     def test_init_is_fk(self):
         self.assertTrue(
@@ -281,3 +308,47 @@ class BSTManyRelatedColumnTests(TracebaseTestCase):
         self.assertFalse(
             BSTManyRelatedColumn("animal__studies__name", BSTMRCSampleTestModel).is_fk
         )
+
+    def test_generate_header_related_model_name_field_to_fkey_name(self):
+        # Test when related model unique field, uses foreign key name when field is "name"
+        c = BSTManyRelatedColumn("studies__name", BSTMRCAnimalTestModel)
+        ah = c.generate_header()
+        self.assertEqual(underscored_to_title("studies"), ah)
+
+    def test_generate_header_related_model_uses_last_fkey(self):
+        # Test that every other field uses - underscored_to_title("_".join(path_tail))
+        c = BSTManyRelatedColumn("animals__sex", BSTMRCStudyTestModel)
+        sh = c.generate_header()
+        self.assertEqual(underscored_to_title("sexes"), sh)
+
+    def test_generate_header_field_verbose_name(self):
+        # Test if field has verbose name with caps - return pluralized version of field.verbose_name
+        c = BSTManyRelatedColumn("animals__treatment", BSTMRCStudyTestModel)
+        th = c.generate_header()
+        self.assertEqual(
+            BSTMRCAnimalTestModel.treatment.field.verbose_name  # pylint: disable=no-member
+            + "s",
+            th,
+        )
+        self.assertEqual("Animal Treatments", th)
+
+    def test_generate_header_field_name_to_model_name(self):
+        # In a related model, instead of using the model name, the foreign key name is used, because it conveys context
+        c = BSTManyRelatedColumn("samples__name", BSTMRCTissueTestModel)
+        sh = c.generate_header()
+        self.assertEqual(underscored_to_title("samples"), sh)
+
+    def test_generate_header_field_name_to_model_cap_verbose_name(self):
+        # Test caps model verbose_name NOT used because the foreign key is used for context
+        c = BSTManyRelatedColumn("animals__treatment__name", BSTMRCStudyTestModel)
+        sh = c.generate_header()
+        self.assertEqual(
+            underscored_to_title("treatments"),
+            sh,
+        )
+
+    def test_generate_header_field_name_not_unique_not_changed_to_model_name(self):
+        # Test diff model verbose_name used as-is
+        c = BSTManyRelatedColumn("samples__tissue__name", BSTMRCAnimalTestModel)
+        th = c.generate_header()
+        self.assertEqual(underscored_to_title("names"), th)

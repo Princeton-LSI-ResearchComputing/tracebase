@@ -105,3 +105,20 @@ function deleteViewCookies (viewNames) { // eslint-disable-line no-unused-vars
   }
   return cookieNames
 }
+
+/**
+ * Deletes a specific cookie for every supplied column specific to this view/page.
+ * @param {*} columns Array of column names.
+ * @param {*} name Cookie name.
+ * @returns Count of deleted cookies (those that had a value).
+ */
+function deleteViewColumnCookies (columns, name) { // eslint-disable-line no-unused-vars
+  let count = 0
+  for (let i = 0; i < columns.length; i++) {
+    const val = deleteViewColumnCookie(columns[i], name)
+    if (val !== '') {
+      count = count + 1
+    }
+  }
+  return count
+}

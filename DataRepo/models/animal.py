@@ -130,7 +130,6 @@ class Animal(MaintainedModel, HierCachedModel):
         null=True,
         editable=False,
         help_text="The infusate's unique ordered combination of elements by tracer, e.g. 'C, C+N'.",
-        verbose_name="Tracer Label Combos",
     )
 
     @property  # type: ignore

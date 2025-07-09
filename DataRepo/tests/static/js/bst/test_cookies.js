@@ -47,6 +47,17 @@ QUnit.test('deleteViewColumnCookie', function (assert) {
   assert.equal(getViewColumnCookie('col3', 'mycookie6', 'y'), 'y')
 })
 
+QUnit.test('deleteViewColumnCookies', function (assert) {
+  setViewColumnCookie('col3', 'mycookie6', 'x')
+  setViewColumnCookie('col4', 'mycookie6', 'y')
+  setViewColumnCookie('col5', 'mycookie6', '')
+  const result = deleteViewColumnCookies(['col3', 'col4'], 'mycookie6')
+  assert.equal(result, 2)
+  assert.equal(getViewColumnCookie('col3', 'mycookie6', 'z'), 'z')
+  assert.equal(getViewColumnCookie('col4', 'mycookie6', 'z'), 'z')
+  assert.equal(getViewColumnCookie('col5', 'mycookie6', 'z'), 'z')
+})
+
 QUnit.test('getViewCookieNames', function (assert) {
   initViewCookies('myview-')
   deleteViewCookies()
