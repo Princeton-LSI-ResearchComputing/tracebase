@@ -10,7 +10,7 @@ var djangoLimitDefault = 15 // eslint-disable-line no-var
 var djangoLimit = djangoLimitDefault // eslint-disable-line no-var
 var djangoPerPage = djangoLimitDefault // eslint-disable-line no-var
 var djangoRawTotal = 0 // eslint-disable-line no-var
-var djangoTotal = djangoRawTotal // eslint-disable-line no-var
+var djangoTotal = djangoRawTotal // eslint-disable-line no-var, no-unused-vars
 var columnNames = [] // eslint-disable-line no-var
 
 var sortCookieName = 'sort' // eslint-disable-line no-var, no-unused-vars
@@ -170,9 +170,15 @@ function initBST ( // eslint-disable-line no-unused-vars
         if (oldTermDefined !== newTermDefined || (oldTermDefined && newTermDefined && oldTerm !== searchTerm)) {
           setViewCookie(searchCookieName, searchTerm) // eslint-disable-line no-undef
           // No need to hit the server if we're displaying all results. Just let BST do it.
-          if ((djangoLimit > 0 && djangoLimit < djangoTotal) || djangoTotal < djangoRawTotal) {
-            updatePage(1)
-          }
+          // TODO: Everything is currently server-side.  The conditional here does not work when the filterer is set as
+          // 'djangoFilterer'.  Fix this so that it knows to update the page when the filterer is 'djangoFilterer'.
+          // if ((djangoLimit > 0 && djangoLimit < djangoTotal) || djangoTotal < djangoRawTotal) {
+          updatePage(1)
+          // }
+        } else if (searchTerm === '') {
+          // Clear the column filters
+          deleteViewColumnCookies(columnNames, filterCookieName) // eslint-disable-line no-undef
+          updatePage(1)
         }
       }
     },
@@ -186,9 +192,11 @@ function initBST ( // eslint-disable-line no-unused-vars
         if (oldTermDefined !== newTermDefined || (oldTermDefined && newTermDefined && oldTerm !== searchTerm)) {
           setViewColumnCookie(columnName, filterCookieName, searchTerm) // eslint-disable-line no-undef
           // No need to hit the server if we're displaying all results. Just let BST do it.
-          if ((djangoLimit > 0 && djangoLimit < djangoTotal) || djangoTotal < djangoRawTotal) {
-            updatePage(1)
-          }
+          // TODO: Everything is currently server-side.  The conditional here does not work when the filterer is set as
+          // 'djangoFilterer'.  Fix this so that it knows to update the page when the filterer is 'djangoFilterer'.
+          // if ((djangoLimit > 0 && djangoLimit < djangoTotal) || djangoTotal < djangoRawTotal) {
+          updatePage(1)
+          // }
         }
       }
     },

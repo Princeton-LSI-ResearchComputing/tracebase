@@ -119,6 +119,8 @@ class BSTBaseDetailViewTests(TracebaseTestCase):
                     "table_name",
                     "view",
                     "object",
+                    "above_template",
+                    "below_template",
                 ]
             ),
             set(list(bbdv.get_context_data().keys())),
@@ -943,6 +945,8 @@ class BSTBaseListViewTests(TracebaseTestCase):
                     "visible_cookie_name",
                     "collapsed",
                     "collapsed_cookie_name",
+                    "above_template",
+                    "below_template",
                     # columns is from this class
                     "columns",
                 ]
@@ -1061,6 +1065,30 @@ class BSTBaseListViewTests(TracebaseTestCase):
             set(["animals__name", "animals__desc"]),
             set([c.name for c in swaac.groups["animals_group"].columns]),
         )
+
+        # Now test that unique columns are excluded from the group:
+        class AnimalWithAddedStudyColsBLV2(BSTBaseListView):
+            model = BSTBLVAnimalTestModel
+            exclude = ["id", "studies"]
+
+        awasc2 = AnimalWithAddedStudyColsBLV2()
+
+        # Now let's manually add a couple columns (avoiding the constructor so that add_check_groups isn't
+        # automatically called and we can isolate it
+        awasc2.column_settings["studies__name"] = BSTManyRelatedColumn(
+            "studies__name", BSTBLVAnimalTestModel
+        )
+        awasc2.column_settings["studies__desc"] = BSTManyRelatedColumn(
+            "studies__desc", BSTBLVAnimalTestModel, unique=True
+        )
+        awasc2.column_ordering.append("studies__name")
+        awasc2.column_ordering.append("studies__desc")
+        awasc2.init_column("studies__name")
+        awasc2.init_column("studies__desc")
+
+        awasc2.add_check_groups()
+
+        self.assertNotIn("studies_group", awasc2.groups.keys())
 
     def test_init_no_representative(self):
         """Test that a linked "details" column is added when there is no clear representative field"""

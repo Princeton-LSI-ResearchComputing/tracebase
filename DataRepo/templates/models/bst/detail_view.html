@@ -12,6 +12,11 @@
 
     <h4>{{ table_name }}</h4>
     <br>
+
+    {% if above_template %}
+        {% include above_template %}
+    {% endif %}
+
     <div>
         <table class="table table-bordered table-hover w-auto"
             id="{{ table_id }}"
@@ -37,5 +42,9 @@
             </tbody>
         </table>
     </div>
+
+    {% if below_template %}
+        {% include below_template %}
+    {% endif %}
 
 {% endblock %}
