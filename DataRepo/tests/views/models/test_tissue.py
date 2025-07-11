@@ -13,8 +13,11 @@ class TissueViewTests(ModelViewTests):
     def test_tissue_list(self):
         response = self.client.get(reverse("tissue_list"))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "models/tissue/tissue_list.html")
-        self.assertEqual(len(response.context["tissue_list"]), self.ALL_TISSUES_COUNT)
+        self.assertTemplateUsed(response, "models/bst/list_view.html")
+        self.assertTemplateUsed(response, "models/bst/th.html")
+        self.assertTemplateUsed(response, "models/bst/td.html")
+        self.assertTemplateUsed(response, "models/bst/value.html")
+        self.assertEqual(len(response.context["object_list"]), self.ALL_TISSUES_COUNT)
 
     @tag("tissue")
     def test_tissue_detail(self):

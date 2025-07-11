@@ -48,8 +48,11 @@ from DataRepo.models.utilities import (
     _recursive_many_rec_iterator,
     dereference_field,
     extract_field_paths_from_q,
+    field_name_to_manager_name,
     field_path_to_field,
+    field_path_to_manager_path,
     field_path_to_model_path,
+    field_to_manager_name,
     get_all_models,
     get_distinct_fields,
     get_many_related_field_val_by_subquery,
@@ -59,6 +62,7 @@ from DataRepo.models.utilities import (
     is_many_related,
     is_many_related_to_parent,
     is_many_related_to_root,
+    is_model_field,
     is_number_field,
     is_related,
     is_reverse_related_field,
@@ -174,14 +178,16 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
         self.assertIsInstance(ArchiveFile.filename, DeferredAttribute)
         self.assertIsInstance(resolve_field(ArchiveFile.filename), Field)
 
-        # Check that a real field is returned (i.e. not the reverse relation) when no model supplied
+        # Check that a real field is returned by default (i.e. not the reverse relation) when no model supplied
         self.assertEqual(
             "animal", resolve_field(Animal.samples).name  # pylint: disable=no-member
         )
-        # Check that when a model is supplied, the reverse relation is returned
+        # Check that when real is False, the reverse relation is returned
         self.assertEqual(
             "samples",
-            resolve_field(Animal.samples, Animal).name,  # pylint: disable=no-member
+            resolve_field(
+                Animal.samples, Animal, real=False  # pylint: disable=no-member
+            ).name,
         )
 
     def test_is_related(self):
@@ -298,15 +304,11 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
     def test_field_path_to_field_ignore_reverse_related(self):
         self.assertEqual(
             "peak_groups",
-            field_path_to_field(
-                ArchiveFile, "peak_groups", ignore_reverse_related=False
-            ).name,
+            field_path_to_field(ArchiveFile, "peak_groups", real=False).name,
         )
         self.assertEqual(
             "peak_annotation_file",
-            field_path_to_field(
-                ArchiveFile, "peak_groups", ignore_reverse_related=True
-            ).name,
+            field_path_to_field(ArchiveFile, "peak_groups", real=True).name,
         )
 
     def test_remove_lookup(self):
@@ -612,7 +614,7 @@ MUQTracerTestModel = create_test_model(
 
 MUQConcTestModel = create_test_model(
     "MUQConcTestModel",
-    {"conc": IntegerField(max_length=255)},
+    {"conc": IntegerField()},
 )
 
 MUQAnimalTestModel = create_test_model(
@@ -920,3 +922,210 @@ class ModelUtilityQueryTests(TracebaseTestCase):
         self.assertFalse(is_long_field(IntegerField()))
         self.assertFalse(is_long_field(CharField()))
         self.assertTrue(is_long_field(CharField(max_length=300)))
+
+    def test_is_model_field(self):
+        self.assertTrue(is_model_field(MUQAnimalTestModel, "desc"))
+        self.assertTrue(is_model_field(MUQAnimalTestModel, "studies"))
+        self.assertTrue(is_model_field(MUQAnimalTestModel, "treatment"))
+        # Not intended to work with field paths
+        self.assertFalse(is_model_field(MUQAnimalTestModel, "studies__name"))
+        self.assertFalse(is_model_field(MUQAnimalTestModel, "blah"))
+
+    def test_field_to_manager_name_mmkey(self):
+        MUQRandoTestModel = create_test_model(
+            "MUQRandoTestModel",
+            {
+                "name": CharField(unique=True),
+                "treatments": ManyToManyField(
+                    to="loader.MUQTreatmentTestModel",
+                    related_name="randos",
+                ),
+                "animals": ManyToManyField(
+                    to="loader.MUQAnimalTestModel",
+                ),
+            },
+        )
+
+        self.assertEqual(
+            "treatments",
+            field_to_manager_name(
+                MUQRandoTestModel.treatments.field  # pylint: disable=no-member
+            ),
+        )
+        self.assertEqual(
+            "animals",
+            field_to_manager_name(MUQRandoTestModel.animals.field),
+        )
+
+        # I don't know a better way to obtain these reverse relation field objects
+        randos_field = list(
+            f
+            for f in MUQTreatmentTestModel._meta.get_fields()  # pylint: disable=no-member
+            if f.name == "randos"
+        )[0]
+        self.assertEqual(
+            "randos",
+            field_to_manager_name(randos_field),
+        )
+        muqrandotestmodel_field = list(
+            f
+            for f in MUQAnimalTestModel._meta.get_fields()  # pylint: disable=no-member
+            if f.name == "muqrandotestmodel"
+        )[0]
+        self.assertEqual(
+            "muqrandotestmodel_set",
+            field_to_manager_name(muqrandotestmodel_field),
+        )
+
+    def test_field_to_manager_name_foreignkey(self):
+        MUQRandotwoTestModel = create_test_model(
+            "MUQRandotwoTestModel",
+            {
+                "name": CharField(unique=True),
+                "treatment": ForeignKey(
+                    to="loader.MUQTreatmentTestModel",
+                    related_name="randos",
+                    on_delete=CASCADE,
+                ),
+                "animal": ForeignKey(
+                    to="loader.MUQAnimalTestModel",
+                    on_delete=CASCADE,
+                ),
+            },
+        )
+
+        self.assertEqual(
+            "treatment",
+            field_to_manager_name(
+                MUQRandotwoTestModel.treatment.field  # pylint: disable=no-member
+            ),
+        )
+        self.assertEqual(
+            "animal",
+            field_to_manager_name(MUQRandotwoTestModel.animal.field),
+        )
+
+        # I don't know a better way to obtain these reverse relation field objects
+        randos_field = list(
+            f
+            for f in MUQTreatmentTestModel._meta.get_fields()  # pylint: disable=no-member
+            if f.name == "randos"
+        )[0]
+        self.assertEqual(
+            "randos",
+            field_to_manager_name(randos_field),
+        )
+        muqrandotestmodel_field = list(
+            f
+            for f in MUQAnimalTestModel._meta.get_fields()  # pylint: disable=no-member
+            if f.name == "muqrandotwotestmodel"
+        )[0]
+        self.assertEqual(
+            "muqrandotwotestmodel_set",
+            field_to_manager_name(muqrandotestmodel_field),
+        )
+
+    def test_field_to_manager_name_ookey(self):
+        MUQRandooneTestModel = create_test_model(
+            "MUQRandooneTestModel",
+            {
+                "name": CharField(unique=True),
+                "treatment": OneToOneField(
+                    to="loader.MUQTreatmentTestModel",
+                    related_name="rando",
+                    on_delete=CASCADE,
+                ),
+                "animal": OneToOneField(
+                    to="loader.MUQAnimalTestModel",
+                    on_delete=CASCADE,
+                ),
+            },
+        )
+
+        self.assertEqual(
+            "treatment",
+            field_to_manager_name(
+                MUQRandooneTestModel.treatment.field  # pylint: disable=no-member
+            ),
+        )
+        self.assertEqual(
+            "animal",
+            field_to_manager_name(MUQRandooneTestModel.animal.field),
+        )
+
+        # I don't know a better way to obtain these reverse relation field objects
+        randos_field = list(
+            f
+            for f in MUQTreatmentTestModel._meta.get_fields()  # pylint: disable=no-member
+            if f.name == "rando"
+        )[0]
+        self.assertEqual(
+            "rando",
+            field_to_manager_name(randos_field),
+        )
+        muqrandotestmodel_field = list(
+            f
+            for f in MUQAnimalTestModel._meta.get_fields()  # pylint: disable=no-member
+            if f.name == "muqrandoonetestmodel"
+        )[0]
+        self.assertEqual(
+            "muqrandoonetestmodel_set",
+            field_to_manager_name(muqrandotestmodel_field),
+        )
+
+    def test_field_name_to_manager_name(self):
+        MUQRandothreeTestModel = create_test_model(
+            "MUQRandothreeTestModel",
+            {
+                "name": CharField(unique=True),
+                "treatment": ForeignKey(
+                    to="loader.MUQTreatmentTestModel",
+                    related_name="randosthree",
+                    on_delete=CASCADE,
+                ),
+                "animal": ForeignKey(
+                    to="loader.MUQAnimalTestModel",
+                    on_delete=CASCADE,
+                ),
+            },
+        )
+
+        self.assertEqual(
+            "treatment",
+            field_name_to_manager_name("treatment", MUQRandothreeTestModel),
+        )
+
+        self.assertEqual(
+            "randosthree",
+            field_name_to_manager_name("randosthree", MUQTreatmentTestModel),
+        )
+        self.assertEqual(
+            "muqrandothreetestmodel_set",
+            field_name_to_manager_name("muqrandothreetestmodel", MUQAnimalTestModel),
+        )
+
+    def test_field_path_to_manager_path(self):
+        MUQCompoundTestModel = create_test_model(
+            "MUQCompoundTestModel",
+            {
+                "name": CharField(max_length=255, unique=True),
+                "tracer": ForeignKey(
+                    to="loader.MUQTracerTestModel",
+                    on_delete=CASCADE,
+                ),
+            },
+        )
+
+        self.assertEqual(
+            "tracer__muqcompoundtestmodel_set",
+            field_path_to_manager_path(
+                MUQCompoundTestModel, "tracer__muqcompoundtestmodel"
+            ),
+        )
+
+        self.assertEqual(
+            "animals__infusate__tracers__muqcompoundtestmodel_set",
+            field_path_to_manager_path(
+                MUQStudyTestModel, "animals__infusate__tracers__muqcompoundtestmodel"
+            ),
+        )
