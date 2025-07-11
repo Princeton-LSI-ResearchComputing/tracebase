@@ -10,6 +10,7 @@ from DataRepo.models.utilities import (
     is_key_field,
     is_long_field,
     is_many_related_to_root,
+    is_model_field,
     is_unique_field,
 )
 from DataRepo.utils.text_utils import camel_to_title, underscored_to_title
@@ -117,7 +118,7 @@ class BSTColumn(BSTBaseColumn):
                 "'get_absolute_url' method."
             )
         elif (
-            not hasattr(model, self.field_path.split("__")[0])
+            not is_model_field(model, self.field_path.split("__")[0])
             and len(self.field_path.split("__")) == 1
         ):
             raise AttributeError(
@@ -143,9 +144,7 @@ class BSTColumn(BSTBaseColumn):
 
         # Reverse relations do not have a help_text attribute
         # TODO: Put this hasattr logic in the related_field file
-        remote_field = field_path_to_field(
-            self.model, self.field_path, ignore_reverse_related=False
-        )
+        remote_field = field_path_to_field(self.model, self.field_path, real=False)
         if (
             hasattr(remote_field, "help_text")
             and remote_field.help_text is not None

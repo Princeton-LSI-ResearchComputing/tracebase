@@ -22,12 +22,15 @@ class ProtocolViewTests(TracebaseTestCase):
     def test_animal_treatment_list(self):
         response = self.client.get(reverse("animal_treatment_list"))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "models/protocol/animal_treatments.html")
-        self.assertEqual(len(response.context["animal_treatment_list"]), 8)
+        self.assertTemplateUsed(response, "models/bst/list_view.html")
+        self.assertTemplateUsed(response, "models/bst/th.html")
+        self.assertTemplateUsed(response, "models/bst/td.html")
+        self.assertTemplateUsed(response, "models/bst/value.html")
+        self.assertEqual(len(response.context["object_list"]), 8)
         self.assertTrue(
             any(
                 treatment.name == "no treatment"
-                for treatment in response.context["animal_treatment_list"]
+                for treatment in response.context["object_list"]
             )
         )
 
