@@ -12,6 +12,7 @@ from django.db.models.expressions import Combinable
 from DataRepo.models.utilities import (
     field_path_to_model_path,
     is_many_related_to_root,
+    is_model_field,
     is_related,
     model_path_to_model,
     select_representative_field,
@@ -769,8 +770,8 @@ class BSTBaseView:
 
         # Determine if this is a model field or annotation, and initialize a column object and add it to self.columns
         first_field = colname.split("__")[0]
-        if hasattr(self.model, first_field):
-
+        is_field = self.model is not None and is_model_field(self.model, first_field)
+        if is_field:
             if is_many_related_to_root(colname, self.model):
                 self.columns[colname] = BSTManyRelatedColumn(
                     colname, self.model, **kwargs
@@ -797,7 +798,7 @@ class BSTBaseView:
 
             self.columns[colname] = BSTAnnotColumn(colname, converter, **kwargs)
 
-        elif len(kwargs.keys()) > 0 and not hasattr(self.model, first_field):
+        elif len(kwargs.keys()) > 0 and not is_field:
             raise ValueError(
                 f"Unable to determine column type for column '{colname}'.  The column name does not appear to be "
                 f"either a valid field path (because the model '{self.model.__name__}' has no attribute named "

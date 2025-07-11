@@ -28,6 +28,15 @@ class MSRunSequenceViewTests(ModelViewTests):
         response = self.client.get(reverse("msrunsequence_detail", args=[ms.id + 1]))
         self.assertEqual(response.status_code, 404)
 
+    def test_msrun_sequence_list(self):
+        response = self.client.get(reverse("msrunsequence_list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "models/bst/list_view.html")
+        self.assertTemplateUsed(response, "models/bst/th.html")
+        self.assertTemplateUsed(response, "models/bst/td.html")
+        self.assertTemplateUsed(response, "models/bst/value.html")
+        self.assertEqual(len(response.context["object_list"]), self.ALL_SEQUENCES_COUNT)
+
 
 # This runs the above tests again with auto-update diabled
 MSRunSequenceViewNullToleranceTests = create_null_tolerance_test_class(

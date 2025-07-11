@@ -1,6 +1,6 @@
 import traceback
 from enum import Enum
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Type
 from warnings import warn
 
 from django.conf import settings
@@ -10,6 +10,7 @@ from django.db.models import Model, Q, QuerySet, Value
 from django.db.models.expressions import Combinable
 
 from DataRepo.models.utilities import (
+    field_path_to_manager_path,
     get_field_val_by_iteration,
     get_many_related_field_val_by_subquery,
 )
@@ -70,6 +71,7 @@ class BSTQueryView:
         # IDEs to know they exist in the instance methods
         self.columns: Dict[str, BSTBaseColumn]
         self.warnings: List[str]
+        self.model: Type[Model]
 
         # Change the query mode based on the data-influenced performance
         if isinstance(query_mode, QueryMode):
@@ -94,7 +96,7 @@ class BSTQueryView:
         """
         prefetches: List[str] = []
         # For all related_model_paths, by descending path length (i.e. number of dunderscore-delimited foreign keys)
-        for model_path in sorted(
+        for field_path in sorted(
             [
                 c.related_model_path
                 for c in self.columns.values()
@@ -103,6 +105,11 @@ class BSTQueryView:
             key=lambda p: len(p.split("__")),
             reverse=True,
         ):
+            # prefetch_related doesn't take field_paths.  It takes manager_paths (the manager objects that handle many-
+            # related model relations).  The effective difference is just that if a foreign key field doesn't have a
+            # related_name, the default related name is the name of the lower-cased related model name with "_set"
+            # appended.  The field_path_to_manager_path function does this for us.
+            model_path = field_path_to_manager_path(self.model, field_path)
             contained = False
             for prefetch in prefetches:
                 if prefetch.startswith(model_path):
@@ -113,8 +120,8 @@ class BSTQueryView:
                         break
             if not contained and (
                 along_path is None
-                or model_path.startswith(along_path)
-                or along_path.startswith(model_path)
+                or field_path.startswith(along_path)
+                or along_path.startswith(field_path)
             ):
                 prefetches.append(model_path)
 
@@ -161,6 +168,15 @@ class BSTQueryView:
 
             # We add 1 to col.limit so that we can display an ellipsis if more exist
             limit = getattr(rec, col.count_attr_name, -1)
+            if not isinstance(limit, int):
+                if isinstance(limit, str) and limit == "ERROR":
+                    limit = -1
+                else:
+                    raise ValueError(
+                        f"The count annotation for column {col} returned a {type(limit).__name__} instead of the "
+                        f"expected int, with the value '{limit}'."
+                    )
+
             if limit == -1:
                 limit = col.limit + 1
                 if settings.DEBUG:
@@ -190,8 +206,10 @@ class BSTQueryView:
             # If a many-related column is not in a column group (i.e. there are no other columns that pass through the
             # same many-related model), then make the displayed values unique.  Otherwise, show a value for every unique
             # many-related model record.
-            value_unique=not col._in_group
-            or (isinstance(col, BSTManyRelatedColumn) and col.unique),
+            value_unique=(
+                not col._in_group
+                or (isinstance(col, BSTManyRelatedColumn) and col.unique)
+            ),
         )
 
     @classmethod
@@ -290,7 +308,7 @@ class BSTQueryView:
                 msg += f"has a problem: {type(e).__name__}: {e}"
 
                 if settings.DEBUG:
-                    warn(trace() + msg, DeveloperWarning)
+                    warn(trace(e) + msg, DeveloperWarning)
                 self.warnings.append(msg)
         return qs
 

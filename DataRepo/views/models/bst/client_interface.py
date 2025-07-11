@@ -30,6 +30,11 @@ class BSTClientInterface:
         columns_var_name (str) ["columns"]
         limit_default_var_name (str) ["limit_default"]
         warnings_var_name (str) ["warnings"]
+        above_var_name (str) ["above_template"]
+        below_var_name (str) ["below_template"]
+        title (Optional[str]): The page title
+        above_template (Optional[str]): Path to a template to include above the table.
+        below_template (Optional[str]): Path to a template to include below the table.
     Instance Attributes:
         warnings (List[str]) [[]]
     """
@@ -43,6 +48,7 @@ class BSTClientInterface:
     above_var_name = "above_template"
     below_var_name = "below_template"
 
+    title: Optional[str] = None
     above_template: Optional[str] = None
     below_template: Optional[str] = None
 
@@ -599,7 +605,9 @@ class BSTListViewClient(BSTClientInterface, ListView):
                 self.scripts_var_name: self.javascripts,
                 # General table details
                 self.table_id_var_name: type(self).__name__,
-                self.title_var_name: self.model_title_plural,
+                self.title_var_name: (
+                    self.model_title_plural if self.title is None else self.title
+                ),
                 self.warnings_var_name: self.warnings,
                 self.limit_default_var_name: self.paginate_by,
                 # Table content controls
@@ -688,7 +696,9 @@ class BSTDetailViewClient(DetailView, BSTClientInterface):
                 self.model_var_name: self.model,
                 # General table details
                 self.table_id_var_name: type(self).__name__,
-                self.title_var_name: self.model_title,
+                self.title_var_name: (
+                    self.model_title if self.title is None else self.title
+                ),
                 # Extra custom templates
                 self.above_var_name: self.above_template,
                 self.below_var_name: self.below_template,
