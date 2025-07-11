@@ -169,7 +169,6 @@ function initBST ( // eslint-disable-line no-unused-vars
         const oldTermDefined = typeof oldTerm === 'undefined' || !oldTerm
         const newTermDefined = typeof searchTerm === 'undefined' || !searchTerm
         if (oldTermDefined !== newTermDefined || (oldTermDefined && newTermDefined && oldTerm !== searchTerm)) {
-          console.log('TABLE SEARCH oldTermDefined ' + oldTermDefined + ' newTermDefined ' + newTermDefined + ' oldTerm ' + oldTerm + ' searchTerm ' + searchTerm + '')
           setViewCookie(searchCookieName, searchTerm) // eslint-disable-line no-undef
           // No need to hit the server if we're displaying all results. Just let BST do it.
           // TODO: Everything is currently server-side.  The conditional here does not work when the filterer is set as
@@ -179,18 +178,13 @@ function initBST ( // eslint-disable-line no-unused-vars
           // }
         } else if (searchTerm === '') {
           if (!doingNonTableSearch) {
-            console.log('TABLE SEARCH oldTermDefined ' + oldTermDefined + ' newTermDefined ' + newTermDefined + ' oldTerm ' + oldTerm + ' searchTerm ' + searchTerm + '')
             // Clear the column filters
             const numDeleted = deleteViewColumnCookies(columnNames, filterCookieName) // eslint-disable-line no-undef
             // If there were populated search terms
             if (numDeleted > 0) {
               updatePage(1)
             }
-          } else {
-            console.log('NO TABLE SEARCH 1 oldTermDefined ' + oldTermDefined + ' newTermDefined ' + newTermDefined + ' oldTerm ' + oldTerm + ' searchTerm ' + searchTerm + '')
           }
-        } else {
-          console.log('NO TABLE SEARCH 2 oldTermDefined ' + oldTermDefined + ' newTermDefined ' + newTermDefined + ' oldTerm ' + oldTerm + ' searchTerm ' + searchTerm + '')
         }
       }
     },
