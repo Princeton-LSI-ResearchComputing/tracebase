@@ -60,6 +60,7 @@ class MSRunSequence(Model):
         blank=False,
         to="DataRepo.LCMethod",
         help_text="The liquid chromatography protocol that was used for this mass spectrometer run sequence.",
+        verbose_name="LC Protocol",
     )
     notes = TextField(
         unique=True,

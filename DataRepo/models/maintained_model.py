@@ -719,9 +719,12 @@ class MaintainedModel(Model):
         # If any maintained fields are to be lazy-updated
         if len(lazy_update_fields) > 0:
             cs = ", "
-            print(
-                f"Triggering lazy auto-update of fields: {cls.__name__}.{{{cs.join(lazy_update_fields)}}}"
+            flds_str = (
+                ("s: " + cls.__name__ + ".{" + cs.join(lazy_update_fields) + "}")
+                if len(lazy_update_fields) > 1
+                else ": " + cls.__name__ + "." + lazy_update_fields[0]
             )
+            print(f"Triggering lazy auto-update of field{flds_str}")
             # Trigger an auto-update
             rec.save(  # pylint: disable=unexpected-keyword-arg
                 fields_to_autoupdate=lazy_update_fields, via_query=True
