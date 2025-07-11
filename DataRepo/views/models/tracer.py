@@ -9,7 +9,7 @@ class TracerDetailView(BSTDetailView):
         "infusates": {
             "td_template": "models/tracer/infusates_td.html",
             "value_template": "models/tracer/infusates_value_detail.html",
-            "delim": "\n",
+            "delim": ",",
             "limit": 25,
         },
         "label_combo": {"filterer": {"distinct_choices": True}},
@@ -23,7 +23,7 @@ class TracerListView(BSTListView):
         "infusates": {
             "td_template": "models/tracer/infusates_td.html",
             "value_template": "models/tracer/infusates_value_list.html",
-            "delim": "\n",
+            "delim": ",",
             "visible": False,
         },
         "label_combo": {"filterer": {"distinct_choices": True}},

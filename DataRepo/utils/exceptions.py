@@ -4891,6 +4891,6 @@ def trace(exc: Optional[Exception] = None):
         and hasattr(exc, "__traceback__")
         and exc.__traceback__ is not None
     ):
-        trace += "\nThe above caught exception had a partial traceback:\n\n"
+        trace += "\nThe exception that triggered the above catch's trace has a partial traceback:\n\n"
         trace += "".join(traceback.format_tb(exc.__traceback__))
     return trace
