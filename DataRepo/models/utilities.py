@@ -148,6 +148,7 @@ def get_all_fields_named(target_field):
 
 def resolve_field(
     field: Union[
+        str,
         Field,
         DeferredAttribute,
         ForwardManyToOneDescriptor,
@@ -156,6 +157,7 @@ def resolve_field(
         ReverseOneToOneDescriptor,
     ],
     model: Optional[Type[Model]] = None,
+    real: bool = True,
 ) -> Field:
     """A field at the end of a model path can be a deferred attribute or a descriptor.  If a model is not supplied, this
     method takes the field and returns the actual field (if it is deferred or a descriptor, otherwise, the supplied
@@ -163,17 +165,47 @@ def resolve_field(
     not, which includes reverse relations.
 
     Args:
-        field (Union[Field, DeferredAttribute, ForwardManyToOneDescriptor, ManyToManyDescriptor,
+        field (Union[str, Field, DeferredAttribute, ForwardManyToOneDescriptor, ManyToManyDescriptor,
             ReverseManyToOneDescriptor]): A representation of a Field.
-        model (Optional[Type[Model]]): Supplying a model tells this method that you want the field directly associated
-            with the model, even if it is an automatically created reverse-relation field that doesn't have attributes
-            like help_text or choices.  Use this if you need the field that is an attribute of a specific model instead
-            of the "remote" field created in the related model.
+        model (Optional[Type[Model]]): The model associated with the field.  Required is 'real' is False or if field is
+            a string.
+        real (bool) [True]: Supplying 'real' as True tells this method that you want the actual real Field instance
+            (i.e. not an automatically generated reverse relation field).  Reverse relation fields don't have attributes
+            like 'help_text' or 'choices' that are usually associated with a real field.  Real fields are associated
+            with the models where they were defined.  But when foreign keys are created, a hidden "reverse relation"
+            field is generated and associated with the remote model to complement the real field as a "reverse relation"
+            - a way of getting from that remote model back to the model where the foreign key was defined.  Supplying
+            'real' as False indicates that you want the field directly associated with the supplied model, even if it is
+            a reverse relation and doesn't have all the attributes of a normal field instance.  Use this if you need the
+            field that is an attribute of a specific model.
     Exceptions:
         None
     Returns:
         (Field): A Field instance, resolved from one of a number of representations of a Field.
     """
+    from DataRepo.utils.exceptions import RequiredArgument
+
+    if not real and model is None:
+        raise RequiredArgument(
+            "model",
+            message="The 'model' argument must not be None if the 'real' argument is False.",
+        )
+
+    if isinstance(field, str):
+        if model is None:
+            raise RequiredArgument(
+                "model",
+                message="The 'model' argument must not be None if the 'field' argument is a string.",
+            )
+        try:
+            field = getattr(model, field)
+        except AttributeError as ae:
+            try:
+                field = getattr(model, f"{field}_set")
+            except Exception:
+                raise ae
+        resolve_field(field, model=model, real=real)
+
     field_containers = (
         DeferredAttribute,
         ForwardManyToOneDescriptor,
@@ -182,13 +214,39 @@ def resolve_field(
     )
     if isinstance(field, field_containers):
         # To get the field from the model where it was defined (i.e. a real field)
-        if model is not None and not hasattr(model, field.field.name):
+        if real:
+            if is_reverse_related_field(field.field):
+                return field.rel
+            # Otherwise return a reverse related field (not a real field):
+            return field.field
+        if not hasattr(model, field.field.name):
             return field.rel
         # Otherwise return a reverse related field (not a real field):
         return field.field
     elif isinstance(field, ReverseOneToOneDescriptor):
         return field.related
     return field
+
+
+def is_model_field(model: Type[Model], field_name: str) -> bool:
+    """Determines if the supplied field name is a field of the supplied model.
+
+    Takes reverse relations without a related_name into account.
+
+    Args:
+        model (Type[Model])
+        field_name (str)
+    Exceptions:
+        None
+    Returns:
+        (bool)
+    """
+    try:
+        resolve_field(field_name, model=model)
+        return True
+    except AttributeError:
+        pass
+    return False
 
 
 def resolve_field_path(
@@ -343,7 +401,89 @@ def is_many_related(field: Field, source_model: Optional[Type[Model]] = None):
 def is_reverse_related_field(field: Field) -> bool:
     # NOTE: remote_field being defined is not always a good indicator that a field is a reverse relation.
     # E.g. ReverseOneToOneDescriptor
-    return field.auto_created or isinstance(field, ForeignObjectRel)
+    return (hasattr(field, "auto_created") and field.auto_created) or isinstance(
+        field, ForeignObjectRel
+    )
+
+
+def field_to_manager_name(field: Field) -> str:
+    """Returns the field's name that can be used in a manager path.  This is a field name if the field is not a foreign
+    key.  When it's a foreign key that is a reverse relation, it will be the field name as long as field.related_name
+    has a non-None value.  Otherwise it is the field name with "_set" appended.
+
+    Args:
+        field (Field)
+    Exceptions:
+        None
+    Returns:
+        (str) field (when not a reverse relation) or manager name
+    """
+    is_revrel = is_reverse_related_field(field)
+    if (
+        # Don't return an appended "_set" if related_name is defined
+        not is_revrel
+        or (
+            hasattr(field, "related_name")
+            and getattr(field, "related_name") is not None
+        )
+    ):
+        return field.name
+    return f"{field.name}_set"
+
+
+def field_name_to_manager_name(field: str, model: Type[Model]) -> str:
+    """Returns the field name that can be used in a field path.  This is not always the actual field name.  When it's a
+    reverse relation, it will be the field name as long as field.related_name has a non-None value.  Otherwise it is the
+    field name with "_set" appended.
+
+    Args:
+        field (str)
+        model (Type[Model])
+    Exceptions:
+        None
+    Returns:
+        (str) field (when not a reverse relation) or manager name
+    """
+    return field_to_manager_name(resolve_field(field, model=model, real=False))
+
+
+def field_path_to_manager_path(
+    model: Type[Model], field_path: Union[str, List[str]]
+) -> str:
+    """Field paths are used for query filters and sorting, but for operations that involve managing many-related model-
+    objects, what is needed is a manager path.  Instead of involing database fields, it involves python manager objects.
+    Such operations include things like prefetching many-related model objects or counting many-related model objects in
+    an annotation.
+
+    Example:
+        # LCMethod.msrunsequence is a reverse related field (because MSRunSequence links to LCMethod.
+        # It defines no related_name, so the default is to use the lower-cased model name with "_set" appended.
+        # So to prefetch all MSRunSequence records associated with LCMethod records, you would do the following:
+        LCMethod.objects.prefetch_related('msrunsequence_set')
+        # But to filter on MSRunSequence.researcher being "Mark Hamil", you use the field name:
+        LCMethod.objects.prefetch_related('msrunsequence_set').filter(msrunsequence__researcher='Mark Hamil')
+    Args:
+        model (Type[Model]): The root model of the field_path
+        field_path (Union[str, List[str]]): The non-manager field path
+    Exceptions:
+        None
+    Returns:
+        manager_path (str)
+    """
+    if isinstance(field_path, str):
+        return field_path_to_manager_path(model, field_path.split("__"))
+    if len(field_path) == 0:
+        return ""
+    manager_name = field_to_manager_name(
+        resolve_field(field_path[0], model=model, real=False)
+    )
+    if len(field_path) == 1:
+        return manager_name
+    else:
+        remainder = field_path_to_manager_path(
+            get_next_model(model, field_path[0]), field_path[1:]
+        )
+        return f"{manager_name}__{remainder}"
 
 
 def is_many_related_to_root(
@@ -364,7 +504,7 @@ def is_many_related_to_root(
         raise ValueError("field_path string/list must have a non-zero length.")
     if isinstance(field_path, str):
         return is_many_related_to_root(field_path.split("__"), source_model)
-    field = resolve_field(getattr(source_model, field_path[0]))
+    field = resolve_field(field_path[0], model=source_model)
     if is_many_related(field, source_model=source_model):
         return True
     if len(field_path) == 1:
@@ -393,18 +533,19 @@ def is_many_related_to_parent(
     if isinstance(field_path, str):
         return is_many_related_to_parent(field_path.split("__"), source_model)
     if len(field_path) == 1:
-        # Annotations are not attributes of the model class (only the instance), so field_path[0] can only be
-        # many_related if the model class has it as an attribute.
-        if not hasattr(source_model, field_path[0]):
+        try:
+            field = resolve_field(field_path[0], model=source_model)
+        except AttributeError:
+            # Annotations are not attributes of the model class (only the instance), so field_path[0] can only be
+            # many_related if the model class has it as an attribute.
             # Assume it is an annotation
             return False
-        field = resolve_field(getattr(source_model, field_path[0]))
         return is_many_related(field, source_model=source_model)
     elif len(field_path) == 2:
-        field = resolve_field(getattr(source_model, field_path[0]))
+        field = resolve_field(field_path[0], model=source_model)
         next_model = get_next_model(source_model, field_path[0])
         # if the last field in the field_path is not a foreign key
-        if not resolve_field(getattr(next_model, field_path[1])).is_relation:
+        if not resolve_field(field_path[1], model=next_model).is_relation:
             # Return whether the last foreign key is many-related to its parent
             return is_many_related(field, source_model=source_model)
     return is_many_related_to_parent(
@@ -413,7 +554,7 @@ def is_many_related_to_parent(
 
 
 def field_path_to_field(
-    model: Type[Model], path: Union[str, List[str]], ignore_reverse_related: bool = True
+    model: Type[Model], path: Union[str, List[str]], real: bool = True
 ) -> Field:
     """Recursive method to take a root model and a dunderscore-delimited path and return the Field class at the end of
     the path.  The intention is so that the Field can be interrogated as to type or retrieve choices, etc.
@@ -421,7 +562,7 @@ def field_path_to_field(
     Args:
         model (Type[Model]): Model class at the root of the path.
         path (Union[str, List[str]]): Dunderscore-delimited field path string or list of dunderscore-split fields.
-        ignore_reverse_related (bool): Only return actual fields, not reverse related fields.
+        real (bool): Only return actual fields, not reverse related fields.
             NOTE: Reverse related fields don't have help_text, choices, etc.
     Exceptions:
         ValueError when an argument is invalid.
@@ -434,22 +575,18 @@ def field_path_to_field(
     if path is None or len(path) == 0:
         raise ValueError("path string/list must have a non-zero length.")
     if isinstance(path, str):
-        return field_path_to_field(
-            model, path.split("__"), ignore_reverse_related=ignore_reverse_related
-        )
+        return field_path_to_field(model, path.split("__"), real=real)
     if len(path) == 1:
         name = resolve_field_path(path[0])
-        if hasattr(model, name):
-            if ignore_reverse_related:
-                return resolve_field(getattr(model, name))
-            return resolve_field(getattr(model, name), model=model)
+        if is_model_field(model, name):
+            return resolve_field(name, model=model, real=real)
         raise AttributeError(
             f"Model: {model.__name__} does not have a field attribute named: '{name}'."
         )
     return field_path_to_field(
         get_next_model(model, path[0]),
         path[1:],
-        ignore_reverse_related=ignore_reverse_related,
+        real=real,
     )
 
 
@@ -470,8 +607,9 @@ def get_next_model(current_model: Model, field_name: str) -> Type[Model]:
     Returns:
         (Type[Model]): The model class that does not match the current_model, i.e. the "next" model.
     """
-    field = resolve_field(getattr(current_model, field_name))
-    return field.model if current_model != field.model else field.related_model
+    field = resolve_field(field_name, model=current_model, real=False)
+    # return field.model if current_model != field.model else field.related_model
+    return field.related_model
 
 
 def field_path_to_model_path(
@@ -515,14 +653,9 @@ def field_path_to_model_path(
 
     # If we only want the last many-related model, update _mr_output
     if many_related:
-        if hasattr(model, path[0]):
-            fld = resolve_field(getattr(model, path[0]))
-            if fld.is_relation and is_many_related(fld, model):
-                _mr_output = new_output
-        else:
-            raise ValueError(
-                f"Model: '{model.__name__}' does not have a field attribute named: '{path[0]}'."
-            )
+        fld = resolve_field(path[0], model=model)
+        if fld.is_relation and is_many_related(fld, model):
+            _mr_output = new_output
 
     # If we're at the end of the path - no more recursion - return the result
     if len(path) == 1:
@@ -532,8 +665,8 @@ def field_path_to_model_path(
                     f"No many-related model was found in the path '{new_output}'."
                 )
             return _mr_output
-        elif hasattr(model, path[0]):
-            tail = resolve_field(getattr(model, path[0]))
+        elif is_model_field(model, path[0]):
+            tail = resolve_field(path[0], model=model)
             if tail.is_relation:
                 return new_output
             else:
@@ -723,7 +856,7 @@ def model_path_to_model(model: Type[Model], path: Union[str, List[str]]) -> Type
     if isinstance(path, str):
         return model_path_to_model(model, path.split("__"))
     if len(path) == 1:
-        if hasattr(model, path[0]):
+        if is_model_field(model, path[0]):
             return get_next_model(model, path[0])
         raise AttributeError(
             f"Model: '{model.__name__}' does not have a field attribute named: '{path[0]}'."
@@ -1277,7 +1410,7 @@ def _get_field_val_by_iteration_helper(
     # the many-related relationship with tracer_links yet.  The following catches that and performs type checking.
     # NOTE: hasattr assumes that if the model doesn't have the first field, then it is an annotation and is by
     # definition, not many-related
-    if hasattr(type(rec), field_path[0]) and is_many_related_to_root(
+    if is_model_field(type(rec), field_path[0]) and is_many_related_to_root(
         field_path, type(rec)
     ):
         if (
@@ -1445,7 +1578,10 @@ def _get_field_val_by_iteration_manyrelated_helper(
             "_get_field_val_by_iteration_many_related_helper called without a many-related field"
         )
 
-    mr_qs: QuerySet = getattr(rec, field_path[0])
+    # This gets the "manager" object that handles the many-related model objects.  Its name can either be the name of
+    # the field in the model where it was defined, the related_name defined in that field if we're on the opposite
+    # model, or the lower-cased related model's name with "_set" appended when related_name is not set.
+    mr_qs: QuerySet = getattr(rec, field_name_to_manager_name(field_path[0], type(rec)))
 
     next_sort_field_path = sort_field_path[1:] if sort_field_path is not None else []
     # If the sort_field_path has diverged from the field_path, retrieve its value
@@ -1652,10 +1788,11 @@ def get_many_related_field_val_by_subquery(
     else:
         ob_fields = [field_path]
         order_bys.append(field_path)
-    # Append the many-related model's primary key in order to force a value for each distinct record
+
     if value_unique is False:
+        # Append the many-related model's primary key in order to force a value for each distinct record
         order_bys.append(f"{many_related_model_path}__pk")
-    order_bys.append(f"{related_model_path}__pk")
+        order_bys.append(f"{related_model_path}__pk")
 
     # Prepend the actual field (or fields) from the column (which may differ from the sort).  We put it first so we can
     # easily extract it in the values_list.  This is necessary because Django's combination of annotate, distinct, and
@@ -1665,10 +1802,11 @@ def get_many_related_field_val_by_subquery(
         distincts = [f"{related_model_path}__pk"] + ob_fields + distincts
     else:
         distincts = ob_fields + distincts
-        # Append the many-related model's primary key in order to force a value for each distinct record
-        distincts.append(f"{related_model_path}__pk")
+
     if value_unique is False:
+        # Append the many-related model's primary key in order to force a value for each distinct record
         distincts.append(f"{many_related_model_path}__pk")
+        distincts.append(f"{related_model_path}__pk")
 
     # We re-perform (essentially) the same query that generated the table, but for one root-table record, and with
     # all of the many-related values joined in to "split" the row, but we're only going to keep those many-related

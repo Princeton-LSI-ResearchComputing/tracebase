@@ -153,9 +153,7 @@ class BSTRelatedColumn(BSTColumn):
         super().__init__(*args, **kwargs)
 
         # Reverse relations do not have a help_text attribute
-        remote_field = field_path_to_field(
-            self.model, self.field_path, ignore_reverse_related=False
-        )
+        remote_field = field_path_to_field(self.model, self.field_path, real=False)
         if not hasattr(remote_field, "help_text"):
             is_mr = is_many_related(remote_field, source_model=self.model)
             if is_reverse_related_field(remote_field) and not is_mr:
@@ -255,9 +253,7 @@ class BSTRelatedColumn(BSTColumn):
         # If the field belongs to the model of the last foreign key in the field_path (because the verbose name of a
         # reverse relation refers to the reverse model) and has a verbose name different from name (because it's
         # automatically filled in with name), use it
-        remote_field = field_path_to_field(
-            self.model, self.field_path, ignore_reverse_related=False
-        )
+        remote_field = field_path_to_field(self.model, self.field_path, real=False)
         if (
             not is_reverse_related_field(remote_field)
             and remote_field.name != remote_field.verbose_name
