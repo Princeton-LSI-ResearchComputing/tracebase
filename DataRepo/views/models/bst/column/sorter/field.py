@@ -1,4 +1,4 @@
-from typing import Optional, Type, Union
+from typing import Optional, Type, Union, cast
 
 from django.db.models import F, Field, Model
 from django.db.models.expressions import Combinable
@@ -71,7 +71,7 @@ class BSTSorter(BSTBaseSorter):
             None
         """
         self.model = model
-        self.field_path: str = resolve_field_path(field_expression)
+        self.field_path: str = cast(str, resolve_field_path(field_expression))
         self.field = None
         expression = kwargs.get("expression")
         _server_sorter: Optional[Type[Combinable]] = kwargs.get("_server_sorter")

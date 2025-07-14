@@ -504,11 +504,16 @@ class BSTBaseView:
                 if count_annot_name not in self.column_ordering:
                     self.count_cols[count_annot_name] = mr_model_path
 
+                related_model = model_path_to_model(self.model, mr_model_path)
+
                 # Allow the derived class to have added custom settings for the count column
                 kwargs = {
                     "header": count_annot_header,
                     "filterer": "strictFilterer",
                     "sorter": "numericSorter",
+                    "model": self.model,
+                    "help_text": False,
+                    "tooltip": f"Count of related {type(related_model).__name__} records.",
                 }
                 if count_annot_name in self.column_settings.keys():
                     kwargs.update(self.column_settings[count_annot_name])
