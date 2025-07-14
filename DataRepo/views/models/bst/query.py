@@ -306,8 +306,9 @@ class BSTQueryView:
                 else:
                     colname = annot_name
 
-                # Disable searching and sorting.
+                # Disable searching, filtering, and sorting.
                 self.columns[colname].searchable = False
+                self.columns[colname].filterable = False
                 self.columns[colname].sortable = False
 
                 if colname == annot_name:
@@ -686,7 +687,7 @@ class BSTListView(BSTBaseListView, BSTQueryView):
     # TODO: Figure out a way to move this to BSTQueryView without it having to know about the client interface elements
     # like cookeis and filter_terms.
     def get_filters(self) -> Q:
-        """Returns a Q expression for every filtered and searchable column using self.filter_terms and self.search_term.
+        """Returns a Q expression for every filtered and filterable column using self.filter_terms and self.search_term.
 
         NOTE: Annotation fields must be generated in order to apply the query if self.searchcol is a BSTAnnotColumn.
 
@@ -801,7 +802,9 @@ class BSTListView(BSTBaseListView, BSTQueryView):
         try:
             qs = qs.filter(self.filters)
         except FieldError as fe:
-            searchcols = [c.name for c in self.columns.values() if c.searchable]
+            searchcols = [
+                c.name for c in self.columns.values() if c.filterable or c.searchable
+            ]
             fld_str = "\n\t".join(searchcols)
             fld_msg = f"One or more of {len(searchcols)} fields is misconfigured:\n\n\t{fld_str}"
             warning = (
