@@ -3,10 +3,11 @@ from urllib.parse import unquote
 from warnings import warn
 
 from django.conf import settings
-from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
+from django.core.paginator import EmptyPage, Paginator
 from django.http import HttpRequest
 
 from DataRepo.utils.exceptions import DeveloperWarning
+from DataRepo.utils.text_utils import iswhole
 
 
 def get_cookie_dict(
@@ -131,20 +132,21 @@ class GracefulPaginator(Paginator):
 
     # See: https://forum.djangoproject.com/t/letting-listview-gracefully-handle-out-of-range-page-numbers/23037/4
     def page(self, num):
-        try:
-            num = self.validate_number(num)
-        except PageNotAnInteger:
+        if (isinstance(num, int) and num > 1) or (iswhole(num) and str(num) != "1"):
+            try:
+                num = self.validate_number(num)
+            except EmptyPage:
+                if settings.DEBUG:
+                    warn(
+                        f"Page {num} is empty.  Gracefully falling back to last page: {self.num_pages}.",
+                        DeveloperWarning,
+                    )
+                num = self.num_pages
+        else:
             if settings.DEBUG:
                 warn(
                     f"Page {num} not an integer.  Gracefully falling back to 1.",
                     DeveloperWarning,
                 )
             num = 1
-        except EmptyPage:
-            if settings.DEBUG:
-                warn(
-                    f"Page {num} is empty.  Gracefully falling back to last page: {self.num_pages}.",
-                    DeveloperWarning,
-                )
-            num = self.num_pages
         return super().page(num)
