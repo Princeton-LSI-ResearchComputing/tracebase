@@ -95,13 +95,22 @@ class BSTQueryView:
                 keys that start from self.model.  Each model path is not contained in any other model path.
         """
         prefetches: List[str] = []
+
+        all_related_model_paths: List[str] = []
+        for col in self.columns.values():
+            if (
+                isinstance(col, BSTRelatedColumn)
+                and col.related_model_path not in all_related_model_paths
+            ):
+                all_related_model_paths.append(col.related_model_path)
+            elif isinstance(col, BSTAnnotColumn) and len(col.related_model_paths) > 0:
+                for rmp in col.related_model_paths:
+                    if rmp not in all_related_model_paths:
+                        all_related_model_paths.append(rmp)
+
         # For all related_model_paths, by descending path length (i.e. number of dunderscore-delimited foreign keys)
         for field_path in sorted(
-            [
-                c.related_model_path
-                for c in self.columns.values()
-                if isinstance(c, BSTRelatedColumn)
-            ],
+            all_related_model_paths,
             key=lambda p: len(p.split("__")),
             reverse=True,
         ):
