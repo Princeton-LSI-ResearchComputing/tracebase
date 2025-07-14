@@ -42,6 +42,7 @@ class MSRunSequenceListView(BSTListView):
         "details": {
             "linked": True,
             "searchable": False,
+            "filterable": False,
             "sortable": False,
             "header": "MS Run Sequence",
             "tooltip": "Links to the details of an MS Run Sequence record.",

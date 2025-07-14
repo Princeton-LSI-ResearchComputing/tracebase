@@ -96,7 +96,7 @@ class BSTFilterer(BSTBaseFilterer):
                 .distinct(*distinct_fields)
                 .values_list(self.field_path, flat=True)
             ):
-                # The displayed and searchable values will be how the related model's objects render in string context
+                # The displayed and filterable values will be how the related model's objects render in string context
                 choices[str(val)] = str(val)
         elif (
             choices is None
