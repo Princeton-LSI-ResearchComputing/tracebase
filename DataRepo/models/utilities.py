@@ -328,12 +328,12 @@ def resolve_field_path(
         for fld in field_or_expression.get_source_expressions():
             if isinstance(fld, str) and fld != "":
                 field_reps.append(fld)
-            elif isinstance(fld, list):
-                field_reps.extend(resolve_field_path(fld, _level=_level + 1, all=all))
             else:
-                raise TypeError(
-                    f"Expected Union[str, list].  Got {type(fld).__name__}."
-                )
+                tmp_field_reps = resolve_field_path(fld, _level=_level + 1, all=all)
+                if isinstance(tmp_field_reps, str):
+                    field_reps.append(tmp_field_reps)
+                else:  # Assumes list
+                    field_reps.extend(tmp_field_reps)
         field_reps = [f for f in field_reps if f != ""]
 
         if len(field_reps) == 0:

@@ -211,9 +211,11 @@ class BSTAnnotColumn(BSTBaseColumn):
             if not is_number_field(output_field) and not is_string_field(output_field):
                 kwargs["sortable"] = False
                 kwargs["searchable"] = False
+                kwargs["filterable"] = False
         else:
             kwargs["sortable"] = False
             kwargs["searchable"] = False
+            kwargs["filterable"] = False
 
         # # If we have an output field that is a key field (overriding any model as could have been derived from a
         # field_path extracted from the converter)
