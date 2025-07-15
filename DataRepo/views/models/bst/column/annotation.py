@@ -170,8 +170,8 @@ class BSTAnnotColumn(BSTBaseColumn):
                     self.related_model_paths.append(model_path)
 
             if len(field_paths) == 1 and help_text:
-                # This gives us the field that the annotation is based on, which could be a reverse relation (that has
-                # no help_text attribute)
+                # This gives us the field that the annotation is based on, which could be a reverse relation (that
+                # has no help_text attribute)
                 field = field_path_to_field(model, field_paths[0], real=False)
                 if (
                     # Excluding Count annotations is a cop-out.  There's got to be a better way to not incorporate
@@ -185,16 +185,18 @@ class BSTAnnotColumn(BSTBaseColumn):
                         kwargs.update({"tooltip": field.help_text})
                     else:
                         kwargs.update(
-                            {"tooltip": field.help_text + f"\n\n{kwargs['tooltip']}"}
+                            {"tooltip": f"{field.help_text}\n\n{kwargs['tooltip']}"}
                         )
 
-                # If this is a key field, we will assume that the annotation output is the ID of a record from that
-                # model, so we can link it.
-                if is_key_field(field_paths[0], model=model):
-                    self.related_model = model_path_to_model(model, field_paths[0])
-                    # This *might* be a foreign key (i.e. is_fk = True), but we don't know for sure yet.  We would only
-                    # be guessing based on the field the annotation is based on.  We set is_fk below once we do know for
-                    # sure based on the output_field.
+            # If this is a key field, we will assume that the annotation output is the ID of a record from that
+            # model, so we can link it.
+            if len(self.related_model_paths) == 1:
+                self.related_model = model_path_to_model(
+                    model, self.related_model_paths[0]
+                )
+                # This *might* be a foreign key (i.e. is_fk = True), but we don't know for sure yet.  We would only
+                # be guessing based on the field the annotation is based on.  We set is_fk below once we do know for
+                # sure based on the output_field.
 
         if isinstance(self.converter, Expression):
             try:

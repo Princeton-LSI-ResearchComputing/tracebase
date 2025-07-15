@@ -202,9 +202,11 @@ class BSTBaseListViewTests(TracebaseTestCase):
                 "animals_mm_count": BSTAnnotColumn(
                     "animals_mm_count",
                     Count("animals", output_field=IntegerField(), distinct=True),
+                    model=BSTBLVStudyTestModel,
                     header="Animals Count",
                     filterer="strictFilterer",
                     sorter="numericSorter",
+                    tooltip="Count of related BSTBLVAnimalTestModel records.",
                 )
             },
             slv.column_settings,
@@ -225,9 +227,11 @@ class BSTBaseListViewTests(TracebaseTestCase):
                 "animals_mm_count": BSTAnnotColumn(
                     "animals_mm_count",
                     Count("animals", output_field=IntegerField(), distinct=True),
+                    model=BSTBLVStudyTestModel,
                     header="Animals Count",
                     filterer="strictFilterer",
                     sorter="numericSorter",
+                    tooltip="Count of related BSTBLVAnimalTestModel records.",
                 ),
                 "animals": BSTManyRelatedColumn("animals", BSTBLVStudyTestModel),
             },
@@ -647,9 +651,11 @@ class BSTBaseListViewTests(TracebaseTestCase):
             BSTAnnotColumn(
                 "studies_mm_count",
                 Count("studies", output_field=IntegerField(), distinct=True),
+                model=BSTBLVAnimalTestModel,
                 header="Studies Count",
                 filterer="strictFilterer",
                 sorter="numericSorter",
+                tooltip="Count of related BSTBLVStudyTestModel records.",
             ),
             alv.columns["studies_mm_count"],
         )
@@ -746,9 +752,11 @@ class BSTBaseListViewTests(TracebaseTestCase):
                 "animals_mm_count": BSTAnnotColumn(
                     "animals_mm_count",
                     Count("animals", output_field=IntegerField(), distinct=True),
+                    model=BSTBLVStudyTestModel,
                     header="Animals Count",
                     filterer="strictFilterer",
                     sorter="numericSorter",
+                    tooltip="Count of related BSTBLVAnimalTestModel records.",
                 ),
             },
             slv.column_settings,
@@ -770,9 +778,11 @@ class BSTBaseListViewTests(TracebaseTestCase):
                     Count(
                         "animal__studies", output_field=IntegerField(), distinct=True
                     ),
+                    model=BSTBLVSampleTestModel,
                     header="Studies Count",
                     filterer="strictFilterer",
                     sorter="numericSorter",
+                    tooltip="Count of related BSTBLVStudyTestModel records.",
                 ),
             },
             mlv.column_settings,
@@ -795,10 +805,12 @@ class BSTBaseListViewTests(TracebaseTestCase):
                     Count(
                         "animal__studies", output_field=IntegerField(), distinct=True
                     ),
+                    model=BSTBLVSampleTestModel,
                     header="Studies Count",
                     filterer="strictFilterer",
                     sorter="numericSorter",
                     visible=False,
+                    tooltip="Count of related BSTBLVStudyTestModel records.",
                 ),
             },
             clv.column_settings,
@@ -821,9 +833,11 @@ class BSTBaseListViewTests(TracebaseTestCase):
                 "animal_studies_mm_count": BSTAnnotColumn(
                     "animal_studies_mm_count",
                     Value(5),
+                    model=BSTBLVSampleTestModel,
                     header="Studies Count",
                     filterer="strictFilterer",
                     sorter="numericSorter",
+                    tooltip="Count of related BSTBLVStudyTestModel records.",
                 ),
             },
             clv.column_settings,
@@ -846,9 +860,11 @@ class BSTBaseListViewTests(TracebaseTestCase):
                 "animal_studies_mm_count": BSTAnnotColumn(
                     "animal_studies_mm_count",
                     Value(5),
+                    model=BSTBLVSampleTestModel,
                     header="Studies Count",
                     filterer="strictFilterer",
                     sorter="numericSorter",
+                    tooltip="Count of related BSTBLVStudyTestModel records.",
                 ),
             },
             clv.column_settings,
@@ -867,9 +883,11 @@ class BSTBaseListViewTests(TracebaseTestCase):
                 "studies_mm_count": BSTAnnotColumn(
                     "studies_mm_count",
                     Count("studies", output_field=IntegerField(), distinct=True),
+                    model=BSTBLVAnimalTestModel,
                     header="Studies Count",
                     filterer="strictFilterer",
                     sorter="numericSorter",
+                    tooltip="Count of related BSTBLVStudyTestModel records.",
                 ),
             },
             clv.column_settings,
@@ -889,9 +907,11 @@ class BSTBaseListViewTests(TracebaseTestCase):
                 "studies_mm_count": BSTAnnotColumn(
                     "studies_mm_count",
                     Count("studies", output_field=IntegerField(), distinct=True),
+                    model=BSTBLVAnimalTestModel,
                     header="Studies Count",
                     filterer="strictFilterer",
                     sorter="numericSorter",
+                    tooltip="Count of related BSTBLVStudyTestModel records.",
                 ),
             },
             clv.column_settings,
@@ -971,8 +991,10 @@ class BSTBaseListViewTests(TracebaseTestCase):
                 "animals_mm_count": BSTAnnotColumn(
                     "animals_mm_count",
                     Count("animals", output_field=IntegerField(), distinct=True),
+                    model=BSTBLVStudyTestModel,
                     header="Animals Count",
                     filterer="strictFilterer",
+                    tooltip="Count of related BSTBLVAnimalTestModel records.",
                 ),
                 "animals": BSTManyRelatedColumn("animals", BSTBLVStudyTestModel),
             },
