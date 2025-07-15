@@ -2,10 +2,9 @@ from typing import Optional
 from warnings import warn
 
 from django.conf import settings
-from django.core.paginator import Paginator
+from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
 
 from DataRepo.utils.exceptions import DeveloperWarning
-from DataRepo.utils.text_utils import iswhole
 from DataRepo.widgets.bst.rows_per_page_select import BSTRowsPerPageSelect
 
 
@@ -120,28 +119,22 @@ class SizedPaginator(Paginator):
             end = self.num_pages
         return range(start, end + 1)
 
+    # See: https://forum.djangoproject.com/t/letting-listview-gracefully-handle-out-of-range-page-numbers/23037/4
     def page(self, num):
-        """Extension of super().  Since we know the total number of results, we can validate the supplied page number
-        without making a count call on the queryset."""
-        if (isinstance(num, int) and num > 1) or (iswhole(num) and str(num) != "1"):
-            num = int(num)
-            last_page_frac = self.total / self.per_page
-            last_page_int = int(last_page_frac)
-            last_page = last_page_int
-            if last_page_frac > last_page_int:
-                last_page = last_page_int + 1
-            if num > last_page:
-                if settings.DEBUG:
-                    warn(
-                        f"Page {num} is empty.  Gracefully falling back to last page: {last_page}.",
-                        DeveloperWarning,
-                    )
-                num = last_page
-        else:
-            if settings.DEBUG and (not iswhole(num) or str(num) != "1"):
+        try:
+            num = self.validate_number(num)
+        except PageNotAnInteger:
+            if settings.DEBUG:
                 warn(
                     f"Page {num} not an integer.  Gracefully falling back to 1.",
                     DeveloperWarning,
                 )
             num = 1
+        except EmptyPage:
+            if settings.DEBUG:
+                warn(
+                    f"Page {num} is empty.  Gracefully falling back to last page: {self.num_pages}.",
+                    DeveloperWarning,
+                )
+            num = self.num_pages
         return super().page(num)
