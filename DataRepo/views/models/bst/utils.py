@@ -81,6 +81,10 @@ class SizedPaginator(Paginator):
         """
         super().__init__(*args, **kwargs)
 
+        # self.count is an attribute where the superclass saves the total count.  By saving it here/now, it prevents a
+        # duplicate count query when the page is requested.
+        self.count = total
+
         self.total: int = total
         self.raw_total: int = raw_total if raw_total is not None else total
         self.size_select_list = BSTRowsPerPageSelect(
@@ -121,7 +125,7 @@ class SizedPaginator(Paginator):
         without making a count call on the queryset."""
         if (isinstance(num, int) and num > 1) or (iswhole(num) and str(num) != "1"):
             num = int(num)
-            last_page_frac = self.total / num
+            last_page_frac = self.total / self.per_page
             last_page_int = int(last_page_frac)
             last_page = last_page_int
             if last_page_frac > last_page_int:
@@ -134,7 +138,7 @@ class SizedPaginator(Paginator):
                     )
                 num = last_page
         else:
-            if settings.DEBUG:
+            if settings.DEBUG and (not iswhole(num) or str(num) != "1"):
                 warn(
                     f"Page {num} not an integer.  Gracefully falling back to 1.",
                     DeveloperWarning,

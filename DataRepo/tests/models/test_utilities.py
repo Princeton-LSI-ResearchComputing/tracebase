@@ -415,10 +415,10 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
             "Multiple field names in field representation ['animal__sex', 'animal__body_weight'].",
             str(ar.exception),
         )
-        with self.assertRaises(NoFields) as ar:
+        with self.assertRaises(TypeError) as ar:
             resolve_field_path(1)
         self.assertEqual(
-            "Unsupported field_or_expression type: 'int' for expression: 1.  Returning empty string.",
+            "Unsupported field_or_expression type: 'int' for expression: 1.",
             str(ar.exception),
         )
 

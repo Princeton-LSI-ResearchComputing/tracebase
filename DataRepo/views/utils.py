@@ -143,7 +143,7 @@ class GracefulPaginator(Paginator):
                     )
                 num = self.num_pages
         else:
-            if settings.DEBUG:
+            if settings.DEBUG and (not iswhole(num) or str(num) != "1"):
                 warn(
                     f"Page {num} not an integer.  Gracefully falling back to 1.",
                     DeveloperWarning,
