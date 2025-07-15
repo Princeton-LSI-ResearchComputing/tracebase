@@ -122,9 +122,8 @@ class BSTAnnotColumn(BSTBaseColumn):
         # derived from the converter), if it is a key field.
         self.model: Optional[Type[Model]] = model
 
-        # NOTE: self.related_model will only be set if the output of the converter is a foreign key.
-        # It enables get_model_object to be able to return a model object of the related_model when supplied with the
-        # annotation value (an 'id').
+        # related_model enables get_model_object to be able to return a model object of the related_model when supplied
+        # with the annotation value (an 'id').
         self.related_model: Optional[Model] = None
 
         # related_model_paths is used to populate the arguments to prefetch_related so that annotations are constructed
@@ -188,15 +187,10 @@ class BSTAnnotColumn(BSTBaseColumn):
                             {"tooltip": f"{field.help_text}\n\n{kwargs['tooltip']}"}
                         )
 
-            # If this is a key field, we will assume that the annotation output is the ID of a record from that
-            # model, so we can link it.
             if len(self.related_model_paths) == 1:
                 self.related_model = model_path_to_model(
                     model, self.related_model_paths[0]
                 )
-                # This *might* be a foreign key (i.e. is_fk = True), but we don't know for sure yet.  We would only
-                # be guessing based on the field the annotation is based on.  We set is_fk below once we do know for
-                # sure based on the output_field.
 
         if isinstance(self.converter, Expression):
             try:
