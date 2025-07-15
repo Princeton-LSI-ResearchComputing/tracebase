@@ -3,7 +3,7 @@ import warnings
 from collections import defaultdict
 from contextlib import contextmanager
 from threading import local
-from typing import Dict, List
+from typing import Dict, List, Type
 
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
@@ -1564,6 +1564,8 @@ class MaintainedModel(Model):
                     try:
                         updater_dicts = mdl_cls.get_my_updaters()
                     except Exception as e:
+                        if not issubclass(mdl_cls, __class__):
+                            raise ModelNotMaintained(mdl_cls)
                         raise MissingMaintainedModelDerivedClass(class_name, e)
 
                     # Leave the loop when the max generation present changes so that we can update the updated buffer
@@ -1961,6 +1963,14 @@ class NotMaintained(Exception):
         super().__init__(message)
         self.parent = parent
         self.caller = caller
+
+
+class ModelNotMaintained(Exception):
+    def __init__(self, model_class: Type[Model]):
+        super().__init__(
+            f"Model class '{model_class.__name__}' must inherit from {MaintainedModel.__name__}."
+        )
+        self.model_class = model_class
 
 
 class BadModelFields(Exception):

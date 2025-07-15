@@ -1,7 +1,8 @@
-from django.views.generic import DetailView, ListView
+from django.views.generic import DetailView
 
 from DataRepo.models import Infusate
 from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
+from DataRepo.views.models.bst.query import BSTListView
 
 
 class InfusateDetailView(DetailView):
@@ -25,21 +26,25 @@ class InfusateDetailView(DetailView):
         return context
 
 
-class InfusateListView(ListView):
-    """Generic class-based view for a list of infusates"""
-
+class InfusateListView(BSTListView):
     model = Infusate
-    context_object_name = "infusate_list"
-    template_name = "models/infusate/infusate_list.html"
-    ordering = ["name"]
-
-    def get_context_data(self, **kwargs):
-        # Call the base implementation first to get the context
-        context = super(InfusateListView, self).get_context_data(**kwargs)
-        # add data from the DataFrame to the context
-        infusate_list_df = qs2df.get_infusate_list_df()
-
-        # convert DataFrame to a list of dictionary
-        data = qs2df.df_to_list_of_dict(infusate_list_df)
-        context["df"] = data
-        return context
+    exclude = ["id", "animals", "tracers", "tracer_links"]
+    column_ordering = [
+        "name",
+        "tracer_group_name",
+        "label_combo",
+        "tracer_links_mm_count",
+        "tracer_links__tracer",
+        "tracer_links__concentration",
+        "animals_mm_count",
+    ]
+    column_settings = {
+        "label_combo": {"filterer": {"distinct_choices": True}},
+        "tracer_links_mm_count": {"header": "Tracers Count"},
+        "tracer_links__tracer": {"limit": 10},
+        "tracer_links__concentration": {"limit": 10},
+        "name": {
+            "td_template": "models/infusate/infusate_td.html",
+            "value_template": "models/infusate/infusate_value.html",
+        },
+    }
