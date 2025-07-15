@@ -165,7 +165,10 @@ def test_case_class_factory(base_class: Type[T]) -> Type[T]:
                 self.assertEqual(o1, o2, **kwargs, msg=f"Object path: {_path}")
             else:
                 self.assertIsInstance(
-                    o2, type(o1), **kwargs, msg=f"Object path: {_path}"
+                    o2,
+                    type(o1),
+                    **kwargs,
+                    msg=f"Type: '{type(o2).__name__}'. Object path: {_path}",
                 )
                 if isinstance(o1, (list, tuple)) and isinstance(o2, (list, tuple)):
                     self.assertEqual(

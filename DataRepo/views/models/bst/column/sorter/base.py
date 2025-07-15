@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import NamedTuple, Optional, Type, Union
+from typing import NamedTuple, Optional, Type, Union, cast
 from warnings import warn
 
 from django.conf import settings
@@ -204,7 +204,7 @@ class BSTBaseSorter(ABC):
             self.name = name
         else:
             try:
-                self.name = resolve_field_path(expression)
+                self.name = cast(str, resolve_field_path(expression))
             except (NoFields, MultipleFields) as fe:
                 raise ValueError(
                     f"name argument required.  (Unable to discern column name from expression '{expression}' "

@@ -1,5 +1,6 @@
 from django.db.models import (
     CASCADE,
+    Case,
     CharField,
     DurationField,
     F,
@@ -7,6 +8,7 @@ from django.db.models import (
     Func,
     IntegerField,
     Value,
+    When,
 )
 from django.db.models.aggregates import Count
 from django.db.models.functions import Extract, Lower
@@ -39,12 +41,26 @@ BACSampleTestModel = create_test_model(
             related_name="samples",
             on_delete=CASCADE,
         ),
+        "animal": ForeignKey(
+            to="loader.BACAnimalTestModel",
+            related_name="samples",
+            on_delete=CASCADE,
+            null=True,
+        ),
     },
 )
 
 BACTissueTestModel = create_test_model(
     "BACTissueTestModel",
     {"name": CharField(max_length=255, help_text="Tissue name.")},
+)
+
+BACAnimalTestModel = create_test_model(
+    "BACAnimalTestModel",
+    {
+        "name": CharField(max_length=255, unique=True),
+        "treatment": CharField(max_length=255),
+    },
 )
 
 
@@ -100,6 +116,18 @@ class BSTAnnotColumnTests(TracebaseTestCase):
         c = BSTAnnotColumn("time_weeks", converter, model=BACSampleTestModel)
         self.assertEqual("Storage time.", c.tooltip)
 
+        # Exclude help_text
+        c = BSTAnnotColumn(
+            "time_weeks", converter, model=BACSampleTestModel, help_text=False
+        )
+        self.assertIsNone(c.tooltip)
+
+        # help_text appended to
+        c = BSTAnnotColumn(
+            "time_weeks", converter, model=BACSampleTestModel, tooltip="Units: weeks."
+        )
+        self.assertEqual("Storage time.\n\nUnits: weeks.", c.tooltip)
+
         # Related model case
         converter = Count("samples__name", output_field=IntegerField(), distinct=True)
         c = BSTAnnotColumn(
@@ -109,6 +137,44 @@ class BSTAnnotColumnTests(TracebaseTestCase):
             model=BACTissueTestModel,
         )
         self.assertEqual("Count of sample names.", c.tooltip)
+
+    def test_related_model(self):
+        # basic case
+        c = BSTAnnotColumn(
+            "alternate_name",
+            Case(
+                When(
+                    name="x",
+                    then="animal__treatment",
+                ),
+                When(
+                    name="y",
+                    then="animal__name",
+                ),
+                output_field=CharField(),
+            ),
+            model=BACSampleTestModel,
+        )
+        self.assertEqual(BACAnimalTestModel, c.related_model)
+
+    def test_related_model_paths(self):
+        # basic case
+        c = BSTAnnotColumn(
+            "alternate_name",
+            Case(
+                When(
+                    name="x",
+                    then="animal__name",
+                ),
+                When(
+                    name="y",
+                    then="tissue__name",
+                ),
+                output_field=CharField(),
+            ),
+            model=BACSampleTestModel,
+        )
+        self.assertEqual(["animal", "tissue"], c.related_model_paths)
 
     def test_get_model_object_fk_output(self):
         """This tests that when a converter's output_field is a ForeignKey field, get_model_object will retrieve the

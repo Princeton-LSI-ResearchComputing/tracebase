@@ -95,13 +95,22 @@ class BSTQueryView:
                 keys that start from self.model.  Each model path is not contained in any other model path.
         """
         prefetches: List[str] = []
+
+        all_related_model_paths: List[str] = []
+        for col in self.columns.values():
+            if (
+                isinstance(col, BSTRelatedColumn)
+                and col.related_model_path not in all_related_model_paths
+            ):
+                all_related_model_paths.append(col.related_model_path)
+            elif isinstance(col, BSTAnnotColumn) and len(col.related_model_paths) > 0:
+                for rmp in col.related_model_paths:
+                    if rmp not in all_related_model_paths:
+                        all_related_model_paths.append(rmp)
+
         # For all related_model_paths, by descending path length (i.e. number of dunderscore-delimited foreign keys)
         for field_path in sorted(
-            [
-                c.related_model_path
-                for c in self.columns.values()
-                if isinstance(c, BSTRelatedColumn)
-            ],
+            all_related_model_paths,
             key=lambda p: len(p.split("__")),
             reverse=True,
         ):
@@ -297,8 +306,9 @@ class BSTQueryView:
                 else:
                     colname = annot_name
 
-                # Disable searching and sorting.
+                # Disable searching, filtering, and sorting.
                 self.columns[colname].searchable = False
+                self.columns[colname].filterable = False
                 self.columns[colname].sortable = False
 
                 if colname == annot_name:
@@ -677,7 +687,7 @@ class BSTListView(BSTBaseListView, BSTQueryView):
     # TODO: Figure out a way to move this to BSTQueryView without it having to know about the client interface elements
     # like cookeis and filter_terms.
     def get_filters(self) -> Q:
-        """Returns a Q expression for every filtered and searchable column using self.filter_terms and self.search_term.
+        """Returns a Q expression for every filtered and filterable column using self.filter_terms and self.search_term.
 
         NOTE: Annotation fields must be generated in order to apply the query if self.searchcol is a BSTAnnotColumn.
 
@@ -792,7 +802,9 @@ class BSTListView(BSTBaseListView, BSTQueryView):
         try:
             qs = qs.filter(self.filters)
         except FieldError as fe:
-            searchcols = [c.name for c in self.columns.values() if c.searchable]
+            searchcols = [
+                c.name for c in self.columns.values() if c.filterable or c.searchable
+            ]
             fld_str = "\n\t".join(searchcols)
             fld_msg = f"One or more of {len(searchcols)} fields is misconfigured:\n\n\t{fld_str}"
             warning = (

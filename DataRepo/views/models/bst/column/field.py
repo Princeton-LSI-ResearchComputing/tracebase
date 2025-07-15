@@ -26,7 +26,7 @@ class BSTColumn(BSTBaseColumn):
         1. Annotations are not supported.  See BSTAnnotColumn.
         2. Related columns are only partially supported, as they will not be linked.  See BSTRelatedColumn.
         3. Many-related columns are not supported.  See BSTManyRelatedColumn.
-        4. Foreign keys cannot be searchable or sortable.  See BSTRelatedColumn.
+        4. Foreign keys cannot be searchable/filterable or sortable.  See BSTRelatedColumn.
 
     Usage:
         You can create a simple model field column using the field names like this:

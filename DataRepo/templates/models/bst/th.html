@@ -2,7 +2,7 @@
     data-field="{{ column.name }}"
     data-switchable-label="{{ column.header }}"
 
-{% if column.searchable %}
+{% if column.filterable %}
     data-filter-control="{{ column.filterer.input_method }}"
     data-filter-custom-search="{{ column.filterer }}"
     {# See: live.bootstrap-table.com/code/hepcat72/18815 #}

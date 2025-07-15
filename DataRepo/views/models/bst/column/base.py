@@ -70,6 +70,7 @@ class BSTBaseColumn(ABC):
         header: Optional[str] = None,
         tooltip: Optional[str] = None,
         searchable: Optional[bool] = None,
+        filterable: Optional[bool] = None,
         sortable: Optional[bool] = None,
         hidable: bool = True,
         visible: bool = True,
@@ -91,11 +92,24 @@ class BSTBaseColumn(ABC):
                 generated using the title case conversion of the last (2, if present) dunderscore-delimited name values.
             tooltip (Optional[str]): A tooltip to display on hover over the column header.
 
-            searchable (Optional[bool]) [auto]: Whether or not a column is searchable.  This affects whether the column
-                is searched as a part of the table's search box and whether the column filter input will be enabled.
-                The default is based on whether the column is a foreign key or not, because Django turns keys into model
-                objects that do not render the actual numeric key value, so what the user sees would not behave as
-                expected when searched.
+            searchable (Optional[bool]) [auto]: Whether or not a column is searched when the table's search input field
+                is used.  That search does an "or"-ed search where it tries to match the search tern to any column
+                value.  This argument does not affect whether the column filter input will be enabled (see the
+                filterable option).  This argument is separate from the filterable option because some distantly related
+                fields that go through multiple many-related models can significantly impact performance.
+                NOTE: The default (which is the same as the filterable argument) is based on whether the column is a
+                foreign key or not, because Django turns keys into model objects that do not render the actual numeric
+                key value, so what the user sees would not behave as expected when searched.  The default, if one of
+                searchable and filterable are supplied, but not the other, is to match the other, so if you want them to
+                differ, both must be explicitly set.
+            filterable (Optional[bool]) [auto]: Whether or not a column will have its own search input field.  The
+                filter input fields do an "and"-ed search when multiple column filters are used, each independently
+                narrowing the results.
+                NOTE: The default (which is the same as the searchable argument) is based on whether the column is a
+                foreign key or not, because Django turns keys into model objects that do not render the actual numeric
+                key value, so what the user sees would not behave as expected when searched.  The default, if one of
+                searchable and filterable are supplied, but not the other, is to match the other, so if you want them to
+                differ, both must be explicitly set.
             sortable (Optional[bool]) [auto]: Whether or not a column's values can be used to sort the table rows.  The
                 default is based on whether the column is a foreign key or not, because Django turns keys into model
                 objects that do not render the actual numeric key value, so what the user sees would not behave as
@@ -131,10 +145,18 @@ class BSTBaseColumn(ABC):
             None
         """
 
+        if (searchable is None) != (filterable is None):
+            # If one of the 2 is explicitly set, set the other to match
+            if filterable is not None:
+                searchable = filterable
+            else:
+                filterable = searchable
+
         self.name = name
         self.header = header
         self.tooltip = tooltip
         self.searchable = searchable
+        self.filterable = filterable
         self.sortable = sortable
         self.hidable = hidable
         self.visible = visible if hidable else True
@@ -174,16 +196,16 @@ class BSTBaseColumn(ABC):
                     f"Column {self.name} cannot be linked to the root model when it is a foreign key."
                 )
 
-        # Handle the defaults for searchable and sortable
+        # Handle the defaults for searchable, filterable, and sortable
         if not self.is_related:
             # The defaults are False if this is not a related column.  In fact, they cannot be True if the fiueld is a
             # foreign key, because Django turns foreign key fields into model objects that do not render the actual
             # numeric key value, so what the user sees would not behave as expected when searched or sorted.
             if self.is_fk:
-                if self.searchable is True:
+                if self.searchable is True or self.filterable is True:
                     raise ValueError(
-                        f"Column {self.name} cannot be searchable when it is a foreign key unless the column class is "
-                        "either BSTRelatedColumn or BSTManyRelatedColumn."
+                        f"Column {self.name} cannot be searchable/filterable when it is a foreign key unless the "
+                        "column class is either BSTRelatedColumn or BSTManyRelatedColumn."
                     )
                 if self.sortable is True:
                     raise ValueError(
@@ -191,18 +213,32 @@ class BSTBaseColumn(ABC):
                         "either BSTRelatedColumn or BSTManyRelatedColumn."
                     )
                 self.searchable = False
+                self.filterable = False
                 self.sortable = False
             else:
                 if self.searchable is None:
                     self.searchable = True
+                if self.filterable is None:
+                    self.filterable = True
                 if self.sortable is None:
                     self.sortable = True
         else:
             # The defaults are True if this is a related column
             if self.searchable is None:
                 self.searchable = True
+            if self.filterable is None:
+                self.filterable = True
             if self.sortable is None:
                 self.sortable = True
+
+            if self.searchable != self.filterable and self.searchable is False:
+                addendum = (
+                    "Note, this column is not included in the entire table search."
+                )
+                if self.tooltip is None:
+                    self.tooltip = addendum
+                else:
+                    self.tooltip += "\n\n" + addendum
 
         if self.header is None:
             self.header = self.generate_header()
@@ -237,7 +273,7 @@ class BSTBaseColumn(ABC):
         if self.sorter.script_name not in self.javascripts:
             self.javascripts.append(self.sorter.script_name)
 
-        # NOTE: We set a filterer even if the field is not searchable.
+        # NOTE: We set a filterer even if the field is not searchable/filterable.
         if filterer is None:
             # We explicitly do NOT supply the name, so that we can let the derived class's method decide it
             self.filterer = self.create_filterer()

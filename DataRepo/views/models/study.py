@@ -56,9 +56,13 @@ class StudyListView(BSTListView):
         "animals__treatment": {"unique": True},
         "animals__samples__msrun_samples__msrun_sequence__researcher": {
             "filterer": {"choices": Researcher.get_researchers},
+            "searchable": False,  # Disabled due to performance
+            "filterable": True,
         },
         "animals__samples__researcher": {
-            "filterer": {"choices": Researcher.get_researchers}
+            "filterer": {"choices": Researcher.get_researchers},
+            "searchable": False,  # Disabled due to performance
+            "filterable": True,
         },
         "total_tissues": {"tooltip": "Total number of tissue types in a study."},
         "animals_mm_count": {

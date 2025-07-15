@@ -118,6 +118,7 @@ class PaginatorTemplateTests(TracebaseTestCase):
             page=2,  # cur_page
         )
         template_str = self.render_template(sp)
+        # Cur page is 2, so there should be a link to page 1
         self.assert_substrings(['<a href="?page=1&limit=1"', "&laquo;"], template_str)
 
     def test_first_last(self):

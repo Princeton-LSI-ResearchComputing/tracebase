@@ -34,7 +34,7 @@ from DataRepo.views.models.bst.query import (
     BSTListView,
     QueryMode,
 )
-from DataRepo.views.utils import GracefulPaginator
+from DataRepo.views.models.bst.utils import SizedPaginator
 
 
 class BSTQueryViewTests(TracebaseTestCase):
@@ -394,6 +394,18 @@ class BSTListViewTests(TracebaseTestCase):
         alv = AnimalWithMultipleStudyColsLV()
         self.assertEqual(set(["studies", "treatment"]), set(alv.get_prefetches()))
 
+        # Ensure that related model paths are extracted from annotations and added to the prefetches.
+        class StudyWithDistantAnnotLV(BSTListView):
+            model = BSTLVStudyTestModel
+            annotations = {
+                "last_treatment": Max(
+                    "animals__treatment__name", output_field=CharField()
+                )
+            }
+
+        slv = StudyWithDistantAnnotLV()
+        self.assertEqual(set(["animals__treatment"]), set(slv.get_prefetches()))
+
     @TracebaseTestCase.assertNotWarns()
     def test_get_filters(self):
         request = HttpRequest()
@@ -577,20 +589,20 @@ class BSTListViewTests(TracebaseTestCase):
         slv.init_interface()
         qs = slv.get_queryset()
 
-        with self.assertNumQueries(3):
-            # The 3 queries:
-            # 1. SELECT COUNT(*) FROM (SELECT DISTINCT "loader_bstlvstudytestmodel"."name" AS "col1", ...
+        with self.assertNumQueries(2):
+            # 1. SELECT DISTINCT "loader_bstlvstudytestmodel"."name", ...
+            #    This comes from the single iteration of "for rec in object_list"
+            # 2. SELECT ("loader_bstlvanimaltestmodel_studies"."bstlvstudytestmodel_id") AS "_prefetch_related_val_...
+            #    This comes from the single iteration of "for rec in object_list" (when there is a many-related column)
+            # This used to have a third query for the count, but that was a duplicate that has been hence avoided:
+            # 3. SELECT COUNT(*) FROM (SELECT DISTINCT "loader_bstlvstudytestmodel"."name" AS "col1", ...
             #    This comes from the super().paginate_queryset call.
             #    The rest come from the get_column_val_by_iteration loop for the many-related record compilation
-            # 2. SELECT DISTINCT "loader_bstlvstudytestmodel"."name", ...
-            #    This comes from the single iteration of "for rec in object_list"
-            # 3. SELECT ("loader_bstlvanimaltestmodel_studies"."bstlvstudytestmodel_id") AS "_prefetch_related_val_...
-            #    This comes from the single iteration of "for rec in object_list" (when there is a many-related column)
             paginator, page, object_list, is_paginated = slv.paginate_queryset(qs, 1)
 
         self.assertEqual(2, slv.raw_total)
         self.assertEqual(2, slv.total)
-        self.assertIsInstance(paginator, GracefulPaginator)
+        self.assertIsInstance(paginator, SizedPaginator)
         self.assertIsInstance(page, Page)
         self.assertEqual("<Page 1 of 2>", str(page))
         self.assertQuerySetEqual(qs.all()[0:1], object_list)
@@ -671,16 +683,17 @@ class BSTListViewTests(TracebaseTestCase):
         studydesccol: BSTManyRelatedColumn = alv4.columns["studies__desc"]
         studydesccol.limit = 1
         qs = alv4.get_queryset()
-        with self.assertNumQueries(4):
-            # 1. SELECT COUNT(*) FROM (SELECT DISTINCT "loader_bstlvanimaltestmodel"."name" AS "col1", ...
+        with self.assertNumQueries(3):
+            # 1. SELECT DISTINCT "loader_bstlvanimaltestmodel"."name", ...
+            #    From query to get the record from the root model
+            # 2. SELECT "loader_bstlvtreatmenttestmodel"."name", ...
+            #    From query to get the related treatment model record prefetch
+            # 3. SELECT ("loader_bstlvanimaltestmodel_studies"."bstlvanimaltestmodel_id") AS "_prefetch_related_val_...
+            #    From query to get the many-related animal model records prefetch
+            # This used to have a fourth query for the count, but that was a duplicate that has been hence avoided:
+            # 4. SELECT COUNT(*) FROM (SELECT DISTINCT "loader_bstlvanimaltestmodel"."name" AS "col1", ...
             #    From super().paginate_queryset
             #    All subsequent calls are from a single iteration of object_list
-            # 2. SELECT DISTINCT "loader_bstlvanimaltestmodel"."name", ...
-            #    From query to get the record from the root model
-            # 3. SELECT "loader_bstlvtreatmenttestmodel"."name", ...
-            #    From query to get the related treatment model record prefetch
-            # 4. SELECT ("loader_bstlvanimaltestmodel_studies"."bstlvanimaltestmodel_id") AS "_prefetch_related_val_...
-            #    From query to get the many-related animal model records prefetch
             _, _, object_list, _ = alv4.paginate_queryset(qs, 1)
         # The model's ordering is "-name"
         a2 = object_list[0]
