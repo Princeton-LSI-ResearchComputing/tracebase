@@ -513,7 +513,7 @@ class BSTBaseView:
                     "sorter": "numericSorter",
                     "model": self.model,
                     "help_text": False,
-                    "tooltip": f"Count of related {type(related_model).__name__} records.",
+                    "tooltip": f"Count of related {related_model.__name__} records.",
                 }
                 if count_annot_name in self.column_settings.keys():
                     kwargs.update(self.column_settings[count_annot_name])
