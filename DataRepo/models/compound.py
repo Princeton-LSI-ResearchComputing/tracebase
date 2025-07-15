@@ -1,42 +1,55 @@
+from warnings import warn
+
+from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.db import models
-from django.db.models import Q
+from django.db.models import (
+    CASCADE,
+    AutoField,
+    CharField,
+    Count,
+    ForeignKey,
+    IntegerField,
+    Model,
+    Q,
+)
 from django.forms.models import model_to_dict
 
+from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.models.utilities import atom_count_in_formula
 
 
-class Compound(models.Model):
-    # Class variables
+class Compound(MaintainedModel):
     HMDB_CPD_URL = "https://hmdb.ca/metabolites"
     detail_name = "compound_detail"
 
-    # Instance / model fields
-    id = models.AutoField(primary_key=True)
-    name = models.CharField(
+    id = AutoField(primary_key=True)
+    name = CharField(
         max_length=256,
         unique=True,
         help_text="The compound name that is commonly used in the laboratory "
         '(e.g. "glucose", "C16:0", etc.).',
     )
-    formula = models.CharField(
+    formula = CharField(
         max_length=256,
         help_text="The molecular formula of the compound "
         '(e.g. "C6H12O6", "C16H32O2", etc.).',
     )
 
-    # ID to serve as an external link to record using HMDB_CPD_URL
-
-    hmdb_id = models.CharField(
+    hmdb_id = CharField(
         max_length=11,
         unique=True,
         verbose_name="HMDB ID",
         help_text=f"A unique identifier for this compound in the Human Metabolome Database ({HMDB_CPD_URL}).",
     )
 
+    animals_by_tracer = IntegerField(
+        null=True,
+        help_text="The total number of animals infused with a tracer based on this parent compound.",
+    )
+
     @property  # type: ignore
     def hmdb_url(self):
-        "Returns the url to the compound's hmdb record"
+        """Returns the url to the compound's hmdb record"""
         return f"{self.HMDB_CPD_URL}/{self.hmdb_id}"
 
     def atom_count(self, atom):
@@ -116,6 +129,40 @@ class Compound(models.Model):
     def get_name_query_expression(cls, name):
         return Q(name__iexact=name) | Q(synonyms__name__iexact=name)
 
+    @MaintainedModel.setter(
+        generation=0,
+        update_field_name="animals_by_tracer",
+        child_field_names=["tracers"],
+        update_label="tracer_stat",
+    )
+    def _animals_by_tracer(self):
+        """This method generates the value for the animals_by_tracer field.  As a maintained field, it is called
+        whenever Animal, Infusate, Tracer, or Compound is changed (based on the @MaintainedModel.relation decorators on
+        those classes).  You can update all animals_by_tracer fields in every record by running:
+
+        python manage.py rebuild_maintained_fields --labels tracer_stat
+
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            (int): The number of animals that have been infused by a tracer based on this compound.
+        """
+        return (
+            __class__.objects.filter(pk=self.pk)
+            .annotate(
+                animals_by_tracer_compound_count=Count(
+                    "tracers__infusate_links__infusate__animals",
+                    output_field=IntegerField(),
+                    distinct=True,
+                )
+            )
+            .values("animals_by_tracer_compound_count")[0][
+                "animals_by_tracer_compound_count"
+            ]
+        )
+
     class Meta:
         verbose_name = "compound"
         verbose_name_plural = "compounds"
@@ -133,9 +180,11 @@ class Compound(models.Model):
         return reverse(self.detail_name, kwargs={"pk": self.pk})
 
 
-class CompoundSynonym(models.Model):
-    # Instance / model fields
-    name = models.CharField(
+class CompoundSynonym(Model):
+    # TODO: Add official support for PubChem CID links instead of using synonyms
+    PUBCHEM_CID_URL = "https://pubchem.ncbi.nlm.nih.gov/compound"
+
+    name = CharField(
         primary_key=True,
         max_length=256,
         unique=True,
@@ -143,14 +192,31 @@ class CompoundSynonym(models.Model):
         '(e.g. "palmitic acid", "hexadecanoic acid", "C16", and "palmitate" '
         'might also be synonyms for "C16:0").',
     )
-    compound = models.ForeignKey(
-        Compound, related_name="synonyms", on_delete=models.CASCADE
-    )
+    compound = ForeignKey(Compound, related_name="synonyms", on_delete=CASCADE)
 
     class Meta:
         verbose_name = "synonym"
         verbose_name_plural = "synonyms"
         ordering = ["compound", "name"]
+
+    # TODO: Add official support for PubChem CID links instead of using synonyms
+    @property
+    def pubchem_url(self):
+        """Returns the url to the compound's pubchem record, if "PubChem" is in the synonym and the only other content
+        is the PubChem CID"""
+        from DataRepo.utils.exceptions import DeveloperWarning
+
+        if "pubchem" in self.name.lower():
+            cid = self.name.lower().replace("pubchem", "")
+            cid = cid.replace(" ", "")
+            if settings.DEBUG and not cid.isdigit():
+                warn(
+                    f"Compound synonym '{self.name}' appears to be a PubChem ID, but unable to parse out the CID.",
+                    DeveloperWarning,
+                )
+                return None
+            return f"{self.PUBCHEM_CID_URL}/{cid}"
+        return None
 
     def __str__(self):
         return str(self.name)
