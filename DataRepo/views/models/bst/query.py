@@ -11,6 +11,7 @@ from django.db.models.expressions import Combinable
 
 from DataRepo.models.utilities import (
     field_path_to_manager_path,
+    field_path_to_model_path,
     get_field_val_by_iteration,
     get_many_related_field_val_by_subquery,
 )
@@ -175,8 +176,17 @@ class BSTQueryView:
             # Besides, it looks like it sorts anyway, given the model's ordering, based on the SQL output of
             # test__last_many_rec_iterator
 
-            # We add 1 to col.limit so that we can display an ellipsis if more exist
-            limit = getattr(rec, col.count_attr_name, -1)
+            if hasattr(rec, col.count_annot_name):
+                # If a count annotation column (counting records/values in this column) was included in the table, set
+                # the limit to it.  See the comments above for an explanation.
+                limit = getattr(rec, col.count_annot_name, -1)
+            if (not isinstance(limit, int) or limit == -1) and hasattr(
+                rec, col.count_attr_name
+            ):
+                # If the count annotation column was excluded, the count should be stored in an attribute named as in
+                # the variable: col.count_attr_name
+                limit = getattr(rec, col.count_attr_name, -1)
+
             if not isinstance(limit, int):
                 if isinstance(limit, str) and limit == "ERROR":
                     limit = -1
@@ -621,8 +631,6 @@ class BSTListView(BSTBaseListView, BSTQueryView):
 
         qs = qs.distinct()
 
-        # print(f"{self.model.__name__}.objects\n\t{self.filters}")
-
         return qs
 
     def paginate_queryset(self, *args, **kwargs):
@@ -771,11 +779,33 @@ class BSTListView(BSTBaseListView, BSTQueryView):
         """
         annotations_before_filter: Dict[str, Combinable] = {}
         annotations_after_filter: Dict[str, Combinable] = {}
+
+        # Obtain a list of many-related model paths that are being filtered, so that any annotation based on the same
+        # many-related model can be put *before* the filter.  E.g. If there is a Count annotation for many-related
+        # records, we want the count to be unaffected by the filter.
+        filtered_mr_model_paths = []
+        for cn in self.filter_terms.keys():
+            if isinstance(self.columns[cn], BSTManyRelatedColumn):
+                # Get up to the *first* many-related step in the field path so that we can put any affected many-related
+                # annotations, such as count annotations *before* the filter, so as not to change the annotation value.
+                # Note that the count annotations are used to limit many-related record/field value collection in order
+                # to speed up the query, but if that count changes, it will alter the many-related columns' assortment
+                # of values.
+                mr_model_path = field_path_to_model_path(
+                    self.model, cn, first_many_related=True
+                )
+                if mr_model_path not in filtered_mr_model_paths:
+                    filtered_mr_model_paths.append(mr_model_path)
+
         for column in self.columns.values():
             if isinstance(column, BSTAnnotColumn):
                 if (
                     self.search_term is None
                     and column.name not in self.filter_terms.keys()
+                    and not any(
+                        column.is_related_to_many_related_model_path(mrmp)
+                        for mrmp in filtered_mr_model_paths
+                    )
                 ):
                     annotations_after_filter[column.name] = column.converter
                 else:

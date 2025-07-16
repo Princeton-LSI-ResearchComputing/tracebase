@@ -40,6 +40,7 @@ class InfusateListView(BSTListView):
     ]
     column_settings = {
         "label_combo": {"filterer": {"distinct_choices": True}},
+        "tracer_group_name": {"filterer": {"distinct_choices": True}},
         "tracer_links_mm_count": {"header": "Tracers Count"},
         "tracer_links__tracer": {"limit": 10},
         "tracer_links__concentration": {"limit": 10},
