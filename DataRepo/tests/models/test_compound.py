@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.management import call_command
 from django.db import IntegrityError
 from django.test import override_settings
 
@@ -46,6 +47,14 @@ class CompoundTests(TracebaseTestCase):
             "(OR: ('name__iexact', 'alanine'), ('synonyms__name__iexact', 'alanine'))",
             str(q_exp),
         )
+
+    def test__animals_by_tracer(self):
+        call_command(
+            "load_study",
+            infile="DataRepo/data/tests/compounds/animals_by_tracer_compound.xlsx",
+        )
+        lysine = Compound.objects.get(name="lysine")
+        self.assertEqual(2, lysine._animals_by_tracer())
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
@@ -130,3 +139,14 @@ class CompoundSynonymTests(TracebaseTestCase):
         cs = CompoundSynonym.objects.create(name=alias, compound=c)
         cs.delete()
         self.assertTrue(Compound.objects.filter(name="1-Methylhistidine").exists())
+
+    def test_pubchem_url(self):
+        c = Compound.objects.create(
+            name="1-Methylhistidine", formula="C7H11N3O2", hmdb_id="HMDB0000001"
+        )
+
+        s1 = CompoundSynonym.objects.create(name="PubChem 1111111", compound=c)
+        s2 = CompoundSynonym.objects.create(name="1 methylhistidine", compound=c)
+
+        self.assertEqual(f"{CompoundSynonym.PUBCHEM_CID_URL}/1111111", s1.pubchem_url)
+        self.assertIsNone(s2.pubchem_url)

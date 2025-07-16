@@ -44,6 +44,7 @@ class Compound(MaintainedModel):
 
     animals_by_tracer = IntegerField(
         null=True,
+        blank=True,
         help_text="The total number of animals infused with a tracer based on this parent compound.",
     )
 
