@@ -42,6 +42,7 @@ from DataRepo.models.utilities import (
     is_many_related_to_parent,
     is_many_related_to_root,
     is_number_field,
+    is_related,
     is_string_field,
     is_unique_field,
     model_path_to_model,
@@ -146,6 +147,17 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
         self.assertIsInstance(ArchiveFile.filename, DeferredAttribute)
         self.assertIsInstance(resolve_field(ArchiveFile.filename), Field)
 
+    def test_is_related(self):
+        self.assertFalse(is_related("filename", ArchiveFile))
+        self.assertTrue(is_related("data_format", ArchiveFile))
+        self.assertTrue(is_related("peak_groups", ArchiveFile))
+        self.assertTrue(
+            is_related("msrun_sample__sample__animal__studies__name", PeakGroup)
+        )
+        self.assertTrue(is_related("msrun_sample__sample__animal__name", PeakGroup))
+        self.assertTrue(is_related("msrun_sample", PeakGroup))
+        self.assertFalse(is_related("name", PeakGroup))
+
     def test_is_many_related(self):
         # "many related" means many to many or many to one
         # ArchiveFile.filename is not a foreign key field, so it can't be many related
@@ -157,7 +169,8 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
         self.assertFalse(
             is_many_related(ArchiveFile.data_format.field)  # pylint: disable=no-member
         )
-        # From the perspective of DataFormat, it is a many to ... relationship
+        # From the perspective of DataFormat, it is many-related to ArchiveFile.  ArchiveFile.data_format describes its
+        # field as one_to_many, so from the perspective of the DataFormat model, this relationship is a many_to_one.
         self.assertTrue(
             is_many_related(
                 ArchiveFile.data_format.field, DataFormat  # pylint: disable=no-member
