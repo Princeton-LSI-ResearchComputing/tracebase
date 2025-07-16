@@ -701,8 +701,6 @@ class BSTListView(BSTBaseListView, BSTQueryView):
 
         qs = qs.distinct()
 
-        # print(f"{self.model.__name__}.objects\n\t{self.filters}")
-
         return qs
 
     def paginate_queryset(self, *args, **kwargs):
