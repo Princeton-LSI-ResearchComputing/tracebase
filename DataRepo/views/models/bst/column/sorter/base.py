@@ -377,7 +377,7 @@ class BSTBaseSorter(ABC):
         Args:
             expression (Combinable): E.g. the converter of an annotation.
         Exceptions:
-            ProgrammingError when a Field cannot be resolved from the supplied expression
+            AttributeError when an expression doesn't have an `output_field` attribute.
         Returns:
             _server_sorter (Type[Combinable])
         """
@@ -401,8 +401,9 @@ class BSTBaseSorter(ABC):
             elif type(expression) in cls.SERVER_SORTERS:
                 _server_sorter = type(expression)
             else:
-                raise ProgrammingError(
-                    f"Unable to resolve field type from expression '{expression}'."
+                _server_sorter = cls.SERVER_SORTERS.NONE
+                warn(
+                    f"Unsupported field type '{type(expression.output_field).__name__}' from expression '{expression}'."
                 )
         elif type(expression) in cls.SERVER_SORTERS:
             _server_sorter = type(expression)
