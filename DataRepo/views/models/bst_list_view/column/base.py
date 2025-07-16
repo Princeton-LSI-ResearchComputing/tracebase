@@ -28,8 +28,8 @@ class BSTBaseColumn(ABC):
     is_annotation: bool = False
     # See: BSTAnnotColumn (For rendering an annotation)
 
-    is_fk: bool = False
-    # See: BSTRelatedColumn (For rendering a one-related foreign key using the related object)
+    is_related: bool = False
+    # See: BSTRelatedColumn (For rendering a related foreign key using the related object)
 
     is_many_related: bool = False
     # See: BSTManyRelatedColumn (For rendering a many-related foreign key using the related object)
@@ -38,8 +38,8 @@ class BSTBaseColumn(ABC):
         self,
         name: str,
         header: Optional[str] = None,
-        searchable: bool = True,
-        sortable: bool = True,
+        searchable: Optional[bool] = None,
+        sortable: Optional[bool] = None,
         visible: bool = True,
         exported: bool = True,
         linked: bool = False,
@@ -56,9 +56,15 @@ class BSTBaseColumn(ABC):
             header (Optional[str]) [auto]: The column header to display in the template.  Will be automatically
                 generated using the title case conversion of the last (2, if present) dunderscore-delimited name values.
 
-            searchable (bool) [True]: Whether or not a column is searchable.  This affects whether the column is
-                searched as a part of the table's search box and whether the column filter input will be enabled.
-            sortable (bool) [True]: Whether or not a column's values can be used to sort the table rows.
+            searchable (Optional[bool]) [auto]: Whether or not a column is searchable.  This affects whether the column
+                is searched as a part of the table's search box and whether the column filter input will be enabled.
+                The default is based on whether the column is a foreign key or not, because Django turns keys into model
+                objects that do not render the actual numeric key value, so what the user sees would not behave as
+                expected when searched.
+            sortable (Optional[bool]) [auto]: Whether or not a column's values can be used to sort the table rows.  The
+                default is based on whether the column is a foreign key or not, because Django turns keys into model
+                objects that do not render the actual numeric key value, so what the user sees would not behave as
+                expected when sorted.
             visible (bool) [True]: Controls whether a column is initially visible.
             exported (bool) [True]: Adds to BST's exportOptions' ignoreColumn attribute if False.
             linked (bool) [False]: Whether or not the value in the column should link to a detail page for the model
@@ -99,20 +105,54 @@ class BSTBaseColumn(ABC):
         self.sorter: BSTBaseSorter
         self.filterer: BSTBaseFilterer
 
+        if getattr(self, "is_fk", None) is None:
+            self.is_fk = False
+
         if self.linked:
-            if self.is_many_related:
+            if self.is_related:
                 raise ValueError(
-                    f"Argument 'linked' must not be true when the column '{self.name}' is many-related."
+                    f"Column {self.name} cannot be linked to the root model when it is from a related model."
                 )
             elif self.is_fk:
                 raise ValueError(
-                    f"Argument 'linked' must not be true when the column '{self.name}' is a foreign key."
+                    f"Column {self.name} cannot be linked to the root model when it is a foreign key."
                 )
+
+        # Handle the defaults for searchable and sortable
+        if not self.is_related:
+            # The defaults are False if this is not a related column.  In fact, they cannot be True if the fiueld is a
+            # foreign key, because Django turns foreign key fields into model objects that do not render the actual
+            # numeric key value, so what the user sees would not behave as expected when searched or sorted.
+            if self.is_fk:
+                if self.searchable is True:
+                    raise ValueError(
+                        f"Column {self.name} cannot be searchable when it is a foreign key unless the column class is "
+                        "either BSTRelatedColumn or BSTManyRelatedColumn."
+                    )
+                if self.sortable is True:
+                    raise ValueError(
+                        f"Column {self.name} cannot be sortable when it is a foreign key unless the column class is "
+                        "either BSTRelatedColumn or BSTManyRelatedColumn."
+                    )
+                self.searchable = False
+                self.sortable = False
+            else:
+                if self.searchable is None:
+                    self.searchable = True
+                if self.sortable is None:
+                    self.sortable = True
+        else:
+            # The defaults are True if this is a related column
+            if self.searchable is None:
+                self.searchable = True
+            if self.sortable is None:
+                self.sortable = True
 
         if self.header is None:
             self.header = self.generate_header()
 
         # NOTE: self.name will be either a field_path or an annotation field.
+        # NOTE: We set a sorter even if the field is not sortable.
         if sorter is None:
             self.sorter = self.create_sorter()
         elif isinstance(sorter, str):
@@ -125,6 +165,7 @@ class BSTBaseColumn(ABC):
             )
 
         # NOTE: self.name will be either a field_path or an annotation field.
+        # NOTE: We set a filterer even if the field is not searchable.
         if filterer is None:
             self.filterer = self.create_filterer()
         elif isinstance(filterer, str):
