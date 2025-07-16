@@ -72,7 +72,7 @@ class BSTFilterer(BSTBaseFilterer):
         _server_filterer = kwargs.get("_server_filterer")
 
         try:
-            self.field = field_path_to_field(model, field_path)
+            self.field = field_path_to_field(model, field_path, real=True)
             self.many_related = is_many_related_to_root(field_path, model)
         except AttributeError as ae:
             if "__" not in field_path:

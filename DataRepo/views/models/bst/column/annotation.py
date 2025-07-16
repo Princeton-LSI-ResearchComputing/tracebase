@@ -3,6 +3,7 @@ from warnings import warn
 
 from django.conf import settings
 from django.db.models import Field, Model
+from django.db.models.aggregates import Count
 from django.db.models.expressions import Combinable, Expression
 
 from DataRepo.models.utilities import (
@@ -12,7 +13,6 @@ from DataRepo.models.utilities import (
     get_model_by_name,
     is_key_field,
     is_number_field,
-    is_reverse_related_field,
     is_string_field,
     model_path_to_model,
     resolve_field_path,
@@ -138,18 +138,26 @@ class BSTAnnotColumn(BSTBaseColumn):
                     f"expression '{converter}'.  {ve}"
                 )
             if field_path is not None:
-                remote_field = field_path_to_field(
-                    model, field_path, ignore_reverse_related=False
-                )
+                # This gives us the field that the annotation is based on, which could be a reverse relation (that has
+                # no help_text attribute)
+                remote_field = field_path_to_field(model, field_path, real=False)
                 if (
-                    not is_reverse_related_field(remote_field)
+                    # Excluding Count annotations is a cop-out.  There's got to be a better way to not incorporate
+                    # help_text when it doesn't make sense.
+                    not isinstance(self.converter, Count)
+                    and hasattr(remote_field, "help_text")
                     and remote_field.help_text is not None
                 ):
-                    # If no tooltip was provided and the extracted field has help text
-                    if (
-                        "tooltip" not in kwargs.keys() or kwargs["tooltip"] is None
-                    ) and remote_field.help_text is not None:
+                    # If no tooltip was provided
+                    if "tooltip" not in kwargs.keys() or kwargs["tooltip"] is None:
                         kwargs.update({"tooltip": remote_field.help_text})
+                    else:
+                        kwargs.update(
+                            {
+                                "tooltip": remote_field.help_text
+                                + f"\n\n{kwargs['tooltip']}"
+                            }
+                        )
 
                 # If this is a key field, we will assume that the annotation output is the ID of a record from that
                 # model, so we can link it.

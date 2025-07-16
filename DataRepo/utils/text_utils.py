@@ -583,8 +583,27 @@ def underscored_to_title(string: str, delim: str = " "):
 
 
 def get_plural(word: str):
-    """Pluralizes a word.  Returns the word as-is if it is already plural."""
-    # NOTE: singular_noun() returns a singular noun if the input was plural and False if it is already singular
-    if not isinstance(inflect_engine.singular_noun(word), str):
-        return inflect_engine.plural_noun(word)
+    """Pluralizes a word (or the last word in a phrase).  Returns the word as-is if it is already plural."""
+    # This attempts to get the last word that is only letters, to avoid turning "Concentration (mM)" into
+    # "Concentration (mM)s"
+    words = word.split(" ")
+    if len(words) == 1:
+        # NOTE: singular_noun() returns a singular noun if the input was plural and False if it is already singular
+        if not isinstance(inflect_engine.singular_noun(word), str) and str.isalpha(
+            word
+        ):
+            return inflect_engine.plural_noun(word)
+        return word
+
+    valid_last_word = None
+    last = -1
+    for i, aword in enumerate(words):
+        if str.isalpha(aword) and len(aword) > 0:
+            valid_last_word = aword
+            last = i
+    if valid_last_word is None:
+        return word
+    if not isinstance(inflect_engine.singular_noun(valid_last_word), str):
+        words[last] = inflect_engine.plural_noun(valid_last_word)
+        return " ".join(words)
     return word
