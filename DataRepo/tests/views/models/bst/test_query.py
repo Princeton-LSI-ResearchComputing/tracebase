@@ -749,20 +749,12 @@ class BSTListViewTests(TracebaseTestCase):
         qs1 = BSTLVAnimalTestModel.objects.order_by("name")
         stdynmcol = BSTManyRelatedColumn("studies__name", BSTLVAnimalTestModel)
         rec1 = qs1.first()
-        with self.assertWarns(DeveloperWarning) as aw:
-            with self.assertNumQueries(1):
-                self.assertEqual(
-                    ["S1"], alv1.get_column_val_by_iteration(rec1, stdynmcol)
-                )
-        self.assertEqual(1, len(aw.warnings))
-        self.assertIn(
-            "The count annotation for column studies__name is absent",
-            str(aw.warnings[0].message),
-        )
-        self.assertIn(
-            "Cannot guarantee the top 3 records will include the the min/max",
-            str(aw.warnings[0].message),
-        )
+        with self.assertNumQueries(1):
+            self.assertEqual(["S1"], alv1.get_column_val_by_iteration(rec1, stdynmcol))
+        # Note that this no longer causes the following warnings:
+        # - "The count annotation for column studies__name is absent",
+        # - "Cannot guarantee the top 3 records will include the the min/max"
+        # because the count is now retrieved even when the count annotation is excluded via column.count_attr_name.
 
     @TracebaseTestCase.assertNotWarns()
     def test_get_many_related_column_val_by_subquery(self):
