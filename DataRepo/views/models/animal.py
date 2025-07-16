@@ -5,7 +5,7 @@ from django.views.generic import DetailView
 
 from DataRepo.models import DURATION_SECONDS_ATTRIBUTE, Animal, Researcher
 from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
-from DataRepo.views.models.bst.list_view import BSTListView
+from DataRepo.views.models.bst.query import BSTListView
 
 
 class AnimalListView(BSTListView):
