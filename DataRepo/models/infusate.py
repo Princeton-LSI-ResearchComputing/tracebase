@@ -129,6 +129,12 @@ class InfusateQuerySet(models.QuerySet):
         return None
 
 
+@MaintainedModel.relation(
+    generation=2,
+    parent_field_name="tracers",
+    child_field_names=["animals"],
+    update_label="tracer_stat",
+)
 class Infusate(MaintainedModel, HierCachedModel):
     objects: InfusateQuerySet = InfusateQuerySet().as_manager()
     detail_name = "infusate_detail"

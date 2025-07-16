@@ -213,3 +213,13 @@ class BSTAnnotColumnTests(TracebaseTestCase):
             "BACTissueTestModel record not found using annotation value '6' from annotation column 'lower_tissue'.",
             str(aw.warnings[0].message),
         )
+
+    def test_is_related_to_many_related_model_path(self):
+        converter = Count("samples", output_field=IntegerField(), distinct=True)
+        c = BSTAnnotColumn(
+            "sample_count",
+            converter,
+            model=BACAnimalTestModel,
+        )
+        self.assertTrue(c.is_related_to_many_related_model_path("samples"))
+        self.assertFalse(c.is_related_to_many_related_model_path("studies"))

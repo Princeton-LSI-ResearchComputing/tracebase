@@ -64,6 +64,12 @@ class TracerQuerySet(models.QuerySet):
         return matching_tracer
 
 
+@MaintainedModel.relation(
+    generation=1,
+    parent_field_name="compound",
+    child_field_names=["infusates"],
+    update_label="tracer_stat",
+)
 class Tracer(MaintainedModel, ElementLabel):
     objects: TracerQuerySet = TracerQuerySet().as_manager()
 

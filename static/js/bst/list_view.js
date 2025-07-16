@@ -405,6 +405,11 @@ function updateVisible (visible, columnName) {
       })
     }
   }
+  // When columns are made visible, we have to make sure that their collapsed state is up to date
+  if (visible) {
+    const collapsed = parseBool(getViewCookie('collapsed'), true) // eslint-disable-line no-undef
+    setCollapse(collapsed)
+  }
 }
 
 /**

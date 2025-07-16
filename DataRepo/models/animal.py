@@ -13,6 +13,11 @@ from .protocol import Protocol
 from .tissue import Tissue
 
 
+@MaintainedModel.relation(
+    generation=3,
+    parent_field_name="infusate",
+    update_label="tracer_stat",
+)
 class Animal(MaintainedModel, HierCachedModel):
     # No parent_related_key_name, because this is a root
     child_related_key_names = ["samples", "labels"]
