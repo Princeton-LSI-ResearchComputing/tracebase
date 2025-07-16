@@ -2,6 +2,7 @@ from typing import List, Optional, Type
 from warnings import warn
 
 from django.conf import settings
+from django.db import ProgrammingError
 from django.db.models import Field, Model
 from django.db.models.aggregates import Count
 from django.db.models.expressions import Combinable, Expression
@@ -130,30 +131,39 @@ class BSTAnnotColumn(BSTBaseColumn):
         # efficiently
         self.related_model_paths: List[str] = []
 
+        # field_paths is used to determine if a filtered neighboring column belongs to the same many-related model as
+        # "this" annotation uses.  If it is, the annotation should be applied BEFORE the filter.  The reason for this is
+        # so that Count annotations are not altered by the filter.
+        self.field_paths: List[str] = []
+        # TODO: Add an argument to explicitly set this.
+
         # output_field is used to set (/override) self.related_model if it is a key field (e.g. ForeignKey or
         # ManyToManyField) (whether model is provided or not).
         output_field: Optional[Field] = None
         self.is_fk = False
 
         try:
-            field_paths = []
             for fp in resolve_field_path(converter, all=True):
-                if fp not in field_paths:
-                    field_paths.append(fp)
+                if fp not in self.field_paths:
+                    self.field_paths.append(fp)
         except TypeError as te:
-            field_paths = []
             if model is not None and settings.DEBUG:
                 warn(
                     f"{trace(te)}\nUnable to get help_text from field from model '{model.__name__}' in annotation "
                     f"'{name}' expression '{converter}'.  {te}"
                 )
 
-        if model is None and any("__" in fp for fp in field_paths) and settings.DEBUG:
-            related_model_fps = [fp for fp in field_paths if "__" in fp]
+        if (
+            settings.DEBUG
+            and model is None
+            and any("__" in fp for fp in self.field_paths)
+        ):
+            related_model_fps = [fp for fp in self.field_paths if "__" in fp]
             warn(
                 (
-                    f"model is None and the annotation contains field paths to related models ({related_model_fps}).  "
-                    "Resulting queries may be slow."
+                    "model is None and the annotation contains paths to fields in related models "
+                    f"({related_model_fps}).  Resulting queries may be slow because they cannot be automatically added "
+                    "to prefetches since we cannot determine if the last field in the path is a foreign key or not."
                 ),
                 DeveloperWarning,
             )
@@ -162,16 +172,16 @@ class BSTAnnotColumn(BSTBaseColumn):
         # the field's help_text
         if isinstance(model, type):
 
-            for field_path in field_paths:
+            for field_path in self.field_paths:
                 model_path = field_path_to_model_path(model, field_path)
-                # The returned model path can be an emoty string (which refers to self.model, which we don't need here)
+                # The returned model path can be an empty string (which refers to self.model, which we don't need here)
                 if model_path != "" and model_path not in self.related_model_paths:
                     self.related_model_paths.append(model_path)
 
-            if len(field_paths) == 1 and help_text:
+            if len(self.field_paths) == 1 and help_text:
                 # This gives us the field that the annotation is based on, which could be a reverse relation (that
                 # has no help_text attribute)
-                field = field_path_to_field(model, field_paths[0], real=False)
+                field = field_path_to_field(model, self.field_paths[0], real=False)
                 if (
                     # Excluding Count annotations is a cop-out.  There's got to be a better way to not incorporate
                     # help_text when it doesn't make sense.
@@ -288,3 +298,37 @@ class BSTAnnotColumn(BSTBaseColumn):
             warn(f"{trace()}\n{fk_warning}", DeveloperWarning)
 
         return None
+
+    def is_related_to_many_related_model_path(self, mr_model_path: str) -> bool:
+        """This takes a many-related model path and determines whether the annotation is based on the same many-related
+        model.
+
+        Assumptions:
+            1. It is assumed that field path extraction from the converter finds a field path when it is relevant to
+                determining a relationship with anther column's field path.  I.e. If there were no field paths extracted
+                or the field path containg no many_related_model_path, then a return of False is valid.
+        Args:
+            mr_model_path (str): A model path to a many-related model (i.e. ending in a foreign key).  A field path
+                extracted from self.converter must start with mr_model_path in order to return True.  Otherwise, False
+                is returned.
+        Exceptions:
+            ProgrammingError when this method is called on an a BSTAnnotColumn object that had no model supplied.
+        Returns:
+            (bool): True if any of the annotation's extracted field_paths start with the supplied many-related model
+                path.
+        """
+        if self.model is None:
+            raise ProgrammingError(
+                f"is_related_to_many_related_model_path called on a BSTAnnotColumn object ({self.name}) that was not "
+                "supplied a model.  A model is necessary to determine whether an extracted field path contains a many-"
+                "related foreign key."
+            )
+        elif settings.DEBUG and len(self.field_paths) == 0:
+            warn(
+                (
+                    f"is_related_to_many_related_model_path called on a BSTAnnotColumn object ({self.name}) that has "
+                    "no field paths that could be extracted from the converter."
+                ),
+                DeveloperWarning,
+            )
+        return any(fp.startswith(mr_model_path) for fp in self.field_paths)

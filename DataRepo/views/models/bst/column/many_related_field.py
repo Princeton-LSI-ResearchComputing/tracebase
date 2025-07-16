@@ -158,7 +158,7 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
             )
 
         self.many_related_model_path = field_path_to_model_path(
-            model, field_path, many_related=True
+            model, field_path, last_many_related=True
         )
 
         self.is_many_fk = self.many_related_model_path == field_path
@@ -238,7 +238,7 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
         # Create attribute names for the many-related values list and the many-related count
         if succinct:
             many_related_model_path = field_path_to_model_path(
-                model, path, many_related=True
+                model, path, last_many_related=True
             )
 
             if many_related_model_path == path:

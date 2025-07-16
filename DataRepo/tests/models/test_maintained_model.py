@@ -17,6 +17,7 @@ from DataRepo.models import (
 from DataRepo.models.maintained_model import (
     AutoUpdateFailed,
     MaintainedModelCoordinator,
+    ModelNotMaintained,
 )
 from DataRepo.tests.models.test_infusate import create_infusate_records
 from DataRepo.tests.tracebase_test_case import (
@@ -629,3 +630,11 @@ class RebuildMaintainedModelFieldsTests(TracebaseTestCase):
         coordinator = MaintainedModel._get_current_coordinator()
         # Ensure the buffer was emptied by rebuild_maintained_fields
         self.assertEqual(coordinator.buffer_size(), 0)
+
+
+class MaintainedModelMainTests(TracebaseTestCase):
+    def test_ModelNotMaintained(self):
+        mnm = ModelNotMaintained(Compound)
+        self.assertIn(
+            "Model class 'Compound' must inherit from MaintainedModel.", str(mnm)
+        )

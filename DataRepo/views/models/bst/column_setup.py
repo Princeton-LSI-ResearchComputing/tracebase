@@ -465,7 +465,7 @@ class BSTBaseView:
                         fld.name not in self.exclude
                         or BSTManyRelatedColumn.get_count_name(
                             field_path_to_model_path(
-                                self.model, fld.name, many_related=True
+                                self.model, fld.name, last_many_related=True
                             ),
                             self.model,
                         )
@@ -478,7 +478,7 @@ class BSTBaseView:
         # Now process the many-related columns to add their count annotations to the self.column_settings
         for colname in mm_colnames:
             mr_model_path = field_path_to_model_path(
-                self.model, colname, many_related=True
+                self.model, colname, last_many_related=True
             )
             count_annot_name = BSTManyRelatedColumn.get_count_name(
                 mr_model_path, self.model
@@ -813,7 +813,9 @@ class BSTBaseView:
         else:
             def_count_cols = [
                 BSTManyRelatedColumn.get_count_name(
-                    field_path_to_model_path(self.model, f.name, many_related=True),
+                    field_path_to_model_path(
+                        self.model, f.name, last_many_related=True
+                    ),
                     self.model,
                 )
                 for f in self.model._meta.get_fields()
