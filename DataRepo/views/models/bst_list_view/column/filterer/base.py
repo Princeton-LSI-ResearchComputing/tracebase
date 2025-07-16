@@ -10,6 +10,8 @@ from django.templatetags.static import static
 from django.utils.functional import classproperty
 from django.utils.safestring import mark_safe
 
+from DataRepo.utils.exceptions import DeveloperWarning
+
 
 class InputMethods(NamedTuple):
     TEXT: str
@@ -355,7 +357,8 @@ class BSTBaseFilterer(ABC):
                             f"'{self._server_filterer}' (selected based on the input method '{self.input_method}') "
                             f"will match the behavior of the custom client_filterer '{self.client_filterer}'.  "
                             "Server filtering may differ from client filtering.  Supply a custom _server_filterer to "
-                            "guarantee matching behavior."
+                            "guarantee matching behavior.",
+                            DeveloperWarning,
                         )
             else:
                 if self._server_filterer == self.SERVER_FILTERERS.CONTAINS:
@@ -372,7 +375,8 @@ class BSTBaseFilterer(ABC):
                             "Cannot select a matching default client_filterer corresponding to the _server_filterer "
                             f"'{self._server_filterer}', so disabling client filtering with '{self.client_filterer}' "
                             f"to match the behavior.  Supply a custom client_filterer to enable efficient filtering "
-                            "when a user views 'all' rows.  Doing so reduces wait times in the 'all' rows use-case."
+                            "when a user views 'all' rows.  Doing so reduces wait times in the 'all' rows use-case.",
+                            DeveloperWarning,
                         )
         elif (
             self.client_filterer != self.CLIENT_FILTERERS.NONE
@@ -401,13 +405,15 @@ class BSTBaseFilterer(ABC):
                 warn(
                     f"Client filtering disabled with '{self.client_filterer}'.  Supply a custom client_filterer that "
                     f"matches the behavior of _server_filterer '{self._server_filterer}' to enable efficient filtering "
-                    "when a user views 'all' rows.  Doing so reduces wait times in the 'all' rows use-case."
+                    "when a user views 'all' rows.  Doing so reduces wait times in the 'all' rows use-case.",
+                    DeveloperWarning,
                 )
             else:
                 warn(
                     f"Cannot guarantee that the client_filterer '{self.client_filterer}' behavior will match the "
                     f"_server_filterer '{type(self._server_filterer).__name__}' behavior.  Server filtering may differ "
-                    "from client filtering."
+                    "from client filtering.",
+                    DeveloperWarning,
                 )
 
     def set_client_mode(self, enabled: bool = True):

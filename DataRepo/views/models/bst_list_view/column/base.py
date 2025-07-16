@@ -156,7 +156,7 @@ class BSTBaseColumn(ABC):
         if sorter is None:
             self.sorter = self.create_sorter()
         elif isinstance(sorter, str):
-            self.sorter = self.create_sorter(sorter=sorter)
+            self.sorter = self.create_sorter(client_sorter=sorter)
         elif isinstance(sorter, BSTBaseSorter):
             self.sorter = sorter
         else:
@@ -169,7 +169,7 @@ class BSTBaseColumn(ABC):
         if filterer is None:
             self.filterer = self.create_filterer()
         elif isinstance(filterer, str):
-            self.filterer = self.create_filterer(filterer=filterer)
+            self.filterer = self.create_filterer(client_filterer=filterer)
         elif isinstance(filterer, BSTBaseFilterer):
             self.filterer = filterer
         else:
@@ -205,11 +205,11 @@ class BSTBaseColumn(ABC):
         return underscored_to_title(self.name)
 
     @abstractmethod
-    def create_sorter(self, sorter: Optional[str] = None) -> BSTBaseSorter:
+    def create_sorter(self, field=None, **kwargs) -> BSTBaseSorter:
         """Derived classes must define this method to set self.sorter"""
         pass
 
     @abstractmethod
-    def create_filterer(self, filterer: Optional[str] = None) -> BSTBaseFilterer:
+    def create_filterer(self, field=None, **kwargs) -> BSTBaseFilterer:
         """Derived classes must define this method to set self.filterer"""
         pass

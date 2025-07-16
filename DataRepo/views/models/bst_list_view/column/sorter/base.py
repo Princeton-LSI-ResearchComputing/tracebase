@@ -16,6 +16,7 @@ from DataRepo.models.utilities import (
     is_number_field,
     resolve_field_path,
 )
+from DataRepo.utils.exceptions import DeveloperWarning
 
 
 class ClientSorters(NamedTuple):
@@ -132,7 +133,8 @@ class BSTBaseSorter(ABC):
                     warn(
                         f"sort_expression {sort_expression} has no output_field set.  Unable to apply default server-"
                         "side sort behavior.  To avoid this, either set the output_field or supply a _server_sorter "
-                        "from SERVER_SORTERS or a custom client_sorter to the constructor."
+                        "from SERVER_SORTERS or a custom client_sorter to the constructor.",
+                        DeveloperWarning,
                     )
 
         if self._server_sorter is None:
@@ -201,7 +203,8 @@ class BSTBaseSorter(ABC):
             warn(
                 f"Cannot guarantee that the server-side Django sort expression '{self.sort_expression}' and "
                 f"client_sorter '{self.client_sorter}' are equivalent.  Server sort may differ from client sort.  "
-                "Be sure to explicitly set the field_expression and/or client_sorter to match."
+                "Be sure to explicitly set the field_expression and/or client_sorter to match.",
+                DeveloperWarning,
             )
 
         if self.client_server_sort_mismatch():
