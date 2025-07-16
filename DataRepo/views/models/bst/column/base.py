@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import List, Optional, Union
+from typing import List, Optional, Type, Union
 from warnings import warn
+
+from django.db import ProgrammingError
+from django.db.models import Model
 
 from DataRepo.utils.exceptions import DeveloperWarning
 from DataRepo.utils.text_utils import underscored_to_title
@@ -65,13 +68,16 @@ class BSTBaseColumn(ABC):
         self,
         name: str,
         header: Optional[str] = None,
+        tooltip: Optional[str] = None,
         searchable: Optional[bool] = None,
         sortable: Optional[bool] = None,
+        hidable: bool = True,
         visible: bool = True,
         exported: bool = True,
         linked: bool = False,
-        sorter: Optional[Union[str, BSTBaseSorter]] = None,
-        filterer: Optional[Union[str, BSTBaseFilterer]] = None,
+        wrapped: bool = False,
+        sorter: Optional[Union[str, BSTBaseSorter, dict]] = None,
+        filterer: Optional[Union[str, BSTBaseFilterer, dict]] = None,
         th_template: Optional[str] = None,
         td_template: Optional[str] = None,
         value_template: Optional[str] = None,
@@ -83,6 +89,7 @@ class BSTBaseColumn(ABC):
                 and filtering operations.
             header (Optional[str]) [auto]: The column header to display in the template.  Will be automatically
                 generated using the title case conversion of the last (2, if present) dunderscore-delimited name values.
+            tooltip (Optional[str]): A tooltip to display on hover over the column header.
 
             searchable (Optional[bool]) [auto]: Whether or not a column is searchable.  This affects whether the column
                 is searched as a part of the table's search box and whether the column filter input will be enabled.
@@ -93,16 +100,22 @@ class BSTBaseColumn(ABC):
                 default is based on whether the column is a foreign key or not, because Django turns keys into model
                 objects that do not render the actual numeric key value, so what the user sees would not behave as
                 expected when sorted.
+            hidable (bool) [True]: Controls whether a column's visible state can be made False.
             visible (bool) [True]: Controls whether a column is initially visible.
             exported (bool) [True]: Adds to BST's exportOptions' ignoreColumn attribute if False.
             linked (bool) [False]: Whether or not the value in the column should link to a detail page for the model
                 record the row represents.
                 NOTE: The model must have a "get_absolute_url" method.  Checked in the template.
+            wrapped (bool) [False]: Whether the field value should be allowed to soft-wrap.
 
-            sorter (Optional[Union[str, BSTBaseSorter]]) [auto]: If the value is a str, must be in
-                BSTBaseSorter.CLIENT_SORTERS.  Default will be based on the name and the sorter (if it is a str).
-            filterer (Optional[Union[str, BSTBaseFilterer]]) [auto]: If the value is a str, must be in
+            sorter (Optional[Union[str, BSTBaseSorter, dict]]) [auto]: If the value is a str, must be in
+                BSTBaseSorter.CLIENT_SORTERS.  Default will be based on the name and the sorter (if it is a str).  If
+                the value is a dict, that dict will be supplied as the kwargs in the constructor call of a
+                BSTBaseSorter.
+            filterer (Optional[Union[str, BSTBaseFilterer, dict]]) [auto]: If the value is a str, must be in
                 BSTBaseFilterer.CLIENT_FILTERERS.  Default will be based on the name and the filterer (if it is a str).
+                If the value is a dict, that dict will be supplied as the kwargs in the constructor call of a
+                BSTBaseFilterer.
 
             th_template (str) ["models/bst/th.html"]: Template path to an html file used to render the th
                 element for the column header.  This must handle the initial sort field, search term, and filter term.
@@ -120,11 +133,14 @@ class BSTBaseColumn(ABC):
 
         self.name = name
         self.header = header
+        self.tooltip = tooltip
         self.searchable = searchable
         self.sortable = sortable
-        self.visible = visible
+        self.hidable = hidable
+        self.visible = visible if hidable else True
         self.exported = exported
         self.linked = linked
+        self.wrapped = wrapped
         self.th_template = (
             th_template if isinstance(th_template, str) else self.th_template
         )
@@ -190,17 +206,31 @@ class BSTBaseColumn(ABC):
 
         if self.header is None:
             self.header = self.generate_header()
+            self.real_header = self.generate_header(real=True)
+        else:
+            self.real_header = header
 
         # NOTE: We set a sorter even if the field is not sortable.
         if sorter is None:
             self.sorter = self.create_sorter()
         elif isinstance(sorter, str):
             self.sorter = self.create_sorter(client_sorter=sorter)
+        elif isinstance(sorter, dict):
+            self.sorter = self.create_sorter(**sorter)
         elif isinstance(sorter, BSTBaseSorter):
+            # Make sure that the sorter's name matches the column name
+            if sorter.name != self.name:
+                raise ProgrammingError(
+                    f"Sorter name '{sorter.name}' must match the column name '{self.name}'."
+                )
+            elif not isinstance(sorter, type(self.create_sorter())):
+                raise TypeError(
+                    f"sorter must be a {type(self.create_sorter()).__name__}, not {type(sorter).__name__}"
+                )
             self.sorter = sorter
         else:
             raise TypeError(
-                f"sorter must be a str or a BSTBaseSorter, not a '{type(sorter).__name__}'."
+                f"sorter must be a str or a {type(self.create_sorter()).__name__}, not a '{type(sorter).__name__}'."
             )
 
         # Collect scripts of contained classes
@@ -214,11 +244,19 @@ class BSTBaseColumn(ABC):
         elif isinstance(filterer, str):
             # We explicitly do NOT supply the name, so that we can let the derived class's method decide it
             self.filterer = self.create_filterer(client_filterer=filterer)
+        elif isinstance(filterer, dict):
+            # We explicitly do NOT supply the name, so that we can let the derived class's method decide it
+            self.filterer = self.create_filterer(**filterer)
         elif isinstance(filterer, BSTBaseFilterer):
+            if not isinstance(filterer, type(self.create_filterer())):
+                raise TypeError(
+                    f"filterer must be a {type(self.create_filterer()).__name__}, not {type(filterer).__name__}"
+                )
             self.filterer = filterer
         else:
             raise TypeError(
-                f"filterer must be a str or a BSTBaseFilterer, not a '{type(filterer).__name__}'."
+                f"filterer must be a str or a {type(self.create_filterer()).__name__}, not a "
+                f"'{type(filterer).__name__}'."
             )
 
         # Collect scripts of contained classes
@@ -257,12 +295,12 @@ class BSTBaseColumn(ABC):
                 f"Equivalence of {__class__.__name__} to {type(other).__name__} not implemented."  # type: ignore
             )
 
-    def generate_header(self):
+    def generate_header(self, **_):
         """Generate a column header from the column name."""
         return underscored_to_title(self.name)
 
     @abstractmethod
-    def create_sorter(self, field=None, **kwargs):
+    def create_sorter(self, **kwargs):
         """Derived classes must define this method to set self.sorter to a BSTBaseSorter"""
         pass
 
@@ -270,3 +308,7 @@ class BSTBaseColumn(ABC):
     def create_filterer(self, field=None, **kwargs):
         """Derived classes must define this method to set self.filterer to a BSTBaseFilterer"""
         pass
+
+    @classmethod
+    def has_detail(cls, model: Type[Model]):
+        return hasattr(model, "get_absolute_url")

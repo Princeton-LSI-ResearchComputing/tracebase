@@ -4,6 +4,7 @@ from django.db.models import (
     FloatField,
     ForeignKey,
     ManyToManyField,
+    OneToOneField,
 )
 from django.db.models.functions import Lower
 from django.test import override_settings
@@ -40,6 +41,13 @@ BSTRCAnimalTestModel = create_test_model(
             to="loader.BSTRCTreatmentTestModel",
             related_name="animals",
             on_delete=CASCADE,
+            verbose_name="Animal Treatment",
+        ),
+        "weirdone": OneToOneField(
+            to="loader.BSTRCWeirdOneTestModel",
+            on_delete=CASCADE,
+            primary_key=True,
+            related_name="weird_animal",
         ),
     },
     attrs={
@@ -52,6 +60,17 @@ BSTRCAnimalTestModel = create_test_model(
                 "verbose_name": "animal",
                 "ordering": [Lower("name")],
             },
+        ),
+    },
+)
+BSTRCWeirdOneTestModel = create_test_model(
+    "BSTRCWeirdOneTestModel",
+    {"name": CharField(max_length=255, unique=True)},
+    attrs={
+        "Meta": type(
+            "Meta",
+            (),
+            {"app_label": "loader", "verbose_name": "BSTrcWeirdOneTestModel"},
         ),
     },
 )
@@ -90,6 +109,13 @@ BSTRCMSRunSampleTestModel = create_test_model(
 BSTRCTissueTestModel = create_test_model(
     "BSTRCTissueTestModel",
     {"name": CharField(max_length=255)},
+    attrs={
+        "Meta": type(
+            "Meta",
+            (),
+            {"app_label": "loader", "verbose_name": "BSTrcTissueTestModel"},
+        ),
+    },
 )
 BSTRCTreatmentTestModel = create_test_model(
     "BSTRCTreatmentTestModel",
@@ -154,6 +180,58 @@ class BSTRelatedColumnTests(TracebaseTestCase):
         )
         self.assertTrue(c.sortable)
         self.assertTrue(c.searchable)
+
+    def test_no_representative(self):
+        """This tests that when a related model has no representative field, it is automatically not searchable or
+        sortable, and a tooltip is set"""
+        BSTRCNoRepTestModel = create_test_model(  # noqa: F841
+            "BSTRCNoRepTestModel",
+            {
+                # No unique field, i.e. no representative for display when a related model creates a column for the
+                # foreign key to this model
+                "value1": CharField(max_length=255),
+                "value2": CharField(max_length=255),
+            },
+        )
+        BSTRCMainTestModel = create_test_model(
+            "BSTRCMainTestModel",
+            {
+                "name": CharField(max_length=255, unique=True),
+                "norep": ForeignKey(
+                    to="loader.BSTRCNoRepTestModel",
+                    related_name="parent",
+                    on_delete=CASCADE,
+                ),
+            },
+        )
+        c = BSTRelatedColumn(
+            "norep",
+            BSTRCMainTestModel,
+        )
+        self.assertEqual(
+            (
+                "Search and sort is disabled for this field because the displayed values do not exist in the database "
+                "as a single field"
+            ),
+            c.tooltip,
+        )
+        self.assertFalse(c.searchable)
+        self.assertFalse(c.sortable)
+        self.assertEqual(
+            (
+                "Test tooltip.\n\nSearch and sort is disabled for this field because the displayed values do not "
+                "exist in the database as a single field"
+            ),
+            BSTRelatedColumn(
+                "norep",
+                BSTRCMainTestModel,
+                tooltip="Test tooltip.",
+            ).tooltip,
+        )
+
+        # Make sure that the 1:1 reverse relation gets the right tooltip
+        c = BSTRelatedColumn("weirdone", BSTRCAnimalTestModel)
+        self.assertEqual(underscored_to_title("weirdone"), c.generate_header())
 
     @TracebaseTestCase.assertNotWarns()
     def test_init_display_field_nonfk(self):
@@ -292,4 +370,52 @@ class BSTRelatedColumnTests(TracebaseTestCase):
         # Test that every other field uses - underscored_to_title("_".join(path_tail))
         c = BSTRelatedColumn("sample__animal__sex", BSTRCMSRunSampleTestModel)
         sh = c.generate_header()
-        self.assertEqual(underscored_to_title("animal_sex"), sh)
+        self.assertEqual(underscored_to_title("sex"), sh)
+
+        # Make sure that the 1:1 reverse relation gets the right header
+        c = BSTRelatedColumn("weirdone", BSTRCAnimalTestModel)
+        self.assertEqual(underscored_to_title("weirdone"), c.generate_header())
+
+    def test_generate_header_field_verbose_name(self):
+        # Test if field has verbose name with caps - return field.verbose_name
+        c = BSTRelatedColumn("treatment", BSTRCAnimalTestModel)
+        th = c.generate_header()
+        self.assertEqual(
+            BSTRCAnimalTestModel.treatment.field.verbose_name,  # pylint: disable=no-member
+            th,
+        )
+        self.assertEqual("Animal Treatment", th)
+
+    def test_generate_header_field_name_to_model_name(self):
+        # In a related model, instead of using the model name, the foreign key name is used, because it conveys context
+        c = BSTRelatedColumn("sample__name", BSTRCMSRunSampleTestModel)
+        sh = c.generate_header()
+        self.assertEqual(underscored_to_title("sample"), sh)
+
+    def test_generate_header_field_name_to_model_cap_verbose_name(self):
+        # Test caps model verbose_name NOT used because the foreign key is used for context
+        c = BSTRelatedColumn("weirdone__name", BSTRCAnimalTestModel)
+        sh = c.generate_header()
+        self.assertEqual(
+            underscored_to_title("weirdone"),
+            sh,
+        )
+
+    def test_generate_header_field_name_to_model_diff_verbose_name(self):
+        # Test diff model verbose_name used as-is
+        c = BSTRelatedColumn("animal__name", BSTRCSampleTestModel)
+        ah = c.generate_header()
+        self.assertEqual(
+            underscored_to_title(
+                BSTRCAnimalTestModel._meta.__dict__[  # pylint: disable=no-member
+                    "verbose_name"
+                ]
+            ),
+            ah,
+        )
+
+    def test_generate_header_field_name_not_unique_not_changed_to_model_name(self):
+        # Test diff model verbose_name used as-is
+        c = BSTRelatedColumn("tissue__name", BSTRCSampleTestModel)
+        th = c.generate_header()
+        self.assertEqual(underscored_to_title("name"), th)

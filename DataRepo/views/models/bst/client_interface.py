@@ -4,13 +4,9 @@ from warnings import warn
 from django.conf import settings
 from django.db.models import QuerySet
 from django.utils.functional import classproperty
-from django.views.generic import ListView
+from django.views.generic import DetailView, ListView
 
-from DataRepo.models.utilities import (
-    model_title,
-    model_title_plural,
-    select_representative_field,
-)
+from DataRepo.models.utilities import model_title, model_title_plural
 from DataRepo.utils.exceptions import DeveloperWarning
 from DataRepo.utils.text_utils import camel_to_title
 from DataRepo.views.models.bst.column.base import BSTBaseColumn
@@ -18,15 +14,68 @@ from DataRepo.views.models.bst.utils import SizedPaginator
 from DataRepo.views.utils import delete_cookie, get_cookie, get_cookie_dict
 
 
-class BSTClientInterface(ListView):
-    """This is a server-side interface to the Bootstrap Table javascript and cookies in the client's browser.  It
-    encapsulates the javascript and cookie structure/functions and is tightly integrated with BSTListView (which is
-    intended to inherit from this class).  This is not intended to be used on its own.
+class BSTClientInterface:
+    """The client interface is responsible for server/client communication.
+
+    This class represents the common components of detail and list views.  It establishes the context variables for
+    page-level metadata (like the context variable names and information about warnings, should they arise).
+
+    Classes derived from this class define the basis of the interface between Django's handling of client requests and
+    DB queries and Bootstrap Table's display of data and user interface elements that allow users to tweak the queries.
+
+    Class Attributes:
+        model_var_name (str) ["model"]
+        table_id_var_name (str) ["table_id"]
+        title_var_name (str) ["table_name"]
+        columns_var_name (str) ["columns"]
+        limit_default_var_name (str) ["limit_default"]
+        warnings_var_name (str) ["warnings"]
+        above_var_name (str) ["above_template"]
+        below_var_name (str) ["below_template"]
+        title (Optional[str]): The page title
+        above_template (Optional[str]): Path to a template to include above the table.
+        below_template (Optional[str]): Path to a template to include below the table.
+    Instance Attributes:
+        warnings (List[str]) [[]]
+    """
+
+    # Table/column/page related
+    model_var_name = "model"
+    table_id_var_name = "table_id"
+    title_var_name = "table_name"
+    columns_var_name = "columns"
+    warnings_var_name = "warnings"
+    above_var_name = "above_template"
+    below_var_name = "below_template"
+
+    title: Optional[str] = None
+    above_template: Optional[str] = None
+    below_template: Optional[str] = None
+
+    def __init__(self):
+        self.warnings: List[str] = []
+
+
+class BSTListViewClient(BSTClientInterface, ListView):
+    """This is a server-side interface to the Bootstrap Table javascript and cookies in the client's browser,
+    specifically for the Django ListView class.  It integrates features of Django ListView and Bootstrap Table to
+    automatically handle server side pagination, searching, and sorting.  It encapsulates the javascript and cookie
+    structure/functions.  This is not intended to be used on its own, but is intended to be able to be swapped out with
+    other javascript functionality (e.g. DataTables).
+
+    This class inherits a small portion of its functionality that it has in common with the BSTDetailViewClient from
+    BSTClientInterface.
+
+    For automatic column configuration, see BSTBaseListView.  And for query functionality, see BSTListView.
 
     Class Attributes:
         Templates:
             template_name (str) ["models/bst/list_view.html"]: The template used to render the Bootstrap Table.
-            scripts (List[str]) ["DataRepo/static/js/bst/cookies.js", "DataRepo/static/js/bst/list_view.js"]
+            scripts (List[str]) ["js/bst/cookies.js", "js/bst/list_view.js"]
+        Interface defaults
+            ordered_default (bool) [True]
+            asc_default (bool) [True]
+            collapsed_default (bool) [True]
         Pagination:
             paginator_class (Type[Paginator]) [SizedPaginator]: The paginator class set for the ListView (super) class.
             paginate_by (int) [15]: The default number of rows per page.
@@ -37,19 +86,32 @@ class BSTClientInterface(ListView):
             sortcol_cookie_name (str) ["sortcol"]
             asc_cookie_name (str) ["asc"]
             limit_cookie_name (str) ["limit"]
+            collapsed_cookie_name (str) ["collapsed"]
+            collapsed (bool) [True]
             page_var_name (str) ["page"]
             cookie_prefix_var_name (str) ["cookie_prefix"]
             cookie_resets_var_name (str) ["cookie_resets"]
             clear_cookies_var_name (str) ["clear_cookies"]
-            model_var_name (str) ["model"]
-            table_id_var_name (str) ["table_id"]
-            title_var_name (str) ["table_name"]
-            columns_var_name (str) ["columns"]
             scripts_var_name (str) ["scripts"]
-            limit_default_var_name (str) ["limit_default"]
-            warnings_var_name (str) ["warnings"]
             raw_total_var_name (str) ["raw_total"]
             total_var_name (str) ["total"]
+    Instance Attributes:
+        kwargs (dict)
+        javascripts (List[str]) [__class__.scripts]: List of javascript paths relative to the static directory.
+        cookie_prefix (f"{self.__class__.__name__}-")
+        cookie_resets (List[str]) [[]]: Cookie names (relative to the view, i.e. no prefix) to reset in the browser.
+        clear_cookies (bool) [False]: Whether to delete all cookies for this page/view in the browser.
+        search_term (Optional[str]): Search terms the user entered/selected for all searchable columns.
+        filter_terms (Dict[str, str]) [{}]: Search terms the user entered/selected for a column, keyed on column name.
+        visibles (Dict[str, bool]) [{}]: Booleans indicating the initial visible column state, keyed on column name.
+        sort_name (Optional[str]): The name of the column the user wants to sort the rows by.
+        ordered (bool) [ordered_default]: Whether the table rows are sorted.
+        asc (bool) [asc_default]: Sort direction is ascending.
+        collapsed (bool) [collapsed_default]: The current row collapsed state.  Turns off soft-wrap in the table cells.
+        page (int) [1]
+        limit (int) [self.paginate_by]
+        total (int) [0]
+        raw_total (int) [0]
     """
 
     template_name = "models/bst/list_view.html"
@@ -63,6 +125,11 @@ class BSTClientInterface(ListView):
     paginator_class = SizedPaginator
     paginate_by = 15
 
+    # Interface defaults
+    ordered_default: bool = False
+    asc_default: bool = True
+    collapsed_default: bool = True
+
     # Context variable names
 
     # Cookie names (also used in browser cookies)
@@ -72,17 +139,12 @@ class BSTClientInterface(ListView):
     sortcol_cookie_name = "sortcol"
     asc_cookie_name = "asc"
     limit_cookie_name = "limit"  # Also a URL param name
+    collapsed_cookie_name = "collapsed"
 
     # Cookie operations
     cookie_prefix_var_name = "cookie_prefix"
     cookie_resets_var_name = "cookie_resets"
     clear_cookies_var_name = "clear_cookies"
-
-    # Table/column/page related
-    model_var_name = "model"
-    table_id_var_name = "table_id"
-    title_var_name = "table_name"
-    columns_var_name = "columns"
 
     # JavaScript
     scripts_var_name = "scripts"
@@ -90,7 +152,6 @@ class BSTClientInterface(ListView):
     # Basics
     page_var_name = "page"
     limit_default_var_name = "limit_default"
-    warnings_var_name = "warnings"
 
     # QuerySet metadata
     raw_total_var_name = "raw_total"
@@ -111,51 +172,31 @@ class BSTClientInterface(ListView):
         # The Django core code needed this set.  Not used in this class.
         self.kwargs = kwargs
 
-        super().__init__(**kwargs)
+        BSTClientInterface.__init__(self)
+        ListView.__init__(self, **kwargs)
 
         # Allow derived classes to *add* scripts for import
         self.javascripts: List[str]
         if hasattr(self, "javascripts") and isinstance(self.javascripts, list):
-            for script in list(reversed(BSTClientInterface.scripts)):
+            for script in list(reversed(__class__.scripts)):  # type: ignore[name-defined]
                 if script not in self.javascripts:
                     self.javascripts.insert(0, script)
         else:
-            self.javascripts = [*BSTClientInterface.scripts]
+            self.javascripts = [*__class__.scripts]  # type: ignore[name-defined]
 
         # Cookie controls
         self.cookie_prefix = f"{self.__class__.__name__}-"
         self.cookie_resets: List[str] = []
         self.clear_cookies = clear_cookies
 
-        self.warnings: List[str] = []
-
-        # This is an override of ListView.ordering, defined here to silence this warning from Django:
-        #   Pagination may yield inconsistent results with an unordered object_list:
-        #   <class 'DataRepo.tests.tracebase_test_case.BSTLVAnimalTestModel'> QuerySet.
-        # It specifies the default *row* ordering of the model objects, which is already set in the model.
-        self.ordering: Optional[list]
-        has_ordering = (
-            hasattr(self, "ordering")
-            and self.ordering is not None
-            and len(self.ordering) > 0
-        )
-        if self.model is not None and not has_ordering:
-            # Bootstrap Table only supports a single ordering column.  The model can provide multiple, but there is no
-            # way to apply that ordering by the user.  It is just the default initial ordering.
-            ordering_field = select_representative_field(
-                self.model, force=True, include_expression=True
-            )
-            self.ordering = [ordering_field]
-        elif not has_ordering:
-            self.ordering = ["id"]
-
         # Initialize default values that will be obtained from cookies
         self.search_term: Optional[str] = None
         self.filter_terms: Dict[str, str] = {}
         self.visibles: Dict[str, bool] = {}
         self.sort_name: Optional[str] = None
-        self.ordered = False
-        self.asc: bool = True
+        self.ordered = self.ordered_default
+        self.asc: bool = self.asc_default
+        self.collapsed: bool = self.collapsed_default
 
         # Initialize default values that will be obtained from URL parameters (or cookies)
         self.page = 1
@@ -190,7 +231,10 @@ class BSTClientInterface(ListView):
         self.visibles = self.get_boolean_column_cookie_dict(self.visible_cookie_name)
         self.sort_name: Optional[str] = self.get_cookie(self.sortcol_cookie_name)
         self.ordered = self.sort_name is not None
-        self.asc: bool = self.get_boolean_cookie(self.asc_cookie_name, True)
+        self.asc: bool = self.get_boolean_cookie(self.asc_cookie_name, self.asc_default)
+        self.collapsed: bool = self.get_boolean_cookie(
+            self.collapsed_cookie_name, self.collapsed_default
+        )
 
         # Initialize values obtained from URL parameters (or cookies)
         page_param = self.get_param(self.page_var_name)
@@ -242,7 +286,7 @@ class BSTClientInterface(ListView):
         # Setting the limit to 0 means "all", but returning 0 here would mean we wouldn't get a page object sent to the
         # template, so we set it to the number of results.  The template will turn that back into 0 so that we're not
         # adding an odd value to the rows per page select list and instead selecting "all".
-        if count > 0 and (self.limit == 0 or self.limit > count):
+        if count > 0 and self.limit == 0:
             self.limit = count
         elif self.limit == 0:
             self.limit = self.paginate_by
@@ -345,14 +389,14 @@ class BSTClientInterface(ListView):
         elif boolstr.lower().startswith("f"):
             return False
 
-        cookie_name = self.get_cookie_name(name)
-        if cookie_name not in self.cookie_resets:
-            self.cookie_resets.append(cookie_name)
+        if name not in self.cookie_resets:
+            self.cookie_resets.append(name)
             warning = (
                 f"Invalid '{name}' value encountered: '{boolstr}'.  Resetting cookie."
             )
             self.warnings.append(warning)
             if settings.DEBUG:
+                cookie_name = self.get_cookie_name(name)
                 warn(warning + f"  '{cookie_name}'", DeveloperWarning)
 
         return default
@@ -415,9 +459,9 @@ class BSTClientInterface(ListView):
             elif boolstr.lower().startswith("f"):
                 bools_dict[colname] = False
             else:
-                cookie_name = self.get_column_cookie_name(colname, name)
-                if cookie_name not in self.cookie_resets:
-                    self.cookie_resets.append(cookie_name)
+                view_cookie_name = f"{name}-{colname}"
+                if view_cookie_name not in self.cookie_resets:
+                    self.cookie_resets.append(view_cookie_name)
                     # TODO: Change the column name to the header
                     warning = (
                         f"Invalid '{name}' cookie value encountered for column '{colname}': '{boolstr}'.  "
@@ -425,6 +469,7 @@ class BSTClientInterface(ListView):
                     )
                     self.warnings.append(warning)
                     if settings.DEBUG:
+                        cookie_name = self.get_column_cookie_name(colname, name)
                         warn(warning + f"  '{cookie_name}'", DeveloperWarning)
         return bools_dict
 
@@ -466,7 +511,7 @@ class BSTClientInterface(ListView):
             )
         cookie_name = self.get_column_cookie_name(str(column), name)
         if cookie_name not in self.cookie_resets:
-            self.cookie_resets.append(cookie_name)
+            self.cookie_resets.append(f"{name}-{column}")
 
     def reset_column_cookies(self, columns: List[Union[str, BSTBaseColumn]], name: str):
         """Adds cookies to the cookie_resets list.
@@ -499,7 +544,7 @@ class BSTClientInterface(ListView):
         cookie_name = self.get_cookie_name(name)
         if cookie_name not in self.cookie_resets:
             delete_cookie(self.request, cookie_name)
-            self.cookie_resets.append(cookie_name)
+            self.cookie_resets.append(name)
 
     def reset_all_cookies(self):
         """Sets clear_cookies to True and removes all cookies from the request object.
@@ -540,6 +585,90 @@ class BSTClientInterface(ListView):
             else f"{camel_to_title(cls.__name__)}s"  # pylint: disable=no-member
         )
 
+    def get_context_data(self, **kwargs):
+        """An override of the superclass method to provide context variables to the page.  All of the values are
+        specific to pagination and BST operations."""
+
+        # context = super().get_context_data(**kwargs)
+        context = super().get_context_data()
+
+        context.update(
+            {
+                # The basic ListView attribute
+                self.model_var_name: self.model,
+                # Client interface specific
+                self.cookie_prefix_var_name: self.cookie_prefix,
+                self.cookie_resets_var_name: self.cookie_resets,
+                self.clear_cookies_var_name: self.clear_cookies,
+                self.collapsed_cookie_name: self.collapsed,
+                # A unique set of javascripts needed for the BST interface
+                self.scripts_var_name: self.javascripts,
+                # General table details
+                self.table_id_var_name: type(self).__name__,
+                self.title_var_name: (
+                    self.model_title_plural if self.title is None else self.title
+                ),
+                self.warnings_var_name: self.warnings,
+                self.limit_default_var_name: self.paginate_by,
+                # Table content controls
+                self.search_cookie_name: self.search_term,
+                self.sortcol_cookie_name: self.sort_name,
+                self.asc_cookie_name: self.asc,
+                self.limit_cookie_name: self.limit,
+                # Queryset metadata (initialized in derived class that handles queries, e.g. the BSTListView class)
+                self.raw_total_var_name: self.raw_total,  # Total before filtering
+                self.total_var_name: self.total,
+                # Tell the javascript what the cookie names are
+                "search_cookie_name": self.search_cookie_name,
+                "filter_cookie_name": self.filter_cookie_name,
+                "visible_cookie_name": self.visible_cookie_name,
+                "sort_cookie_name": self.sortcol_cookie_name,
+                "asc_cookie_name": self.asc_cookie_name,
+                "limit_cookie_name": self.limit_cookie_name,
+                "page_cookie_name": self.page_var_name,
+                "collapsed_cookie_name": self.collapsed_cookie_name,
+                # Override Django's is_paginated to not trigger the base.html template from adding vanilla pagination
+                "is_paginated": None,
+                # Extra custom templates
+                self.above_var_name: self.above_template,
+                self.below_var_name: self.below_template,
+            }
+        )
+
+        # This context variable determines whether the BST code on the pagination template will render
+        if self.total == 0:
+            # Django does not supply a page_obj when there are no results, but the SizedPaginator also shows *raw* total
+            # results in the event that a user filtered or searched, resulting in 0 filtered results.  We need a
+            # page_obj in order for the user to be able to clear their search term that resulted in no matches.
+            context["page_obj"] = self.get_paginator([], self.limit).page(1)
+
+        return context
+
+
+class BSTDetailViewClient(DetailView, BSTClientInterface):
+    """This is an interface to Bootstrap Table and cookies in the client's browser, specifically for the Django
+    DetailView class.  It integrates features of Django DetailView and Bootstrap Table to automatically display of a
+    Model record.  This is not intended to be used on its own, but is intended to be able to be swapped out with other
+    functionality (e.g. DataTables).
+
+    This class inherits a small portion of its functionality that it has in common with the BSTListViewClient from
+    BSTClientInterface.
+
+    For automatic column configuration, see BSTBaseDetailView.  And for query functionality (of included many-related
+    columns), see BSTDetailView.
+
+    Class Attributes:
+        template_name (str) ["models/bst/detail_view.html"]: The template used to render the Bootstrap Table.
+    Instance Attributes:
+        None
+    """
+
+    template_name = "models/bst/detail_view.html"
+
+    def __init__(self, **kwargs):
+        DetailView.__init__(self, **kwargs)
+        BSTClientInterface.__init__(self)
+
     @classproperty
     def model_title(cls):  # pylint: disable=no-self-argument
         """Creates a title-case string from self.model (if defined), accounting for potentially set verbose settings.
@@ -565,41 +694,15 @@ class BSTClientInterface(ListView):
             {
                 # The basic ListView attribute
                 self.model_var_name: self.model,
-                # Client interface specific
-                self.cookie_prefix_var_name: self.cookie_prefix,
-                self.cookie_resets_var_name: self.cookie_resets,
-                self.clear_cookies_var_name: self.clear_cookies,
-                # A unique set of javascripts needed for the BST interface
-                self.scripts_var_name: self.javascripts,
                 # General table details
                 self.table_id_var_name: type(self).__name__,
-                self.title_var_name: self.model_title_plural,
-                self.warnings_var_name: self.warnings,
-                self.limit_default_var_name: self.paginate_by,
-                # Table content controls
-                self.search_cookie_name: self.search_term,
-                self.sortcol_cookie_name: self.sort_name,
-                self.asc_cookie_name: self.asc,
-                self.limit_cookie_name: self.limit,
-                # Queryset metadata (initialized in derived class that handles queries, e.g. the BSTListView class)
-                self.raw_total_var_name: self.raw_total,  # Total before filtering
-                self.total_var_name: self.total,
-                # Tell the javascript what the cookie names are
-                "search_cookie_name": self.search_cookie_name,
-                "filter_cookie_name": self.filter_cookie_name,
-                "visible_cookie_name": self.visible_cookie_name,
-                "sort_cookie_name": self.sortcol_cookie_name,
-                "asc_cookie_name": self.asc_cookie_name,
-                "limit_cookie_name": self.limit_cookie_name,
-                "page_cookie_name": self.page_var_name,
+                self.title_var_name: (
+                    self.model_title if self.title is None else self.title
+                ),
+                # Extra custom templates
+                self.above_var_name: self.above_template,
+                self.below_var_name: self.below_template,
             }
         )
-
-        # This context variable determines whether the BST code on the pagination template will render
-        if self.total == 0:
-            # Django does not supply a page_obj when there are no results, but the SizedPaginator also shows *raw* total
-            # results in the event that a user filtered or searched, resulting in 0 filtered results.  We need a
-            # page_obj in order for the user to be able to clear their search term that resulted in no matches.
-            context["page_obj"] = self.get_paginator([], self.limit).page(1)
 
         return context

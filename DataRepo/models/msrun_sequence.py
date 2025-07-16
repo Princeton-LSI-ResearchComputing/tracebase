@@ -38,6 +38,7 @@ class MSRunSequence(Model):
         blank=False,
         max_length=256,
         help_text="The name of the researcher who ran the mass spectrometer.",
+        verbose_name="MSRun Operator",
     )
     date = DateField(
         null=False,
@@ -59,6 +60,7 @@ class MSRunSequence(Model):
         blank=False,
         to="DataRepo.LCMethod",
         help_text="The liquid chromatography protocol that was used for this mass spectrometer run sequence.",
+        verbose_name="LC Protocol",
     )
     notes = TextField(
         unique=True,

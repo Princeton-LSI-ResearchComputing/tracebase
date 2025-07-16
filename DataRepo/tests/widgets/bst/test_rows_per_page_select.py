@@ -42,6 +42,9 @@ class BSTRowsPerPageSelectTests(TracebaseTestCase):
         )
         rpps.total_rows = 30
         self.assertEqual([5, 10, 15, 20, 25, 0], rpps.filter_page_sizes())
+        rpps.total_rows = 30
+        rpps.selected = 50
+        self.assertEqual([5, 10, 15, 20, 25, 50, 0], rpps.filter_page_sizes())
 
     def test_str(self):
         rpps = BSTRowsPerPageSelect(10)

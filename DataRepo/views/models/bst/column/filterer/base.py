@@ -3,13 +3,13 @@ from __future__ import annotations
 import json
 from abc import ABC, abstractmethod
 from functools import reduce
-from typing import Dict, List, NamedTuple, Optional, Union
+from typing import Callable, Dict, List, NamedTuple, Optional, Union
 from warnings import warn
 
 from django.conf import settings
 from django.db.models import Q
 
-from DataRepo.utils.exceptions import DeveloperWarning
+from DataRepo.utils.exceptions import DeveloperWarning, trace
 
 
 class InputMethods(NamedTuple):
@@ -165,7 +165,7 @@ class BSTBaseFilterer(ABC):
         self,
         name: str,
         input_method: Optional[str] = None,
-        choices: Optional[Union[Dict[str, str], List[str]]] = None,
+        choices: Optional[Union[Dict[str, str], List[str], Callable]] = None,
         client_filterer: Optional[str] = None,
         _server_filterer: Optional[Union[ServerLookup, str]] = None,
         initial: Optional[str] = None,
@@ -189,8 +189,9 @@ class BSTBaseFilterer(ABC):
                 'field__icontains="term"').  Default is based on client_filterer.
                 NOTE: The lookup behavior should match the client_filterer behavior.
                 See https://docs.djangoproject.com/en/5.1/topics/db/queries/#field-lookups.
-            choices (Optional[Union[Dict[str, str], List[str]]]): Values to populate a select list, if input_method is
-                "select".
+            choices (Optional[Union[Dict[str, str], List[str], Callable]]): Values to populate a select list, if
+                input_method is "select".  If a function name is provided, the function must not take any arguments.  It
+                must return either a list or dict of strings.
                 NOTE: Supplying this value will automatically set the input_method to "select".
                 TODO: choices could be used for auto-complete in the text input method.
             initial (Optional[str]): Initial filter search term.
@@ -210,9 +211,19 @@ class BSTBaseFilterer(ABC):
 
         tmp_server_filterer = self._process_server_filterer(_server_filterer)
 
-        if choices is None or len(choices) == 0:
+        if choices is not None and not isinstance(choices, (dict, list)):
+            if callable(choices):
+                choices = choices()
+            else:
+                raise TypeError(
+                    f"choices must be a 'Dict[str, str]', 'List[str]', or 'Callable', not '{type(choices).__name__}'."
+                )
+
+        if choices is None or (isinstance(choices, (list, dict)) and len(choices) == 0):
             self.choices = None
-        elif not isinstance(choices, dict):  # list (by process of elimination)
+        elif isinstance(choices, dict):
+            self.choices = choices
+        elif isinstance(choices, list):
             # choices is populated, but not a dict, so here, we convert it...
 
             # NOTE: This filters for a unique case-insensitive sorted dict, and arbitrarily uses the first case
@@ -237,7 +248,10 @@ class BSTBaseFilterer(ABC):
                 )
             )
         else:
-            self.choices = choices
+            # Assuming that choices was originally a callable.
+            raise TypeError(
+                f"The return of choices() must be a 'Dict[str, str]' or 'List[str]' not '{type(choices).__name__}'."
+            )
 
         if self.input_method is None:
             if choices is None:
@@ -437,6 +451,8 @@ class BSTBaseFilterer(ABC):
         # The DB (or Django?) does a conversion.  It clearly works for numeric fields and date fields, so what
         # BSTAnnotSorter does (without knowing the field type), is it infers whether to use icontains or iexact based on
         # the input method.
+        if term == "None":
+            return Q(**{f"{self.name}__isnull": True})
         return Q(**{f"{self.name}__{self._server_filterer.lookup}": term})
 
     @property
@@ -444,6 +460,8 @@ class BSTBaseFilterer(ABC):
         """Returns the json to supply to Bootstrap Table's data-filter-data attribute (which must be preceded by
         "json:").  See: https://bootstrap-table.com/docs/extensions/filter-control/#filterdata
         """
-        if settings.DEBUG:
-            warn("choices_json called when choices is None")
+        if self.choices is None and settings.DEBUG:
+            warn(
+                f"{trace()}\nchoices_json called when choices is None for column {self.name}"
+            )
         return "" if self.choices is None else json.dumps(self.choices)

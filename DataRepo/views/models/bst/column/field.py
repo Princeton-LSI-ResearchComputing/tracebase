@@ -8,7 +8,9 @@ from django.db.models.expressions import Combinable
 from DataRepo.models.utilities import (
     field_path_to_field,
     is_key_field,
+    is_long_field,
     is_many_related_to_root,
+    is_model_field,
     is_unique_field,
 )
 from DataRepo.utils.text_utils import camel_to_title, underscored_to_title
@@ -94,6 +96,8 @@ class BSTColumn(BSTBaseColumn):
 
         # Get some superclass instance members we need for checks
         linked = kwargs.get("linked")
+        tooltip = kwargs.get("tooltip")
+        wrapped = kwargs.get("wrapped")
 
         # Set the name for the superclass based on field_path
         name = self.field_path
@@ -106,7 +110,7 @@ class BSTColumn(BSTBaseColumn):
             raise ValueError(
                 "model is required for non-annotation fields.  Use BSTAnnotColumn for annotation fields."
             )
-        elif linked and not hasattr(model, "get_absolute_url"):
+        elif linked and not self.has_detail():
             # NOTE: An annotation can link as well, but no need to force supplying a model just to check for
             # get_absolute_url.  It will be checked in the template.
             raise ValueError(
@@ -114,7 +118,7 @@ class BSTColumn(BSTBaseColumn):
                 "'get_absolute_url' method."
             )
         elif (
-            not hasattr(model, self.field_path.split("__")[0])
+            not is_model_field(model, self.field_path.split("__")[0])
             and len(self.field_path.split("__")) == 1
         ):
             raise AttributeError(
@@ -138,9 +142,25 @@ class BSTColumn(BSTBaseColumn):
         if not hasattr(self, "is_fk") or getattr(self, "is_fk", None) is None:
             self.is_fk = is_key_field(self.field)
 
+        # Reverse relations do not have a help_text attribute
+        # TODO: Put this hasattr logic in the related_field file
+        remote_field = field_path_to_field(self.model, self.field_path, real=False)
+        if (
+            hasattr(remote_field, "help_text")
+            and remote_field.help_text is not None
+            and remote_field.help_text != ""
+        ):
+            new_tooltip = remote_field.help_text
+            if tooltip is not None:
+                new_tooltip += "\n\n" + tooltip
+            kwargs.update({"tooltip": new_tooltip})
+
+        if wrapped is None and is_long_field(self.field):
+            kwargs.update({"wrapped": True})
+
         super().__init__(name, *args, **kwargs)
 
-    def generate_header(self):
+    def generate_header(self, real: bool = False, **_):
         """Generate a column header from the field_path, field.name, or the field's verbose_name.
         Overrides super().generate_header.
 
@@ -163,7 +183,7 @@ class BSTColumn(BSTBaseColumn):
                 return underscored_to_title(self.field.verbose_name)
 
         # Special case: If the name of the field is name, use the model name
-        if self.field_path == "name" and is_unique_field(self.field):
+        if real is False and self.field_path == "name" and is_unique_field(self.field):
             verbose_model_name_without_automods = self.model._meta.__dict__[
                 "verbose_name"
             ].replace(" ", "")
@@ -196,3 +216,7 @@ class BSTColumn(BSTBaseColumn):
     def create_filterer(self, field: Optional[str] = None, **kwargs) -> BSTFilterer:
         field_path = field if field is not None else self.name
         return BSTFilterer(field_path, self.model, **kwargs)
+
+    def has_detail(self):
+        """Override of superclass class method."""
+        return hasattr(self.model, "get_absolute_url")

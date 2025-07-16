@@ -13,9 +13,16 @@ class StudyViewTests(ModelViewTests):
     def test_study_list(self):
         response = self.client.get(reverse("study_list"))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "models/study/study_list.html")
-        self.assertEqual(len(response.context["study_list"]), 1)
-        self.assertEqual(len(response.context["df"]), 1)
+        self.assertTemplateUsed(response, "models/bst/list_view.html")
+        self.assertTemplateUsed(response, "models/bst/th.html")
+        self.assertTemplateUsed(response, "models/bst/td.html")
+        self.assertTemplateUsed(response, "models/bst/value.html")
+        self.assertTemplateUsed(response, "models/bst/value_list.html")
+        self.assertTemplateUsed(response, "models/study/infusates_td.html")
+        self.assertTemplateUsed(response, "models/study/infusates_value_list.html")
+        self.assertEqual(len(response.context["object_list"]), self.ALL_ANIMALS_COUNT)
+        self.assertTemplateUsed(response, "models/study/below_table.html")
+        self.assertEqual(len(response.context["object_list"]), 1)
 
     @tag("study")
     def test_study_summary(self):

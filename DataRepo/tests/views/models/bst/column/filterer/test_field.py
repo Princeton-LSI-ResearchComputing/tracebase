@@ -64,7 +64,7 @@ class BSTFiltererTests(TracebaseTestCase):
         f = BSTFilterer("animal__sex", BSTFSampleTestModel)
         self.assertEqual(f.INPUT_METHODS.SELECT, f.input_method)
         self.assertEqual(f.CLIENT_FILTERERS.STRICT_SINGLE, f.client_filterer)
-        self.assertDictEqual({"F": "female", "M": "male"}, f.choices)
+        self.assertDictEqual({"F": "F (female)", "M": "M (male)"}, f.choices)
         self.assertEqual(f.SERVER_FILTERERS.STRICT_SINGLE, f._server_filterer)
 
     @TracebaseTestCase.assertNotWarns()
@@ -72,7 +72,7 @@ class BSTFiltererTests(TracebaseTestCase):
         f = BSTFilterer("animals__sex", BSTFStudyTestModel)
         self.assertEqual(f.INPUT_METHODS.SELECT, f.input_method)
         self.assertEqual(f.CLIENT_FILTERERS.STRICT_MULTIPLE, f.client_filterer)
-        self.assertDictEqual({"F": "female", "M": "male"}, f.choices)
+        self.assertDictEqual({"F": "F (female)", "M": "M (male)"}, f.choices)
         self.assertEqual(f.SERVER_FILTERERS.STRICT_MULTIPLE, f._server_filterer)
 
     @TracebaseTestCase.assertNotWarns()
@@ -193,7 +193,7 @@ class BSTFiltererTests(TracebaseTestCase):
         self.assertEqual("istartswith", str(f._server_filterer))
 
     @TracebaseTestCase.assertNotWarns()
-    def test_filter(self):
+    def test_create_q_exp(self):
         f = BSTFilterer(
             BSTFStudyTestModel.name.field.name,  # pylint: disable=no-member
             BSTFStudyTestModel,

@@ -1,0 +1,50 @@
+{% extends "base/base.html" %}
+{% load customtags %}
+{% load static %}
+
+{% block title %}{{ table_name }}{% endblock %}
+
+{% block head_extras %}
+    <link href="{% static 'css/bst.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+
+    <h4>{{ table_name }}</h4>
+    <br>
+
+    {% if above_template %}
+        {% include above_template %}
+    {% endif %}
+
+    <div>
+        <table class="table table-bordered table-hover w-auto"
+            id="{{ table_id }}"
+            data-toggle="table"
+            data-buttons-align="left"
+            data-buttons-class="primary"
+            data-filter-control="false"
+            data-search="false"
+            data-show-multi-sort="false"
+            data-show-columns="false"
+            data-show-fullscreen="true"
+            data-show-export="false">
+            <tbody>
+                {% for column in columns.values %}
+                    <tr>
+                        <th class="th-inner p-3" data-field="field">
+                            {{ column.real_header }}
+                            {% if column.tooltip %}<sup class="bi-info-circle" title="{{ column.tooltip }}"></sup>{% endif %}
+                        </th>
+                        <td class="px-5">{% include column.value_template %}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if below_template %}
+        {% include below_template %}
+    {% endif %}
+
+{% endblock %}
