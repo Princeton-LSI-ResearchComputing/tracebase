@@ -16,6 +16,7 @@ from django.db.models import (
     Min,
     OneToOneField,
     Q,
+    TextField,
     Value,
     When,
 )
@@ -54,6 +55,7 @@ from DataRepo.models.utilities import (
     get_many_related_field_val_by_subquery,
     get_model_by_name,
     get_next_model,
+    is_long_field,
     is_many_related,
     is_many_related_to_parent,
     is_many_related_to_root,
@@ -530,10 +532,26 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
         )
 
     def test_model_title(self):
-        self.assertEqual("Peak Data Label", model_title(PeakDataLabel))
+        # Uses verbose name
+        self.assertEqual("Label", model_title(PeakDataLabel))
+        PeakDataLabelTest1 = create_test_model(
+            "PeakDataLabelTest1",
+            {},
+            attrs={"Meta": type("Meta", (), {"app_label": "loader"})},
+        )
+        self.assertEqual("Peak Data Label Test1", model_title(PeakDataLabelTest1))
 
     def test_model_title_plural(self):
-        self.assertEqual("Peak Data Labels", model_title_plural(PeakDataLabel))
+        # Uses verbose name plural
+        self.assertEqual("Labels", model_title_plural(PeakDataLabel))
+        PeakDataLabelTest2 = create_test_model(
+            "PeakDataLabelTest2",
+            {},
+            attrs={"Meta": type("Meta", (), {"app_label": "loader"})},
+        )
+        self.assertEqual(
+            "Peak Data Label Test2s", model_title_plural(PeakDataLabelTest2)
+        )
 
     def test_extract_field_paths_from_q(self):
         self.assertEqual(
@@ -896,3 +914,9 @@ class ModelUtilityQueryTests(TracebaseTestCase):
         )[0]
         self.assertEqual("weirdone", weirdone_field.name)  # Sanity check
         self.assertFalse(is_reverse_related_field(weirdone_field))
+
+    def test_is_long_field(self):
+        self.assertTrue(is_long_field(TextField()))
+        self.assertFalse(is_long_field(IntegerField()))
+        self.assertFalse(is_long_field(CharField()))
+        self.assertTrue(is_long_field(CharField(max_length=300)))

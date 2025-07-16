@@ -2,6 +2,10 @@ import re
 import textwrap
 from typing import List, Optional, Union
 
+import inflect
+
+inflect_engine = inflect.engine()
+
 
 def autowrap(text: str, default_width: int = 80, **kwargs):
     """Given text (containing hard-returns), this method uses textwrap.wrap() to wrap long lines to a max length as
@@ -576,3 +580,11 @@ def underscored_to_title(string: str, delim: str = " "):
             for i, w in enumerate(words)
         ]
     )
+
+
+def get_plural(word: str):
+    """Pluralizes a word.  Returns the word as-is if it is already plural."""
+    # NOTE: singular_noun() returns a singular noun if the input was plural and False if it is already singular
+    if not isinstance(inflect_engine.singular_noun(word), str):
+        return inflect_engine.plural_noun(word)
+    return word
