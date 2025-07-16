@@ -128,3 +128,10 @@ class BSTSorterTests(TracebaseTestCase):
         self.assertFalse(s.client_mode)
         s.set_server_mode(enabled=False)
         self.assertTrue(s.client_mode)
+
+    @TracebaseTestCase.assertNotWarns()
+    def test_order_by(self):
+        self.assertEqual(
+            str(Lower(F("name")).asc(nulls_first=True)),
+            str(BSTSorter(CharField(name="name"), BSTSTestModel).order_by),
+        )

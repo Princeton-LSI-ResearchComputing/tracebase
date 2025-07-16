@@ -109,10 +109,12 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
                 )
 
             # We are guaranteed to get a path/str
-            self.related_model_path: str = cast(
-                str, field_path_to_model_path(model, field_path)
+            self.many_related_model_path: str = cast(
+                str, field_path_to_model_path(model, field_path, many_related=True)
             )
-            if self.related_model_path == field_path:
+
+            # Create attribute names for many-related values and a many-related count
+            if self.many_related_model_path == field_path:
                 stub = field_path.split("__")[-1]
             else:
                 stub = "_".join(field_path.split("__")[-2:])
@@ -123,47 +125,10 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
             if self.count_attr_name is None:
                 self.count_attr_name = stub + self.count_attr_tail
 
-        # NOTE: It is not necessary to set related_model_path to the last many-related model.  It is only need to be a
-        # many-related model path when it is a member of BSTColumnGroup.
-
         super().__init__(*args, **kwargs)
 
         if self.sort_expression is None:
             self.sort_expression = self.display_field_path
-
-    def set_related_model_path(self, related_model_path: str):
-        """This validates and sets self.related_model_path, overwriting any previous value.
-
-        The intended purpose of this method is for use in BSTColumnGroup, in order to control the delimited value
-        sorting such that fields under the same related model are sorted the same way.
-
-        Args:
-            related_model_path (str): A dunderscore-delimited field path ending in a many-related model foreign key
-        Exceptions:
-            ValueError when self.field_path is invalid
-        Returns:
-            None
-        """
-        self.related_model_path = related_model_path
-
-        if (
-            related_model_path is None
-            or not isinstance(related_model_path, str)
-            or related_model_path == ""
-        ):
-            raise ValueError(
-                f"related_model_path '{related_model_path}' must be a non-empty string."
-            )
-        elif not self.field_path.startswith(related_model_path):
-            raise ValueError(
-                f"The field path '{self.field_path}' must start with the supplied related_model_path "
-                f"'{related_model_path}'."
-            )
-
-        if not is_many_related_to_root(related_model_path, self.model):
-            raise ValueError(
-                f"related_model_path '{related_model_path}' must be many-related to model '{self.model.__name__}'."
-            )
 
     def create_sorter(
         self, field: Optional[Union[Combinable, Field, str]] = None, **kwargs
