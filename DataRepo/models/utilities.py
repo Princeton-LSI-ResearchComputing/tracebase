@@ -787,7 +787,11 @@ def select_representative_field(
     one_relations: List[Field] = []
     for f in all_fields:
         related_field = resolve_field(f)
-        if not related_field.is_relation and related_field.name != "id":
+        if (
+            not related_field.is_relation
+            and related_field.name != "id"
+            and related_field.null is False
+        ):
             if related_field.unique:
                 return related_field.name
             else:
