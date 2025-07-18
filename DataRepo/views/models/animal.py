@@ -40,11 +40,11 @@ class AnimalListView(BSTListView):
         "last_serum_sample",
     ]
     column_settings = {
-        "genotype": {
+        "genotype": {"filterer": {"distinct_choices": True}},
+        "label_combo": {
             "filterer": {"distinct_choices": True},
             "header": "Tracer Label Combo",
         },
-        "label_combo": {"filterer": {"distinct_choices": True}},
         "feeding_status": {"filterer": {"distinct_choices": True}},
         "diet": {"visible": False, "filterer": {"distinct_choices": True}},
         "age_weeks": {
