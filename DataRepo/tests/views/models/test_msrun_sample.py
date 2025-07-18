@@ -11,10 +11,11 @@ class MSRunSampleViewTests(ModelViewTests):
     def test_msrun_sample_list(self):
         response = self.client.get(reverse("msrunsample_list"))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "models/msrunsample/msrunsample_list.html")
-        self.assertEqual(
-            len(response.context["msrun_samples"]), self.ALL_MSRUN_SAMPLES_COUNT
-        )
+        self.assertTemplateUsed(response, "models/bst/list_view.html")
+        self.assertTemplateUsed(response, "models/bst/th.html")
+        self.assertTemplateUsed(response, "models/bst/td.html")
+        self.assertTemplateUsed(response, "models/bst/value.html")
+        self.assertEqual(response.context["total"], self.ALL_MSRUN_SAMPLES_COUNT)
 
     def test_msrun_sample_detail(self):
         ms1 = MSRunSample.objects.filter(
