@@ -7,6 +7,7 @@ from django.db.models import (
     IntegerField,
     ManyToManyField,
     Q,
+    QuerySet,
     Value,
 )
 from django.db.models.aggregates import Count, Max
@@ -445,7 +446,7 @@ class BSTListViewTests(TracebaseTestCase):
         )
 
     @TracebaseTestCase.assertNotWarns()
-    def test_get_annotations(self):
+    def test_get_annotations_no_subquery(self):
         # No search or filter
         alv1 = StudyLV()
         before, after = alv1.get_annotations()
@@ -528,6 +529,27 @@ class BSTListViewTests(TracebaseTestCase):
                 "animals_mm_count": Count(
                     "animals", output_field=IntegerField(), distinct=True
                 ),
+                "description": Upper("desc", output_field=CharField()),
+            },
+            after,
+        )
+
+    @TracebaseTestCase.assertNotWarns()
+    def test_get_annotations_with_subquery(self):
+        # No search or filter
+        alv1 = StudyLV()
+        before, after = alv1.get_annotations({"animals__name": "A1"})
+        self.assertDictEquivalent(
+            {
+                "animals_mm_count": Count(
+                    "animals", output_field=IntegerField(), distinct=True
+                ),
+            },
+            before,
+        )
+        self.assertDictEquivalent(
+            {
+                "name_bstrowsort": Lower("name"),
                 "description": Upper("desc", output_field=CharField()),
             },
             after,
@@ -804,3 +826,31 @@ class BSTListViewTests(TracebaseTestCase):
 
         # Finally, assure there were no warnings.
         self.assertEqual([], context["warnings"])
+
+    def test_get_sub_queryset(self):
+        qs = BSTLVAnimalTestModel.objects.all()
+
+        alv1 = AnimalDefaultLV()
+        alv1.subquery = {"studies": self.s1.pk}
+        qs1: QuerySet = alv1.get_sub_queryset(qs)
+        self.assertEqual(2, qs1.count())
+
+        alv2 = AnimalDefaultLV()
+        alv2.subquery = {"studies__name": "S2"}
+        qs2: QuerySet = alv2.get_sub_queryset(qs)
+        self.assertEqual(1, qs2.count())
+
+    def test_init_subquery(self):
+        request = HttpRequest()
+        alv = StudyLV(request=request)
+        alv.presubset_annots = None
+        alv.subquery = {"animals__name": "A1"}
+        alv.init_subquery()
+        self.assertDictEquivalent(
+            {
+                "animals_mm_count": Count(
+                    "animals", output_field=IntegerField(), distinct=True
+                ),
+            },
+            alv.presubset_annots,
+        )

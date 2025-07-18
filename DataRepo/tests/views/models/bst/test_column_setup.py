@@ -969,6 +969,7 @@ class BSTBaseListViewTests(TracebaseTestCase):
                     "below_template",
                     # columns is from this class
                     "columns",
+                    "subtitles",
                 ]
             ),
             set(context.keys()),
@@ -1129,3 +1130,24 @@ class BSTBaseListViewTests(TracebaseTestCase):
         self.assertIn("details", nrblv.columns.keys())
         self.assertIn("details", nrblv.column_ordering)
         self.assertTrue(nrblv.columns["details"].linked)
+
+    def test_init_subquery(self):
+        request = HttpRequest()
+        request.GET.update(
+            {
+                "animals__name": "A1",
+                "subquery": True,
+            }
+        )
+        alv = StudyBLV(request=request)
+        alv.subquery = None
+        alv.subtitles = None
+        alv.init_subquery()
+        self.assertDictEquivalent(
+            {"animals__name": "A1"},
+            alv.subquery,
+        )
+        self.assertDictEquivalent(
+            {"Animals Name": "A1"},
+            alv.subtitles,
+        )

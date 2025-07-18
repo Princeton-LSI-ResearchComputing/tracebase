@@ -139,8 +139,17 @@ class BSTColumn(BSTBaseColumn):
             )
 
         self.field = field_path_to_field(self.model, self.field_path)
-        if not hasattr(self, "is_fk") or getattr(self, "is_fk", None) is None:
-            self.is_fk = is_key_field(self.field)
+        if (
+            (not hasattr(self, "is_fk") or getattr(self, "is_fk", None) is None)
+            and is_key_field(self.field)
+            # FK fields must be defined in a BSTRelatedColumn, not BSTColumn
+            and type(self) is __class__  # type: ignore[name-defined]
+        ):
+            raise TypeError(
+                f"'{name}' is a foreign key.  Foreign keys must be added as either a 'BSTRelatedColumn' or "
+                f"'BSTManyRelatedColumn', not '{type(self).__name__}', so that a representative field from the related "
+                "model can be selected for display."
+            )
 
         # Reverse relations do not have a help_text attribute
         # TODO: Put this hasattr logic in the related_field file

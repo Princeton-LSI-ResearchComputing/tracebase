@@ -516,3 +516,16 @@ class BSTListViewClientTests(TracebaseTestCase):
         slv = StudyBCI(request=request)
         slv.reset_all_cookies()
         self.assertDictEqual({"OtherView-cname": "value"}, slv.request.COOKIES)
+
+    def test_init_subquery(self):
+        request = HttpRequest()
+        alv1 = StudyBCI(request=request)
+        alv1.subquery_ready = False
+        alv1.init_subquery()
+        self.assertFalse(alv1.subquery_ready)
+
+        request.GET["subquery"] = "true"
+        alv2 = StudyBCI(request=request)
+        alv2.subquery_ready = False
+        alv2.init_subquery()
+        self.assertTrue(alv2.subquery_ready)

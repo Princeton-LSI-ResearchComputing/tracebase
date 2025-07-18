@@ -50,6 +50,9 @@ class BSTListViewTests(BaseTemplateTests):
     def render_list_view_template(self, view: BSTListView):
         view.object_list = view.get_queryset()[:]
         context = view.get_context_data()
+        if hasattr(view, "request"):
+            # Simulate a request
+            context["request"] = view.request
         return render_to_string(self.list_view_template, context)
 
     def get_massaged_template_str(self, template_str: str):
@@ -208,7 +211,7 @@ class BSTListViewTests(BaseTemplateTests):
             "1",
             "</td>",
             '<td class="table-cell-nobr nobr">',
-            "BTTAnimalTestModel object (2)",
+            "A2",
             "</td>",
             '<td class="table-cell-nobr nobr">',
             "S2",
@@ -222,8 +225,8 @@ class BSTListViewTests(BaseTemplateTests):
             "2",
             "</td>",
             '<td class="table-cell-nobr nobr">',
-            'BTTAnimalTestModel object (1); </span><br class="cell-wrap d-none">',
-            "BTTAnimalTestModel object (2)",
+            'A1; </span><br class="cell-wrap d-none">',
+            "A2",
             "</td>",
             '<td class="table-cell-nobr nobr">',
             "S1",
@@ -302,3 +305,25 @@ class BSTListViewTests(BaseTemplateTests):
             self.render_list_view_template(slv1)
         )
         self.assertIn("Start BSTListView Pagination", template_str)
+
+    def test_subtitles(self):
+        request = HttpRequest()
+        request.GET.update(
+            {
+                "animals__name": "A1",
+                "subquery": "true",
+            }
+        )
+        request.path = "/DataRepo/studies/"
+        slv = StudyLV(request=request)
+        slv.init_interface()
+        slv.init_subquery()
+        template_str = self.render_list_view_template(slv)
+        expected_ordered_substrings = [
+            "<h5>",
+            "<i>",
+            "for",
+            "Animals Name &quot;A1&quot;",
+            '<small><a href="/DataRepo/studies/">clear</a></small><br>',
+        ]
+        self.assert_substrings_in_order(expected_ordered_substrings, template_str)

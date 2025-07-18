@@ -1,31 +1,27 @@
-from django.shortcuts import get_object_or_404
-from django.views.generic import DetailView, ListView
+from django.views.generic import DetailView
 
-from DataRepo.models import MSRunSample, PeakGroup
+from DataRepo.models import PeakGroup
+from DataRepo.views.models.bst.query import BSTListView
 
 
-class PeakGroupListView(ListView):
-    """
-    Generic class-based view for a list of peak groups
-    "model = PeakGroup" is shorthand for queryset = PeakGroup.objects.all()
-    use queryset syntax for PeakGroup list with or without filtering
-    """
-
-    queryset = PeakGroup.objects.all()
-    context_object_name = "peakgroup_list"
-    template_name = "models/peakgroup/peakgroup_list.html"
-    ordering = ["msrun_sample_id", "peak_annotation_file_id", "name"]
-    paginate_by = 50
-
-    # filter the peakgroup_list by msrun_sample_id
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        # get query string from request
-        msrun_sample_pk = self.request.GET.get("msrun_sample_id", None)
-        if msrun_sample_pk is not None:
-            self.msrun = get_object_or_404(MSRunSample, id=msrun_sample_pk)
-            queryset = PeakGroup.objects.filter(msrun_sample_id=msrun_sample_pk)
-        return queryset
+class PeakGroupListView(BSTListView):
+    model = PeakGroup
+    exclude = ["id", "peak_data", "msrun_sample"]
+    column_settings = {
+        "name": {"header": "Peak Group"},
+        "msrun_sample__sample": {},
+        "msrun_sample_sample_msrun_samples_mm_count": {
+            "header": "MS Run Samples Count",
+            "visible": False,
+        },
+        "compounds": {"visible": False, "header": "Compound"},
+        "compounds_mm_count": {"visible": False},
+        "labels_mm_count": {"visible": False},
+        "peak_annotation_file": {
+            "display_field_path": "peak_annotation_file__filename"
+        },
+        "msrun_sample__sample__msrun_samples": {"header": "MS Run Sample"},
+    }
 
 
 class PeakGroupDetailView(DetailView):

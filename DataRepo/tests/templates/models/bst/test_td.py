@@ -51,7 +51,7 @@ class TdTemplateTests(BaseTemplateTests):
         self.assertIn("A1", html)
 
     def test_bst_column_object(self):
-        namecol = BSTColumn("treatment", BTTAnimalTestModel)
+        namecol = BSTRelatedColumn("treatment", BTTAnimalTestModel)
         rec = BTTAnimalTestModel.objects.filter(name="A1").first()
         context = {
             "column": namecol,
@@ -122,9 +122,10 @@ class TdTemplateTests(BaseTemplateTests):
         # NOTE: The descending order here is due to the manual subrecs query and the model's ordering.
         # In BSTListView, applying the column's ordering happens via the get_user_queryset.
         self.assertIn('<td class="table-cell-nobr "><span class="nobr">', html)
-        # This avoids matching the primary key, which is not durable from test to test
-        self.assertIn("BTTStudyTestModel object (", html)
-        self.assertIn(
-            '); </span><br class="cell-wrap"><span class="nobr">BTTStudyTestModel object (',
+        self.assertEqual(
+            (
+                '<td class="table-cell-nobr "><span class="nobr">S2; </span><br class="cell-wrap">'
+                '<span class="nobr">S1</span></td>'
+            ),
             html,
         )

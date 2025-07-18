@@ -13,6 +13,17 @@
     {% include "models/bst/scripts.html" %}
 
     <h4>{{ table_name }}</h4>
+    {% if subtitles %}
+        <h5>
+            <i>
+                for
+                {% for field, term in subtitles.items %}
+                    {{ field }} &quot;{{ term }}&quot;{% if not forloop.last %},{% endif %}
+                {% endfor %}
+            </i>
+            <small><a href="{{ request.path }}">clear</a></small><br>
+        </h5>
+    {% endif %}
     <br>
 
     {% if above_template %}

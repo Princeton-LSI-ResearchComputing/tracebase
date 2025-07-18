@@ -3,14 +3,23 @@
 {% with column_value=object|get_rec_val:column %}
     <span class="{% if column.wrapped is False %}nobr{% endif %}{% if column.wrapped %} min-w25rem{% endif %}">
     {% if column_value|is_model_obj and column_value|has_attr:"get_absolute_url" %}
-        {# Render model object in string context for the link's display value #}
-        <a href="{{ column_value|get_absolute_url }}">{{ column_value }}</a>
+        {% if column.display_field_name and column.display_field_path != column.display_field_name %}
+            <a href="{{ column_value|get_absolute_url }}">{{ column_value|get_attr:column.display_field_name }}</a>
+        {% else %}
+            {# Render model object in string context for the link's display value #}
+            <a href="{{ column_value|get_absolute_url }}">{{ column_value }}</a>
+        {% endif %}
     {% else %}
         {% if column.linked %}<a href="{{ object.get_absolute_url }}">{% endif %}
         {% if column_value is None %}
             <span class="text-muted">None</span>
         {% else %}
-            {{ column_value }}
+            {% if column_value|is_model_obj and column.display_field_name and column.display_field_path != column.display_field_name %}
+                {{ column_value|get_attr:column.display_field_name }}
+            {% else %}
+                {# Render model object in string context #}
+                {{ column_value }}
+            {% endif %}
         {% endif %}
         {% if column.linked %}</a>{% endif %}
     {% endif %}

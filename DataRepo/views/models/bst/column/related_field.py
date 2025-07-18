@@ -154,6 +154,7 @@ class BSTRelatedColumn(BSTColumn):
             )
 
         self.display_field = field_path_to_field(model, self.display_field_path)
+        self.display_field_name = self.display_field.name
 
         super().__init__(*args, **kwargs)
 

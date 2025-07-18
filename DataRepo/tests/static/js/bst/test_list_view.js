@@ -15,6 +15,15 @@ QUnit.test('updatePage', function (assert) {
   assert.true(url.includes('page=2'))
   assert.true(url.includes('limit=10'))
   assert.true(url.includes('export=text'))
+
+  // Test that other parameters are preserved
+  // urlParams is the global variable from list_view.js
+  urlParams.append('category', 'electronics')
+  const url2 = getPageURL()
+  assert.true(url2.includes('page=5'))
+  assert.true(url2.includes('limit=25'))
+  assert.false(url2.includes('export=text'))
+  assert.true(url2.includes('category=electronics'))
 })
 
 QUnit.test('onRowsPerPageChange', function (assert) {
@@ -132,6 +141,11 @@ function createTestTable2 (tableID, columnNames) {
   // This is defined in tests.html and cleaned automatically by QUnit
   const fixture = document.querySelector('#qunit-fixture')
 
+  const collapseButton = document.createElement('button')
+  collapseButton.name = 'btnCollapse'
+  const collapseButtonIcon = document.createElement('i')
+  collapseButtonIcon.classList.add('bi')
+  collapseButton.appendChild(collapseButtonIcon)
   // Create a table with a td containing 'table-cell-nobr' and a br containing 'cell-wrap'
   const table = document.createElement('table')
   // This is the default ID defined in /static/js/bst/list_view.js
@@ -173,6 +187,7 @@ function createTestTable2 (tableID, columnNames) {
 
   table.appendChild(thead)
   table.appendChild(tbody)
+  fixture.append(collapseButton)
   fixture.append(table)
 
   return fixture
