@@ -19,7 +19,12 @@ class SampleViewTests(ModelViewTests):
     def test_sample_list_per_animal(self):
         a1 = Animal.objects.filter(name="971").get()
         s1 = Sample.objects.filter(animal_id=a1.id)
-        response = self.client.get("/DataRepo/samples/?animal_id=" + str(a1.pk))
+        response = self.client.get("/DataRepo/samples/?animal=" + str(a1.pk))
+        # The initial response is redirected to add &subquery=true, after clearing search/filter cookies.
+        self.assertEqual(response.status_code, 302)
+        response = self.client.get(
+            "/DataRepo/samples/?subquery=true&animal=" + str(a1.pk)
+        )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(s1.count(), len(response.context["sample_list"]))
 
