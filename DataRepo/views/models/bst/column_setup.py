@@ -751,7 +751,7 @@ class BSTBaseView:
             else:
                 self.columns[rep_colname].linked = True
                 self.representative_column = self.columns[rep_colname]
-        elif not details_link_exists and settings.DEBUG:
+        elif self.model is not None and not details_link_exists and settings.DEBUG:
             warn(
                 (
                     f"Model '{self.model.__name__}' has no get_absolute_url method.  "
