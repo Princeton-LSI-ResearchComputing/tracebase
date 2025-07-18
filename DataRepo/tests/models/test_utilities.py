@@ -500,26 +500,25 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
         self.assertEqual("name", select_representative_field(PeakGroup))
         self.assertEqual("name", select_representative_field(Study))
         self.assertEqual("name", select_representative_field(Tracer))
+        self.assertEqual("corrected_abundance", select_representative_field(PeakData))
 
         # No suitable field in these models (no single order-by and no unique that are not key fields whose values are
         # not guaranteed from load-to-load)
-        self.assertIsNone(select_representative_field(PeakData))
         self.assertIsNone(select_representative_field(PeakDataLabel))
         self.assertIsNone(select_representative_field(TracerLabel))
 
         # When there's no suitable field, you can force it...
         self.assertEqual(
-            "raw_abundance", select_representative_field(PeakData, force=True)
-        )
-        self.assertEqual(
             "element", select_representative_field(PeakDataLabel, force=True)
         )
-        self.assertEqual("name", select_representative_field(TracerLabel, force=True))
-
-        # Test when a subset is supplied to select from - and no ideal choice, uses first non-relation, non-id of
-        # supplied order
         self.assertEqual(
-            "med_mz",
+            "element", select_representative_field(TracerLabel, force=True)
+        )
+
+        # Test when a subset is supplied to select from - and no ideal choice, uses first non-relation, non-null, non-id
+        # of supplied order
+        self.assertEqual(
+            "corrected_abundance",
             select_representative_field(
                 PeakData,
                 force=True,

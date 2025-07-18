@@ -1,6 +1,7 @@
-from django.views.generic import DetailView, ListView
+from django.views.generic import DetailView
 
 from DataRepo.models import MSRunSample
+from DataRepo.views.models.bst.query import BSTListView
 
 
 class MSRunSampleDetailView(DetailView):
@@ -9,8 +10,17 @@ class MSRunSampleDetailView(DetailView):
     context_object_name = "msrun_sample"
 
 
-class MSRunSampleListView(ListView):
+class MSRunSampleListView(BSTListView):
     model = MSRunSample
-    template_name = "models/msrunsample/msrunsample_list.html"
-    context_object_name = "msrun_samples"
+    exclude = ["id", "peak_groups"]
+    column_ordering = [
+        "details",
+        "sample",
+        "msrun_sequence",
+        "polarity",
+        "mz_min",
+        "mz_max",
+        "ms_raw_file",
+        "ms_data_file",
+    ]
     paginate_by = 20

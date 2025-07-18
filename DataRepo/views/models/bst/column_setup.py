@@ -721,7 +721,11 @@ class BSTBaseView:
             self.init_column(colname)
 
             # See if the derived class specified a linked column (to the row's details page)
-            if colname not in self.groups.keys() and self.columns[colname].linked:
+            if (
+                colname != "details"
+                and colname not in self.groups.keys()
+                and self.columns[colname].linked
+            ):
                 # Only make the first linked column the representative (if there are multiple)
                 if not details_link_exists:
                     self.representative_column = self.columns[colname]
@@ -737,18 +741,17 @@ class BSTBaseView:
                 self.model, subset=self.column_ordering
             )
             # If no representative could be chosen
-            if rep_colname is None and "details" not in self.exclude:
+            if (
+                rep_colname is None
+                and "details" not in self.exclude
+                and "details" not in self.columns.keys()
+            ):
                 # Append a details column containing only the linked text "details"
-                details = BSTAnnotColumn(
-                    "details",
-                    Value("details"),
-                    linked=True,
-                    searchable=False,
-                    sortable=False,
-                )
-                self.column_ordering.append(details.name)
-                self.columns[details.name] = details
-            else:
+                details_col = self.get_details_col()
+                if details_col.name not in self.column_ordering:
+                    self.column_ordering.append(details_col.name)
+                self.columns[details_col.name] = details_col
+            elif rep_colname is not None:
                 self.columns[rep_colname].linked = True
                 self.representative_column = self.columns[rep_colname]
         elif self.model is not None and not details_link_exists and settings.DEBUG:
@@ -831,7 +834,7 @@ class BSTBaseView:
                 f"'{first_field}') or annotation (because there is no converter in the column settings: {kwargs} and "
                 f"the column name does not appear in the annotations keys: {list(self.annotations.keys())})."
             )
-        else:
+        elif colname != "details":  # Special case handled after this method returns
             def_count_cols = [
                 BSTManyRelatedColumn.get_count_name(
                     field_path_to_model_path(
@@ -859,6 +862,17 @@ class BSTBaseView:
                     f"inserting a column key, like this:\n\n{example}"
                 )
             raise ValueError(msg)
+        else:
+            self.columns[colname] = self.get_details_col()
+
+    def get_details_col(self):
+        return BSTAnnotColumn(
+            "details",
+            Value("details"),
+            linked=True,
+            searchable=False,
+            sortable=False,
+        )
 
     def add_check_groups(self):
         """Go through the columns and make sure that multiple columns from the same related model are in a column group
