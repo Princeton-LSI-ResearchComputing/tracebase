@@ -1,6 +1,7 @@
 import traceback
 from enum import Enum
 from typing import Dict, List, Optional, Tuple, Type
+from urllib.parse import urlencode
 from warnings import warn
 
 from django.conf import settings
@@ -8,12 +9,14 @@ from django.core.exceptions import FieldError
 from django.db import ProgrammingError
 from django.db.models import Model, Q, QuerySet, Value
 from django.db.models.expressions import Combinable
+from django.shortcuts import redirect
 
 from DataRepo.models.utilities import (
     field_path_to_manager_path,
     field_path_to_model_path,
     get_field_val_by_iteration,
     get_many_related_field_val_by_subquery,
+    is_many_related_to_root,
 )
 from DataRepo.utils.exceptions import DeveloperWarning, trace
 from DataRepo.views.models.bst.column.annotation import BSTAnnotColumn
@@ -32,6 +35,7 @@ from DataRepo.views.models.bst.column_setup import (
 )
 
 
+# TODO: Figure out how to move this to .utils without a circular import error
 class QueryMode(Enum):
     """This defines the query modes used to populate the many-related field values of a page of results"""
 
@@ -453,6 +457,15 @@ class BSTListView(BSTBaseListView, BSTQueryView):
                     filterer: {"choices": get_researchers}  # BSTBaseFilterer.__init__'s choices arg takes a callable
                 }
             }
+
+    ## Subsetting the list
+
+    Any field path (whether it's one of the column's field paths or not) can be supplied as a URL parameter and value.
+    The paths must be *from* self.model to a related model field.  Supplying a search field path and value will result
+    in the display of a subset of self.model records.  Any supplied "search path" can be used (in combination) to link
+    to this list view.  The supplied value must be an exact search term (case sensitive) for the related field.  The
+    queryset will be limited to JUST records linked with that related model record/field and the title will be changed
+    to specify the search fields and values.
     """
 
     def __init__(self, *args, query_mode=None, **kwargs):
@@ -461,6 +474,7 @@ class BSTListView(BSTBaseListView, BSTQueryView):
 
         # The filters and annotations are initially empty.  Will be set in get()
         self.filters = Q()
+        self.presubset_annots: Dict[str, Combinable] = {}
         self.prefilter_annots: Dict[str, Combinable] = {}
         self.postfilter_annots: Dict[str, Combinable] = {}
 
@@ -484,6 +498,20 @@ class BSTListView(BSTBaseListView, BSTQueryView):
         # cookies and the query initialization.  This must be why Ken Whitesell in the Django forum said that grabbing
         # cookies was done all over the place instead of in one consolidated location.
         self.request = request
+        self.init_subquery()
+
+        if self.subquery_exists and self.subquery_ready is False:
+            # When a subquery comes in, the URL has search fields and terms, but filter cookies have to be cleared when
+            # the request first come in, so that the initial view is guaranteed to be all records from the subquery.
+            # Subsequent user searches should be allowed however, and we indicate that filter cookies should not be
+            # cleared on subsequent loads by appending "&subquery=true" to the URL parameters, which is accomplished by
+            # the redirect below...
+            base_url = self.request.get_full_path()
+            subquery_param = urlencode({self.subquery_param_name: "true"})
+            # There have to be URL parameters already since self.subquery_exists is True, so append with "&"
+            subquery_url = f"{base_url}&{subquery_param}"
+            return redirect(subquery_url)
+
         self.init_interface()
 
         # Now that the search criteria and other query elements are initialized from the cookies, trigger the query
@@ -550,6 +578,21 @@ class BSTListView(BSTBaseListView, BSTQueryView):
             self.postfilter_annots,
         ) = self.get_annotations()
 
+    def init_subquery(self):
+        """Initializes the presubset_annots.  Some annotations' values can be affected by subquery search terms, so
+        those annotations must be put in front of the subquery filter.
+
+        Basically, this facillitates linking to subsets of data in this view.  Links can add field_paths and their
+        search terms to the URL parameters in order to displat a subset of records in the list view.  When a subquery is
+        active, at "sub title" below the page title appears showing the context of the subset.
+        """
+        # This initializes self.subquery_ready, self.subquery, and self.subtitles
+        super().init_subquery()
+
+        # Determine what annotations must occur before the subquery so as to leave their values unaltered (because many-
+        # related model field filters can change aggregate annotation values)
+        (self.presubset_annots, _) = self.get_annotations(self.subquery)
+
     def get_queryset(self):
         """An extension of the superclass method intended to only set the total instance attribute.  raw_total is set by
         the superclass (which also initializes total to raw_total)."""
@@ -557,6 +600,10 @@ class BSTListView(BSTBaseListView, BSTQueryView):
         qs = super().get_queryset()
 
         try:
+            # If the queryset is being sub-setted via URL parameters from a link, create a starting queryset that is
+            # based on the subquery
+            if self.subquery is not None:
+                qs = self.get_sub_queryset(qs)
             qs = self.get_user_queryset(qs)
             self.total = qs.count()
         except Exception as e:
@@ -598,6 +645,29 @@ class BSTListView(BSTBaseListView, BSTQueryView):
 
         return qs
 
+    def get_sub_queryset(self, qs: QuerySet):
+        """This method subsets the queryset based on search terms in the self.subquery dict.
+
+        Args:
+            qs (QuerySet)
+        Exceptions:
+            None
+        Returns:
+            qs (QuerySet)
+        """
+        if self.subquery is None:
+            return qs
+
+        if len(self.prefetches) > 0:
+            qs = qs.prefetch_related(*self.prefetches)
+
+        if len(self.presubset_annots.keys()) > 0:
+            qs = self.apply_annotations(qs, self.presubset_annots)
+
+        qs = qs.filter(**self.subquery)
+
+        return qs
+
     def get_user_queryset(self, qs: QuerySet):
         """The superclass handles actual pagination, but the number of pages can be affected by applied filters, and the
         Content of those pages can be affected by sorting.  And both can be affected by annotated fields.  This method
@@ -614,7 +684,7 @@ class BSTListView(BSTBaseListView, BSTQueryView):
         Returns:
             qs (QuerySet)
         """
-        if len(self.prefetches) > 0:
+        if self.subquery is None and len(self.prefetches) > 0:
             qs = qs.prefetch_related(*self.prefetches)
 
         if len(self.prefilter_annots.keys()) > 0:
@@ -759,7 +829,9 @@ class BSTListView(BSTBaseListView, BSTQueryView):
 
     # TODO: Figure out a way to move this to BSTQueryView without it having to know about the client interface aspects
     # like pre- and post- filter annotations.
-    def get_annotations(self) -> Tuple[Dict[str, Combinable], Dict[str, Combinable]]:
+    def get_annotations(
+        self, filter_dict: Optional[Dict[str, str]] = None
+    ) -> Tuple[Dict[str, Combinable], Dict[str, Combinable]]:
         """An override of the superclass method.
 
         Generate 2 dicts of annotations that can each be provided to Django's .annotate() method.  The dicts are for
@@ -768,7 +840,12 @@ class BSTListView(BSTBaseListView, BSTQueryView):
         after-dict.
 
         Args:
-            None
+            filter_dict (Optional[Dict[str, str]]) [self.filter_terms]: A dict of the active filters where the keys are
+                the column names^ and the values are the filter/search terms.  This option exists to aid subsetting and
+                linking to subsets of records.  You do not need to supply this option when the base queryset is not
+                subsetted.
+                ^The keys may optionally not be a column (when subsetting the list), but can still affect whether
+                 annotations will be returned in the before or after filter dicts.
         Exceptions:
             None
         Returns:
@@ -780,12 +857,23 @@ class BSTListView(BSTBaseListView, BSTQueryView):
         annotations_before_filter: Dict[str, Combinable] = {}
         annotations_after_filter: Dict[str, Combinable] = {}
 
+        if filter_dict is None:
+            filter_dict = self.filter_terms
+
         # Obtain a list of many-related model paths that are being filtered, so that any annotation based on the same
         # many-related model can be put *before* the filter.  E.g. If there is a Count annotation for many-related
         # records, we want the count to be unaffected by the filter.
         filtered_mr_model_paths = []
-        for cn in self.filter_terms.keys():
-            if isinstance(self.columns[cn], BSTManyRelatedColumn):
+        for cn in filter_dict.keys():
+            if (
+                cn in self.columns.keys()
+                and isinstance(self.columns[cn], BSTManyRelatedColumn)
+            ) or (
+                # Subqueries can be based on fields that are not represented in a column, such as a "parent" model that
+                # is linked to by multiple records in the current ListView.
+                cn not in self.columns.keys()
+                and is_many_related_to_root(cn, self.model)
+            ):
                 # Get up to the *first* many-related step in the field path so that we can put any affected many-related
                 # annotations, such as count annotations *before* the filter, so as not to change the annotation value.
                 # Note that the count annotations are used to limit many-related record/field value collection in order
@@ -798,10 +886,18 @@ class BSTListView(BSTBaseListView, BSTQueryView):
                     filtered_mr_model_paths.append(mr_model_path)
 
         for column in self.columns.values():
-            if isinstance(column, BSTAnnotColumn):
+            # If this is an annotation column that wasn't already applied to the queryset via subsetting
+            if (
+                isinstance(column, BSTAnnotColumn)
+                # Do not add annotations that were already added due to the subset
+                and (
+                    self.presubset_annots is None
+                    or column.name not in self.presubset_annots.keys()
+                )
+            ):
                 if (
                     self.search_term is None
-                    and column.name not in self.filter_terms.keys()
+                    and column.name not in filter_dict.keys()
                     and not any(
                         column.is_related_to_many_related_model_path(mrmp)
                         for mrmp in filtered_mr_model_paths
