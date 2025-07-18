@@ -65,8 +65,9 @@ class ValueTemplateTests(BaseTemplateTests):
         self.assertIn("A1", html)
 
     def test_bst_column_object(self):
-        namecol = BSTColumn("treatment", BTTAnimalTestModel)
+        # Test that a representative field is used
         rec = BTTAnimalTestModel.objects.filter(name="A1").first()
+        namecol = BSTRelatedColumn("treatment", BTTAnimalTestModel)
         context = {
             "column": namecol,
             "object": rec,
@@ -75,6 +76,19 @@ class ValueTemplateTests(BaseTemplateTests):
         html = self.render_value_template(context).strip()
         self.assertIn('<span class="nobr">', html)
         self.assertIn('<a href="thisisaurl">T1</a>', html)
+
+        # Test that __str__ method without a get_absolute_url method is used
+        rec2 = BTTAnimalTestModel.objects.filter(name="A2").first()
+        housecol = BSTRelatedColumn("housing", BTTAnimalTestModel)
+        context2 = {
+            "column": housecol,
+            "object": rec2,
+        }
+        # Ignoring leading/trailing whitespace characters from the template code...
+        html2 = self.render_value_template(context2).strip()
+        self.assertIn('<span class="nobr">', html2)
+        self.assertIn("BTTHousingTestModel object (", html2)
+        self.assertNotIn("<a href=", html2)
 
     def test_bst_related_column_field(self):
         treatdesccol = BSTRelatedColumn("treatment__desc", BTTAnimalTestModel)
@@ -125,8 +139,11 @@ class ValueTemplateTests(BaseTemplateTests):
 
     @override_settings(DEBUG=True)
     def test_bst_many_related_column_object(self):
-        studycol = BSTManyRelatedColumn("studies", BTTAnimalTestModel)
         rec = BTTAnimalTestModel.objects.filter(name="A2").first()
+
+        # Test that the display_field is used, i.e. instead of the default __str__ generated value, e.g.:
+        # 'BTTStudyTestModel object (1)', i.e. the Study model has a unique name field, which becomes the representative
+        studycol = BSTManyRelatedColumn("studies", BTTAnimalTestModel)
         studycol.set_list_attr(rec, [s for s in rec.studies.all()])
         context = {
             "column": studycol,
@@ -139,9 +156,25 @@ class ValueTemplateTests(BaseTemplateTests):
             .replace("\n", "")
             .replace("  ", "")
         )
-        # This avoids matching the primary key, which is not durable from test to test
-        self.assertIn("BTTStudyTestModel object (", html)
-        self.assertIn(
-            '); </span><br class="cell-wrap"><span class="nobr">BTTStudyTestModel object (',
+        self.assertEqual(
+            '<span class="nobr">S2; </span><br class="cell-wrap"><span class="nobr">S1</span>',
             html,
         )
+
+        # Test that a default __str__ is used when there's no representative display field (i.e. the friend model has no
+        # unique field).
+        friendcol = BSTManyRelatedColumn("friends", BTTAnimalTestModel)
+        friendcol.set_list_attr(rec, [s for s in rec.friends.all()])
+        context2 = {
+            "column": friendcol,
+            "object": rec,
+        }
+        # Ignoring whitespace from the template code...
+        html2 = (
+            self.render_value_list_template(context2)
+            .strip()
+            .replace("\n", "")
+            .replace("  ", "")
+        )
+        # The primary key is not durable, so we avoid matching the ID, e.g. the '1' in 'BTTFriendTestModel object (1)'
+        self.assertIn('<span class="nobr">BTTFriendTestModel object (', html2)
