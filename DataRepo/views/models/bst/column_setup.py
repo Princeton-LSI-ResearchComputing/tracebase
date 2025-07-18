@@ -728,19 +728,37 @@ class BSTBaseView:
                 details_link_exists = True
 
         # If no representative exists and the model has a detail page, automatically set a representative
-        if not details_link_exists and BSTBaseColumn.has_detail(self.model):
+        if (
+            not details_link_exists
+            and BSTBaseColumn.has_detail(self.model)
+            and not isinstance(self, BSTBaseDetailView)
+        ):
             rep_colname = select_representative_field(
                 self.model, subset=self.column_ordering
             )
             # If no representative could be chosen
-            if rep_colname is None:
+            if rep_colname is None and "details" not in self.exclude:
                 # Append a details column containing only the linked text "details"
-                details = BSTAnnotColumn("details", Value("details"), linked=True)
+                details = BSTAnnotColumn(
+                    "details",
+                    Value("details"),
+                    linked=True,
+                    searchable=False,
+                    sortable=False,
+                )
                 self.column_ordering.append(details.name)
                 self.columns[details.name] = details
             else:
                 self.columns[rep_colname].linked = True
                 self.representative_column = self.columns[rep_colname]
+        elif not details_link_exists and settings.DEBUG:
+            warn(
+                (
+                    f"Model '{self.model.__name__}' has no get_absolute_url method.  "
+                    "Unable to automatically link to detail page."
+                ),
+                DeveloperWarning,
+            )
 
         # The representative column is either the first linked column or the first column
         # Allowing no model is purely for testing, since this isn't an abstract base class

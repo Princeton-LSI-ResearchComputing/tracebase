@@ -59,6 +59,13 @@ class PeakDataLabel(models.Model, ElementLabel):
             )
         ]
 
+    def __str__(self):
+        return str(self._name())
+
+    def _name(self):
+        # format: `MassNumberElementCount`, e.g. 13C3
+        return f"{self.mass_number}{self.element}{self.count}"
+
     def clean(self, *args, **kwargs):
         super().clean(*args, **kwargs)
 
