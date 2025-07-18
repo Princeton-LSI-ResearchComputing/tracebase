@@ -4,13 +4,16 @@ from typing import Dict, List, Optional, Union, cast
 from warnings import warn
 
 from django.conf import settings
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import ProgrammingError
 from django.db.models import IntegerField, Model, Value
 from django.db.models.aggregates import Count
 from django.db.models.expressions import Combinable
+from django.http import Http404
 
 from DataRepo.models.utilities import (
     field_path_to_model_path,
+    is_key_field,
     is_many_related_to_root,
     is_model_field,
     is_related,
@@ -18,7 +21,7 @@ from DataRepo.models.utilities import (
     select_representative_field,
 )
 from DataRepo.utils.exceptions import DeveloperWarning
-from DataRepo.utils.text_utils import underscored_to_title
+from DataRepo.utils.text_utils import camel_to_title, underscored_to_title
 from DataRepo.views.models.bst.client_interface import (
     BSTDetailViewClient,
     BSTListViewClient,
@@ -106,7 +109,7 @@ class BSTBaseView:
                 and/or self.model._meta.get_fields().
             kwargs (dict): Passed to ListView superclass constructor.
         Exceptions:
-            ProgrammingError the sort_col's representative field is invalid
+            None
         Returns:
             None
         """
@@ -999,6 +1002,23 @@ class BSTBaseListView(BSTListViewClient, BSTBaseView):
     """
 
     def __init__(self, columns=None, **kwargs):
+        """An extension of the BSTClientInterface and BSTBaseView constructors intended to initialize the columns.
+
+        Args:
+            model (Model)
+            columns (Optional[Union[
+                List[Union[str, dict, BSTBaseColumn, BSTColumnGroup]],
+                Dict[str, Union[str, dict, BSTBaseColumn, BSTColumnGroup]]
+            ]]) [auto]: There are multiple ways to supply a columns specification, but all result in a dict of
+                BSTBaseColumn objects.  See init_column_settings() for details.
+                If columns are not supplied, default columns will be selected using self.column_ordering, self.exclude,
+                and/or self.model._meta.get_fields().
+            kwargs (dict): Passed to ListView superclass constructor.
+        Exceptions:
+            ProgrammingError the sort_col's representative field is invalid
+        Returns:
+            None
+        """
         # This initializes the Django ListView and the client interface
         BSTListViewClient.__init__(self, **kwargs)
         # This initializes all of the model fields/columns
@@ -1124,11 +1144,73 @@ class BSTBaseListView(BSTListViewClient, BSTBaseView):
         for colname in bad_visibles_entries:
             del self.visibles[colname]
 
+    def init_subquery(self):
+        """Initializes the subquery and subtitles dicts from the URL search parameters.
+
+        Basically, this facillitates linking to subsets of data in this view.  Links can add field_paths and their
+        search terms to the URL parameters in order to displat a subset of records in the list view.  When a subquery is
+        active, at "sub title" below the page title appears showing the context of the subset.
+        """
+        # This initializes subquery_ready
+        super().init_subquery()
+
+        subqueries: Dict[str, str] = {}
+        for key, value in self.request.GET.items():
+            fieldname = key.split("__")[0]
+            if key in self.columns.keys() or is_model_field(self.model, fieldname):
+                self.subquery_exists = True
+                # We have confirmed that a subquery exists.  If the subquery is not ready for user searches, make it
+                # ready by clearing the search/filter cookies.
+                if self.subquery_ready is False:
+                    # Clear the filter cookies
+                    self.reset_search_cookie()
+                    self.reset_filter_cookies()
+                    # Immediately return so that the response can be redirected to be filterable
+                    return
+                subqueries[key] = value
+
+        # Initialize the subquery and subtitles if there is a subquery
+        if len(subqueries.keys()) > 0:
+            self.subtitles = {}
+            self.subquery = {}
+        else:
+            return
+
+        for field_path, search_term in subqueries.items():
+            self.subquery[field_path] = search_term
+            if field_path in self.columns.keys():
+                subtitle = self.columns[field_path].generate_header()
+            else:
+                path_end: List[str] = field_path.split("__")[-2:]
+                subtitle = underscored_to_title(" ".join(path_end))
+            if is_key_field(field_path, self.model):
+                related_model = model_path_to_model(self.model, field_path)
+                if (
+                    related_model._meta.verbose_name.lower().replace(" ", "")
+                    != related_model.__name__.lower()
+                ):
+                    subtitle = underscored_to_title(related_model._meta.verbose_name)
+                else:
+                    subtitle = camel_to_title(related_model._meta.verbose_name)
+                try:
+                    self.subtitles[subtitle] = str(
+                        related_model.objects.get(pk=search_term)
+                    )
+                except ObjectDoesNotExist:
+                    raise Http404(f"{subtitle} '{search_term}' not found.")
+            else:
+                self.subtitles[subtitle] = search_term
+
     def get_context_data(self, **_):
         """An override of the superclass method to provide context variables to the page.  All of the values are
         specific to pagination and BST operations."""
         context = super().get_context_data()
-        context.update({self.columns_var_name: self.columns})
+        context.update(
+            {
+                self.columns_var_name: self.columns,
+                self.subtitles_var_name: self.subtitles,
+            }
+        )
         return context
 
 
