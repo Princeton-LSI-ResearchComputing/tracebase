@@ -677,10 +677,12 @@ class BSTBaseListViewTests(TracebaseTestCase):
             alv.columns["study_count"],
         )
 
-    # TODO: Account for the warnings about get_absolute_url not being in the model.
-    # @TracebaseTestCase.assertNotWarns()
+    @TracebaseTestCase.assertNotWarns()
     def test_get_column_name(self):
-        alv = AnimalBLV()
+        with self.assertWarns(DeveloperWarning) as aw:
+            alv = AnimalBLV()
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn("get_absolute_url", str(aw.warnings[0].message))
         self.assertEqual("field1", alv.get_column_name("field1"))
         self.assertEqual("field1", alv.get_column_name({"name": "field1"}))
         self.assertEqual(
@@ -713,10 +715,12 @@ class BSTBaseListViewTests(TracebaseTestCase):
         # Shows the problem data
         self.assertIn("was 'int'", str(ar.exception))
 
-    # TODO: Account for the warnings about get_absolute_url not being in the model.
-    # @TracebaseTestCase.assertNotWarns()
+    @TracebaseTestCase.assertNotWarns()
     def test_init_column_setting(self):
-        alv = AnimalBLV()
+        with self.assertWarns(DeveloperWarning) as aw:
+            alv = AnimalBLV()
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn("get_absolute_url", str(aw.warnings[0].message))
 
         alv.init_column_setting({"field_path": "field1"}, "field1")
         self.assertEqual({}, alv.column_settings["field1"])
@@ -1004,14 +1008,16 @@ class BSTBaseListViewTests(TracebaseTestCase):
             context["columns"],
         )
 
-    # TODO: Account for the warnings about get_absolute_url not being in the model.
-    # @TracebaseTestCase.assertNotWarns()
+    @TracebaseTestCase.assertNotWarns()
     def test_add_check_groups(self):
         class AnimalWithAddedStudyColsBLV(BSTBaseListView):
             model = BSTBLVAnimalTestModel
             exclude = ["id", "studies"]
 
-        awasc = AnimalWithAddedStudyColsBLV()
+        with self.assertWarns(DeveloperWarning) as aw:
+            awasc = AnimalWithAddedStudyColsBLV()
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn("get_absolute_url", str(aw.warnings[0].message))
 
         # Now let's manually add a couple columns (avoiding the constructor so that add_check_groups isn't
         # automatically called and we can isolate it
@@ -1097,7 +1103,10 @@ class BSTBaseListViewTests(TracebaseTestCase):
             model = BSTBLVAnimalTestModel
             exclude = ["id", "studies"]
 
-        awasc2 = AnimalWithAddedStudyColsBLV2()
+        with self.assertWarns(DeveloperWarning) as aw:
+            awasc2 = AnimalWithAddedStudyColsBLV2()
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn("get_absolute_url", str(aw.warnings[0].message))
 
         # Now let's manually add a couple columns (avoiding the constructor so that add_check_groups isn't
         # automatically called and we can isolate it
