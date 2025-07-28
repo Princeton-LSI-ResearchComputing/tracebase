@@ -1,5 +1,6 @@
 from functools import wraps
 from typing import Dict, List, Optional
+from warnings import warn
 
 from django.conf import settings
 from django.core.cache import cache
@@ -301,6 +302,59 @@ class HierCachedModel(Model):
             return parent_instance.get_root_record()
         else:
             return self
+
+    @classmethod
+    def build_cached_fields(
+        cls,
+        model_names: Optional[List[str]] = None,
+        func_names: Optional[List[str]] = None,
+    ):
+        """Use this method to generate missing cached values.
+
+        Limitations:
+            1. Does not clear existing cached values.
+            2. Does not check validity of function names provided.  Quietly ignores invalid ones.
+        Args:
+            model_names (Optional[List[str]])
+            func_names (Optional[List[str]])
+        Exceptions:
+            None
+        Returns:
+            None
+        """
+        from DataRepo.models.utilities import get_model_by_name
+        from DataRepo.utils.exceptions import trace
+
+        if model_names is None or len(model_names) == 0:
+            models = [
+                get_model_by_name(model_name) for model_name in func_name_lists.keys()
+            ]
+        else:
+            models = [get_model_by_name(model_name) for model_name in model_names]
+            if not all(issubclass(m, __class__) for m in models):  # type: ignore[name-defined]
+                raise TypeError(
+                    "These supplied models are not HierCachedModels: "
+                    f"{[m.__name__ for m in models if not issubclass(m, __class__)]}."  # type: ignore[name-defined]
+                )
+
+        for model in models:
+            for rec in model.objects.order_by("pk"):
+                if func_names is None or len(func_names) == 0:
+                    cfunc_names = func_name_lists[model.__name__]
+                else:
+                    cfunc_names = [
+                        fn for fn in func_name_lists[model.__name__] if fn in func_names
+                    ]
+
+                for cfunc_name in cfunc_names:
+                    try:
+                        getattr(rec, cfunc_name)
+                    except Exception as e:
+                        if settings.DEBUG:
+                            warn(
+                                f"{trace(e)}Exception when calling '{cfunc_name} for '{type(rec).__name__}' record: "
+                                f"'{rec}': {type(e).__name__}: {e}"
+                            )
 
     class Meta:
         abstract = True
