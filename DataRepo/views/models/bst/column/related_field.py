@@ -156,7 +156,11 @@ class BSTRelatedColumn(BSTColumn):
         self.display_field = field_path_to_field(
             model, self.display_field_path, real=False
         )
-        self.display_field_name = self.display_field.name
+        self.display_field_name = (
+            self.display_field.name
+            if not self.is_fk or self.display_field_path != field_path
+            else None
+        )
 
         super().__init__(*args, **kwargs)
 
