@@ -23,4 +23,8 @@ class MSRunSampleListView(BSTListView):
         "ms_raw_file",
         "ms_data_file",
     ]
+    column_settings = {
+        "ms_raw_file": {"display_field_path": "ms_raw_file__filename"},
+        "ms_data_file": {"display_field_path": "ms_data_file__filename"},
+    }
     paginate_by = 20
