@@ -3,6 +3,7 @@ from django.db.models import (
     CharField,
     Count,
     ForeignKey,
+    IntegerField,
     ManyToManyField,
 )
 from django.db.models.functions import Lower
@@ -33,7 +34,7 @@ BSTBLVStudyTestModel = create_test_model(
         "Meta": type(
             "Meta",
             (),
-            {"app_label": "loader", "ordering": [Lower("-name")]},
+            {"app_label": "loader", "ordering": [Lower("name").desc()]},
         ),
     },
 )
@@ -73,6 +74,12 @@ class AnimalNoStudiesBLV(BSTBaseListView):
     exclude = ["id", "studies"]
 
 
+class AnimalWithMultipleStudyColsBLV(BSTBaseListView):
+    model = BSTBLVAnimalTestModel
+    column_ordering = ["name", "desc", "treatment", "studies__name", "studies__desc"]
+    exclude = ["id", "studies"]
+
+
 @override_settings(DEBUG=True)
 class BSTBaseListViewTests(TracebaseTestCase):
 
@@ -81,7 +88,7 @@ class BSTBaseListViewTests(TracebaseTestCase):
         blv = BSTBaseListView()
         blv.request = HttpRequest()
 
-        self.assertEqual([], blv.ordering)
+        self.assertEqual(["id"], blv.ordering)
         self.assertIsNone(blv.search_term)
         self.assertEqual({}, blv.filter_terms)
         self.assertEqual({}, blv.visibles)
@@ -112,7 +119,9 @@ class BSTBaseListViewTests(TracebaseTestCase):
         request.GET.update({"limit": "20"})
         slv = StudyBLV(request=request)
 
-        self.assertEqual([Lower("-name")], slv.ordering)
+        self.assertEqual(
+            "[OrderBy(Lower(F(name)), descending=True)]", str(slv.ordering)
+        )
         self.assertIsNone(slv.search_term)
         self.assertEqual({"desc": "description"}, slv.filter_terms)
         self.assertEqual({"name": True, "desc": False}, slv.visibles)
@@ -121,11 +130,29 @@ class BSTBaseListViewTests(TracebaseTestCase):
         self.assertTrue(slv.ordered)
         self.assertEqual(20, slv.limit)
         self.assertEqual([], slv.warnings)
-        self.assertEqual({}, slv.column_settings)
-        self.assertEqual(
+        self.assertDictEquivalent(
+            {
+                "animals_mm_count": BSTAnnotColumn(
+                    "animals_mm_count",
+                    Count("animals", output_field=IntegerField()),
+                    header="Animals Count",
+                    filterer="strictFilterer",
+                    sorter="numericSorter",
+                )
+            },
+            slv.column_settings,
+        )
+        self.assertDictEquivalent(
             {
                 "name": BSTColumn("name", BSTBLVStudyTestModel),
                 "desc": BSTColumn("desc", BSTBLVStudyTestModel),
+                "animals_mm_count": BSTAnnotColumn(
+                    "animals_mm_count",
+                    Count("animals", output_field=IntegerField()),
+                    header="Animals Count",
+                    filterer="strictFilterer",
+                    sorter="numericSorter",
+                ),
                 "animals": BSTManyRelatedColumn("animals", BSTBLVStudyTestModel),
             },
             slv.columns,
@@ -340,14 +367,17 @@ class BSTBaseListViewTests(TracebaseTestCase):
         # Defaults case (excludes "id", added by create_test_model)
         slv.column_ordering = []
         slv.init_column_ordering()
-        self.assertEqual(["name", "desc", "animals"], slv.column_ordering)
+        self.assertEqual(
+            ["name", "desc", "animals_mm_count", "animals"], slv.column_ordering
+        )
 
         # User added a related column
         slv.column_settings = {"animals__desc": {}}
         slv.column_ordering = []
         slv.init_column_ordering()
         self.assertEqual(
-            ["name", "desc", "animals", "animals__desc"], slv.column_ordering
+            ["name", "desc", "animals_mm_count", "animals", "animals__desc"],
+            slv.column_ordering,
         )
 
         # User changes exclude (id appears in order defined, added by create_test_model)
@@ -388,7 +418,6 @@ class BSTBaseListViewTests(TracebaseTestCase):
         )
         alv = AnimalNoStudiesBLV(
             [
-                {"name": "study_count", "converter": Count("studies")},
                 "treatment__desc",
                 group,
             ]
@@ -405,7 +434,7 @@ class BSTBaseListViewTests(TracebaseTestCase):
                     "treatment__desc",
                     "desc",
                     "name",
-                    "study_count",
+                    "studies_mm_count",
                 ]
             ),
             set(list(alv.columns.keys())),
@@ -423,8 +452,15 @@ class BSTBaseListViewTests(TracebaseTestCase):
         )
         self.assertEqual(BSTColumn("desc", BSTBLVAnimalTestModel), alv.columns["desc"])
         self.assertEqual(BSTColumn("name", BSTBLVAnimalTestModel), alv.columns["name"])
-        self.assertEqual(
-            BSTAnnotColumn("study_count", Count("studies")), alv.columns["study_count"]
+        self.assertEquivalent(
+            BSTAnnotColumn(
+                "studies_mm_count",
+                Count("studies", output_field=IntegerField()),
+                header="Studies Count",
+                filterer="strictFilterer",
+                sorter="numericSorter",
+            ),
+            alv.columns["studies_mm_count"],
         )
 
     def test_init_column(self):
@@ -545,3 +581,92 @@ class BSTBaseListViewTests(TracebaseTestCase):
         slv = StudyBLV(request=request)
         slv.reset_search_cookie()
         self.assertEqual(["StudyBLV-search"], slv.cookie_resets)
+
+    def test_add_default_many_related_column_settings(self):
+        slv = StudyBLV()
+        slv.column_settings = {}
+        slv.add_default_many_related_column_settings()
+        self.assertDictEquivalent(
+            {
+                "animals_mm_count": BSTAnnotColumn(
+                    "animals_mm_count",
+                    Count("animals", output_field=IntegerField()),
+                    header="Animals Count",
+                    filterer="strictFilterer",
+                    sorter="numericSorter",
+                ),
+            },
+            slv.column_settings,
+        )
+
+    def test_many_related_columns_exist(self):
+        alv1 = AnimalWithMultipleStudyColsBLV()
+        self.assertTrue(alv1.many_related_columns_exist("studies"))
+        alv2 = AnimalNoStudiesBLV()
+        self.assertFalse(alv2.many_related_columns_exist("studies"))
+        alv3 = AnimalBLV()
+        self.assertFalse(alv3.many_related_columns_exist("studies"))
+
+    @TracebaseTestCase.assertNotWarns()
+    def test_get_context_data(self):
+        request = HttpRequest()
+        request.method = "GET"
+        response = StudyBLV.as_view()(request)
+        context = response.context_data
+        self.assertEqual(
+            set(
+                [
+                    # From parent class
+                    "object_list",
+                    "page_obj",
+                    "cookie_prefix",
+                    "clear_cookies",
+                    "is_paginated",
+                    "cookie_resets",
+                    "paginator",
+                    "model",
+                    "view",
+                    # From ListView
+                    "bstblvstudytestmodel_list",  # Same as "object_list"
+                    # The remainder are from this class
+                    "table_id",
+                    "table_name",
+                    # Query/pagination
+                    "sortcol",
+                    "asc",
+                    "search",
+                    "limit",
+                    "limit_default",
+                    # Problems encountered
+                    "warnings",
+                    # Column metadata (including column order)
+                    "columns",
+                ]
+            ),
+            set(context.keys()),
+        )
+        self.assertEqual("StudyBLV", context["table_id"])
+        self.assertEqual("BSTBLV Study Test Models", context["table_name"])
+        self.assertEqual(None, context["sortcol"])
+        self.assertTrue(context["asc"])
+        self.assertEqual(None, context["search"])
+
+        # The table is empty (this class is just about column config), so limit is set to the default, which is 15
+        self.assertEqual(15, context["limit"])
+        self.assertEqual(15, context["limit_default"])
+
+        self.assertEqual([], context["warnings"])
+        self.assertDictEquivalent(
+            {
+                "name": BSTColumn("name", BSTBLVStudyTestModel),
+                "desc": BSTColumn("desc", BSTBLVStudyTestModel),
+                "animals_mm_count": BSTAnnotColumn(
+                    "animals_mm_count",
+                    Count("animals", output_field=IntegerField()),
+                    header="Animals Count",
+                    filterer="strictFilterer",
+                ),
+                "animals": BSTManyRelatedColumn("animals", BSTBLVStudyTestModel),
+            },
+            context["columns"],
+        )

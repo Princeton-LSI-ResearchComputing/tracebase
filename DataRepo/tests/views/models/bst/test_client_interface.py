@@ -7,12 +7,6 @@ from DataRepo.utils.exceptions import DeveloperWarning
 from DataRepo.views.models.bst.client_interface import BSTClientInterface
 
 
-class CookieRequest:
-    def __init__(self, **cookies):
-        self.COOKIES = cookies if len(cookies) > 0 else {}
-        self.GET = {}
-
-
 @override_settings(DEBUG=True)
 class BSTClientInterfaceTests(TracebaseTestCase):
     @TracebaseTestCase.assertNotWarns()
@@ -44,48 +38,49 @@ class BSTClientInterfaceTests(TracebaseTestCase):
 
     @TracebaseTestCase.assertNotWarns()
     def test_get_cookie(self):
-        c = BSTClientInterface()
+        request = HttpRequest()
         view_cookie_name = "cname"
-        c.request = CookieRequest(
-            **{f"BSTClientInterface-{view_cookie_name}": "test_value"}
-        )
+        request.COOKIES = {f"BSTClientInterface-{view_cookie_name}": "test_value"}
+        c = BSTClientInterface(request=request)
         self.assertEqual("test_value", c.get_cookie(view_cookie_name))
-        c.request = CookieRequest(**{f"BSTClientInterface-{view_cookie_name}": ""})
+        request.COOKIES = {f"BSTClientInterface-{view_cookie_name}": ""}
         self.assertIsNone(c.get_cookie(view_cookie_name))
-        c.request = CookieRequest()
+        request.COOKIES = {}
         self.assertIsNone(c.get_cookie(view_cookie_name))
-        c.request = CookieRequest()
+        request.COOKIES = {}
         self.assertEqual("mydef", c.get_cookie(view_cookie_name, default="mydef"))
-        c.request = CookieRequest(**{f"BSTClientInterface-{view_cookie_name}": ""})
+        request.COOKIES = {f"BSTClientInterface-{view_cookie_name}": ""}
         self.assertEqual("mydef", c.get_cookie(view_cookie_name, default="mydef"))
 
     @TracebaseTestCase.assertNotWarns()
     def test_get_boolean_cookie_success(self):
-        c = BSTClientInterface()
+        request = HttpRequest()
         view_cookie_name = "cname"
-        c.request = CookieRequest(**{f"BSTClientInterface-{view_cookie_name}": "TRUE"})
+        request.COOKIES = {f"BSTClientInterface-{view_cookie_name}": "TRUE"}
+        c = BSTClientInterface(request=request)
         self.assertTrue(c.get_boolean_cookie(view_cookie_name))
-        c.request = CookieRequest(**{f"BSTClientInterface-{view_cookie_name}": "false"})
+        request.COOKIES = {f"BSTClientInterface-{view_cookie_name}": "false"}
         self.assertFalse(c.get_boolean_cookie(view_cookie_name))
         # default is False
-        c.request = CookieRequest(**{f"BSTClientInterface-{view_cookie_name}": ""})
+        request.COOKIES = {f"BSTClientInterface-{view_cookie_name}": ""}
         self.assertFalse(c.get_boolean_cookie(view_cookie_name))
         # explicit default
-        c.request = CookieRequest(**{f"BSTClientInterface-{view_cookie_name}": ""})
+        request.COOKIES = {f"BSTClientInterface-{view_cookie_name}": ""}
         self.assertTrue(c.get_boolean_cookie(view_cookie_name, default=True))
         # cookie absent
-        c.request = CookieRequest()
+        request.COOKIES = {}
         self.assertFalse(c.get_boolean_cookie(view_cookie_name))
-        c.request = CookieRequest()
+        request.COOKIES = {}
         self.assertTrue(c.get_boolean_cookie(view_cookie_name, default=True))
 
     # NOTE: This only doesn't warn because the warning is captured by assertWarns, but this assures the second call to
     # get_boolean_cookie does not warn
     @TracebaseTestCase.assertNotWarns()
     def test_get_boolean_cookie_warn(self):
-        c = BSTClientInterface()
+        request = HttpRequest()
         view_cookie_name = "cname"
-        c.request = CookieRequest(**{f"BSTClientInterface-{view_cookie_name}": "wrong"})
+        request.COOKIES = {f"BSTClientInterface-{view_cookie_name}": "wrong"}
+        c = BSTClientInterface(request=request)
         with self.assertWarns(DeveloperWarning) as aw:
             val = c.get_boolean_cookie(view_cookie_name)
         self.assertEqual(1, len(aw.warnings))
@@ -122,15 +117,14 @@ class BSTClientInterfaceTests(TracebaseTestCase):
 
     @TracebaseTestCase.assertNotWarns()
     def test_get_column_cookie_dict(self):
-        c = BSTClientInterface()
-        c.request = CookieRequest(
-            **{
-                "BSTClientInterface-visible-column1": "a",
-                "BSTClientInterface-filter-column1": "b",
-                "BSTClientInterface-visible-column2": "c",
-                "BSTClientInterface-filter-column2": "d",
-            }
-        )
+        request = HttpRequest()
+        request.COOKIES = {
+            "BSTClientInterface-visible-column1": "a",
+            "BSTClientInterface-filter-column1": "b",
+            "BSTClientInterface-visible-column2": "c",
+            "BSTClientInterface-filter-column2": "d",
+        }
+        c = BSTClientInterface(request=request)
         self.assertDictEqual(
             {"column1": "a", "column2": "c"},
             c.get_column_cookie_dict("visible"),
@@ -142,13 +136,12 @@ class BSTClientInterfaceTests(TracebaseTestCase):
 
     @TracebaseTestCase.assertNotWarns()
     def test_get_boolean_column_cookie_dict_success(self):
-        c = BSTClientInterface()
-        c.request = CookieRequest(
-            **{
-                "BSTClientInterface-visible-column1": "T",
-                "BSTClientInterface-visible-column2": "F",
-            }
-        )
+        request = HttpRequest()
+        request.COOKIES = {
+            "BSTClientInterface-visible-column1": "T",
+            "BSTClientInterface-visible-column2": "F",
+        }
+        c = BSTClientInterface(request=request)
         self.assertDictEqual(
             {"column1": True, "column2": False},
             c.get_boolean_column_cookie_dict("visible"),
@@ -156,13 +149,12 @@ class BSTClientInterfaceTests(TracebaseTestCase):
 
     @TracebaseTestCase.assertNotWarns()
     def test_get_boolean_column_cookie_dict_warn(self):
-        c = BSTClientInterface()
-        c.request = CookieRequest(
-            **{
-                "BSTClientInterface-filter-column1": "b",
-                "BSTClientInterface-filter-column2": "d",
-            }
-        )
+        request = HttpRequest()
+        request.COOKIES = {
+            "BSTClientInterface-filter-column1": "b",
+            "BSTClientInterface-filter-column2": "d",
+        }
+        c = BSTClientInterface(request=request)
         with self.assertWarns(DeveloperWarning) as aw:
             c.get_boolean_column_cookie_dict("filter")
         self.assertEqual(2, len(aw.warnings))
@@ -173,12 +165,13 @@ class BSTClientInterfaceTests(TracebaseTestCase):
 
     @TracebaseTestCase.assertNotWarns()
     def test_get_column_cookie(self):
-        c = BSTClientInterface()
         view_cookie_name = "cname"
         column_name = "column1"
-        c.request = CookieRequest(
-            **{f"BSTClientInterface-{view_cookie_name}-{column_name}": "testval"}
-        )
+        request = HttpRequest()
+        request.COOKIES = {
+            f"BSTClientInterface-{view_cookie_name}-{column_name}": "testval"
+        }
+        c = BSTClientInterface(request=request)
         self.assertIsNone(c.get_column_cookie("column2", view_cookie_name))
         self.assertEqual(
             "mydef", c.get_column_cookie("column2", view_cookie_name, default="mydef")
@@ -187,17 +180,17 @@ class BSTClientInterfaceTests(TracebaseTestCase):
         self.assertEqual(
             "mydef", c.get_column_cookie(column_name, "unset", default="mydef")
         )
-        c.request = CookieRequest()
+        request.COOKIES = {}
         self.assertIsNone(c.get_column_cookie(column_name, view_cookie_name))
         self.assertEqual(
             "mydef", c.get_column_cookie(column_name, view_cookie_name, default="mydef")
         )
 
     def test_get_param(self):
-        c = BSTClientInterface()
         param_name = "cname"
-        c.request = CookieRequest()
-        c.request.GET.update({"cname": "x"})
+        request = HttpRequest()
+        request.GET = {param_name: "x"}
+        c = BSTClientInterface(request=request)
         self.assertEqual("x", c.get_param(param_name))
         self.assertEqual("mydef", c.get_param("notthere", default="mydef"))
         c.request.GET.update({"cname": ""})
@@ -246,3 +239,29 @@ class BSTClientInterfaceTests(TracebaseTestCase):
         bci.reset_cookie("sortcol")
         # Only deletes the ones that are "set" (and empty string is eval'ed as None)
         self.assertEqual(["BSTClientInterface-sortcol"], bci.cookie_resets)
+
+    @TracebaseTestCase.assertNotWarns()
+    def test_get_context_data(self):
+        bci = BSTClientInterface()
+        bci.object_list = []
+        context = bci.get_context_data()
+        self.assertEqual(
+            set(
+                [
+                    "object_list",
+                    "page_obj",
+                    "cookie_prefix",
+                    "clear_cookies",
+                    "is_paginated",
+                    "cookie_resets",
+                    "paginator",
+                    "model",
+                    "view",
+                ]
+            ),
+            set(context.keys()),
+        )
+        self.assertEqual("BSTClientInterface-", context["cookie_prefix"])
+        self.assertFalse(context["clear_cookies"])
+        self.assertEqual([], context["cookie_resets"])
+        self.assertIsNone(context["model"])

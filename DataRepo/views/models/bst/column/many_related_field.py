@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from typing import Optional, Type, Union, cast
 
+from django.db import ProgrammingError
 from django.db.models import Field, Model
 from django.db.models.expressions import Combinable
 
 from DataRepo.models.utilities import (
     field_path_to_model_path,
+    is_many_related_to_parent,
     is_many_related_to_root,
 )
 from DataRepo.views.models.bst.column.related_field import BSTRelatedColumn
@@ -50,6 +52,7 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
     limit: int = 3
     ascending: bool = True
     more_msg = "... (+{0} more)"
+    more_unknown_msg = "..."
     list_attr_tail = "_mm_list"
     count_attr_tail = "_mm_count"
 
@@ -90,45 +93,116 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
         Returns:
             None
         """
-        self.list_attr_name = list_attr_name
-        self.count_attr_name = count_attr_name
+        self.list_attr_name: str
+        self.count_attr_name: str
         self.delim = delim
         self.limit = limit
         self.sort_expression = sort_expression
         self.asc = asc if asc is not None else self.ascending
+        self._in_group = False  # Changed by BSTColumnGroup
 
-        # Create attribute names to use to assign a list of related model objects and their count to the root model
-        if self.list_attr_name is None or self.count_attr_name is None:
-            # Get the required superclass constructor arguments we need for checks
-            field_path: str = cast(str, args[0])
-            model: Type[Model] = cast(Type[Model], args[1])
+        # True if the field is a foreign key to the many-related model.  This is different from self.is_fk, which can
+        # concurrently be True or False, as it relates to the field at the very end of the path.
+        self.is_many_fk: bool  # Set below
 
-            if not is_many_related_to_root(field_path, model):
-                raise ValueError(
-                    f"field_path '{field_path}' must be many-related to model '{model.__name__}'."
-                )
+        # Get the required superclass constructor arguments we need for checks
+        field_path: str = cast(str, args[0])
+        model: Type[Model] = cast(Type[Model], args[1])
 
-            # We are guaranteed to get a path/str
-            self.many_related_model_path: str = cast(
-                str, field_path_to_model_path(model, field_path, many_related=True)
+        if not is_many_related_to_root(field_path, model):
+            raise ValueError(
+                f"field_path '{field_path}' must be many-related to model '{model.__name__}'."
             )
 
-            # Create attribute names for many-related values and a many-related count
-            if self.many_related_model_path == field_path:
-                stub = field_path.split("__")[-1]
+        self.many_related_model_path = field_path_to_model_path(
+            model, field_path, many_related=True
+        )
+
+        self.is_many_fk = self.many_related_model_path == field_path
+
+        # Create attribute names to use to assign a list of related model objects and their count to the root model
+        if list_attr_name is None or count_attr_name is None:
+
+            if isinstance(list_attr_name, str):
+                self.list_attr_name = list_attr_name
             else:
-                stub = "_".join(field_path.split("__")[-2:])
+                self.list_attr_name = self.get_list_name(field_path, model)
 
-            if self.list_attr_name is None:
-                self.list_attr_name = stub + self.list_attr_tail
-
-            if self.count_attr_name is None:
-                self.count_attr_name = stub + self.count_attr_tail
+            if isinstance(count_attr_name, str):
+                self.count_attr_name = count_attr_name
+            else:
+                # We only want 1 count for the many-related model records
+                self.count_attr_name = self.get_count_name(
+                    self.many_related_model_path, model
+                )
 
         super().__init__(*args, **kwargs)
 
         if self.sort_expression is None:
             self.sort_expression = self.display_field_path
+
+        # Apply specific type to self.sorter (which was initialized via super().__init__)
+        self.sorter = cast(BSTManyRelatedSorter, self.sorter)
+
+    @classmethod
+    def get_attr_stub(cls, path: str, model: Type[Model]) -> str:
+        """Creates the unique portion of an attribute name to be applied to the model objects of the root model in a
+        queryset.
+
+        Args:
+            path (str): A dunderscore-delimited path.
+            model (Type[Model])
+        Exceptions:
+            None
+        Returns:
+            stub (str)
+        """
+        many_related_model_path = field_path_to_model_path(
+            model, path, many_related=True
+        )
+
+        # Create attribute names for many-related values and a many-related count
+        if many_related_model_path == path:
+            stub = path.split("__")[-1]
+        else:
+            stub = "_".join(path.split("__")[-2:])
+
+        return stub
+
+    @classmethod
+    def get_count_name(cls, many_related_model_path: str, model: Type[Model]) -> str:
+        """Creates an attribute name to be applied to the model objects of the root model in a queryset, denoting the
+        count of the unique values associated with the root model record.
+
+        Args:
+            many_related_model_path (str): A dunderscore-delimited path.
+            model (Type[Model])
+        Exceptions:
+            None
+        Returns:
+            stub (str)
+        """
+        if not is_many_related_to_parent(many_related_model_path, model):
+            raise ProgrammingError(
+                "get_count_name must only be used for many_related_model_path, but the last field in the path "
+                f"'{many_related_model_path}' is not many-related to its parent field."
+            )
+        return cls.get_attr_stub(many_related_model_path, model) + cls.count_attr_tail
+
+    @classmethod
+    def get_list_name(cls, field_path: str, model: Type[Model]) -> str:
+        """Creates an attribute name to be applied to the model objects of the root model in a queryset, denoting a
+        list of values associated with the root model record.
+
+        Args:
+            field_path (str): A dunderscore-delimited path.
+            model (Type[Model])
+        Exceptions:
+            None
+        Returns:
+            stub (str)
+        """
+        return cls.get_attr_stub(field_path, model) + cls.list_attr_tail
 
     def create_sorter(
         self, field: Optional[Union[Combinable, Field, str]] = None, **kwargs

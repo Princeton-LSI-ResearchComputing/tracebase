@@ -19,6 +19,12 @@ class BSTClientInterface(ListView):
 
     script_name = "DataRepo/static/js/bst/base.js"
 
+    # Template variable names
+    cookie_prefix_var_name = "cookie_prefix"
+    cookie_resets_var_name = "cookie_resets"
+    clear_cookies_var_name = "clear_cookies"
+    model_var_name = "model"
+
     def __init__(self, **kwargs):
         """An extension of the ListView constructor intended to initialize the javascript and cookie interface.  It
         facillitates communication between the browser and the view.
@@ -30,6 +36,8 @@ class BSTClientInterface(ListView):
         Returns:
             None
         """
+        # The Django core code needed this set.  Not used in this class.
+        self.kwargs = kwargs
 
         super().__init__(**kwargs)
 
@@ -273,3 +281,23 @@ class BSTClientInterface(ListView):
         cookie_name = self.get_cookie_name(name)
         if cookie_name not in self.cookie_resets:
             self.cookie_resets.append(cookie_name)
+
+    def get_context_data(self, **kwargs):
+        """An override of the superclass method to provide context variables to the page.  All of the values are
+        specific to pagination and BST operations."""
+
+        # context = super().get_context_data(**kwargs)
+        context = super().get_context_data()
+
+        context.update(
+            {
+                # The basic ListView attribute
+                self.model_var_name: self.model,
+                # Client interface specific
+                self.cookie_prefix_var_name: self.cookie_prefix,
+                self.cookie_resets_var_name: self.cookie_resets,
+                self.clear_cookies_var_name: self.clear_cookies,
+            }
+        )
+
+        return context

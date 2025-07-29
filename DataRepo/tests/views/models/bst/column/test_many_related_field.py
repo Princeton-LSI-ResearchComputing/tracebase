@@ -1,3 +1,4 @@
+from django.db import ProgrammingError
 from django.db.models import (
     CASCADE,
     CharField,
@@ -89,7 +90,7 @@ class BSTManyRelatedColumnTests(TracebaseTestCase):
             f"studies_name{BSTManyRelatedColumn.list_attr_tail}", c.list_attr_name
         )
         self.assertEqual(
-            f"studies_name{BSTManyRelatedColumn.count_attr_tail}", c.count_attr_name
+            f"studies{BSTManyRelatedColumn.count_attr_tail}", c.count_attr_name
         )
         self.assertEqual(BSTManyRelatedColumn.delimiter, c.delim)
         self.assertEqual(BSTManyRelatedColumn.limit, c.limit)
@@ -216,4 +217,38 @@ class BSTManyRelatedColumnTests(TracebaseTestCase):
         self.assertIn(
             "intended to be an annotation column, use BSTAnnotColumn",
             str(aw.warnings[0].message),
+        )
+
+    def test_get_attr_stub(self):
+        self.assertEqual(
+            "animal_body_weight",
+            BSTManyRelatedColumn.get_attr_stub(
+                "samples__animal__body_weight", BSTMRCTissueTestModel
+            ),
+        )
+
+    def test_get_count_name(self):
+        self.assertEqual(
+            f"samples{BSTManyRelatedColumn.count_attr_tail}",
+            BSTManyRelatedColumn.get_count_name("samples", BSTMRCTissueTestModel),
+        )
+        with self.assertRaises(ProgrammingError) as ar:
+            BSTManyRelatedColumn.get_count_name(
+                "samples__animal__body_weight", BSTMRCTissueTestModel
+            )
+        self.assertIn(
+            "get_count_name must only be used for many_related_model_path",
+            str(ar.exception),
+        )
+        self.assertIn(
+            "last field in the path 'samples__animal__body_weight'", str(ar.exception)
+        )
+        self.assertIn("not many-related to its parent field", str(ar.exception))
+
+    def test_get_list_name(self):
+        self.assertEqual(
+            f"animal_body_weight{BSTManyRelatedColumn.list_attr_tail}",
+            BSTManyRelatedColumn.get_list_name(
+                "samples__animal__body_weight", BSTMRCTissueTestModel
+            ),
         )

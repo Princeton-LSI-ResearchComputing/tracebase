@@ -20,8 +20,8 @@
             data-search-align="left"
             data-search-on-enter-key="true"
             data-search-text="{{ search_term }}"
-            data-sort-name="{{ order_by }}"
-            data-sort-order="{{ order_dir }}"
+            data-sort-name="{{ sortcol }}"
+            data-sort-order="{% if asc %}asc{% else %}desc{% endif %}"
             data-show-search-clear-button="true"
             data-show-multi-sort="true"
             data-show-columns="true"
@@ -31,7 +31,7 @@
             <thead>
                 <tr>
                     {% for column in columns %}
-                        {{ column.th }}
+                        {% include column.th_template %}
                     {% endfor %}
                 </tr>
             </thead>
@@ -39,7 +39,7 @@
                 {% for object in object_list %}
                     <tr>
                         {% for column in columns %}
-                            {% include column.td %}
+                            {% include column.td_template %}
                         {% endfor %}
                     </tr>
                 {% endfor %}
