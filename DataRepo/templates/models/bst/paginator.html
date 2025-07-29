@@ -8,9 +8,9 @@
             {# This attaches a listener to the rows per page select list options to load a new page when the user changes the rows per page #}
             document.addEventListener("DOMContentLoaded", function() {
                 initPaginator(
+                    '{{ page_obj.paginator.size_select_list.option_name }}',
                     '{{ page_obj.paginator.page_name }}',
                     '{{ page_obj.paginator.limit_name }}',
-                    '{{ page_obj.paginator.size_select_list.option_name }}',
                     {{ page_obj.paginator.per_page }}
                 )
             });

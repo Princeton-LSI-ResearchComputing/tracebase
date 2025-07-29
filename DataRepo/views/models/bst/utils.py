@@ -58,6 +58,7 @@ class SizedPaginator(GracefulPaginator):
         page: int = 1,
         page_name: str = "page",
         limit_name: str = "limit",
+        option_elem_name: Optional[str] = None,
         **kwargs,
     ):
         """Constructor
@@ -77,7 +78,9 @@ class SizedPaginator(GracefulPaginator):
 
         self.total: int = total
         self.raw_total: int = raw_total if raw_total is not None else total
-        self.size_select_list = BSTRowsPerPageSelect(self.total, self.per_page)
+        self.size_select_list = BSTRowsPerPageSelect(
+            self.total, self.per_page, option_name=option_elem_name
+        )
         self.can_be_resized = self.total > self.size_select_list.smallest
         self.page_name = page_name
         self.limit_name = limit_name
