@@ -16,6 +16,7 @@ from DataRepo.tests.tracebase_test_case import (
     create_test_model,
 )
 from DataRepo.utils.exceptions import DeveloperWarning
+from DataRepo.utils.text_utils import underscored_to_title
 from DataRepo.views.models.bst.column.many_related_field import (
     BSTManyRelatedColumn,
 )
@@ -252,3 +253,9 @@ class BSTManyRelatedColumnTests(TracebaseTestCase):
                 "samples__animal__body_weight", BSTMRCTissueTestModel
             ),
         )
+
+    def test_generate_header_reverse_related_model_uses_last_fkey(self):
+        # Test that reverse relations use the related_name
+        c = BSTManyRelatedColumn("msrun_samples__name", BSTMRCSampleTestModel)
+        sh = c.generate_header()
+        self.assertEqual(underscored_to_title("msrun_samples"), sh)
