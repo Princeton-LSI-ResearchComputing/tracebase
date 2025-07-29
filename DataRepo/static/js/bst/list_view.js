@@ -21,7 +21,6 @@ var visibleCookieName = 'visible' // eslint-disable-line no-var
 var limitCookieName = 'limit' // eslint-disable-line no-var
 var pageCookieName = 'page' // eslint-disable-line no-var
 
-
 /**
  * This function exists solely for testing purposes
  */
