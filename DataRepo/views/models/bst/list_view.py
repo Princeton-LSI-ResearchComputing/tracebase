@@ -65,9 +65,56 @@ class BSTListView(BSTBaseListView):
     def __init__(self, *args, query_mode: QueryMode = QueryMode.iterate, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # The remainder are used in constructing the query
+        # Change the query mode based on the data-influenced performance
         self.query_mode = query_mode
+
+        # We can get the prefetches right away, because none of that is based on cookies.
         self.prefetches: List[str] = self.get_prefetches()
+
+        # The filters and annotations are initially empty.  Will be set in get()
+        self.filters = Q()
+        self.prefilter_annots: Dict[str, Combinable] = {}
+        self.postfilter_annots: Dict[str, Combinable] = {}
+
+    def get(self, request, *args, **kwargs):
+        """Extends BSTBaseListView.get, and is used here to set the filters, sorts, and annotations based on the cookies
+        obtained from the request object.
+
+        Args:
+            request (HttpRequest): This is a superclass arg we need to initialize the cookies before passing on to
+                super().get().
+        Exceptions:
+            None
+        Returns:
+            response (HttpResponse)
+        """
+
+        # Initialize the cookies for the interface.
+        # NOTE: I had ideally wanted the BSTClientInterface to be entirely obscured from this class other than the
+        # instance members it sets, but the call to super().get() triggers the call to get_queryset BEFORE the sort and
+        # search criteria (including annotations needed for sorting), so I had to create a separate method to handle the
+        # cookies and the query initialization.  This must be why Ken Whitesell in the Django forum said that grabbing
+        # cookies was done all over the place instead of in one consolidated location.
+        self.request = request
+        self.init_interface()
+
+        # Now that the search criteria and other query elements are initialized from the cookies, this will trigger the
+        # query
+        return super().get(request, *args, **kwargs)
+
+    def init_interface(self):
+        """An extension of the BSTBastListView init_interface method, used here to set the filters, sort, and
+        annotations.
+
+        Args:
+            None
+        Exceptions:
+            ProgrammingError the sort_col's representative field is invalid
+        Returns:
+            response (HttpResponse)
+        """
+        super().init_interface()
+
         self.filters = self.get_filters()
 
         # Update the many-related sort settings in self.columns, based on self.groups, if the sort col is in a group.
@@ -79,7 +126,6 @@ class BSTListView(BSTBaseListView):
         # for the row-sort, but it is for the delimited many-related columns' values sort (because the field path could
         # go through multiple many-related models).
         if self.ordered:
-            # TODO: Set a default order-by
             for group in [
                 g for g in self.groups.values() if self.sort_col.name in g.columns
             ]:
