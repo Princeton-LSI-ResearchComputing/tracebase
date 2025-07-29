@@ -1,0 +1,21 @@
+<th class="th-inner"
+    data-field="{{ column.name }}"
+    data-switchable-label="{{ column.header }}"
+
+{% if column.searchable %}
+    data-filter-control="{{ column.filterer.input_method }}"
+    data-filter-custom-search="{{ column.filterer }}"
+    {# See: live.bootstrap-table.com/code/hepcat72/18815 #}
+    {% if column.filterer.input_method == column.filterer.INPUT_METHODS.SELECT %}data-filter-data="json:{{ column.filterer.choices_json }}"{% endif %}
+    {% if column.filterer.initial %}data-filter-default="{{ column.filterer.initial }}"{% endif %}{% endif %}
+
+{% if column.sortable %}
+    data-sortable="{{ column.sortable|lower }}"
+    data-sorter="{{ column.sorter }}"{% endif %}
+
+    {% if column.hidable %}data-visible="{{ column.visible|lower }}"{% endif %}
+    data-switchable="{{ column.hidable|lower }}">
+    {{ column.header }}
+    {% if column.tooltip %}<sup class="bi-info-circle th-info-tooltip" title="{{ column.tooltip }}"></sup>{% endif %}
+
+</th>

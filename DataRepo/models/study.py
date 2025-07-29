@@ -10,16 +10,15 @@ class Study(models.Model):
         blank=False,
         null=False,
         unique=True,
-        help_text=(
-            "A succinct name for the study, which is a collection of one or more series of animals and their "
-            "associated data."
-        ),
+        help_text="A succinct name for a study, which is a collection of one or more animals and their data.",
     )
     description = models.TextField(
         blank=True,
         null=True,
-        help_text="A long form description for the study which may include "
-        "the experimental design process, citations, and other relevant details.",
+        help_text=(
+            "A long form description for a study which may include the experimental design process, citations, and "
+            "other relevant details."
+        ),
     )
 
     class Meta:

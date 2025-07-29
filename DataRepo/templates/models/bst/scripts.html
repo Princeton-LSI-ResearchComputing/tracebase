@@ -1,0 +1,57 @@
+{% load static %}
+{% load bsttags %}
+
+{# Variables needed for the scripts #}
+{{ columns|keys|json_script:"orderedColumnNames" }}
+{{ warnings|json_script:"warnings" }}
+{{ cookie_resets|json_script:"cookieResets" }}
+
+{# The script imports #}
+{% for script in scripts %}<script src="{% static script %}"></script>
+{% endfor %}
+
+{# Script initialization #}
+<script>
+    // columnNames: An ordered list of column names from django.
+    const columnNamesElem = document.getElementById("orderedColumnNames");
+    const orderedColumnNames = JSON.parse(columnNamesElem.textContent);
+    // warnings: A list of warnings from django.
+    const warningsElem = document.getElementById("warnings");
+    const warnings = JSON.parse(warningsElem.textContent);
+    // cookieResets: A list of cookie names to reset from django.  (Not the whole cookie name, just the last bit, e.g. 'sortcol'.)
+    const cookieResetsElem = document.getElementById("cookieResets");
+    const cookieResets = JSON.parse(cookieResetsElem.textContent);
+
+    document.addEventListener("DOMContentLoaded", function() {
+        initBST(
+            '{{ limit }}',
+            '{{ limit_default }}',
+            '{{ table_id }}',
+            '{{ cookie_prefix }}',
+            {{ page_obj.number }},
+            {{ page_obj.paginator.per_page }},
+            {{ total }},
+            {{ raw_total }},
+            window.location.href.split('?')[0],
+            {# TODO: Fix this so that request.resolver_match.url_name can be used. #}
+            {% comment %}
+            The following does not work in the BSTListView tests because it does not have a url, but the above works
+            - it is the javascript equivalent and the python test does not do anything with it.  To fix it, I need
+            to create a proper concrete view for BSTListView in the tests, with a url and everything.
+            {% endcomment %}
+            {% comment %} '{% url request.resolver_match.url_name %}', {% endcomment %}
+            orderedColumnNames,
+            warnings,
+            cookieResets,
+            '{{ clear_cookies }}',
+            // Cookie (and URL parameter) names for the javascript to use
+            '{{ sort_cookie_name }}',
+            '{{ asc_cookie_name }}',
+            '{{ search_cookie_name }}',
+            '{{ filter_cookie_name }}',
+            '{{ visible_cookie_name }}',
+            '{{ limit_cookie_name }}',
+            '{{ page_cookie_name }}',
+        )
+    });
+</script>

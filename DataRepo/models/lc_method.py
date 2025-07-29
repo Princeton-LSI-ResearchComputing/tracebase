@@ -94,8 +94,8 @@ class LCMethod(models.Model):
         return (self.name,)
 
     class Meta:
-        verbose_name = "liquid chromatography method"
-        verbose_name_plural = "liquid chromatography methods"
+        verbose_name = "LC Protocol"
+        verbose_name_plural = "LC Protocols"
         ordering = ["name"]
         constraints = [
             models.CheckConstraint(
