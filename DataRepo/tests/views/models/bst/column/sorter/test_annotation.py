@@ -1,4 +1,4 @@
-from django.db.models import CharField, F
+from django.db.models import CharField, F, IntegerField
 from django.db.models.functions import Lower, Upper
 from django.templatetags.static import static
 from django.test import override_settings
@@ -195,3 +195,36 @@ class BSTAnnotSorterTests(TracebaseTestCase):
         self.assertFalse(s.client_mode)
         s.set_server_mode(enabled=False)
         self.assertTrue(s.client_mode)
+
+    @TracebaseTestCase.assertNotWarns()
+    def test_order_by(self):
+        sorter = BSTAnnotSorter(
+            Lower("children__name", output_field=CharField()), asc=False
+        )
+        self.assertEqual(
+            "OrderBy(F(children__name_bstrowsort), descending=True)",
+            str(sorter.order_by),
+        )
+        # Make sure the annotation expression is as expected
+        self.assertEqual(
+            "Lower(F(children__name))",
+            str(sorter.expression),
+        )
+
+    @TracebaseTestCase.assertNotWarns()
+    def test_get_server_sorter_matching_expression(self):
+        self.assertEqual(
+            BSTAnnotSorter.SERVER_SORTERS.ALPHANUMERIC,
+            BSTAnnotSorter.get_server_sorter_matching_expression(
+                Lower("test", output_field=CharField())
+            ),
+        )
+        self.assertEqual(
+            BSTAnnotSorter.SERVER_SORTERS.NUMERIC,
+            BSTAnnotSorter.get_server_sorter_matching_expression(
+                Lower("test", output_field=IntegerField())
+            ),
+        )
+        self.assertEqual(
+            F, BSTAnnotSorter.get_server_sorter_matching_expression(F("test"))
+        )

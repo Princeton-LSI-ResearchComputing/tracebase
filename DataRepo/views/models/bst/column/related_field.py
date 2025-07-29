@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Optional, Type, Union, cast
+from typing import Optional, Type, Union, cast
 from warnings import warn
 
 from django.conf import settings
@@ -12,8 +12,7 @@ from DataRepo.models.utilities import (
     field_path_to_model_path,
     is_key_field,
     model_path_to_model,
-    resolve_field,
-    resolve_field_path,
+    select_representative_field,
 )
 from DataRepo.utils.exceptions import DeveloperWarning
 from DataRepo.views.models.bst.column.field import BSTColumn
@@ -86,11 +85,15 @@ class BSTRelatedColumn(BSTColumn):
                 "when the field is a foreign key."
             )
 
-        if (
-            not hasattr(self, "related_model_path")
-            or getattr(self, "related_model_path") is None
-        ):
+        # Used to supply to prefetch
+        try:
             self.related_model_path = field_path_to_model_path(model, field_path)
+        except ValueError as ve:
+            raise ValueError(
+                "field_path must contain a foreign key to be used in a BSTRelatedColumn object."
+            ).with_traceback(ve.__traceback__)
+
+        self.related_model = model_path_to_model(model, self.related_model_path)
 
         if self.display_field_path is None:
             self.display_field_path = self.get_default_display_field(field_path, model)
@@ -135,6 +138,17 @@ class BSTRelatedColumn(BSTColumn):
 
         super().__init__(*args, **kwargs)
 
+        if self.is_fk:
+            # To use .distinct(), you need the ordering fields from the related model, otherwise you get an exception
+            # about the order_by and distinct fields being different
+            # TODO: REFACTOR: This needs to be recursive.  Create/call a method in DataRepo.models.utilities and move
+            # this code/call into the sorter class
+            self.distinct_fields = [
+                f"{self.field_path}__{f}" for f in self.related_model._meta.ordering
+            ]
+        else:
+            self.distinct_fields = [self.field_path]
+
     def get_default_display_field(self, field_path: str, model: Type[Model]):
         """Select the best display field.
 
@@ -151,7 +165,8 @@ class BSTRelatedColumn(BSTColumn):
         Exceptions:
             None
         Returns:
-            None
+            full_rep_field (Optional[str]): The field path to the display field, or None if a non-ID field could not be
+                selected.
         """
         if not self.is_fk:
             return field_path
@@ -159,32 +174,25 @@ class BSTRelatedColumn(BSTColumn):
         # We know that field_path is a model path because of the is_fk conditional above
         related_model = model_path_to_model(model, field_path)
 
-        if len(related_model._meta.ordering) == 1:
-            # If there's only 1 ordering field, use it
-            return (
-                f"{field_path}__{resolve_field_path(related_model._meta.ordering[0])}"
-            )
-        else:
-            # Grab the first non-ID field from the related model that is unique, if one exists
-            f: Field
-            non_relations: List[Field] = []
-            for f in related_model._meta.get_fields():
-                related_field = resolve_field(f)
-                if not related_field.is_relation and related_field.name != "id":
-                    if related_field.unique:
-                        return f"{field_path}__{related_field.name}"
-                    else:
-                        non_relations.append(related_field)
-            if len(non_relations) == 1:
-                return f"{field_path}__{non_relations[0].name}"
-        if settings.DEBUG:
-            warn(
-                "Unable to automatically select a searchable/sortable display_field_path for the foreign key "
-                f"field_path '{field_path}'.  The default is '{related_model.__name__}._meta.ordering[0]' when only 1 "
-                f"ordering field is defined, the first non-ID unique field in '{related_model.__name__}', or the only "
-                "field if there is only 1 non-ID field, but none of those default cases existed.",
-                DeveloperWarning,
-            )
+        rep_field = select_representative_field(related_model)
+
+        if rep_field is None:
+            # The select_representative_field selected an ID field that we do not want.  We want to let the field render
+            # using the related model's __str__ method and disable search/sort based on this return being None.
+            if settings.DEBUG:
+                warn(
+                    "Unable to automatically select a searchable/sortable display_field_path for the foreign key "
+                    f"field_path '{field_path}'.  The default is '{related_model.__name__}._meta.ordering[0]' when "
+                    f"only 1 ordering field is defined, the first non-ID unique field in '{related_model.__name__}', "
+                    "or the only field if there is only 1 non-ID field, but none of those default cases existed.",
+                    DeveloperWarning,
+                )
+
+            return None
+
+        full_rep_field = f"{field_path}__{rep_field}"
+
+        return full_rep_field
 
     def create_sorter(
         self, field: Optional[Union[Combinable, Field, str]] = None, **kwargs

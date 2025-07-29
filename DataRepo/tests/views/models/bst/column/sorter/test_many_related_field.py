@@ -174,3 +174,61 @@ class BSTManyRelatedSorterTests(TracebaseTestCase):
     def test_init_reverse_relation(self):
         s = BSTManyRelatedSorter(F("children__name"), BSTMRSMiddleTestModel, asc=False)
         self.assertEqual("Max(Lower(F(children__name)))", str(s.expression))
+
+    @TracebaseTestCase.assertNotWarns()
+    def test_order_by(self):
+        sorter = BSTManyRelatedSorter(
+            F("children__name"), BSTMRSMiddleTestModel, asc=False
+        )
+        self.assertEqual(
+            "OrderBy(F(children__name_bstrowsort), descending=True)",
+            str(sorter.order_by),
+        )
+        # Make sure the expression referred to in the annotation is correct
+        self.assertEqual(
+            "Max(Lower(F(children__name)))",
+            str(sorter.expression),
+        )
+
+    def test_get_server_sorter_matching_expression(self):
+        self.assertEqual(
+            BSTManyRelatedSorter.SERVER_SORTERS.ALPHANUMERIC,
+            BSTManyRelatedSorter.get_server_sorter_matching_expression(
+                Lower("test", output_field=CharField())
+            ),
+        )
+        self.assertEqual(
+            BSTManyRelatedSorter.SERVER_SORTERS.NUMERIC,
+            BSTManyRelatedSorter.get_server_sorter_matching_expression(
+                Lower("test", output_field=IntegerField())
+            ),
+        )
+        self.assertEqual(
+            F, BSTManyRelatedSorter.get_server_sorter_matching_expression(F("test"))
+        )
+
+    def test_get_many_order_bys(self):
+        sorter = BSTManyRelatedSorter(
+            F("children__name"), BSTMRSMiddleTestModel, asc=False
+        )
+        self.assertEqual(
+            "[OrderBy(F(children_name_bstcellsort), descending=True)]",
+            str(sorter.get_many_order_bys()),
+        )
+
+    def test_get_many_distinct_fields(self):
+        sorter = BSTManyRelatedSorter(
+            F("children__name"), BSTMRSMiddleTestModel, asc=False
+        )
+        self.assertEqual(
+            ["children_name_bstcellsort"], sorter.get_many_distinct_fields()
+        )
+
+    def test_get_many_annotations(self):
+        sorter = BSTManyRelatedSorter(
+            F("children__name"), BSTMRSMiddleTestModel, asc=False
+        )
+        self.assertDictEquivalent(
+            {"children_name_bstcellsort": Lower("children__name")},
+            sorter.get_many_annotations(),
+        )

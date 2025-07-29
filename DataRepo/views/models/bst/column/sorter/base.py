@@ -1,8 +1,9 @@
 from abc import ABC
-from typing import NamedTuple, Optional, Union
+from typing import NamedTuple, Optional, Type, Union
 from warnings import warn
 
 from django.conf import settings
+from django.db import ProgrammingError
 from django.db.models import F, Field
 from django.db.models.expressions import Combinable, Expression
 from django.db.models.functions import Lower
@@ -39,10 +40,11 @@ class IdentityServerSorter(F):
         super().__init__(*args, **kwargs)
 
 
-class UnknownServerSorter(Combinable):
+class UnknownServerSorter(F):
     """The server sort could not be determined, e.g. we don't know the type of model field or annotation output_field"""
 
-    pass
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
 
 class BSTBaseSorter(ABC):
@@ -78,7 +80,7 @@ class BSTBaseSorter(ABC):
         name: Optional[str] = None,
         client_sorter: Optional[str] = None,
         client_mode: bool = False,
-        _server_sorter: Optional[Combinable] = None,
+        _server_sorter: Optional[Type[Combinable]] = None,
     ):
         """Constructor.
 
@@ -94,7 +96,7 @@ class BSTBaseSorter(ABC):
                 same size as the total queryset.
             name (Optional[str]) [auto]: The name of the BSTColumn being sorted.  Will be inferred from expression.
                 NOTE: Required if unable to unambiguously discern from expression.
-            _server_sorter (Optional[Combinable]) [auto]: Explicitly set the server sorter to a Combinable
+            _server_sorter (Optional[Type[Combinable]]) [auto]: Explicitly set the server sorter to a Combinable
                 (see super().SERVER_SORTERS for the defaults).  Set this to override (or apply on top of) the value
                 derived from typing expression.  Instead of supplying this, just make sure that expression has
                 an output_field set, but note that BSTSorter (and its derived classes) automatically sets
@@ -104,12 +106,12 @@ class BSTBaseSorter(ABC):
         Returns:
             None
         """
-        self.expression = expression
+        self.expression: Combinable
         self.name = name
         self.asc = asc if asc is not None else self.ascending
         self.client_sorter = client_sorter
         self.client_mode = client_mode
-        self._server_sorter = _server_sorter
+        self._server_sorter: Type[Combinable]
 
         sort_field: Optional[Field] = None
 
@@ -124,8 +126,18 @@ class BSTBaseSorter(ABC):
                 # sort on top of what was supplied if it is an Expression (e.g. Lower).  That allows us to know the
                 # field type, so that we can know whether applying case insensitivity is feasible.
                 # NOTE: If you want to guarantee that default sorting is applied, a derived class must do it.
-                sort_field = expression.output_field
-            except AttributeError:
+                if isinstance(expression.output_field, type):
+                    sort_field = expression.output_field()
+                else:
+                    sort_field = expression.output_field
+            except AttributeError as ae:
+                if hasattr(expression, "output_field"):
+                    msg = (
+                        f"Invalid output_field in expression '{expression}'.  Try submitting the output_field as a "
+                        f"Field instance.  [Original error: {ae}]"
+                    )
+                    raise AttributeError(msg).with_traceback(ae.__traceback__)
+
                 # TODO: Implement a fallback to infer the field from the outer expression type, e.g. Upper -> CharField
                 # The user must set output_field when defining the expression object, otherwise, you get:
                 # AttributeError: 'F' object has no attribute '_output_field_or_none'.
@@ -136,11 +148,11 @@ class BSTBaseSorter(ABC):
                     warn(
                         f"expression {expression} has no output_field set.  Unable to apply default server-"
                         "side sort behavior.  To avoid this, either set the output_field or supply a _server_sorter "
-                        "from SERVER_SORTERS or a custom client_sorter to the constructor.",
+                        f"from SERVER_SORTERS or a custom client_sorter to the constructor.",
                         DeveloperWarning,
                     )
 
-        if self._server_sorter is None:
+        if _server_sorter is None:
             if isinstance(sort_field, Field):
                 if not is_number_field(sort_field):
                     self._server_sorter = self.SERVER_SORTERS.ALPHANUMERIC
@@ -152,6 +164,17 @@ class BSTBaseSorter(ABC):
                         if isinstance(expression, Combinable)
                         else self.SERVER_SORTERS.UNKNOWN
                     )
+            elif isinstance(expression, Expression) and hasattr(
+                expression, "output_field"
+            ):
+                if not is_number_field(expression.output_field):
+                    self._server_sorter = self.SERVER_SORTERS.ALPHANUMERIC
+                elif is_number_field(expression.output_field):
+                    self._server_sorter = self.SERVER_SORTERS.NUMERIC
+                elif type(expression) in self.SERVER_SORTERS:
+                    self._server_sorter = type(expression)
+                else:
+                    raise ProgrammingError("Unable to resolve field type.")
             elif (
                 isinstance(expression, Expression)
                 and type(expression) in self.SERVER_SORTERS
@@ -159,14 +182,12 @@ class BSTBaseSorter(ABC):
                 self._server_sorter = type(expression)
             else:
                 self._server_sorter = self.SERVER_SORTERS.UNKNOWN
+        else:
+            self._server_sorter = _server_sorter
 
         # Apply our sort criteria (potentially on top of the users' sort criteria)
-        # NOTE: self._server_sorter should not be None here and MUST be a Combinable.  issubclass is only used here to
-        # tell mypy that everything is kosher here.
-        if issubclass(self._server_sorter, Combinable):
-            # If we have a field type for sorting and the client sorter is either not specified, or it is a known client
-            # sorter, apply default server sorting (either on top of or in the absense of an existing sort expression)
-            self.init_expression(expression)
+        self.init_expression(expression)
+
         self.server_sort_type_known = (
             self._server_sorter in self.SERVER_SORTERS._asdict().values()
             and self._server_sorter != self.SERVER_SORTERS.UNKNOWN
@@ -180,6 +201,8 @@ class BSTBaseSorter(ABC):
                     f"name argument required.  (Unable to discern column name from expression '{expression}' "
                     f"due to '{type(fe).__name__}' error: {fe}.)"
                 )
+
+        self.annot_name = f"{self.name}_bstrowsort"
 
         # Set the default client_sorter to match the server sorter
         if client_sorter is None:
@@ -226,6 +249,14 @@ class BSTBaseSorter(ABC):
     def sorter(self):
         return self.client_sorter if self.client_mode else self.CLIENT_SORTERS.NONE
 
+    @property
+    def order_by(self):
+        """Returns an OrderBy object using the annotation field name, which can be supplied to a Django order_by()
+        call."""
+        if self.asc:
+            return F(self.annot_name).asc(nulls_first=True)
+        return F(self.annot_name).desc(nulls_last=True)
+
     def set_client_mode(self, enabled: bool = True):
         self.client_mode = enabled
 
@@ -248,39 +279,41 @@ class BSTBaseSorter(ABC):
         # If we have a field type for sorting and the client sorter is either not specified, or it is a known client
         # sorter, apply default server sorting (either on top of or in the absense of an existing sort expression)
         if self._server_sorter == self.SERVER_SORTERS.NONE:
-            if not isinstance(expression, self.SERVER_SORTERS.NONE):
+            if isinstance(expression, self.SERVER_SORTERS.NONE):
+                self.expression = expression
+            else:
                 self.expression = self.SERVER_SORTERS.NONE(expression)
-            else:
-                self.expression = expression
         elif self._server_sorter == self.SERVER_SORTERS.ALPHANUMERIC:
-            if not isinstance(expression, self.SERVER_SORTERS.ALPHANUMERIC):
-                if self.SERVER_SORTERS.ALPHANUMERIC != IdentityServerSorter:
-                    self.expression = self.SERVER_SORTERS.ALPHANUMERIC(expression)
-                elif not isinstance(expression, F):
-                    self.expression = F(expression)
-                else:
-                    self.expression = expression
-            else:
+            if isinstance(expression, self.SERVER_SORTERS.ALPHANUMERIC):
                 self.expression = expression
-        elif self._server_sorter == self.SERVER_SORTERS.NUMERIC:
-            if not isinstance(expression, self.SERVER_SORTERS.NUMERIC):
-                if self.SERVER_SORTERS.NUMERIC != IdentityServerSorter:
-                    self.expression = self.SERVER_SORTERS.NUMERIC(expression)
-                elif not isinstance(expression, F):
-                    self.expression = F(expression)
-                else:
-                    self.expression = expression
-            else:
+            elif self.SERVER_SORTERS.ALPHANUMERIC != IdentityServerSorter:
+                self.expression = self.SERVER_SORTERS.ALPHANUMERIC(expression)
+            elif isinstance(expression, Combinable):
                 self.expression = expression
-        elif self._server_sorter == self.SERVER_SORTERS.UNKNOWN:
-            if isinstance(expression, str):
+            else:
                 self.expression = F(expression)
-            else:
+        elif self._server_sorter == self.SERVER_SORTERS.NUMERIC:
+            if isinstance(expression, self.SERVER_SORTERS.NUMERIC):
                 self.expression = expression
+            elif self.SERVER_SORTERS.NUMERIC != IdentityServerSorter:
+                self.expression = self.SERVER_SORTERS.NUMERIC(expression)
+            elif isinstance(expression, Combinable):
+                self.expression = expression
+            else:
+                self.expression = F(expression)
+        elif self._server_sorter == self.SERVER_SORTERS.UNKNOWN:
+            if isinstance(expression, Combinable):
+                self.expression = expression
+            else:
+                self.expression = F(expression)
         elif isinstance(expression, str):
             self.expression = F(expression)
-        else:  # expression is Combinable
+        elif isinstance(expression, Combinable):
             self.expression = expression
+        else:
+            raise TypeError(
+                f"Invalid expression type: '{type(expression).__name__}'.  Expression: {expression}."
+            )
 
     def client_server_sort_mismatch(self):
         """Returns whether the server and client sort methods definitely mismatch.  Does not report as a mismatch if
@@ -328,3 +361,40 @@ class BSTBaseSorter(ABC):
                 <script src='static/js/bst_list_view/sorter.js'></script>
         """
         return mark_safe(f"<script src='{static(self.script_name)}'></script>")
+
+    @classmethod
+    def get_server_sorter_matching_expression(cls, expression: Combinable):
+        """Takes an expression and tries to match it with a supporter server sorter.
+
+        This is useful for (for example) annotation columns, because the expression is generated for the annotation in
+        the select.  It would be a waste of cycles to also generate it in the ORDER BY, so it is better to set the ORDER
+        BY value to the annotation name.  The problem is we need the expression in order to know what type of sort to
+        do, so that's what this does.  Just call it with the converter before instantiating an object of this class.
+
+        Args:
+            expression (Combinable): E.g. the converter of an annotation.
+        Exceptions:
+            None
+        Returns:
+            _server_sorter (Type[Combinable])
+        """
+        _server_sorter = cls.SERVER_SORTERS.UNKNOWN
+        if isinstance(expression, Expression):
+            try:
+                if isinstance(expression.output_field, type):
+                    output_field = expression.output_field()
+                else:
+                    output_field = expression.output_field
+            except AttributeError as ae:
+                raise AttributeError(
+                    f"Missing required output_field in expression '{expression}'.\nPlease supply the 'output_field' "
+                    f"argument with a Field instance to the expression.  [Original error: {ae}]"
+                )
+
+            if not is_number_field(output_field):
+                _server_sorter = cls.SERVER_SORTERS.ALPHANUMERIC
+            elif is_number_field(output_field):
+                _server_sorter = cls.SERVER_SORTERS.NUMERIC
+        elif type(expression) in cls.SERVER_SORTERS:
+            _server_sorter = type(expression)
+        return _server_sorter

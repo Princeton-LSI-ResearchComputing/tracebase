@@ -1,7 +1,7 @@
 from warnings import warn
 
 from django.conf import settings
-from django.db.models import Field, Max, Min
+from django.db.models import F, Field, Max, Min
 from django.db.models.aggregates import Aggregate
 
 from DataRepo.models.utilities import is_many_related_to_root
@@ -41,26 +41,8 @@ class BSTManyRelatedSorter(BSTSorter):
         # First, apply default sort metrics, like case insensitivity
         super().__init__(*args, **kwargs)
 
-        # Then, apply the aggregate Min/Max based on asc or desc
+        # Figure out the aggregate function we need for sorting rows (Min or Max) based on asc or desc
         agg: Aggregate = Min if self.asc else Max
-
-        if (
-            settings.DEBUG
-            and isinstance(self.expression, Aggregate)
-            and not isinstance(self.expression, agg)
-        ):
-            warn(
-                f"Unable to apply aggregate function '{agg.__name__}' to the sorter for column '{self.name}' because "
-                f"the supplied field already has an aggregate function '{self.expression}'.  In order for the "
-                "delimited values to be sorted and for the row sort to be based on either the first or last delimited "
-                "value, the supplied field must not already be wrapped in an aggregate function.  Sorting on this "
-                "column will not base row position on the min/max related value and the sort of the delimited values "
-                "will be static and appear unordered until this is addressed.  If this is intended to be an annotation "
-                "column, use BSTAnnotColumn instead.",
-                DeveloperWarning,
-            )
-        elif not isinstance(self.expression, Aggregate):
-            self.expression = agg(self.expression)
 
         if isinstance(self.field, Field) and not is_many_related_to_root(
             self.field_path, self.model
@@ -68,3 +50,80 @@ class BSTManyRelatedSorter(BSTSorter):
             raise ValueError(
                 f"field_path '{self.field_path}' must be many-related with the model '{self.model.__name__}'."
             )
+
+        self.many_annot_name = "_".join(self.field_path.split("__")) + "_bstcellsort"
+
+        if isinstance(self.expression, Aggregate):
+            if settings.DEBUG and not isinstance(self.expression, agg):
+                warn(
+                    f"Unable to apply aggregate function '{agg.__name__}' to the sorter for column '{self.name}' "
+                    f"because the supplied field already has an aggregate function '{self.expression}'.  In order for "
+                    "the delimited values to be sorted and for the row sort to be based on either the first or last "
+                    "delimited value, the supplied field must not already be wrapped in an aggregate function.  "
+                    "Sorting on this column will not base row position on the min/max related value and the sort of "
+                    "the delimited values will be static and appear unordered until this is addressed.  If this is "
+                    "intended to be an annotation column, use BSTAnnotColumn instead.",
+                    DeveloperWarning,
+                )
+            # No need to change self.expression.  It is already an aggregate.  But, for the delimited values in the
+            # column, there is no transform that we can apply that can be used for individual values, so:
+            self.many_expression = self.SERVER_SORTERS.NONE(self.field_path)
+        else:
+            self.many_expression = self._server_sorter(self.field_path)
+            self.expression = agg(self.expression)
+
+    def get_many_order_bys(self):
+        """Returns a list of OrderBy objects containing the annotation.
+
+        Purpose:
+            1. To be able to be used in conjunction with self.many_distinct_fields()
+        Assumptions:
+            1. self.field_path does not contain a foreign key at the end of the path.  This is by design.  Sorters are
+               created intentionally with a non-foreign-key field, meaning that we don't need to consult the model's
+               _meta.ordering.
+            2. The caller has added the annotation whose name is stored in self.many_annot_name.
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            (List[OrderBy])
+        """
+        if self.asc:
+            return [
+                # Order by the expression first
+                F(self.many_annot_name).asc(nulls_first=True),
+            ]
+
+        return [
+            # Order by the expression first
+            F(self.many_annot_name).desc(nulls_last=True),
+        ]
+
+    def get_many_distinct_fields(self):
+        """Returns a list of field names containing the annotation.
+
+        Assumptions:
+            1. The caller has added the annotation whose name is stored in self.many_annot_name.
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            (List[str])
+        """
+        return [self.many_annot_name]
+
+    def get_many_annotations(self):
+        """Returns a dict containing the annotation name and expression.
+
+        Add this annotation before using many_order_bys or many_distinct_fields.
+
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            (List[str])
+        """
+        return {self.many_annot_name: self.many_expression}

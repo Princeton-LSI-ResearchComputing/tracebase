@@ -1,4 +1,4 @@
-from typing import Dict, Optional, Union
+from typing import Dict, List, Optional, Union
 from warnings import warn
 
 from django.conf import settings
@@ -19,6 +19,12 @@ class BSTClientInterface(ListView):
 
     script_name = "DataRepo/static/js/bst/base.js"
 
+    # Template variable names
+    cookie_prefix_var_name = "cookie_prefix"
+    cookie_resets_var_name = "cookie_resets"
+    clear_cookies_var_name = "clear_cookies"
+    model_var_name = "model"
+
     def __init__(self, **kwargs):
         """An extension of the ListView constructor intended to initialize the javascript and cookie interface.  It
         facillitates communication between the browser and the view.
@@ -30,6 +36,8 @@ class BSTClientInterface(ListView):
         Returns:
             None
         """
+        # The Django core code needed this set.  Not used in this class.
+        self.kwargs = kwargs
 
         super().__init__(**kwargs)
 
@@ -222,3 +230,74 @@ class BSTClientInterface(ListView):
                 self.request, self.get_column_cookie_name(column, name), default
             )
         return default
+
+    def reset_column_cookie(self, column: Union[str, BSTBaseColumn], name: str):
+        """Adds a cookie to the cookie_resets list.
+
+        Args:
+            column (Union[str, BSTBaseColumn]): A BST columns or column name.
+            name (str): The name of the cookie variable specific to the column.
+        Exceptions:
+            TypeError when column is invalid.
+        Returns:
+            None
+        """
+        if column is None:
+            raise TypeError(
+                f"Invalid column: [{column}].  Must be a str or BSTBaseColumn."
+            )
+        cookie_name = self.get_column_cookie_name(str(column), name)
+        if cookie_name not in self.cookie_resets:
+            self.cookie_resets.append(cookie_name)
+
+    def reset_column_cookies(self, columns: List[Union[str, BSTBaseColumn]], name: str):
+        """Adds cookies to the cookie_resets list.
+
+        Args:
+            columns (List[Union[str, BSTBaseColumn]]): A list of BST columns or column names.
+            name (str): The name of the cookie variable specific to the column.
+        Exceptions:
+            ValueError when columns is invalid.
+        Returns:
+            None
+        """
+        if columns is None or len(columns) == 0:
+            raise ValueError(
+                f"Invalid columns: [{columns}].  Must be a non-empty list of strs or BSTBaseColumns."
+            )
+        for col in columns:
+            self.reset_column_cookie(col, name)
+
+    def reset_cookie(self, name: str):
+        """Adds a cookie to the cookie_resets list.
+
+        Args:
+            name (str): The name of the cookie variable.
+        Exceptions:
+            None
+        Returns:
+            None
+        """
+        cookie_name = self.get_cookie_name(name)
+        if cookie_name not in self.cookie_resets:
+            self.cookie_resets.append(cookie_name)
+
+    def get_context_data(self, **kwargs):
+        """An override of the superclass method to provide context variables to the page.  All of the values are
+        specific to pagination and BST operations."""
+
+        # context = super().get_context_data(**kwargs)
+        context = super().get_context_data()
+
+        context.update(
+            {
+                # The basic ListView attribute
+                self.model_var_name: self.model,
+                # Client interface specific
+                self.cookie_prefix_var_name: self.cookie_prefix,
+                self.cookie_resets_var_name: self.cookie_resets,
+                self.clear_cookies_var_name: self.clear_cookies,
+            }
+        )
+
+        return context
