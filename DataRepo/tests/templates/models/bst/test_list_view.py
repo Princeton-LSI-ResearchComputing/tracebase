@@ -88,9 +88,9 @@ class BSTListViewTests(BaseTemplateTests):
         template_str = self.render_list_view_template(slv)
         expected_substrings = [
             '<script id="warnings" type="application/json">[]</script>',
-            '<script id="cookie_resets" type="application/json">[]</script>',
-            '<script src="js/bst/sorter.js"></script>',
-            '<script src="js/bst/filterers.js"></script>',
+            '<script id="cookieResets" type="application/json">[]</script>',
+            '<script src="/static/js/bst/sorter.js"></script>',
+            '<script src="/static/js/bst/filterer.js"></script>',
         ]
         self.assert_substrings(expected_substrings, template_str)
 
@@ -115,9 +115,7 @@ class BSTListViewTests(BaseTemplateTests):
         slv = StudyLV(request=request)
         slv.cookie_resets.append("test")
         template_str = self.render_list_view_template(slv)
-        expected = (
-            '<script id="cookie_resets" type="application/json">["test"]</script>'
-        )
+        expected = '<script id="cookieResets" type="application/json">["test"]</script>'
         self.assertTrue(
             expected in template_str,
             msg=f"'{expected}' not found in:\n{self.get_massaged_template_str(template_str)}",
