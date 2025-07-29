@@ -15,7 +15,7 @@ from DataRepo.utils.exceptions import DeveloperWarning
 from DataRepo.utils.text_utils import camel_to_title
 from DataRepo.views.models.bst.column.base import BSTBaseColumn
 from DataRepo.views.models.bst.utils import SizedPaginator
-from DataRepo.views.utils import get_cookie, get_cookie_dict
+from DataRepo.views.utils import delete_cookie, get_cookie, get_cookie_dict
 
 
 class BSTClientInterface(ListView):
@@ -96,11 +96,12 @@ class BSTClientInterface(ListView):
     raw_total_var_name = "raw_total"
     total_var_name = "total"
 
-    def __init__(self, **kwargs):
+    def __init__(self, clear_cookies: bool = False, **kwargs):
         """An extension of the ListView constructor intended to initialize the javascript and cookie interface.  It
         facillitates communication between the browser and the view.
 
         Args:
+            clear_cookies (bool) [False]
             kwargs (dict): Keyword args passed to ListView's constructor.
         Exceptions:
             None
@@ -115,16 +116,18 @@ class BSTClientInterface(ListView):
         # Allow derived classes to *add* scripts for import
         self.javascripts: List[str]
         if hasattr(self, "javascripts") and isinstance(self.javascripts, list):
-            self.javascripts.insert(0, BSTClientInterface.scripts)
+            for script in list(reversed(BSTClientInterface.scripts)):
+                if script not in self.javascripts:
+                    self.javascripts.insert(0, script)
         else:
             self.javascripts = [*BSTClientInterface.scripts]
 
         # Cookie controls
         self.cookie_prefix = f"{self.__class__.__name__}-"
-        self.cookie_resets = []
-        self.clear_cookies = False
+        self.cookie_resets: List[str] = []
+        self.clear_cookies = clear_cookies
 
-        self.warnings = []
+        self.warnings: List[str] = []
 
         # This is an override of ListView.ordering, defined here to silence this warning from Django:
         #   Pagination may yield inconsistent results with an unordered object_list:
@@ -148,7 +151,7 @@ class BSTClientInterface(ListView):
 
         # Initialize default values that will be obtained from cookies
         self.search_term: Optional[str] = None
-        self.filter_terms = {}
+        self.filter_terms: Dict[str, str] = {}
         self.visibles: Dict[str, bool] = {}
         self.sort_name: Optional[str] = None
         self.ordered = False
@@ -484,10 +487,10 @@ class BSTClientInterface(ListView):
             self.reset_column_cookie(col, name)
 
     def reset_cookie(self, name: str):
-        """Adds a cookie to the cookie_resets list.
+        """Adds a cookie to the cookie_resets list and removes the cookie from the request object.
 
         Args:
-            name (str): The name of the cookie variable.
+            name (str): The name of the cookie variable, not including the prefix.
         Exceptions:
             None
         Returns:
@@ -495,7 +498,25 @@ class BSTClientInterface(ListView):
         """
         cookie_name = self.get_cookie_name(name)
         if cookie_name not in self.cookie_resets:
+            delete_cookie(self.request, cookie_name)
             self.cookie_resets.append(cookie_name)
+
+    def reset_all_cookies(self):
+        """Sets clear_cookies to True and removes all cookies from the request object.
+
+        Args:
+            name (str): The name of the cookie variable, not including the prefix.
+        Exceptions:
+            None
+        Returns:
+            cookies (dict)
+        """
+        self.clear_cookies = True
+        cookies = get_cookie_dict(self.request, prefix=self.cookie_prefix)
+        for cookie_name in cookies.keys():
+            delete_cookie(self.request, f"{self.cookie_prefix}{cookie_name}")
+
+        return cookies
 
     def reset_filter_cookies(self):
         self.reset_column_cookies(
