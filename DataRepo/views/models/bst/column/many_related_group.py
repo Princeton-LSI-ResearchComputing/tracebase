@@ -47,8 +47,8 @@ class BSTColumnGroup:
             colgroup.set_sorters(column="animal__infusate__tracer_links__concentration", asc=False)
         Args:
             *columns (BSTManyRelatedColumn): Minimum of 2 BSTManyRelatedColumn objects.
-            initial (Optional[str]) [columns[0].name]: The name of the BSTManyRelatedColumn in columns that the sort
-                will be based on.
+            initial (Optional[str]) [columns[0].name]: The name of the BSTManyRelatedColumn in columns that the initial
+                sort will be based on.
             name (Optional[str]) [auto]: Arbitrary object name.  Must not match the name of any included BSTBaseColumn
                 objects.  The default is based on self.many_related_model_path, with dunderscores replaced with
                 underscores, and "_group" appended.
@@ -167,6 +167,9 @@ class BSTColumnGroup:
             (str): A sanitized object name intended for self.name
         """
         return name.replace("__", "_") + "_group"
+
+    def __str__(self):
+        return self.name
 
     def __eq__(self, other):
         """This is a convenience override to be able to compare a group name with a group object to see if the object
