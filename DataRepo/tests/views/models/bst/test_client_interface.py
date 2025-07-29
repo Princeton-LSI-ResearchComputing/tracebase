@@ -239,3 +239,29 @@ class BSTClientInterfaceTests(TracebaseTestCase):
         bci.reset_cookie("sortcol")
         # Only deletes the ones that are "set" (and empty string is eval'ed as None)
         self.assertEqual(["BSTClientInterface-sortcol"], bci.cookie_resets)
+
+    @TracebaseTestCase.assertNotWarns()
+    def test_get_context_data(self):
+        bci = BSTClientInterface()
+        bci.object_list = []
+        context = bci.get_context_data()
+        self.assertEqual(
+            set(
+                [
+                    "object_list",
+                    "page_obj",
+                    "cookie_prefix",
+                    "clear_cookies",
+                    "is_paginated",
+                    "cookie_resets",
+                    "paginator",
+                    "model",
+                    "view",
+                ]
+            ),
+            set(context.keys()),
+        )
+        self.assertEqual("BSTClientInterface-", context["cookie_prefix"])
+        self.assertFalse(context["clear_cookies"])
+        self.assertEqual([], context["cookie_resets"])
+        self.assertIsNone(context["model"])
