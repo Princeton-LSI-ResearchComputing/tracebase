@@ -3,11 +3,13 @@ from datetime import timedelta
 from django.apps import apps
 from django.db import ProgrammingError
 from django.db.models import (
+    CASCADE,
     CharField,
     Count,
     F,
     Field,
     FloatField,
+    ForeignKey,
     ManyToManyField,
     Min,
     Value,
@@ -15,6 +17,7 @@ from django.db.models import (
 from django.db.models.functions import Concat, Lower, Upper
 from django.db.models.query_utils import DeferredAttribute
 from django.forms import ValidationError, model_to_dict
+from django.test import override_settings
 
 from DataRepo.models import (
     Animal,
@@ -31,24 +34,40 @@ from DataRepo.models import (
 from DataRepo.models.utilities import (
     MultipleFields,
     NoFields,
+    _get_field_val_by_iteration_manyrelated_helper,
+    _get_field_val_by_iteration_onerelated_helper,
+    _last_many_rec_iterator,
+    _lower,
+    _recursive_many_rec_iterator,
     dereference_field,
     field_path_to_field,
     field_path_to_model_path,
     get_all_models,
     get_distinct_fields,
+    get_field_val_by_iteration,
+    get_many_related_field_val_by_subquery,
     get_model_by_name,
     get_next_model,
     is_many_related,
+    is_many_related_to_parent,
     is_many_related_to_root,
     is_number_field,
+    is_related,
     is_string_field,
     is_unique_field,
     model_path_to_model,
+    model_title,
+    model_title_plural,
     resolve_field,
     resolve_field_path,
+    select_representative_field,
     update_rec,
 )
-from DataRepo.tests.tracebase_test_case import TracebaseTransactionTestCase
+from DataRepo.tests.tracebase_test_case import (
+    TracebaseTestCase,
+    TracebaseTransactionTestCase,
+    create_test_model,
+)
 
 
 class ModelUtilitiesTests(TracebaseTransactionTestCase):
@@ -145,6 +164,17 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
         self.assertIsInstance(ArchiveFile.filename, DeferredAttribute)
         self.assertIsInstance(resolve_field(ArchiveFile.filename), Field)
 
+    def test_is_related(self):
+        self.assertFalse(is_related("filename", ArchiveFile))
+        self.assertTrue(is_related("data_format", ArchiveFile))
+        self.assertTrue(is_related("peak_groups", ArchiveFile))
+        self.assertTrue(
+            is_related("msrun_sample__sample__animal__studies__name", PeakGroup)
+        )
+        self.assertTrue(is_related("msrun_sample__sample__animal__name", PeakGroup))
+        self.assertTrue(is_related("msrun_sample", PeakGroup))
+        self.assertFalse(is_related("name", PeakGroup))
+
     def test_is_many_related(self):
         # "many related" means many to many or many to one
         # ArchiveFile.filename is not a foreign key field, so it can't be many related
@@ -156,7 +186,8 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
         self.assertFalse(
             is_many_related(ArchiveFile.data_format.field)  # pylint: disable=no-member
         )
-        # From the perspective of DataFormat, it is a many to ... relationship
+        # From the perspective of DataFormat, it is many-related to ArchiveFile.  ArchiveFile.data_format describes its
+        # field as one_to_many, so from the perspective of the DataFormat model, this relationship is a many_to_one.
         self.assertTrue(
             is_many_related(
                 ArchiveFile.data_format.field, DataFormat  # pylint: disable=no-member
@@ -193,6 +224,37 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
             is_many_related_to_root("msrun_sample__sample__animal__name", PeakGroup)
         )
         self.assertFalse(is_many_related_to_root("description", Study))
+
+    def test_is_many_related_to_parent(self):
+        self.assertFalse(is_many_related_to_parent("data_format", ArchiveFile))
+        self.assertTrue(is_many_related_to_parent("peak_groups", ArchiveFile))
+        self.assertTrue(
+            is_many_related_to_parent(
+                "msrun_sample__sample__animal__studies", PeakGroup
+            )
+        )
+        self.assertFalse(
+            is_many_related_to_parent(
+                "peak_groups__msrun_sample__sample__animal", ArchiveFile
+            )
+        )
+        # Works when ends in non-relation
+        self.assertFalse(
+            is_many_related_to_parent(
+                "peak_groups__msrun_sample__sample__animal__name", ArchiveFile
+            )
+        )
+        self.assertTrue(
+            is_many_related_to_parent(
+                "peak_groups__msrun_sample__sample__animal__studies", ArchiveFile
+            )
+        )
+        # Works when ends in non-relation
+        self.assertTrue(
+            is_many_related_to_parent(
+                "peak_groups__msrun_sample__sample__animal__studies__name", ArchiveFile
+            )
+        )
 
     def test_field_path_to_field(self):
         ra_field = field_path_to_field(
@@ -305,14 +367,19 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
             str(ar.exception),
         )
         with self.assertRaises(ProgrammingError) as ar:
-            print(resolve_field_path(1))
+            resolve_field_path(1)
         self.assertEqual(
             "Unexpected field_or_expression type: 'int'.",
             str(ar.exception),
         )
 
     def test_get_distinct_fields_nonkeyfield(self):
-        self.assertEqual(["name"], get_distinct_fields(Tracer, "name"))
+        with self.assertRaises(ValueError) as ar:
+            self.assertEqual(["name"], get_distinct_fields(Tracer, "name"))
+        self.assertEqual(
+            "The path provided must have at least 1 foreign key to extract the related model path.",
+            str(ar.exception),
+        )
 
     def test_get_distinct_fields_keyfield_with_expression(self):
         # Tracer has 'Lower' in its meta ordering
@@ -325,3 +392,224 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
             ["peak_data__peak_group__name", "peak_data__corrected_abundance"],
             get_distinct_fields(PeakDataLabel, "peak_data"),
         )
+
+    def test_select_representative_field(self):
+        self.assertEqual("name", select_representative_field(Animal))
+        self.assertEqual("checksum", select_representative_field(ArchiveFile))
+        self.assertEqual("code", select_representative_field(DataFormat))
+        self.assertEqual("name", select_representative_field(LCMethod))
+        self.assertEqual("name", select_representative_field(PeakGroup))
+        self.assertEqual("name", select_representative_field(Study))
+        self.assertEqual("name", select_representative_field(Tracer))
+
+        # No suitable field in these models (no single order-by and no unique that are not key fields whose values are
+        # not guaranteed from load-to-load)
+        self.assertIsNone(select_representative_field(PeakData))
+        self.assertIsNone(select_representative_field(PeakDataLabel))
+        self.assertIsNone(select_representative_field(TracerLabel))
+
+        # When there's no suitable field, you can force it...
+        self.assertEqual(
+            "raw_abundance", select_representative_field(PeakData, force=True)
+        )
+        self.assertEqual(
+            "element", select_representative_field(PeakDataLabel, force=True)
+        )
+        self.assertEqual("name", select_representative_field(TracerLabel, force=True))
+
+    def test_model_title(self):
+        self.assertEqual("Peak Data Label", model_title(PeakDataLabel))
+
+    def test_model_title_plural(self):
+        self.assertEqual("Peak Data Labels", model_title_plural(PeakDataLabel))
+
+
+MUQStudyTestModel = create_test_model(
+    "MUQStudyTestModel",
+    {
+        "name": CharField(max_length=255, unique=True),
+        "desc": CharField(max_length=255),
+    },
+    attrs={
+        "Meta": type(
+            "Meta",
+            (),
+            {"app_label": "loader", "ordering": [Lower("name").desc()]},
+        ),
+    },
+)
+
+MUQAnimalTestModel = create_test_model(
+    "MUQAnimalTestModel",
+    {
+        "name": CharField(max_length=255, unique=True),
+        "desc": CharField(max_length=255),
+        "studies": ManyToManyField(
+            to="loader.MUQStudyTestModel", related_name="animals"
+        ),
+        "treatment": ForeignKey(
+            to="loader.MUQTreatmentTestModel",
+            related_name="animals",
+            on_delete=CASCADE,
+        ),
+    },
+    attrs={
+        "Meta": type(
+            "Meta",
+            (),
+            {"app_label": "loader", "ordering": ["-name"]},
+        ),
+    },
+)
+
+MUQTreatmentTestModel = create_test_model(
+    "MUQTreatmentTestModel",
+    {"name": CharField(unique=True), "desc": CharField()},
+)
+
+
+@override_settings(DEBUG=True)
+class ModelUtilityQueryTests(TracebaseTestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.t1 = MUQTreatmentTestModel.objects.create(name="T1", desc="t1")
+        cls.t2 = MUQTreatmentTestModel.objects.create(name="oddball", desc="t2")
+        cls.s1 = MUQStudyTestModel.objects.create(name="S1", desc="s1")
+        cls.s2 = MUQStudyTestModel.objects.create(name="S2", desc="s2")
+        cls.a1 = MUQAnimalTestModel.objects.create(
+            name="A1", desc="a1", treatment=cls.t1
+        )
+        cls.a1.studies.add(cls.s1)
+        cls.a2 = MUQAnimalTestModel.objects.create(
+            name="A2", desc="a2", treatment=cls.t2
+        )
+        cls.a2.studies.add(cls.s1)
+        cls.a2.studies.add(cls.s2)
+        super().setUpTestData()
+
+    @TracebaseTestCase.assertNotWarns()
+    def test_get_field_val_by_iteration(self):
+        with self.assertNumQueries(0):
+            # NOTE: Not sure yet why this performs no queries
+            val, sval, id = get_field_val_by_iteration(
+                self.a1,
+                ["treatment"],
+                sort_field_path=["treatment", "name"],
+            )
+        self.assertEqual(self.t1, val)
+        # Whether this is lower-cased or not, it does not matter.  The sort value and unique value are only present to
+        # be compatible with the many-related companion recursive path.  It might not even be necessary, since I split
+        # up the methods... so I should look into the possibility of remove it.
+        self.assertEqual("T1", sval)
+        self.assertIsInstance(id, int)
+
+        with self.assertNumQueries(1):
+            vals = get_field_val_by_iteration(
+                self.a2,
+                ["studies"],
+                related_limit=2,
+                sort_field_path=["studies", "name"],
+            )
+        expected1 = set([self.s2, self.s1])
+        expected2 = set(["s1", "s2"])
+        vals1 = set([v[0] for v in vals])
+        vals2 = set([v[1] for v in vals])
+        vals3 = set([v[2] for v in vals])
+        self.assertEqual(expected1, vals1)
+        self.assertEqual(expected2, vals2)
+        self.assertTrue(all(isinstance(v3, int) for v3 in vals3))
+
+    @TracebaseTestCase.assertNotWarns()
+    def test__get_field_val_by_iteration_onerelated_helper(self):
+        with self.assertNumQueries(0):
+            # NOTE: Not sure yet why this performs no queries
+            val, sval, id = _get_field_val_by_iteration_onerelated_helper(
+                self.a1,
+                ["treatment"],
+                sort_field_path=["treatment", "name"],
+            )
+        self.assertEqual(self.t1, val)
+        # Whether this is lower-cased or not, it does not matter.  The sort value and unique value are only present to
+        # be compatible with the many-related companion recursive path.  It might not even be necessary, since I split
+        # up the methods... so I should look into the possibility of remove it.
+        self.assertEqual("T1", sval)
+        self.assertIsInstance(id, int)
+
+    @TracebaseTestCase.assertNotWarns()
+    def test__get_field_val_by_iteration_manyrelated_helper(self):
+        with self.assertNumQueries(1):
+            vals = _get_field_val_by_iteration_manyrelated_helper(
+                self.a2,
+                ["studies"],
+                related_limit=2,
+                sort_field_path=["studies", "name"],
+            )
+        expected2 = set(["s1", "s2"])
+        expected1 = set([self.s2, self.s1])
+        vals1 = set([v[0] for v in vals])
+        vals2 = set([v[1] for v in vals])
+        vals3 = set([v[2] for v in vals])
+        self.assertEqual(expected2, vals2)
+        self.assertEqual(expected1, vals1)
+        self.assertTrue(all(isinstance(v3, int) for v3 in vals3))
+
+    @TracebaseTestCase.assertNotWarns()
+    def test__last_many_rec_iterator(self):
+        mr_qs = MUQStudyTestModel.objects.all()
+        iterator = iter(_last_many_rec_iterator(mr_qs, ["name"]))
+        expected1 = set([self.s2, self.s1])
+        # The names are lower-cased
+        expected2 = set(["s1", "s2"])
+        with self.assertNumQueries(1):
+            val1 = next(iterator)
+        with self.assertNumQueries(0):
+            # NOTE: I don't understand yet why this performs no query
+            val2 = next(iterator)
+        vals1 = set([val1[0], val2[0]])
+        vals2 = set([val1[1], val2[1]])
+        vals3 = set([val1[2], val2[2]])
+        self.assertEqual(expected1, vals1)
+        self.assertEqual(expected2, vals2)
+        self.assertTrue(all(isinstance(v3, int) for v3 in vals3))
+        with self.assertRaises(StopIteration):
+            next(iterator)
+
+    @TracebaseTestCase.assertNotWarns()
+    def test__recursive_many_rec_iterator(self):
+        mr_qs = MUQStudyTestModel.objects.all()
+        iterator = iter(
+            _recursive_many_rec_iterator(mr_qs, ["name"], ["name"], 2, None)
+        )
+        expected = set([("S2", "S2", "S2"), ("S1", "S1", "S1")])
+        with self.assertNumQueries(1):
+            r1 = next(iterator)
+        with self.assertNumQueries(0):
+            # NOTE: I don't understand yet why this performs no query
+            r2 = next(iterator)
+        vals = set([r1, r2])
+        self.assertEqual(expected, vals)
+        with self.assertRaises(StopIteration):
+            next(iterator)
+
+    @TracebaseTestCase.assertNotWarns()
+    def test_get_many_related_field_val_by_subquery(self):
+        """This test is the same as test_get_many_related_rec_val_by_subquery, only it adds the count keyword arg."""
+        qs = MUQAnimalTestModel.objects.all()
+        rec = qs.first()
+
+        val = get_many_related_field_val_by_subquery(
+            rec,
+            "studies__name",
+            related_limit=2,
+            annotations={"studies_name_bstcellsort": Lower("studies__name")},
+            order_bys=[F("studies_name_bstcellsort").asc(nulls_first=True)],
+            distincts=["studies_name_bstcellsort"],
+        )
+
+        self.assertEqual(["S1", "S2"], val)
+
+    @TracebaseTestCase.assertNotWarns()
+    def test__lower(self):
+        self.assertEqual("test string", _lower("Test String"))
+        self.assertEqual(5, _lower(5))
+        self.assertIsNone(_lower(None))

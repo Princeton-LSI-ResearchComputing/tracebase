@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% load customtags %}
+
+{% block title %}{{ table_name }}{% endblock %}
+
+{% block content %}
+    <h4>{{ table_name }}</h4>
+    <br>
+    <div>
+        <table class="table table-sm table-hover table-bordered table-responsive-xl table-striped"
+            id="{{ table_id }}"
+            data-toggle="table"
+            data-buttons-align="left"
+            data-buttons-class="primary"
+            data-buttons="customButtonsFunction"
+            data-export-types="['csv', 'txt', 'excel']"
+            data-export-data-type="all"
+            data-filter-control="true"
+            data-search="true"
+            data-search-align="left"
+            data-search-on-enter-key="true"
+            data-search-text="{{ search_term }}"
+            data-sort-name="{{ sortcol }}"
+            data-sort-order="{% if asc %}asc{% else %}desc{% endif %}"
+            data-show-search-clear-button="true"
+            data-show-multi-sort="true"
+            data-show-columns="true"
+            data-show-columns-toggle-all="true"
+            data-show-fullscreen="true"
+            data-show-export="false">
+            <thead>
+                <tr>
+                    {% for column in columns %}
+                        {% include column.th_template %}
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for object in object_list %}
+                    <tr>
+                        {% for column in columns %}
+                            {% include column.td_template %}
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock %}
