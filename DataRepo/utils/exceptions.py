@@ -3912,6 +3912,10 @@ class MutuallyExclusiveArgs(InfileError):
     pass
 
 
+class MutuallyExclusiveMethodArgs(Exception):
+    pass
+
+
 class RequiredOptions(CommandError):
     def __init__(self, missing, **kwargs):
         message = f"Missing required options: {missing}."

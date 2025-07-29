@@ -6,7 +6,9 @@ import time
 from collections import defaultdict
 from typing import Dict, Type, TypeVar
 
+from django.apps import apps
 from django.conf import settings
+from django.db import ProgrammingError
 from django.db.models import AutoField, Field, Model
 from django.test import TestCase, TransactionTestCase, override_settings
 
@@ -121,6 +123,101 @@ def test_case_class_factory(base_class: Type[T]) -> Type[T]:
         class Meta:
             abstract = True
 
+        def assertDictEquivalent(
+            self, d1: dict, d2: dict, max_depth=10, _path=None, **kwargs
+        ):
+            """Checks whether dicts are equal when their values can be objects that technically differ, but are
+            essentially the same when you evaluate them using their __dict__ attribute (and check their types).
+            """
+            _path = "" if _path is None else _path
+            if len(_path.split(",")) >= max_depth:
+                return
+            ignores = ["creation_counter", "identity"]
+            self.assertEqual(
+                set([k for k in d1.keys() if k not in ignores]),
+                set([k for k in d2.keys() if k not in ignores]),
+                msg="keys differ",
+            )
+            for key, v1 in d1.items():
+                if key in ignores:
+                    continue
+                self.assertEquivalent(
+                    v1, d2[key], _path=_path + key + ",", max_depth=max_depth, **kwargs
+                )
+
+        def assertEquivalent(
+            self, o1: object, o2: object, max_depth=10, _path=None, **kwargs
+        ):
+            """Checks whether values are equal.  If the values are objects, it essentially checks that their types and
+            __dict__ attributes are equal."""
+            _path = "" if _path is None else _path
+            if len(_path.split(",")) >= max_depth:
+                return
+            primitives = (bool, str, int, float, type(None))
+            if isinstance(o1, primitives):
+                try:
+                    self.assertEqual(o1, o2, **kwargs)
+                except AssertionError as ae:
+                    if _path is None:
+                        raise ae
+                    raise AssertionError(
+                        f"Object path: {_path} difference: {ae}"
+                    ).with_traceback(ae.__traceback__)
+            elif type(o1).__name__ == "function":
+                try:
+                    self.assertEqual(o1, o2, **kwargs)
+                except AssertionError as ae:
+                    if _path is None:
+                        raise ae
+                    raise AssertionError(
+                        f"Object path: {_path} difference: {ae}"
+                    ).with_traceback(ae.__traceback__)
+            else:
+                self.assertIsInstance(o2, type(o1), **kwargs)
+                if isinstance(o1, (list, tuple)) and isinstance(o2, (list, tuple)):
+                    try:
+                        self.assertEqual(len(o1), len(o2), **kwargs)
+                    except AssertionError as ae:
+                        if _path is None:
+                            raise ae
+                        raise AssertionError(
+                            f"Object path: {_path} difference: {ae}"
+                        ).with_traceback(ae.__traceback__)
+                    for i in range(len(o1)):
+                        self.assertEquivalent(
+                            o1[i],
+                            o2[i],
+                            _path=_path + f"{i},",
+                            max_depth=max_depth,
+                            **kwargs,
+                        )
+                elif (
+                    isinstance(o1, dict)
+                    and all(isinstance(k, str) for k in o1.keys())
+                    and isinstance(o2, dict)
+                    and all(isinstance(k, str) for k in o2.keys())
+                ):
+                    self.assertDictEquivalent(
+                        o1, o2, _path=_path + "dict,", max_depth=max_depth, **kwargs
+                    )
+                elif hasattr(o1, "__dict__"):
+                    self.assertDictEquivalent(
+                        o1.__dict__,
+                        o2.__dict__,
+                        _path=_path + "__dict__,",
+                        max_depth=max_depth,
+                        **kwargs,
+                    )
+                else:
+                    try:
+                        self.assertEqual(o1, o2, **kwargs)
+                    except AssertionError as ae:
+                        if _path is None:
+                            raise ae
+                        raise AssertionError(
+                            f"Object path: {_path} difference: {ae}"
+                        ).with_traceback(ae.__traceback__)
+
         @staticmethod
         def assertNotWarns(unexpected_warning=Warning):
             """This is a decorator.  Apply it to tests that should not raise a warning.
@@ -212,6 +309,11 @@ def create_test_model(
     Returns:
         A dynamically created Django model class.
     """
+    app_label = "loader"
+    model_names = [mdl.__name__ for mdl in apps.get_app_config(app_label).get_models()]
+    if model_name in model_names:
+        raise ProgrammingError(f"A model named '{model_name}' already exists.")
+
     if not any(f.primary_key for f in fields.values()):
         if not any(n == "id" for n in fields.keys()):
             fields["id"] = AutoField(primary_key=True)
@@ -225,7 +327,7 @@ def create_test_model(
             "Meta",
             (),
             # TODO: Change "loader" to something disassociated with the loader classes
-            {"app_label": "loader"},
+            {"app_label": app_label},
         ),
     }
     model_attrs.update(attrs)
