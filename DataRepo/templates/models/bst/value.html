@@ -1,0 +1,14 @@
+{% load bsttags %}
+
+{% with column_value=object|get_rec_val:column %}
+    {% if column_value|is_model_obj and column_value|has_attr:"get_absolute_url" %}
+        {# Render model object in string context for the link's display value #}
+        <a href="{{ column_value|get_absolute_url }}">{{ column_value }}</a>
+    {% else %}
+        {% if column_value is None %}
+            <span class="text-muted">None</span>
+        {% else %}
+            {{ column_value }}
+        {% endif %}
+    {% endif %}
+{% endwith %}

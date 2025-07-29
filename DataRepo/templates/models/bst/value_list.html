@@ -1,0 +1,19 @@
+{% load bsttags %}
+
+{# It is assumed that column is a BSTManyRelatedColumn, thus get_rec_val will return a list #}
+{% with column_values=object|get_rec_val:column %}
+    {% for column_value in column_values %}
+        {% if column_value|is_model_obj and column_value|has_attr:"get_absolute_url" %}
+            {# Render model object in string context for the link's display value #}
+            <a href="{{ column_value|get_absolute_url }}">{{ column_value }}</a>{% if not forloop.last %}{{ column.delim }}<br class="cell-wrap">{% endif %}
+        {% else %}
+            {% if column_value is None %}
+                <span class="text-muted">None</span>{% if not forloop.last %}{{ column.delim }}<br class="cell-wrap">{% endif %}
+            {% else %}
+                {{ column_value }}{% if not forloop.last %}{{ column.delim }}<br class="cell-wrap">{% endif %}
+            {% endif %}
+        {% endif %}
+    {% empty %}
+        <span class="text-muted">None</span>
+    {% endfor %}
+{% endwith %}

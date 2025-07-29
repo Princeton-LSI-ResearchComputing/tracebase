@@ -251,12 +251,19 @@ See these resources for help implementing tests:
 
 #### Quality Control
 
-All pull requests must pass new and all previous tests, and pass a migration
-check before merging.  Run the following locally before submitting a pull
-request:
+All pull requests must pass new and all previous continuous integration tests,
+all JavaScript tests, and pass a migration check before merging.  Run the
+following locally before submitting a pull request:
 
     python manage.py test
     python manage.py makemigrations --check --dry-run
+    python -m http.server
+
+Then after the last command, in a major browser, go to:
+
+    http://127.0.0.1:8000/DataRepo/tests/static/js/tests.html
+
+and confirm all of the JavaScript tests pass.
 
 ### Model Updates
 

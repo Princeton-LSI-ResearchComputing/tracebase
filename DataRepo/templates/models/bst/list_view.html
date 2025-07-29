@@ -1,0 +1,93 @@
+{% extends "base/base.html" %}
+{% load customtags %}
+
+{% block title %}{{ table_name }}{% endblock %}
+
+{% block content %}
+
+    {# Script imports #}
+
+    {# Variables needed for the scripts #}
+    {{ warnings|json_script:"warnings" }}
+    {{ cookie_resets|json_script:"cookie_resets" }}
+
+    {# The script imports #}
+    {% for script in scripts %}<script src="{{ script }}"></script>
+    {% endfor %}
+
+    {# Script initialization #}
+    <script>
+        document.addEventListener("DOMContentLoaded", function(){
+            initBST(
+                '{{ limit }}',
+                '{{ limit_default }}',
+                '{{ table_id }}',
+                '{{ cookie_prefix }}',
+                '{{ page_obj.number }}',
+                '{{ page_obj.paginator.per_page }}',
+                '{{ total }}',
+                '{{ raw_total }}',
+                window.location.href.split('?')[0],
+                {% comment %}
+                TODO: Fix this so that request.resolver_match.url_name can be used.
+                The following does not work in the BSTListView tests because it does not have a url, but the above works
+                - it is the javascript equivalent and the python test does not do anything with it.  To fix it, I need
+                to create a proper concrete view for BSTListView in the tests, with a url and everything.
+                {% endcomment %}
+                {% comment %} '{% url request.resolver_match.url_name %}', {% endcomment %}
+                warnings,
+                cookieResets,
+                '{{ clear_cookies }}',
+            )
+        });
+    </script>
+
+    {# The table/page #}
+
+    <h4>{{ table_name }}</h4>
+    <br>
+    <div>
+        <table class="table table-sm table-hover table-bordered table-responsive-xl table-striped"
+            id="{{ table_id }}"
+            data-toggle="table"
+            data-buttons-align="left"
+            data-buttons-class="primary"
+            data-buttons="customButtonsFunction"
+            data-export-types="['csv', 'txt', 'excel']"
+            data-export-data-type="all"
+            data-filter-control="true"
+            data-search="true"
+            data-search-align="left"
+            data-search-on-enter-key="true"
+            {% if search %}
+                data-search-text="{{ search }}"
+            {% endif %}
+            data-show-search-clear-button="true"
+            {% if sortcol %}
+                data-sort-name="{{ sortcol }}"
+                data-sort-order="{% if asc %}asc{% else %}desc{% endif %}"
+            {% endif %}
+            data-show-multi-sort="true"
+            data-show-columns="true"
+            data-show-columns-toggle-all="true"
+            data-show-fullscreen="true"
+            data-show-export="false">
+            <thead>
+                <tr>
+                    {% for column in columns.values %}
+                        {% include column.th_template %}
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for object in object_list %}
+                    <tr>
+                        {% for column in columns.values %}
+                            {% include column.td_template %}
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock %}

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional, Type, Union, cast
+from typing import List, Optional, Type, Union, cast
 
 from django.db import ProgrammingError
 from django.db.models import Field, Model
@@ -45,16 +45,26 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
                 <a href="{{ study|get_detail_url }}">{{ study }}</a>{% if not forloop.last %}{{ studycol.delim }}<br>
                 {% endif %}
             {% endfor %}
+
+    See the BSTBaseColumn docstring for examples on how to customize filtering and sorting behavior.
     """
 
     is_many_related: bool = True
     delimiter: str = "; "
     limit: int = 3
     ascending: bool = True
+
+    # These ellipsis versions are used when the number of values displayed has been limited
     more_msg = "... (+{0} more)"
     more_unknown_msg = "..."
-    list_attr_tail = "_mm_list"
-    count_attr_tail = "_mm_count"
+    # TODO: Add a way to link these 'more' strings to a model's list view (with filters/sorting, if one exists)
+
+    # This template handles the list attribute added to the root model record
+    value_template: str = "models/bst/value_list.html"
+
+    # These are used in the construction of attributes off the root model record
+    _list_attr_tail = "_mm_list"
+    _count_attr_tail = "_mm_count"
 
     def __init__(
         self,
@@ -187,7 +197,7 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
                 "get_count_name must only be used for many_related_model_path, but the last field in the path "
                 f"'{many_related_model_path}' is not many-related to its parent field."
             )
-        return cls.get_attr_stub(many_related_model_path, model) + cls.count_attr_tail
+        return cls.get_attr_stub(many_related_model_path, model) + cls._count_attr_tail
 
     @classmethod
     def get_list_name(cls, field_path: str, model: Type[Model]) -> str:
@@ -202,7 +212,44 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
         Returns:
             stub (str)
         """
-        return cls.get_attr_stub(field_path, model) + cls.list_attr_tail
+        return cls.get_attr_stub(field_path, model) + cls._list_attr_tail
+
+    def set_list_attr(self, rec: Model, subrecs: List[Model]):
+        """Adds a list of supplied many-related records as an attribute to the supplied root model record.  Truncates
+        the list down to the size indicated self.limit and appends an ellipsis (if there are more records not shown).
+
+        Args:
+            rec (Model): A record from self.model.
+            subrecs (List[Model]): A list of Model field values (or Model objects) from a model that is many-related
+                with self.model.
+        Exceptions:
+            ProgrammingError when there is an attribute name collision
+        Returns:
+            None
+        """
+        if not isinstance(rec, self.model):
+            raise ProgrammingError(
+                f"rec must be of type {self.model.__name__}, not  {type(rec).__name__}"
+            )
+        if len(subrecs) >= (self.limit + 1):
+            n = self.limit + 1
+            limited_subrecs = subrecs[0:n]
+            if hasattr(rec, self.count_attr_name):
+                count = getattr(rec, self.count_attr_name)
+                limited_subrecs[-1] = self.more_msg.format(count - self.limit)
+            else:
+                # The derived class must've eliminated the {colname}_mm_count column, so we cannot tell them how many
+                # there are left to display.
+                limited_subrecs[-1] = self.more_unknown_msg
+        else:
+            limited_subrecs = subrecs
+
+        if hasattr(rec, self.list_attr_name):
+            raise ProgrammingError(
+                f"Attribute '{self.list_attr_name}' already exists on '{self.model.__name__}' object."
+            )
+
+        setattr(rec, self.list_attr_name, limited_subrecs)
 
     def create_sorter(
         self, field: Optional[Union[Combinable, Field, str]] = None, **kwargs
