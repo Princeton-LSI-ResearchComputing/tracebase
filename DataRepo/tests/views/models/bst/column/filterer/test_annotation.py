@@ -1,8 +1,10 @@
+from django.db.models import Q
 from django.templatetags.static import static
 from django.test import override_settings
 
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
-from DataRepo.views.models.bst_list_view.column.filterer.annotation import (
+from DataRepo.utils.exceptions import DeveloperWarning
+from DataRepo.views.models.bst.column.filterer.annotation import (
     BSTAnnotFilterer,
 )
 
@@ -44,10 +46,14 @@ class BSTAnnotFiltererTests(TracebaseTestCase):
         )
 
     @TracebaseTestCase.assertNotWarns()
-    def test_javascript(self):
+    def test_script(self):
+        f = BSTAnnotFilterer(
+            "name",
+            _server_filterer=BSTAnnotFilterer.SERVER_FILTERERS.CONTAINS,
+        )
         self.assertEqual(
-            f"<script src='{static(BSTAnnotFilterer.JAVASCRIPT)}'></script>",
-            BSTAnnotFilterer.javascript,
+            f"<script src='{static(BSTAnnotFilterer.script_name)}'></script>",
+            f.script,
         )
 
     @TracebaseTestCase.assertNotWarns()
@@ -109,7 +115,7 @@ class BSTAnnotFiltererTests(TracebaseTestCase):
         )
 
     def test_init_client_filterer_none_text_input(self):
-        with self.assertWarns(UserWarning) as aw:
+        with self.assertWarns(DeveloperWarning) as aw:
             f = BSTAnnotFilterer(
                 "name",
                 client_filterer=BSTAnnotFilterer.CLIENT_FILTERERS.NONE,
@@ -161,7 +167,7 @@ class BSTAnnotFiltererTests(TracebaseTestCase):
         )
 
     def test_init_client_filterer_unknown(self):
-        with self.assertWarns(UserWarning) as aw:
+        with self.assertWarns(DeveloperWarning) as aw:
             f = BSTAnnotFilterer(
                 "name",
                 client_filterer="myFilterer",
@@ -226,3 +232,11 @@ class BSTAnnotFiltererTests(TracebaseTestCase):
             initial="A",
         )
         self.assertEqual("A", f.initial)
+
+    @TracebaseTestCase.assertNotWarns()
+    def test_filter(self):
+        f = BSTAnnotFilterer("name")
+        # NOTE: icontains actually works on anything.  The DB (or Django?) does a conversion.  It clearly works for
+        # numeric fields and date fields, so what BSTAnnotSorter does (without knowing the field type), is it infers
+        # whether to use icontains or iexact based on the input method.
+        self.assertEqual(Q(**{"name__icontains": "test"}), f.filter("test"))

@@ -2,14 +2,12 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from typing import Optional, Union
+from warnings import warn
 
+from DataRepo.utils.exceptions import DeveloperWarning
 from DataRepo.utils.text_utils import underscored_to_title
-from DataRepo.views.models.bst_list_view.column.filterer.base import (
-    BSTBaseFilterer,
-)
-from DataRepo.views.models.bst_list_view.column.sorter.base import (
-    BSTBaseSorter,
-)
+from DataRepo.views.models.bst.column.filterer.base import BSTBaseFilterer
+from DataRepo.views.models.bst.column.sorter.base import BSTBaseSorter
 
 
 class BSTBaseColumn(ABC):
@@ -45,14 +43,15 @@ class BSTBaseColumn(ABC):
         linked: bool = False,
         sorter: Optional[Union[str, BSTBaseSorter]] = None,
         filterer: Optional[Union[str, BSTBaseFilterer]] = None,
-        th_template: str = "models/bst_list_view/th.html",
-        td_template: str = "models/bst_list_view/bst_td.html",
-        value_template: str = "models/bst_list_view/bst_value.html",
+        th_template: str = "models/bst/th.html",
+        td_template: str = "models/bst/bst_td.html",
+        value_template: str = "models/bst/bst_value.html",
     ):
         """Defines options used to customize bootstrap table columns.
 
         Args:
-            name (str): The column name (used for identifying the correct sorter object).
+            name (str): The column name used by Bootstrap Table to uniquely identify a column, particularly for sorting
+                and filtering operations.
             header (Optional[str]) [auto]: The column header to display in the template.  Will be automatically
                 generated using the title case conversion of the last (2, if present) dunderscore-delimited name values.
 
@@ -72,15 +71,15 @@ class BSTBaseColumn(ABC):
                 NOTE: The model must have a "get_absolute_url" method.  Checked in the template.
 
             sorter (Optional[Union[str, BSTBaseSorter]]) [auto]: If the value is a str, must be in
-                BSTBaseSorter.SORTERS.  Default will be based on the name and the sorter (if it is a str).
-            filterer (Optional[Union[str, BSTbaseFilterer]]) [auto]: If the value is a str, must be in
-                BSTbaseFilterer.FILTERERS.  Default will be based on the name and the filterer (if it is a str).
+                BSTBaseSorter.CLIENT_SORTERS.  Default will be based on the name and the sorter (if it is a str).
+            filterer (Optional[Union[str, BSTBaseFilterer]]) [auto]: If the value is a str, must be in
+                BSTBaseFilterer.CLIENT_FILTERERS.  Default will be based on the name and the filterer (if it is a str).
 
-            th_template (str) ["models/bst_list_view/th.html"]: Template path to an html file used to render the th
+            th_template (str) ["models/bst/th.html"]: Template path to an html file used to render the th
                 element for the column header.  This must handle the initial sort field, search term, and filter term.
-            td_template (str) ["models/bst_list_view/bst_td.html"]: Template path to an html file used to render the td
+            td_template (str) ["models/bst/bst_td.html"]: Template path to an html file used to render the td
                 element for a column cell.
-            value_template (str) ["models/bst_list_view/bst_value.html"]: Template path to an html file used to render
+            value_template (str) ["models/bst/bst_value.html"]: Template path to an html file used to render
                 the value inside the td element for a column cell.
         Exceptions:
             ValueError when arguments are invalid
@@ -105,7 +104,10 @@ class BSTBaseColumn(ABC):
         self.sorter: BSTBaseSorter
         self.filterer: BSTBaseFilterer
 
-        if getattr(self, "is_fk", None) is None:
+        # Modified by BSTColumnGroup
+        self._in_group = False
+
+        if not hasattr(self, "is_fk") or getattr(self, "is_fk", None) is None:
             self.is_fk = False
 
         if self.linked:
@@ -156,7 +158,7 @@ class BSTBaseColumn(ABC):
         if sorter is None:
             self.sorter = self.create_sorter()
         elif isinstance(sorter, str):
-            self.sorter = self.create_sorter(sorter=sorter)
+            self.sorter = self.create_sorter(client_sorter=sorter)
         elif isinstance(sorter, BSTBaseSorter):
             self.sorter = sorter
         else:
@@ -169,13 +171,16 @@ class BSTBaseColumn(ABC):
         if filterer is None:
             self.filterer = self.create_filterer()
         elif isinstance(filterer, str):
-            self.filterer = self.create_filterer(filterer=filterer)
+            self.filterer = self.create_filterer(client_filterer=filterer)
         elif isinstance(filterer, BSTBaseFilterer):
             self.filterer = filterer
         else:
             raise TypeError(
                 f"filterer must be a str or a BSTBaseFilterer, not a '{type(filterer).__name__}'."
             )
+
+    def __str__(self):
+        return self.name
 
     def __eq__(self, other):
         """This is a convenience override to be able to compare a column name with a column object to see if the object
@@ -190,7 +195,13 @@ class BSTBaseColumn(ABC):
             (bool)
         """
         if isinstance(other, __class__):  # type: ignore
-            return self.__dict__ == other.__dict__
+            if self._in_group != other._in_group:
+                warn(
+                    "Equating BSTBaseColumns where one is in a group and the other is not will always fail because "
+                    "BSTColumnGroup modifies the sorter.",
+                    DeveloperWarning,
+                )
+            return self.__class__ == other.__class__ and self.__dict__ == other.__dict__
         elif isinstance(other, str):
             return self.name == other
         elif other is None:
@@ -205,11 +216,11 @@ class BSTBaseColumn(ABC):
         return underscored_to_title(self.name)
 
     @abstractmethod
-    def create_sorter(self, sorter: Optional[str] = None) -> BSTBaseSorter:
-        """Derived classes must define this method to set self.sorter"""
+    def create_sorter(self, field=None, **kwargs):
+        """Derived classes must define this method to set self.sorter to a BSTBaseSorter"""
         pass
 
     @abstractmethod
-    def create_filterer(self, filterer: Optional[str] = None) -> BSTBaseFilterer:
-        """Derived classes must define this method to set self.filterer"""
+    def create_filterer(self, field=None, **kwargs):
+        """Derived classes must define this method to set self.filterer to a BSTBaseFilterer"""
         pass

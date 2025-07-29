@@ -4,6 +4,7 @@ from django.db.models import (
     FloatField,
     ForeignKey,
     ManyToManyField,
+    Q,
 )
 from django.templatetags.static import static
 from django.test import override_settings
@@ -12,9 +13,8 @@ from DataRepo.tests.tracebase_test_case import (
     TracebaseTestCase,
     create_test_model,
 )
-from DataRepo.views.models.bst_list_view.column.filterer.field import (
-    BSTFilterer,
-)
+from DataRepo.utils.exceptions import DeveloperWarning
+from DataRepo.views.models.bst.column.filterer.field import BSTFilterer
 
 BSTFStudyTestModel = create_test_model(
     "BSTFStudyTestModel",
@@ -133,7 +133,7 @@ class BSTFiltererTests(TracebaseTestCase):
         self.assertFalse(f.client_mode)
 
     def test_init_client_filterer_custom_warns(self):
-        with self.assertWarns(UserWarning) as aw:
+        with self.assertWarns(DeveloperWarning) as aw:
             f = BSTFilterer(
                 BSTFStudyTestModel.name.field.name,  # pylint: disable=no-member
                 BSTFStudyTestModel,
@@ -178,7 +178,7 @@ class BSTFiltererTests(TracebaseTestCase):
         )
 
     def test_init_server_filterer(self):
-        with self.assertWarns(UserWarning) as aw:
+        with self.assertWarns(DeveloperWarning) as aw:
             f = BSTFilterer(
                 BSTFStudyTestModel.name.field.name,  # pylint: disable=no-member
                 BSTFStudyTestModel,
@@ -266,10 +266,14 @@ class BSTFiltererTests(TracebaseTestCase):
         )
 
     @TracebaseTestCase.assertNotWarns()
-    def test_javascript(self):
+    def test_script(self):
+        f = BSTFilterer(
+            BSTFStudyTestModel.name.field.name,  # pylint: disable=no-member
+            BSTFStudyTestModel,
+        )
         self.assertEqual(
-            f"<script src='{static(BSTFilterer.JAVASCRIPT)}'></script>",
-            BSTFilterer.javascript,
+            f"<script src='{static(BSTFilterer.script_name)}'></script>",
+            f.script,
         )
 
     @TracebaseTestCase.assertNotWarns()
@@ -294,3 +298,11 @@ class BSTFiltererTests(TracebaseTestCase):
         self.assertFalse(f.client_mode)
         f.set_server_mode(enabled=False)
         self.assertTrue(f.client_mode)
+
+    @TracebaseTestCase.assertNotWarns()
+    def test_filter(self):
+        f = BSTFilterer(
+            BSTFStudyTestModel.name.field.name,  # pylint: disable=no-member
+            BSTFStudyTestModel,
+        )
+        self.assertEqual(Q(**{"name__icontains": "test"}), f.filter("test"))

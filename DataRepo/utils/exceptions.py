@@ -3912,6 +3912,10 @@ class MutuallyExclusiveArgs(InfileError):
     pass
 
 
+class MutuallyExclusiveMethodArgs(Exception):
+    pass
+
+
 class RequiredOptions(CommandError):
     def __init__(self, missing, **kwargs):
         message = f"Missing required options: {missing}."
@@ -4358,6 +4362,10 @@ class MultipleStudyDocVersions(StudyDocVersionException):
             )
         super().__init__(message, match_data, matching_version_numbers)
         self.matching_version_numbers = matching_version_numbers
+
+
+class DeveloperWarning(Warning):
+    pass
 
 
 def generate_file_location_string(column=None, rownum=None, sheet=None, file=None):

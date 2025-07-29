@@ -6,9 +6,11 @@ from typing import Dict, List, NamedTuple, Optional, Union
 from warnings import warn
 
 from django.conf import settings
+from django.db.models import Q
 from django.templatetags.static import static
-from django.utils.functional import classproperty
 from django.utils.safestring import mark_safe
+
+from DataRepo.utils.exceptions import DeveloperWarning
 
 
 class InputMethods(NamedTuple):
@@ -156,7 +158,7 @@ class BSTBaseFilterer(ABC):
         UNKNOWN=CustomLookup(),
     )
 
-    JAVASCRIPT = "js/bst_list_view/filterers.js"
+    script_name = "js/bst_list_view/filterers.js"
 
     is_annotation = False
 
@@ -203,9 +205,9 @@ class BSTBaseFilterer(ABC):
         self.client_mode = client_mode
         self.initial = initial
         self.choices: Optional[Dict[str, str]]
-        self._server_filterer: Optional[ServerLookup]
+        self._server_filterer: ServerLookup
 
-        self._server_filterer = self.process_server_filterer(_server_filterer)
+        tmp_server_filterer = self._process_server_filterer(_server_filterer)
 
         if choices is None or len(choices) == 0:
             self.choices = None
@@ -256,7 +258,7 @@ class BSTBaseFilterer(ABC):
                 f"input_method cannot be '{self.input_method}' if choices are supplied."
             )
 
-        self.init_filterers()
+        self.init_filterers(tmp_server_filterer)
 
     def __str__(self) -> str:
         return self.filterer
@@ -269,7 +271,7 @@ class BSTBaseFilterer(ABC):
         return self.client_filterer if self.client_mode else self.CLIENT_FILTERERS.NONE
 
     @classmethod
-    def process_server_filterer(
+    def _process_server_filterer(
         cls, _server_filterer: Optional[Union[ServerLookup, str]]
     ) -> Optional[ServerLookup]:
         """Takes a server filterer specification as input and returns a ServerLookup or None."""
@@ -310,7 +312,7 @@ class BSTBaseFilterer(ABC):
         if len(dupes) > 0:
             raise ValueError(f"No duplicate client filterers {dupes} allowed.")
 
-    def init_filterers(self):
+    def init_filterers(self, _server_filterer: Optional[ServerLookup]):
         """Initializes and validates self.client_filterer and self._server_filterer.
 
         Args:
@@ -324,7 +326,7 @@ class BSTBaseFilterer(ABC):
         Returns:
             None
         """
-        if self.client_filterer is None and self._server_filterer is None:
+        if self.client_filterer is None and _server_filterer is None:
             # Neither client or server filterer is defined
             # Base the default client and server filterers on the input method
             if self.input_method == self.INPUT_METHODS.SELECT:
@@ -333,10 +335,10 @@ class BSTBaseFilterer(ABC):
             else:
                 self.client_filterer = self.CLIENT_FILTERERS.CONTAINS
                 self._server_filterer = self.SERVER_FILTERERS.CONTAINS
-        elif self.client_filterer is None or self._server_filterer is None:
+        elif self.client_filterer is None or _server_filterer is None:
             # One of the 2 (client/server) filterers is defined
             # Base the default client filterer on the server filterer or vice versa
-            if self._server_filterer is None:
+            if _server_filterer is None:
                 if self.client_filterer == self.CLIENT_FILTERERS.CONTAINS:
                     self._server_filterer = self.SERVER_FILTERERS.CONTAINS
                 elif self.client_filterer == self.CLIENT_FILTERERS.STRICT_SINGLE:
@@ -355,9 +357,11 @@ class BSTBaseFilterer(ABC):
                             f"'{self._server_filterer}' (selected based on the input method '{self.input_method}') "
                             f"will match the behavior of the custom client_filterer '{self.client_filterer}'.  "
                             "Server filtering may differ from client filtering.  Supply a custom _server_filterer to "
-                            "guarantee matching behavior."
+                            "guarantee matching behavior.",
+                            DeveloperWarning,
                         )
             else:
+                self._server_filterer = _server_filterer
                 if self._server_filterer == self.SERVER_FILTERERS.CONTAINS:
                     self.client_filterer = self.CLIENT_FILTERERS.CONTAINS
                 elif self._server_filterer == self.SERVER_FILTERERS.STRICT_SINGLE:
@@ -372,43 +376,57 @@ class BSTBaseFilterer(ABC):
                             "Cannot select a matching default client_filterer corresponding to the _server_filterer "
                             f"'{self._server_filterer}', so disabling client filtering with '{self.client_filterer}' "
                             f"to match the behavior.  Supply a custom client_filterer to enable efficient filtering "
-                            "when a user views 'all' rows.  Doing so reduces wait times in the 'all' rows use-case."
+                            "when a user views 'all' rows.  Doing so reduces wait times in the 'all' rows use-case.",
+                            DeveloperWarning,
                         )
         elif (
             self.client_filterer != self.CLIENT_FILTERERS.NONE
             and self.client_filterer != self.CLIENT_FILTERERS.UNKNOWN
-            and not isinstance(self._server_filterer, CustomLookup)
+            and not isinstance(_server_filterer, CustomLookup)
             and (
                 (self.client_filterer == self.CLIENT_FILTERERS.CONTAINS)
-                != (self._server_filterer == self.SERVER_FILTERERS.CONTAINS)
+                != (_server_filterer == self.SERVER_FILTERERS.CONTAINS)
                 or (self.client_filterer == self.CLIENT_FILTERERS.STRICT_SINGLE)
-                != (self._server_filterer == self.SERVER_FILTERERS.STRICT_SINGLE)
+                != (_server_filterer == self.SERVER_FILTERERS.STRICT_SINGLE)
                 or (self.client_filterer == self.CLIENT_FILTERERS.STRICT_MULTIPLE)
-                != (self._server_filterer == self.SERVER_FILTERERS.STRICT_MULTIPLE)
+                != (_server_filterer == self.SERVER_FILTERERS.STRICT_MULTIPLE)
             )
         ):
             # Both the client & server filterers are explicitly defined & do not correspond (ignoring UNKNOWN & NONE)
             raise ValueError(
                 f"Mismatching client and server filterer types.  client_filterer '{self.client_filterer}' does not "
-                f"correspond to the _server_filterer type '{type(self._server_filterer).__name__}'."
+                f"correspond to the _server_filterer type '{type(_server_filterer).__name__}'."
             )
         elif settings.DEBUG and (
             self.client_filterer == self.CLIENT_FILTERERS.UNKNOWN
             or self.client_filterer not in self.CLIENT_FILTERERS._asdict().values()
-        ) != (isinstance(self._server_filterer, CustomLookup)):
+        ) != (isinstance(_server_filterer, CustomLookup)):
+            self._server_filterer = _server_filterer
             # Both the client & server filterers are explicitly defined & one is UNKNOWN(/custom)
             if self.client_filterer == self.CLIENT_FILTERERS.UNKNOWN:
                 warn(
                     f"Client filtering disabled with '{self.client_filterer}'.  Supply a custom client_filterer that "
                     f"matches the behavior of _server_filterer '{self._server_filterer}' to enable efficient filtering "
-                    "when a user views 'all' rows.  Doing so reduces wait times in the 'all' rows use-case."
+                    "when a user views 'all' rows.  Doing so reduces wait times in the 'all' rows use-case.",
+                    DeveloperWarning,
                 )
             else:
                 warn(
                     f"Cannot guarantee that the client_filterer '{self.client_filterer}' behavior will match the "
                     f"_server_filterer '{type(self._server_filterer).__name__}' behavior.  Server filtering may differ "
-                    "from client filtering."
+                    "from client filtering.",
+                    DeveloperWarning,
                 )
+        else:
+            self._server_filterer = _server_filterer
+
+    def filter(self, term: str) -> Q:
+        """Returns a Q expression that can be supplied to a Django filter() call."""
+        # NOTE: self._server_filterer is guaranteed to be not None, even though we don't know the field type.
+        # The DB (or Django?) does a conversion.  It clearly works for numeric fields and date fields, so what
+        # BSTAnnotSorter does (without knowing the field type), is it infers whether to use icontains or iexact based on
+        # the input method.
+        return Q(**{f"{self.name}__{self._server_filterer.lookup}": term})
 
     def set_client_mode(self, enabled: bool = True):
         self.client_mode = enabled
@@ -416,7 +434,7 @@ class BSTBaseFilterer(ABC):
     def set_server_mode(self, enabled: bool = True):
         self.client_mode = not enabled
 
-    @classproperty
-    def javascript(cls) -> str:  # pylint: disable=no-self-argument
-        """Returns an HTML script tag whose source points to cls.JAVASCRIPT."""
-        return mark_safe(f"<script src='{static(cls.JAVASCRIPT)}'></script>")
+    @property
+    def script(self) -> str:
+        """Returns an HTML script tag whose source points to self.script_name."""
+        return mark_safe(f"<script src='{static(self.script_name)}'></script>")

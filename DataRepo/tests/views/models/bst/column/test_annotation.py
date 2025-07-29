@@ -1,23 +1,17 @@
 from django.db.models import Value
 
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
-from DataRepo.tests.views.models.bst_list_view.column.test_field import (
+from DataRepo.tests.views.models.bst.column.test_field import (
     BSTCStudyTestModel,
 )
 from DataRepo.utils.text_utils import underscored_to_title
-from DataRepo.views.models.bst_list_view.column.annotation import (
-    BSTAnnotColumn,
-)
-from DataRepo.views.models.bst_list_view.column.filterer.annotation import (
+from DataRepo.views.models.bst.column.annotation import BSTAnnotColumn
+from DataRepo.views.models.bst.column.filterer.annotation import (
     BSTAnnotFilterer,
 )
-from DataRepo.views.models.bst_list_view.column.filterer.field import (
-    BSTFilterer,
-)
-from DataRepo.views.models.bst_list_view.column.sorter.annotation import (
-    BSTAnnotSorter,
-)
-from DataRepo.views.models.bst_list_view.column.sorter.field import BSTSorter
+from DataRepo.views.models.bst.column.filterer.field import BSTFilterer
+from DataRepo.views.models.bst.column.sorter.annotation import BSTAnnotSorter
+from DataRepo.views.models.bst.column.sorter.field import BSTSorter
 
 
 class BSTAnnotColumnTests(TracebaseTestCase):

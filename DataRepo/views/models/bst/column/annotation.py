@@ -1,17 +1,17 @@
-from typing import Optional
+from typing import Optional, Union
 from warnings import warn
 
 from django.conf import settings
+from django.db.models import Field
 from django.db.models.expressions import Combinable
 from django.db.models.functions import Coalesce
 
-from DataRepo.views.models.bst_list_view.column.base import BSTBaseColumn
-from DataRepo.views.models.bst_list_view.column.filterer.annotation import (
+from DataRepo.utils.exceptions import DeveloperWarning
+from DataRepo.views.models.bst.column.base import BSTBaseColumn
+from DataRepo.views.models.bst.column.filterer.annotation import (
     BSTAnnotFilterer,
 )
-from DataRepo.views.models.bst_list_view.column.sorter.annotation import (
-    BSTAnnotSorter,
-)
+from DataRepo.views.models.bst.column.sorter.annotation import BSTAnnotSorter
 
 
 class BSTAnnotColumn(BSTBaseColumn):
@@ -95,10 +95,13 @@ class BSTAnnotColumn(BSTBaseColumn):
         sorter = kwargs.get("sorter")
         filterer = kwargs.get("filterer")
 
+        server_sorter = BSTAnnotSorter.get_server_sorter_matching_expression(converter)
         if sorter is None:
-            sorter = BSTAnnotSorter(name, name=name)
+            sorter = BSTAnnotSorter(name, name=name, _server_sorter=server_sorter)
         elif isinstance(sorter, str):
-            sorter = BSTAnnotSorter(name, name=name, client_sorter=sorter)
+            sorter = BSTAnnotSorter(
+                name, name=name, client_sorter=sorter, _server_sorter=server_sorter
+            )
         elif not isinstance(sorter, BSTAnnotSorter):
             raise TypeError(
                 f"sorter must be a BSTAnnotSorter, not {type(sorter).__name__}"
@@ -116,7 +119,8 @@ class BSTAnnotColumn(BSTBaseColumn):
         if settings.DEBUG and isinstance(self.converter, Coalesce):
             warn(
                 "Usage of Coalesce in annotations is discouraged due to performance in searches and sorting.  Try "
-                "changing the converter to a different function, such as 'Case'."
+                "changing the converter to a different function, such as 'Case'.",
+                DeveloperWarning,
             )
 
         kwargs.update(
@@ -128,22 +132,14 @@ class BSTAnnotColumn(BSTBaseColumn):
 
         super().__init__(name, **kwargs)
 
-    def create_sorter(self, sorter: Optional[str] = None) -> BSTAnnotSorter:
-        if sorter is None:
-            sorter_obj = BSTAnnotSorter(self.name)
-        elif isinstance(sorter, str):
-            sorter_obj = BSTAnnotSorter(self.name, client_sorter=sorter)
-        else:
-            # Checks exact type bec. we don't want this to be a BSTRelatedSorter or BSTManyRelatedSorter
-            raise TypeError(f"sorter must be a str, not {type(sorter).__name__}")
-        return sorter_obj
+    def create_sorter(
+        self, field: Optional[Union[Combinable, Field, str]] = None, **kwargs
+    ) -> BSTAnnotSorter:
+        field_expression = field if field is not None else self.name
+        return BSTAnnotSorter(field_expression, **kwargs)
 
-    def create_filterer(self, filterer: Optional[str] = None) -> BSTAnnotFilterer:
-        if filterer is None:
-            filterer_obj = BSTAnnotFilterer(self.name)
-        elif isinstance(filterer, str):
-            filterer_obj = BSTAnnotFilterer(self.name, client_filterer=filterer)
-        else:
-            # Checks exact type bec. we don't want this to be a BSTRelatedFilterer or BSTManyRelatedFilterer
-            raise TypeError(f"filterer must be a str, not {type(filterer).__name__}")
-        return filterer_obj
+    def create_filterer(
+        self, field: Optional[str] = None, **kwargs
+    ) -> BSTAnnotFilterer:
+        field_path = field if field is not None else self.name
+        return BSTAnnotFilterer(field_path, **kwargs)
