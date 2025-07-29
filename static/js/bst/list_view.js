@@ -257,27 +257,6 @@ function displayWarnings (warningsArray) {
 }
 
 /**
-<<<<<<< HEAD
- * Retrieves a list of column names (obtained from the data-field attribute of every th element).
- * Bootstrap table provides alternate methods of retrieving the fields, but they are not in order and are limited to
- * only either the visible or hidden ones.
- * @returns Column names.
- */
-function getColumnNames () {
-  const columnNames = []
-  const headerCells = document.querySelectorAll(`${jqTableID} th`)
-  for (let i = 0; i < headerCells.length; i++) {
-    columnNames.push(headerCells[i].dataset.field)
-  }
-  return columnNames
-}
-
-// TODO: Add support for multiple tables on the same page.
-// See: https://github.com/Princeton-LSI-ResearchComputing/tracebase/issues/1577
-
-/**
-=======
->>>>>>> Fixed column visibility cookies and exceptions regarding representative fields, null foreign keys, and setting conflicts.
  * Requests a new page from the server based on the values passed in (or the cookies as defaults).
  * @param {*} page Page number.
  * @param {*} limit Rows per page.
