@@ -43,6 +43,8 @@
             data-search="true"
             data-search-align="left"
             data-search-on-enter-key="true"
+            {# TODO: Make djangoSearcher (defined in static/js/bst/filterer.js) configurable #}
+            data-custom-search="djangoSearcher"
             {% if search %}
                 data-search-text="{{ search }}"
             {% endif %}

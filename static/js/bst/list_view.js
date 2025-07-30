@@ -21,6 +21,13 @@ var visibleCookieName = 'visible' // eslint-disable-line no-var
 var limitCookieName = 'limit' // eslint-disable-line no-var
 var pageCookieName = 'page' // eslint-disable-line no-var
 
+// NOTE: The following global variables (doingNonTableSearch and searchLength) are necessary to work around this issue:
+// https://github.com/wenzhixin/bootstrap-table/issues/7897
+// Although previously, doingNonTableSearch was used as a variable inside the initBST function only.  It became a global
+// to support the workaround.
+var doingNonTableSearch = false // eslint-disable-line no-var
+var searchLength = 0 // eslint-disable-line no-var
+
 /**
  * This function exists solely for testing purposes
  */
@@ -148,7 +155,6 @@ function initBST ( // eslint-disable-line no-unused-vars
 
   // Set a variable to be able to forgo events from BST during init
   let loading = true
-  let doingNonTableSearch = false
   $(jqTableID).bootstrapTable({ // eslint-disable-line no-undef
     onSort: function (orderBy, orderDir) {
       // Sort is just a click, and it appears that sort is not called for each column on load like onColumnSearch
@@ -163,29 +169,7 @@ function initBST ( // eslint-disable-line no-unused-vars
     },
     onSearch: function (searchTerm) {
       if (!loading) {
-        // NOTE: Turns out that on page load, a global search event is triggered, so we check to see if anything
-        // changed before triggering a page update.
-        const oldTerm = getViewCookie(searchCookieName) // eslint-disable-line no-undef
-        const oldTermDefined = typeof oldTerm === 'undefined' || !oldTerm
-        const newTermDefined = typeof searchTerm === 'undefined' || !searchTerm
-        if (oldTermDefined !== newTermDefined || (oldTermDefined && newTermDefined && oldTerm !== searchTerm)) {
-          setViewCookie(searchCookieName, searchTerm) // eslint-disable-line no-undef
-          // No need to hit the server if we're displaying all results. Just let BST do it.
-          // TODO: Everything is currently server-side.  The conditional here does not work when the filterer is set as
-          // 'djangoFilterer'.  Fix this so that it knows to update the page when the filterer is 'djangoFilterer'.
-          // if ((djangoLimit > 0 && djangoLimit < djangoTotal) || djangoTotal < djangoRawTotal) {
-          updatePage(1)
-          // }
-        } else if (searchTerm === '') {
-          if (!doingNonTableSearch) {
-            // Clear the column filters
-            const numDeleted = deleteViewColumnCookies(columnNames, filterCookieName) // eslint-disable-line no-undef
-            // If there were populated search terms
-            if (numDeleted > 0) {
-              updatePage(1)
-            }
-          }
-        }
+        onSearchAction(searchTerm)
       }
     },
     onColumnSearch: function (columnName, searchTerm) {
@@ -196,7 +180,7 @@ function initBST ( // eslint-disable-line no-unused-vars
         const oldTermDefined = typeof oldTerm !== 'undefined' && oldTerm
         const newTermDefined = typeof searchTerm !== 'undefined' && searchTerm
         if (oldTermDefined !== newTermDefined || (oldTermDefined && newTermDefined && oldTerm !== searchTerm)) {
-          doingNonTableSearch = true
+          globalThis.doingNonTableSearch = true
           setViewColumnCookie(columnName, filterCookieName, searchTerm) // eslint-disable-line no-undef
           // No need to hit the server if we're displaying all results. Just let BST do it.
           // TODO: Everything is currently server-side.  The conditional here does not work when the filterer is set as
@@ -206,28 +190,44 @@ function initBST ( // eslint-disable-line no-unused-vars
           // }
           // This is necessary because onSearch is always triggered after this event and we don't want that to clear the
           // column filters
-          setTimeout(function () { doingNonTableSearch = false }, 1000)
+          setTimeout(function () { globalThis.doingNonTableSearch = false }, 1000)
         }
       }
     },
     onColumnSwitch: function (columnName, visible) {
-      doingNonTableSearch = true
+      globalThis.doingNonTableSearch = true
       updateVisible(visible, columnName)
       // This is necessary because onSearch is always triggered after this event and we don't want that to clear the
       // column filters
-      setTimeout(function () { doingNonTableSearch = false }, 1000)
+      setTimeout(function () { globalThis.doingNonTableSearch = false }, 1000)
     },
     onColumnSwitchAll: function (visible) {
-      doingNonTableSearch = true
+      globalThis.doingNonTableSearch = true
       updateVisible(visible)
       // This is necessary because onSearch is always triggered after this event and we don't want that to clear the
       // column filters
-      setTimeout(function () { doingNonTableSearch = false }, 1000)
+      setTimeout(function () { globalThis.doingNonTableSearch = false }, 1000)
     },
     onLoadError: function (status, jqXHR) {
-      doingNonTableSearch = true
+      globalThis.doingNonTableSearch = true
       console.error("BootstrapTable Error.  Status: '" + status + "' Data:", jqXHR)
-      setTimeout(function () { doingNonTableSearch = false }, 1000)
+      setTimeout(function () { globalThis.doingNonTableSearch = false }, 1000)
+    }
+  })
+
+  // This works around this issue with the 'x' cancel button inside the table search box:
+  // https://github.com/wenzhixin/bootstrap-table/issues/7897
+  // Limitations:
+  // 1. This only guesses the difference between clicking the 'x' button and deleting characters in the search field.
+  //    The following case will inapropriately trigger the search: highlighting the search term and hitting the delete
+  const tableSearchBox = $(jqTableID).parents('.bootstrap-table').find('input[placeholder="Search"]') // eslint-disable-line no-undef
+  tableSearchBox.bind('change click keyup input', function (e) {
+    //    key.
+    if (this.value === '' && searchLength > 1) {
+      globalThis.searchLength = 0
+      onSearchAction(this.value)
+    } else {
+      globalThis.searchLength = this.value.length
     }
   })
 
@@ -239,6 +239,39 @@ function initBST ( // eslint-disable-line no-unused-vars
   displayWarnings(warnings)
 
   setTimeout(function () { loading = false }, 2000)
+}
+
+/**
+ * This is called from 2 places: Bootstrap Table's onSearch event (which by default only happens when hitting the enter
+ * key), and from a listener applied to the search field when the user clicks the 'x' button inside the search box.
+ * @param {*} searchTerm
+ */
+function onSearchAction (searchTerm) {
+  // NOTE: Turns out that on page load, a global search event is triggered, so we check to see if anything
+  // changed before triggering a page update.
+  const oldTerm = getViewCookie(searchCookieName) // eslint-disable-line no-undef
+  const oldTermDefined = typeof oldTerm !== 'undefined' && oldTerm
+  const newTermDefined = typeof searchTerm !== 'undefined' && searchTerm
+  if (oldTermDefined !== newTermDefined || (oldTermDefined && newTermDefined && oldTerm !== searchTerm)) {
+    setViewCookie(searchCookieName, searchTerm) // eslint-disable-line no-undef
+    // No need to hit the server if we're displaying all results. Just let BST do it.
+    // TODO: See: https://github.com/Princeton-LSI-ResearchComputing/tracebase/issues/1561
+    // Everything is currently server-side.  The conditional here does not work when the filterer is set as
+    // 'djangoFilterer'.  Fix this so that it knows to update the page when the filterer is 'djangoFilterer'.
+    // if ((djangoLimit > 0 && djangoLimit < djangoTotal) || djangoTotal < djangoRawTotal) {
+    updatePage(1)
+    // }
+  } else if (searchTerm === '') {
+    console.log('search empty')
+    if (!doingNonTableSearch) {
+      // Clear the column filters
+      const numDeleted = deleteViewColumnCookies(columnNames, filterCookieName) // eslint-disable-line no-undef
+      // If there were populated search terms
+      if (numDeleted > 0) {
+        updatePage(1)
+      }
+    }
+  }
 }
 
 /**

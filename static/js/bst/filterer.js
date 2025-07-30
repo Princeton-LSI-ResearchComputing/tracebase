@@ -1,8 +1,8 @@
 /**
- * In order to make Bootstrap Table provide its sorting controls, but make sorting handled server-side by django, we
- * need to provide the name of a sorting method to Bootstrap Table's data-filter-custom-search attribute that effects no
- * actual filtering.  Without this, whenever a page loads, you run the risk of non-matching filtering behavior where a
- * served result is filtered out by the client's browser.  This is that method.
+ * In order to make Bootstrap Table provide its filtering controls, but make filtering handled server-side by django, we
+ * need to provide the name of a filtering method to Bootstrap Table's data-filter-custom-search attribute that effects
+ * no actual filtering.  Without this, whenever a page loads, you run the risk of non-matching filtering behavior where
+ * a served result is filtered out by the client's browser.  This is that method.
  * @param {*} term Ignored
  * @param {*} colval Ignored
  * @param {*} colname Ignored
