@@ -140,6 +140,7 @@ class BSTListViewClient(BSTClientInterface, ListView):
     scripts = [
         "js/bst/cookies.js",
         "js/bst/list_view.js",
+        "js/bst/searcher.js",
     ]
 
     # Pagination
