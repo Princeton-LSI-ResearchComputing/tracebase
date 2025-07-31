@@ -876,47 +876,6 @@ def is_key_field(
     )
 
 
-def is_key_field(
-    model: Optional[Type[Model]],
-    path: Union[
-        str,
-        List[str],
-        Field,
-        DeferredAttribute,
-        ForwardManyToOneDescriptor,
-        ManyToManyDescriptor,
-        ReverseManyToOneDescriptor,
-    ],
-):
-    """Takes a path (or field representation) and a model and returns whether or not the field at the end of the path is
-    a foreign key.
-
-    Args:
-        model (Optional[Type[Model]]): A Model.  Must not be None if path is a str or list.
-        path (Union[str, List[str], Field, DeferredAttribute, ForwardManyToOneDescriptor, ManyToManyDescriptor,
-            ReverseManyToOneDescriptor]): A field or dunderscore-delimited field path (i.e. a Django lookup).
-    Exceptions:
-        ValueError when model is None and field is a str or list
-        TypeError when field is an unsupported type
-    Returns:
-        (bool): Whether the field at the end of the path is a foreign key.
-    """
-    if not isinstance(path, str) and not isinstance(path, list):
-        return resolve_field(path).is_relation
-    if isinstance(path, str) or isinstance(path, list):
-        if model is not None and issubclass(model, Model):
-            field_path = path
-            if isinstance(path, list):
-                field_path = "__".join(path)
-            model_path = field_path_to_model_path(model, path)
-            return field_path == model_path
-        raise ValueError("model is required when path is a str or list.")
-    raise TypeError(
-        f"Invalid path type: '{type(path).__name__}'.  Must be one of: [str, list, Field, DeferredAttribute, "
-        "ForwardManyToOneDescriptor, ManyToManyDescriptor, or ReverseManyToOneDescriptor]."
-    )
-
-
 def model_path_to_model(model: Type[Model], path: Union[str, List[str]]) -> Type[Model]:
     """Recursive method to take a root model and a dunderscore-delimited path and return the model class at the end of
     the path (or if the path is empty, the root model).
