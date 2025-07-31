@@ -1,15 +1,15 @@
-from typing import Optional, Type
+from typing import List, Optional, Type
 from warnings import warn
 
 from django.conf import settings
+from django.db import ProgrammingError
 from django.db.models import Field, Model
 from django.db.models.aggregates import Count
 from django.db.models.expressions import Combinable, Expression
 
 from DataRepo.models.utilities import (
-    MultipleFields,
-    NoFields,
     field_path_to_field,
+    field_path_to_model_path,
     get_model_by_name,
     is_key_field,
     is_number_field,
@@ -68,6 +68,7 @@ class BSTAnnotColumn(BSTBaseColumn):
         name: str,
         converter: Combinable,
         model: Optional[Type[Model]] = None,
+        help_text: bool = True,
         **kwargs,
     ):
         """Constructor.
@@ -99,8 +100,14 @@ class BSTAnnotColumn(BSTBaseColumn):
                     Build your own:
                         Func
                         etc.
-            model (Optional[Type[Model]]): If provided, an attempt will be made to resolve the field from the converter.
-                If exactly 1 exists, it will be used to populate (or add to) the column header's tooltip.
+            model (Optional[Type[Model]]): If provided, field paths will be attempted to be extracted from the converter
+                and then 2 things will happen:
+                1. If exactly 1 field path exists and help_text is True, it will be used to extract the model field's
+                    help_text and populate (or add to) the column header's tooltip.
+                2. self.related_model_paths will be set, which can be used to populate the arguments to prefetch_related
+                    in order to make queries faster when filtering on an annotations value.
+            help_text (bool) [True]: Whether to use the field extracted from the converter's help_text to populate the
+                tooltip.  Ignored if model is None.
         Exceptions:
             None
         Returns:
@@ -116,56 +123,84 @@ class BSTAnnotColumn(BSTBaseColumn):
         # derived from the converter), if it is a key field.
         self.model: Optional[Type[Model]] = model
 
-        # NOTE: self.related_model will only be set if the output of the converter is a foreign key.
-        # It enables get_model_object to be able to return a model object of the related_model when supplied with the
-        # annotation value (an 'id').
+        # related_model enables get_model_object to be able to return a model object of the related_model when supplied
+        # with the annotation value (an 'id').
         self.related_model: Optional[Model] = None
+
+        # related_model_paths is used to populate the arguments to prefetch_related so that annotations are constructed
+        # efficiently
+        self.related_model_paths: List[str] = []
+
+        # field_paths is used to determine if a filtered neighboring column belongs to the same many-related model as
+        # "this" annotation uses.  If it is, the annotation should be applied BEFORE the filter.  The reason for this is
+        # so that Count annotations are not altered by the filter.
+        self.field_paths: List[str] = []
+        # TODO: Add an argument to explicitly set this.
 
         # output_field is used to set (/override) self.related_model if it is a key field (e.g. ForeignKey or
         # ManyToManyField) (whether model is provided or not).
         output_field: Optional[Field] = None
         self.is_fk = False
 
+        try:
+            for fp in resolve_field_path(converter, all=True):
+                if fp not in self.field_paths:
+                    self.field_paths.append(fp)
+        except TypeError as te:
+            if model is not None and settings.DEBUG:
+                warn(
+                    f"{trace(te)}\nUnable to get help_text from field from model '{model.__name__}' in annotation "
+                    f"'{name}' expression '{converter}'.  {te}"
+                )
+
+        if (
+            settings.DEBUG
+            and model is None
+            and any("__" in fp for fp in self.field_paths)
+        ):
+            related_model_fps = [fp for fp in self.field_paths if "__" in fp]
+            warn(
+                (
+                    "model is None and the annotation contains paths to fields in related models "
+                    f"({related_model_fps}).  Resulting queries may be slow because they cannot be automatically added "
+                    "to prefetches since we cannot determine if the last field in the path is a foreign key or not."
+                ),
+                DeveloperWarning,
+            )
+
         # If we have a model, see if we can extract a field from the combinable in order to populate the tooltip with
         # the field's help_text
-        if model is not None:
-            try:
-                field_path = resolve_field_path(converter)
-            except (ValueError, NoFields, MultipleFields) as ve:
-                field_path = None
-                warn(
-                    f"Unable to get help_text from field from model '{model.__name__}' in annotation '{name}' "
-                    f"expression '{converter}'.  {ve}"
-                )
-            if field_path is not None:
-                # This gives us the field that the annotation is based on, which could be a reverse relation (that has
-                # no help_text attribute)
-                remote_field = field_path_to_field(model, field_path, real=False)
+        if isinstance(model, type):
+
+            for field_path in self.field_paths:
+                model_path = field_path_to_model_path(model, field_path)
+                # The returned model path can be an empty string (which refers to self.model, which we don't need here)
+                if model_path != "" and model_path not in self.related_model_paths:
+                    self.related_model_paths.append(model_path)
+
+            if len(self.field_paths) == 1 and help_text:
+                # This gives us the field that the annotation is based on, which could be a reverse relation (that
+                # has no help_text attribute)
+                field = field_path_to_field(model, self.field_paths[0], real=False)
                 if (
                     # Excluding Count annotations is a cop-out.  There's got to be a better way to not incorporate
                     # help_text when it doesn't make sense.
                     not isinstance(self.converter, Count)
-                    and hasattr(remote_field, "help_text")
-                    and remote_field.help_text is not None
+                    and hasattr(field, "help_text")
+                    and field.help_text is not None
                 ):
                     # If no tooltip was provided
                     if "tooltip" not in kwargs.keys() or kwargs["tooltip"] is None:
-                        kwargs.update({"tooltip": remote_field.help_text})
+                        kwargs.update({"tooltip": field.help_text})
                     else:
                         kwargs.update(
-                            {
-                                "tooltip": remote_field.help_text
-                                + f"\n\n{kwargs['tooltip']}"
-                            }
+                            {"tooltip": f"{field.help_text}\n\n{kwargs['tooltip']}"}
                         )
 
-                # If this is a key field, we will assume that the annotation output is the ID of a record from that
-                # model, so we can link it.
-                if is_key_field(field_path, model=model):
-                    self.related_model = model_path_to_model(model, field_path)
-                    # This *might* be a foreign key (i.e. is_fk = True), but we don't know for sure yet.  We would only
-                    # be guessing based on the field the annotation is based on.  We set is_fk below once we do know for
-                    # sure based on the output_field.
+            if len(self.related_model_paths) == 1:
+                self.related_model = model_path_to_model(
+                    model, self.related_model_paths[0]
+                )
 
         if isinstance(self.converter, Expression):
             try:
@@ -182,9 +217,11 @@ class BSTAnnotColumn(BSTBaseColumn):
             if not is_number_field(output_field) and not is_string_field(output_field):
                 kwargs["sortable"] = False
                 kwargs["searchable"] = False
+                kwargs["filterable"] = False
         else:
             kwargs["sortable"] = False
             kwargs["searchable"] = False
+            kwargs["filterable"] = False
 
         # # If we have an output field that is a key field (overriding any model as could have been derived from a
         # field_path extracted from the converter)
@@ -243,20 +280,55 @@ class BSTAnnotColumn(BSTBaseColumn):
             and isinstance(id, int)
         ):
             obj = self.related_model.objects.filter(pk=id).first()
-            if settings.DEBUG and obj is None:
-                warn(
-                    (
-                        f"{trace()}\n{self.related_model.__name__} record not found using annotation value '{id}' from "
-                        f"annotation column '{self.name}'."
-                    ),
-                    DeveloperWarning,
-                )
-            elif fk_warning is not None:
-                warn(f"{trace()}\n{fk_warning}", DeveloperWarning)
+            if settings.DEBUG:
+                if obj is None:
+                    warn(
+                        (
+                            f"{trace()}\n{self.related_model.__name__} record not found using annotation value '{id}' "
+                            f"from annotation column '{self.name}'."
+                        ),
+                        DeveloperWarning,
+                    )
+                elif fk_warning is not None:
+                    warn(f"{trace()}\n{fk_warning}", DeveloperWarning)
 
             return obj
 
-        elif fk_warning is not None:
+        elif fk_warning is not None and settings.DEBUG:
             warn(f"{trace()}\n{fk_warning}", DeveloperWarning)
 
         return None
+
+    def is_related_to_many_related_model_path(self, mr_model_path: str) -> bool:
+        """This takes a many-related model path and determines whether the annotation is based on the same many-related
+        model.
+
+        Assumptions:
+            1. It is assumed that field path extraction from the converter finds a field path when it is relevant to
+                determining a relationship with anther column's field path.  I.e. If there were no field paths extracted
+                or the field path containg no many_related_model_path, then a return of False is valid.
+        Args:
+            mr_model_path (str): A model path to a many-related model (i.e. ending in a foreign key).  A field path
+                extracted from self.converter must start with mr_model_path in order to return True.  Otherwise, False
+                is returned.
+        Exceptions:
+            ProgrammingError when this method is called on an a BSTAnnotColumn object that had no model supplied.
+        Returns:
+            (bool): True if any of the annotation's extracted field_paths start with the supplied many-related model
+                path.
+        """
+        if self.model is None:
+            raise ProgrammingError(
+                f"is_related_to_many_related_model_path called on a BSTAnnotColumn object ({self.name}) that was not "
+                "supplied a model.  A model is necessary to determine whether an extracted field path contains a many-"
+                "related foreign key."
+            )
+        elif settings.DEBUG and len(self.field_paths) == 0:
+            warn(
+                (
+                    f"is_related_to_many_related_model_path called on a BSTAnnotColumn object ({self.name}) that has "
+                    "no field paths that could be extracted from the converter."
+                ),
+                DeveloperWarning,
+            )
+        return any(fp.startswith(mr_model_path) for fp in self.field_paths)

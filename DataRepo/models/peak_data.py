@@ -10,6 +10,8 @@ class PeakData(models.Model):
     For example, this could describe the data for M+2 in glucose from mouse 345 brain tissue.
     """
 
+    detail_name = "peakdata_detail"
+
     id = models.AutoField(primary_key=True)
     peak_group = models.ForeignKey(
         to="DataRepo.PeakGroup",
@@ -31,13 +33,18 @@ class PeakData(models.Model):
         null=True,
         blank=True,
         validators=[MinValueValidator(0)],
-        help_text="The median mass/charge value of this measurement.",
+        help_text=(
+            "The median mass to charge ratio of an ion expressed in atomic mass units divided by a positive integer "
+            "representing the number of gained or lost electrons."
+        ),
+        verbose_name="Median Mass to Charge Ratio (m/z)",
     )
     med_rt = models.FloatField(
         null=True,
         blank=True,
         validators=[MinValueValidator(0)],
-        help_text="The median retention time value of this measurement.",
+        help_text="The median retention time of a compound to pass through the chromatography column, in minutes.",
+        verbose_name="Median Retention Time (m)",
     )
 
     # @cached_function is *slower* than uncached
@@ -140,3 +147,11 @@ class PeakData(models.Model):
             return orphan_recs[0], False
         else:
             raise PeakData.MultipleObjectsReturned()
+
+    def get_absolute_url(self):
+        """Get the URL to the detail page.
+        See: https://docs.djangoproject.com/en/5.1/ref/models/instances/#get-absolute-url
+        """
+        from django.urls import reverse
+
+        return reverse(self.detail_name, kwargs={"pk": self.pk})

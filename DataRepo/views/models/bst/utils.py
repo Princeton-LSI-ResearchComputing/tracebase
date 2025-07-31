@@ -1,10 +1,14 @@
 from typing import Optional
+from warnings import warn
 
-from DataRepo.views.utils import GracefulPaginator
+from django.conf import settings
+from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
+
+from DataRepo.utils.exceptions import DeveloperWarning
 from DataRepo.widgets.bst.rows_per_page_select import BSTRowsPerPageSelect
 
 
-class SizedPaginator(GracefulPaginator):
+class SizedPaginator(Paginator):
     """An extension GracefulPaginator that adds page context and a page size select list.
 
     Speficially, this class:
@@ -76,6 +80,10 @@ class SizedPaginator(GracefulPaginator):
         """
         super().__init__(*args, **kwargs)
 
+        # self.count is an attribute where the superclass saves the total count.  By saving it here/now, it prevents a
+        # duplicate count query when the page is requested.
+        self.count = total
+
         self.total: int = total
         self.raw_total: int = raw_total if raw_total is not None else total
         self.size_select_list = BSTRowsPerPageSelect(
@@ -110,3 +118,23 @@ class SizedPaginator(GracefulPaginator):
         if end > self.num_pages:
             end = self.num_pages
         return range(start, end + 1)
+
+    # See: https://forum.djangoproject.com/t/letting-listview-gracefully-handle-out-of-range-page-numbers/23037/4
+    def page(self, num):
+        try:
+            num = self.validate_number(num)
+        except PageNotAnInteger:
+            if settings.DEBUG:
+                warn(
+                    f"Page {num} not an integer.  Gracefully falling back to 1.",
+                    DeveloperWarning,
+                )
+            num = 1
+        except EmptyPage:
+            if settings.DEBUG:
+                warn(
+                    f"Page {num} is empty.  Gracefully falling back to last page: {self.num_pages}.",
+                    DeveloperWarning,
+                )
+            num = self.num_pages
+        return super().page(num)

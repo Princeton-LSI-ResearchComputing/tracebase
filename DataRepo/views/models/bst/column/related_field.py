@@ -114,6 +114,10 @@ class BSTRelatedColumn(BSTColumn):
                 if searchable is True:
                     disallowed.append("searchable")
 
+                filterable = kwargs.get("filterable")
+                if filterable is True:
+                    disallowed.append("filterable")
+
                 sortable = kwargs.get("sortable")
                 if sortable is True:
                     disallowed.append("sortable")
@@ -132,12 +136,13 @@ class BSTRelatedColumn(BSTColumn):
                 )
 
                 # Fall back to the actual foreign key as the display field.  This will end up rendering related objects
-                # in string context, which is what is not searchable/sortable.
+                # in string context, which is what is not searchable/filterable/sortable.
                 self.display_field_path = field_path
 
                 kwargs.update(
                     {
                         "searchable": False,
+                        "filterable": False,
                         "sortable": False,
                         "tooltip": tooltip,
                     }
@@ -148,7 +153,14 @@ class BSTRelatedColumn(BSTColumn):
                 f"display_field_path '{display_field_path}' must start with the field_path '{field_path}'."
             )
 
-        self.display_field = field_path_to_field(model, self.display_field_path)
+        self.display_field = field_path_to_field(
+            model, self.display_field_path, real=False
+        )
+        self.display_field_name = (
+            self.display_field.name
+            if not self.is_fk or self.display_field_path != field_path
+            else None
+        )
 
         super().__init__(*args, **kwargs)
 

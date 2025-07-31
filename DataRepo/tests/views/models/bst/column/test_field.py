@@ -190,8 +190,18 @@ class BSTColumnTests(TracebaseTestCase):
         )
 
     def test_init_is_fk(self):
-        self.assertTrue(BSTColumn("animal", BSTCSampleTestModel).is_fk)
         self.assertFalse(BSTColumn("name", BSTCSampleTestModel).is_fk)
+
+        with self.assertRaises(TypeError) as ar:
+            BSTColumn("animal", BSTCSampleTestModel)
+        self.assertIn("'animal' is a foreign key", str(ar.exception))
+        self.assertIn(
+            "Foreign keys must be added as either a 'BSTRelatedColumn' or 'BSTManyRelatedColumn'",
+            str(ar.exception),
+        )
+        self.assertIn("not 'BSTColumn'", str(ar.exception))
+        self.assertIn("representative field from the related model", str(ar.exception))
+        self.assertIn("can be selected for display", str(ar.exception))
 
     def test_init_wrapped(self):
         n = BSTColumn("name", BSTCStudyTestModel)

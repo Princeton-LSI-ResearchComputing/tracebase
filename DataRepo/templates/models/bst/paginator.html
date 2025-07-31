@@ -36,12 +36,12 @@
             <div style="float: right;" class="btn-group" role="group">
                 <!-- Generate the "<"/previous button -->
                 {% if page_obj.has_previous %}
-                    <a href="?{{ page_obj.paginator.page_name }}={{ page_obj.previous_page_number }}&{{ page_obj.paginator.limit_name }}={{ page_obj.paginator.per_page }}" class="btn btn-outline-primary">&laquo;</a>
+                    <a onclick="updatePage({{ page_obj.previous_page_number }});return false;" href="javascript:void(0);" class="btn btn-outline-primary">&laquo;</a>
                 {% endif %}
 
                 <!-- Generate the "1" button if the current page is more than flank-size away and the left side ellipsis button if there are pages between 1 and the pages close to the current page -->
                 {% if page_obj.paginator.show_first_shortcut %}
-                    <a href="?{{ page_obj.paginator.page_name }}=1&{{ page_obj.paginator.limit_name }}={{ page_obj.paginator.per_page }}" class="btn btn-outline-primary">
+                    <a onclick="updatePage(1);return false;" href="javascript:void(0);" class="btn btn-outline-primary">
                         1
                     </a>
                     {% if page_obj.paginator.show_left_ellipsis %}
@@ -58,7 +58,7 @@
                             <span>{{ page_number }} <span class="sr-only"></span></span>
                         </button>
                     {% else %}
-                        <a href="?{{ page_obj.paginator.page_name }}={{ page_number }}&{{ page_obj.paginator.limit_name }}={{ page_obj.paginator.per_page }}" class="btn btn-outline-primary">
+                        <a onclick="updatePage({{ page_number }});return false;" href="javascript:void(0);" class="btn btn-outline-primary">
                             {{ page_number }}
                         </a>
                     {% endif %}
@@ -71,14 +71,14 @@
                             &hellip;
                         </button>
                     {% endif %}
-                    <a href="?{{ page_obj.paginator.page_name }}={{ page_obj.paginator.num_pages }}&{{ page_obj.paginator.limit_name }}={{ page_obj.paginator.per_page }}" class="btn btn-outline-primary">
+                    <a onclick="updatePage({{ page_obj.paginator.num_pages }});return false;" href="javascript:void(0);" class="btn btn-outline-primary">
                         {{ page_obj.paginator.num_pages }}
                     </a>
                 {% endif %}
 
                 <!-- Generate the ">"/next button -->
                 {% if page_obj.has_next %}
-                    <a href="?{{ page_obj.paginator.page_name }}={{ page_obj.next_page_number }}&{{ page_obj.paginator.limit_name }}={{ page_obj.paginator.per_page }}" class="btn btn-outline-primary">&raquo;</a>
+                    <a onclick="updatePage({{ page_obj.next_page_number }});return false;" href="javascript:void(0);" class="btn btn-outline-primary">&raquo;</a>
                 {% endif %}
             </div>
         <br><br>

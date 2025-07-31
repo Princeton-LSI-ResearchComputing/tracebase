@@ -108,7 +108,18 @@ class PaginatorTemplateTests(TracebaseTestCase):
             page=1,  # cur_page
         )
         template_str = self.render_template(sp)
-        self.assert_substrings(['<a href="?page=2&limit=1"', "&raquo;"], template_str)
+        self.assert_substrings_in_order(
+            [
+                'name="rows-per-page-option"',
+                'data-value="1"',
+                "selected",
+                ">1</a>",
+                "<!-- Pagination Control -->",
+                '<a onclick="updatePage(2);return false;" href="javascript:void(0);"',
+                "&raquo;",
+            ],
+            template_str,
+        )
 
         # Test prev
         sp = SizedPaginator(
@@ -118,7 +129,19 @@ class PaginatorTemplateTests(TracebaseTestCase):
             page=2,  # cur_page
         )
         template_str = self.render_template(sp)
-        self.assert_substrings(['<a href="?page=1&limit=1"', "&laquo;"], template_str)
+        # Cur page is 2, so there should be a link to page 1
+        self.assert_substrings_in_order(
+            [
+                'name="rows-per-page-option"',
+                'data-value="1"',
+                "selected",
+                ">1</a>",
+                "<!-- Pagination Control -->",
+                '<a onclick="updatePage(1);return false;" href="javascript:void(0);"',
+                "&laquo;",
+            ],
+            template_str,
+        )
 
     def test_first_last(self):
         """Test that the first/last page controls are present when needed."""
@@ -131,8 +154,8 @@ class PaginatorTemplateTests(TracebaseTestCase):
         template_str = self.render_template(sp)
         self.assert_substrings(
             [
-                '<a href="?page=1&limit=1"',
-                '<a href="?page=9&limit=1"',
+                '<a onclick="updatePage(1);return false;" href="javascript:void(0);"',
+                '<a onclick="updatePage(9);return false;" href="javascript:void(0);"',
             ],
             template_str,
         )
@@ -179,14 +202,19 @@ class PaginatorTemplateTests(TracebaseTestCase):
         self.assertNotIn('<a href="?page=2&limit=1"', template_str)
         self.assert_substrings_in_order(
             [
-                '<a href="?page=3&limit=1"',
-                '<a href="?page=4&limit=1"',
-                '<a href="?page=5&limit=1"',
+                'name="rows-per-page-option"',
+                'data-value="1"',
+                "selected",
+                ">1</a>",
+                "<!-- Pagination Control -->",
+                '<a onclick="updatePage(3)',
+                '<a onclick="updatePage(4)',
+                '<a onclick="updatePage(5)',
                 "<span>6 <span",
-                '<a href="?page=7&limit=1"',
-                '<a href="?page=8&limit=1"',
-                '<a href="?page=9&limit=1"',
+                '<a onclick="updatePage(7)',
+                '<a onclick="updatePage(8)',
+                '<a onclick="updatePage(9)',
             ],
             template_str,
         )
-        self.assertNotIn('<a href="?page=10&limit=1"', template_str)
+        self.assertNotIn('<a onclick="updatePage(10)', template_str)

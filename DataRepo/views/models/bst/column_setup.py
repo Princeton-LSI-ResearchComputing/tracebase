@@ -4,13 +4,16 @@ from typing import Dict, List, Optional, Union, cast
 from warnings import warn
 
 from django.conf import settings
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import ProgrammingError
 from django.db.models import IntegerField, Model, Value
 from django.db.models.aggregates import Count
 from django.db.models.expressions import Combinable
+from django.http import Http404
 
 from DataRepo.models.utilities import (
     field_path_to_model_path,
+    is_key_field,
     is_many_related_to_root,
     is_model_field,
     is_related,
@@ -18,7 +21,7 @@ from DataRepo.models.utilities import (
     select_representative_field,
 )
 from DataRepo.utils.exceptions import DeveloperWarning
-from DataRepo.utils.text_utils import underscored_to_title
+from DataRepo.utils.text_utils import camel_to_title, underscored_to_title
 from DataRepo.views.models.bst.client_interface import (
     BSTDetailViewClient,
     BSTListViewClient,
@@ -106,7 +109,7 @@ class BSTBaseView:
                 and/or self.model._meta.get_fields().
             kwargs (dict): Passed to ListView superclass constructor.
         Exceptions:
-            ProgrammingError the sort_col's representative field is invalid
+            None
         Returns:
             None
         """
@@ -465,7 +468,7 @@ class BSTBaseView:
                         fld.name not in self.exclude
                         or BSTManyRelatedColumn.get_count_name(
                             field_path_to_model_path(
-                                self.model, fld.name, many_related=True
+                                self.model, fld.name, last_many_related=True
                             ),
                             self.model,
                         )
@@ -478,7 +481,7 @@ class BSTBaseView:
         # Now process the many-related columns to add their count annotations to the self.column_settings
         for colname in mm_colnames:
             mr_model_path = field_path_to_model_path(
-                self.model, colname, many_related=True
+                self.model, colname, last_many_related=True
             )
             count_annot_name = BSTManyRelatedColumn.get_count_name(
                 mr_model_path, self.model
@@ -504,11 +507,16 @@ class BSTBaseView:
                 if count_annot_name not in self.column_ordering:
                     self.count_cols[count_annot_name] = mr_model_path
 
+                related_model = model_path_to_model(self.model, mr_model_path)
+
                 # Allow the derived class to have added custom settings for the count column
                 kwargs = {
                     "header": count_annot_header,
                     "filterer": "strictFilterer",
                     "sorter": "numericSorter",
+                    "model": self.model,
+                    "help_text": False,
+                    "tooltip": f"Count of related {related_model.__name__} records.",
                 }
                 if count_annot_name in self.column_settings.keys():
                     kwargs.update(self.column_settings[count_annot_name])
@@ -713,26 +721,47 @@ class BSTBaseView:
             self.init_column(colname)
 
             # See if the derived class specified a linked column (to the row's details page)
-            if colname not in self.groups.keys() and self.columns[colname].linked:
+            if (
+                colname != "details"
+                and colname not in self.groups.keys()
+                and self.columns[colname].linked
+            ):
                 # Only make the first linked column the representative (if there are multiple)
                 if not details_link_exists:
                     self.representative_column = self.columns[colname]
                 details_link_exists = True
 
         # If no representative exists and the model has a detail page, automatically set a representative
-        if not details_link_exists and BSTBaseColumn.has_detail(self.model):
+        if (
+            not details_link_exists
+            and BSTBaseColumn.has_detail(self.model)
+            and not isinstance(self, BSTBaseDetailView)
+        ):
             rep_colname = select_representative_field(
                 self.model, subset=self.column_ordering
             )
             # If no representative could be chosen
-            if rep_colname is None:
+            if (
+                rep_colname is None
+                and "details" not in self.exclude
+                and "details" not in self.columns.keys()
+            ):
                 # Append a details column containing only the linked text "details"
-                details = BSTAnnotColumn("details", Value("details"), linked=True)
-                self.column_ordering.append(details.name)
-                self.columns[details.name] = details
-            else:
+                details_col = self.get_details_col()
+                if details_col.name not in self.column_ordering:
+                    self.column_ordering.append(details_col.name)
+                self.columns[details_col.name] = details_col
+            elif rep_colname is not None:
                 self.columns[rep_colname].linked = True
                 self.representative_column = self.columns[rep_colname]
+        elif self.model is not None and not details_link_exists and settings.DEBUG:
+            warn(
+                (
+                    f"Model '{self.model.__name__}' has no get_absolute_url method.  "
+                    "Unable to automatically link to detail page."
+                ),
+                DeveloperWarning,
+            )
 
         # The representative column is either the first linked column or the first column
         # Allowing no model is purely for testing, since this isn't an abstract base class
@@ -805,10 +834,12 @@ class BSTBaseView:
                 f"'{first_field}') or annotation (because there is no converter in the column settings: {kwargs} and "
                 f"the column name does not appear in the annotations keys: {list(self.annotations.keys())})."
             )
-        else:
+        elif colname != "details":  # Special case handled after this method returns
             def_count_cols = [
                 BSTManyRelatedColumn.get_count_name(
-                    field_path_to_model_path(self.model, f.name, many_related=True),
+                    field_path_to_model_path(
+                        self.model, f.name, last_many_related=True
+                    ),
                     self.model,
                 )
                 for f in self.model._meta.get_fields()
@@ -831,6 +862,17 @@ class BSTBaseView:
                     f"inserting a column key, like this:\n\n{example}"
                 )
             raise ValueError(msg)
+        else:
+            self.columns[colname] = self.get_details_col()
+
+    def get_details_col(self):
+        return BSTAnnotColumn(
+            "details",
+            Value("details"),
+            linked=True,
+            searchable=False,
+            sortable=False,
+        )
 
     def add_check_groups(self):
         """Go through the columns and make sure that multiple columns from the same related model are in a column group
@@ -992,6 +1034,23 @@ class BSTBaseListView(BSTListViewClient, BSTBaseView):
     """
 
     def __init__(self, columns=None, **kwargs):
+        """An extension of the BSTClientInterface and BSTBaseView constructors intended to initialize the columns.
+
+        Args:
+            model (Model)
+            columns (Optional[Union[
+                List[Union[str, dict, BSTBaseColumn, BSTColumnGroup]],
+                Dict[str, Union[str, dict, BSTBaseColumn, BSTColumnGroup]]
+            ]]) [auto]: There are multiple ways to supply a columns specification, but all result in a dict of
+                BSTBaseColumn objects.  See init_column_settings() for details.
+                If columns are not supplied, default columns will be selected using self.column_ordering, self.exclude,
+                and/or self.model._meta.get_fields().
+            kwargs (dict): Passed to ListView superclass constructor.
+        Exceptions:
+            ProgrammingError the sort_col's representative field is invalid
+        Returns:
+            None
+        """
         # This initializes the Django ListView and the client interface
         BSTListViewClient.__init__(self, **kwargs)
         # This initializes all of the model fields/columns
@@ -1117,11 +1176,73 @@ class BSTBaseListView(BSTListViewClient, BSTBaseView):
         for colname in bad_visibles_entries:
             del self.visibles[colname]
 
+    def init_subquery(self):
+        """Initializes the subquery and subtitles dicts from the URL search parameters.
+
+        Basically, this facillitates linking to subsets of data in this view.  Links can add field_paths and their
+        search terms to the URL parameters in order to displat a subset of records in the list view.  When a subquery is
+        active, at "sub title" below the page title appears showing the context of the subset.
+        """
+        # This initializes subquery_ready
+        super().init_subquery()
+
+        subqueries: Dict[str, str] = {}
+        for key, value in self.request.GET.items():
+            fieldname = key.split("__")[0]
+            if key in self.columns.keys() or is_model_field(self.model, fieldname):
+                self.subquery_exists = True
+                # We have confirmed that a subquery exists.  If the subquery is not ready for user searches, make it
+                # ready by clearing the search/filter cookies.
+                if self.subquery_ready is False:
+                    # Clear the filter cookies
+                    self.reset_search_cookie()
+                    self.reset_filter_cookies()
+                    # Immediately return so that the response can be redirected to be filterable
+                    return
+                subqueries[key] = value
+
+        # Initialize the subquery and subtitles if there is a subquery
+        if len(subqueries.keys()) > 0:
+            self.subtitles = {}
+            self.subquery = {}
+        else:
+            return
+
+        for field_path, search_term in subqueries.items():
+            self.subquery[field_path] = search_term
+            if field_path in self.columns.keys():
+                subtitle = self.columns[field_path].generate_header()
+            else:
+                path_end: List[str] = field_path.split("__")[-2:]
+                subtitle = underscored_to_title(" ".join(path_end))
+            if is_key_field(field_path, self.model):
+                related_model = model_path_to_model(self.model, field_path)
+                if (
+                    related_model._meta.verbose_name.lower().replace(" ", "")
+                    != related_model.__name__.lower()
+                ):
+                    subtitle = underscored_to_title(related_model._meta.verbose_name)
+                else:
+                    subtitle = camel_to_title(related_model._meta.verbose_name)
+                try:
+                    self.subtitles[subtitle] = str(
+                        related_model.objects.get(pk=search_term)
+                    )
+                except ObjectDoesNotExist:
+                    raise Http404(f"{subtitle} '{search_term}' not found.")
+            else:
+                self.subtitles[subtitle] = search_term
+
     def get_context_data(self, **_):
         """An override of the superclass method to provide context variables to the page.  All of the values are
         specific to pagination and BST operations."""
         context = super().get_context_data()
-        context.update({self.columns_var_name: self.columns})
+        context.update(
+            {
+                self.columns_var_name: self.columns,
+                self.subtitles_var_name: self.subtitles,
+            }
+        )
         return context
 
 

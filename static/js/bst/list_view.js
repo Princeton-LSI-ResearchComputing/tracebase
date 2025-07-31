@@ -277,15 +277,25 @@ function updatePage (page, limit, exportType) { // eslint-disable-line no-unused
 function getPageURL (page, limit, exportType) { // eslint-disable-line no-unused-vars
   // Get or set the page and limit cookies
   [page, limit] = updatePageCookies(page, limit)
-  // Create the URL
+  // Create the URL, stating with the page
   // TODO: Add global variable for export URL parameter name, which is stored in a variable in BSTClientInterface
   let url = djangoCurrentURL + '?' + pageCookieName + '=' + page
+
+  // Add the limit
   if (typeof limit !== 'undefined' && (limit === 0 || limit)) {
     url += '&' + limitCookieName + '=' + limit
   }
+
   // Add the export param, if supplied
   if (typeof exportType !== 'undefined' && exportType) {
     url += '&export=' + exportType
+  }
+
+  // Add any other active URL parameters, like those for the subquery
+  for (const [key, value] of urlParams.entries()) {
+    if (![pageCookieName, limitCookieName, 'export'].includes(key)) {
+      url += '&' + key + '=' + value
+    }
   }
   return url
 }
@@ -419,6 +429,11 @@ function updateVisible (visible, columnName) {
         return col.field
       })
     }
+  }
+  // When columns are made visible, we have to make sure that their collapsed state is up to date
+  if (visible) {
+    const collapsed = parseBool(getViewCookie('collapsed'), true) // eslint-disable-line no-undef
+    setCollapse(collapsed)
   }
 }
 

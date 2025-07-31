@@ -252,7 +252,8 @@ def is_model_field(model: Type[Model], field_name: str) -> bool:
 def resolve_field_path(
     field_or_expression: Union[str, Combinable, DeferredAttribute, Field, Q, List[str]],
     _level=0,
-) -> str:
+    all=False,
+) -> Union[str, List[str]]:
     """Takes a representation of a field, e.g. from Model._meta.ordering, which can have transform functions applied
     (like Lower('field_name')) and returns the field path.
 
@@ -269,81 +270,97 @@ def resolve_field_path(
     Assumptions:
         1. In the case of field_or_expression being a Field, the "field path" returned assumes that the context of the
             field path is the immediate model that the Field belongs to.
-    Limitations:
-        1. Only supports a single source field path.
     Args:
         field_or_expression (Union[str, Combinable, DeferredAttribute, Field, Q, List[str]]): A str (e.g. a field path),
             Combinable (e.g. an F, Transform [like Lower("name")], Expression, etc object), a Model Field (or a
             DeferredAttribute representing a Model Field), a Q object (e.g. an expression inside a SubQuery Combinable),
             or a str list (because extracting field paths from a Q object can return multiple paths).
         _level (int): Recursion level, used to determine whether to raise an exception or return ""
+        all (bool) [False]: Return all extracted field paths in a list.  If none, an empty list is returned.  Default
+            behavior is only 1.
     Exceptions:
-        ValueError when the field_or_expression contains multiple field paths.
-        MultipleFields
-        NoFields
+        MultipleFields when all is False and multiple field paths extracted
+        NoFields when no field paths could be extracted
+        TypeError when field_or_expression is an unsupported type (could be encountered via recursion)
     Returns
-        field_path (str): The field path that either was the field_or_expression or its wrapper
+        field_path (Union[str, List[str]]): The field path that either was the field_or_expression or its wrapper.  The
+            initial call always returns a str if all is False and always returns a List[str] if all is True.  You may
+            need to cast the return value to satisfy mypy.
     """
     if isinstance(field_or_expression, str):
-        return (
+        fld_pth = (
             field_or_expression
             if not field_or_expression.startswith("-")
             else field_or_expression[1:]
         )
+        return fld_pth if not all else [fld_pth]
     elif isinstance(field_or_expression, Field):
-        return field_or_expression.name
+        return field_or_expression.name if not all else [field_or_expression.name]
     elif isinstance(field_or_expression, Q):
         return resolve_field_path(
-            extract_field_paths_from_q(field_or_expression), _level=_level + 1
+            extract_field_paths_from_q(field_or_expression), _level=_level + 1, all=all
         )
     elif isinstance(field_or_expression, list):
         if len(field_or_expression) == 0:
-            if _level > 0:
+            if _level == 0 and all:
+                return []
+            elif _level > 0:
                 # Return an empty string (to stay type-consistent) to indicate no fields detected in the expression(s)
-                return ""
+                return "" if not all else []
             else:
                 # If we're back to the original caller and there are still no expressions, raise an exception.
                 raise NoFields("No field name in field representation.")
         elif len(field_or_expression) > 1:
+            if all:
+                return field_or_expression
             raise MultipleFields(
                 f"Multiple field names in field representation {field_or_expression}."
             )
-        return field_or_expression[0]
+        return field_or_expression[0] if not all else field_or_expression
     elif isinstance(field_or_expression, DeferredAttribute):
-        return field_or_expression.field.name
+        return (
+            field_or_expression.field.name
+            if not all
+            else [field_or_expression.field.name]
+        )
     elif isinstance(field_or_expression, Expression):
-        field_reps = [
-            (
-                f
-                if isinstance(f, str) and f != ""
-                else resolve_field_path(f, _level=_level + 1)
-            )
-            for f in field_or_expression.get_source_expressions()
-        ]
-        # Filter out empty strings, which indicate no fields found
+        field_reps: List[str] = []
+        for fld in field_or_expression.get_source_expressions():
+            if isinstance(fld, str) and fld != "":
+                field_reps.append(fld)
+            else:
+                tmp_field_reps = resolve_field_path(fld, _level=_level + 1, all=all)
+                if isinstance(tmp_field_reps, str):
+                    field_reps.append(tmp_field_reps)
+                else:  # Assumes list
+                    field_reps.extend(tmp_field_reps)
         field_reps = [f for f in field_reps if f != ""]
 
         if len(field_reps) == 0:
-            if _level > 0:
+            if _level == 0 and all:
+                return []
+            elif _level > 0:
                 # Return an empty string (to stay type-consistent) to indicate no fields detected in the expression(s)
-                return ""
+                return "" if not all else []
             else:
                 # If we're back to the original caller and there are still no expressions, raise an exception.
                 raise NoFields("No field name in field representation.")
         elif len(field_reps) > 1:
+            if all:
+                return field_reps
             raise MultipleFields(
                 f"Multiple field names in field representation {field_reps}."
             )
         else:  # Assumes field_reps[0] is a str based on the above code
             # Strings need processing too, in case this comes from an order-by expression with a leading dash (for
             # reversing the order)
-            return resolve_field_path(field_reps[0], _level=_level + 1)
+            return resolve_field_path(field_reps[0], _level=_level + 1, all=all)
     elif isinstance(field_or_expression, F):
-        return field_or_expression.name
+        return field_or_expression.name if not all else [field_or_expression.name]
     else:
-        raise NoFields(
+        raise TypeError(
             f"Unsupported field_or_expression type: '{type(field_or_expression).__name__}' for expression: "
-            f"{field_or_expression}.  Returning empty string."
+            f"{field_or_expression}."
         )
 
 
@@ -578,8 +595,10 @@ def field_path_to_field(
         return field_path_to_field(model, path.split("__"), real=real)
     if len(path) == 1:
         name = resolve_field_path(path[0])
-        if is_model_field(model, name):
+        if isinstance(name, str) and is_model_field(model, name):
             return resolve_field(name, model=model, real=real)
+        elif not isinstance(name, str):
+            raise TypeError(f"Expected str. Got {type(name).__name__}")
         raise AttributeError(
             f"Model: {model.__name__} does not have a field attribute named: '{name}'."
         )
@@ -615,7 +634,8 @@ def get_next_model(current_model: Model, field_name: str) -> Type[Model]:
 def field_path_to_model_path(
     model: Type[Model],
     path: Union[str, List[str]],
-    many_related: bool = False,
+    last_many_related: bool = False,
+    first_many_related: bool = False,
     _output: str = "",
     _mr_output: str = "",
 ) -> str:
@@ -630,8 +650,10 @@ def field_path_to_model_path(
         model (Type[Model]): The Django Model class upon which the path can be used in filtering, etc.
         path (Union[str, List[str]]): A dunderscore-delimited lookup string (or list of the dunderscore-split) field
             path, which can be used in filtering, etc. off the model.
-        many_related (bool) [False]: Return the path to the last many-related model in the supplied path, instead of the
-            last model.
+        last_many_related (bool) [False]: Return the path to the last many-related model in the supplied path, instead
+            of the last model.  Mutually exclusive with first_many_related (i.e. both cannot be True).
+        first_many_related (bool) [False]: Return the path to the first many-related model in the supplied path, instead
+            of the last model.  Mutually exclusive with last_many_related (i.e. both cannot be True).
         _output (str) [""]: Used in recursion to build up the resulting model path.
         _mr_output (str) [""]: Used in recursion to build up the resulting many-related model path (only used if
             many_related is True).
@@ -642,24 +664,35 @@ def field_path_to_model_path(
         _output (str): The path to the last foreign key ("model") in the supplied path or "" if there are no foreign
             keys in the path (i.e. it's just a field name).
     """
+    from DataRepo.utils.exceptions import MutuallyExclusiveMethodArgs
+
+    if last_many_related and first_many_related:
+        raise MutuallyExclusiveMethodArgs(
+            "last_many_related and first_many_related cannot both be True."
+        )
     if len(path) == 0:
         raise ValueError("path string/list must have a non-zero length.")
     if isinstance(path, str):
         return field_path_to_model_path(
-            model, path.split("__"), many_related=many_related
+            model,
+            path.split("__"),
+            last_many_related=last_many_related,
+            first_many_related=first_many_related,
         )
 
     new_output = path[0] if _output == "" else f"{_output}__{path[0]}"
 
     # If we only want the last many-related model, update _mr_output
-    if many_related:
+    if last_many_related or first_many_related:
         fld = resolve_field(path[0], model=model)
         if fld.is_relation and is_many_related(fld, model):
             _mr_output = new_output
+        if first_many_related:
+            return _mr_output
 
     # If we're at the end of the path - no more recursion - return the result
     if len(path) == 1:
-        if many_related:
+        if last_many_related or first_many_related:
             if _mr_output == "":
                 raise ValueError(
                     f"No many-related model was found in the path '{new_output}'."
@@ -680,7 +713,8 @@ def field_path_to_model_path(
     return field_path_to_model_path(
         get_next_model(model, path[0]),
         path[1:],
-        many_related=many_related,
+        last_many_related=last_many_related,
+        first_many_related=first_many_related,
         _output=new_output,
         _mr_output=_mr_output,
     )
@@ -753,7 +787,11 @@ def select_representative_field(
     one_relations: List[Field] = []
     for f in all_fields:
         related_field = resolve_field(f)
-        if not related_field.is_relation and related_field.name != "id":
+        if (
+            not related_field.is_relation
+            and related_field.name != "id"
+            and related_field.null is False
+        ):
             if related_field.unique:
                 return related_field.name
             else:
@@ -1514,6 +1552,10 @@ def _get_field_val_by_iteration_onerelated_helper(
     if val_or_rec is None:
         return None, None, None
 
+    # The foreign key is None and iterating deeper would cause an exception, so return a None tuple
+    if val_or_rec is None:
+        return None, None, None
+
     return _get_field_val_by_iteration_helper(
         val_or_rec,
         field_path[1:],
@@ -1602,14 +1644,12 @@ def _get_field_val_by_iteration_manyrelated_helper(
         _sort_val = sort_val
 
     if len(field_path) == 1:
-
         uniq_vals = reduceuntil(
             lambda ulst, val: ulst + [val] if val not in ulst else ulst,
             lambda val: related_limit is not None and len(val) >= related_limit,
             _last_many_rec_iterator(mr_qs, next_sort_field_path),
             [],
         )
-
         return uniq_vals
 
     uniq_vals = reduceuntil(
@@ -1763,7 +1803,7 @@ def get_many_related_field_val_by_subquery(
     # This is used to ensure that the last many-related model is what is made distinct (not any other one-related
     # model that could be later in the field_path after the many-related model)
     many_related_model_path = field_path_to_model_path(
-        rec.__class__, field_path, many_related=True
+        rec.__class__, field_path, last_many_related=True
     )
 
     # If the field in the field_path is a foreign key (whether it is to the many-related model or another model that
@@ -1863,7 +1903,6 @@ def extract_field_paths_from_q(q_obj: Q) -> List[str]:
         1. Only supports a simple lookup, where the first element of the tuple is assumed to be the field path
     Args:
         q_obj (Q)
-        model (Type[Model])
     Exceptions:
         None
     Returns:

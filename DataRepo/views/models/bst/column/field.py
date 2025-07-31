@@ -26,7 +26,7 @@ class BSTColumn(BSTBaseColumn):
         1. Annotations are not supported.  See BSTAnnotColumn.
         2. Related columns are only partially supported, as they will not be linked.  See BSTRelatedColumn.
         3. Many-related columns are not supported.  See BSTManyRelatedColumn.
-        4. Foreign keys cannot be searchable or sortable.  See BSTRelatedColumn.
+        4. Foreign keys cannot be searchable/filterable or sortable.  See BSTRelatedColumn.
 
     Usage:
         You can create a simple model field column using the field names like this:
@@ -139,8 +139,17 @@ class BSTColumn(BSTBaseColumn):
             )
 
         self.field = field_path_to_field(self.model, self.field_path)
-        if not hasattr(self, "is_fk") or getattr(self, "is_fk", None) is None:
-            self.is_fk = is_key_field(self.field)
+        if (
+            (not hasattr(self, "is_fk") or getattr(self, "is_fk", None) is None)
+            and is_key_field(self.field)
+            # FK fields must be defined in a BSTRelatedColumn, not BSTColumn
+            and type(self) is __class__  # type: ignore[name-defined]
+        ):
+            raise TypeError(
+                f"'{name}' is a foreign key.  Foreign keys must be added as either a 'BSTRelatedColumn' or "
+                f"'BSTManyRelatedColumn', not '{type(self).__name__}', so that a representative field from the related "
+                "model can be selected for display."
+            )
 
         # Reverse relations do not have a help_text attribute
         # TODO: Put this hasattr logic in the related_field file

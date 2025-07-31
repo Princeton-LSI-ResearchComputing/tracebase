@@ -40,7 +40,7 @@ class ThTemplateTests(TracebaseTestCase):
         col = BSTAnnotColumn(
             "colname",
             Lower("name", output_field=CharField()),
-            searchable=False,
+            filterable=False,
             sortable=False,
             visible=False,
         )
