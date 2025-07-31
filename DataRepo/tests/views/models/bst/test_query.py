@@ -176,10 +176,13 @@ class BSTListViewTests(TracebaseTestCase):
         cls.a2.studies.add(cls.s2)
         super().setUpTestData()
 
-    # TODO: Account for the warnings about get_absolute_url not being in the model.
-    # @TracebaseTestCase.assertNotWarns()
+    @TracebaseTestCase.assertNotWarns()
     def test_init_no_cookies(self):
-        slv = StudyLV()
+        with self.assertWarns(DeveloperWarning) as aw:
+            slv = StudyLV()
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn("get_absolute_url", str(aw.warnings[0].message))
+
         slv.init_interface()
         self.assertEqual(0, slv.raw_total)
         self.assertEqual(0, slv.total)
@@ -197,20 +200,32 @@ class BSTListViewTests(TracebaseTestCase):
         )
         self.assertDictEquivalent({}, slv.prefilter_annots)
 
-    # TODO: Account for the warnings about get_absolute_url not being in the model.
-    # @TracebaseTestCase.assertNotWarns()
+    @TracebaseTestCase.assertNotWarns()
     def test_init_query_mode(self):
-        slv1 = StudyLV()
+        with self.assertWarns(DeveloperWarning) as aw:
+            slv1 = StudyLV()
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn("get_absolute_url", str(aw.warnings[0].message))
+
         self.assertEqual(QueryMode.iterate, slv1.query_mode)
-        slv2 = StudyLV(query_mode=QueryMode.subquery)
+
+        with self.assertWarns(DeveloperWarning) as aw:
+            slv2 = StudyLV(query_mode=QueryMode.subquery)
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn("get_absolute_url", str(aw.warnings[0].message))
+
         self.assertEqual(QueryMode.subquery, slv2.query_mode)
 
-    # TODO: Account for the warnings about get_absolute_url not being in the model.
-    # @TracebaseTestCase.assertNotWarns()
+    @TracebaseTestCase.assertNotWarns()
     def test_init_search_cookie(self):
         request = HttpRequest()
         request.COOKIES.update({f"StudyLV-{StudyLV.search_cookie_name}": "test"})
-        slv = StudyLV(request=request)
+
+        with self.assertWarns(DeveloperWarning) as aw:
+            slv = StudyLV(request=request)
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn("get_absolute_url", str(aw.warnings[0].message))
+
         slv.init_interface()
         q = Q(**{"name__icontains": "test"})
         q |= Q(**{"animals_mm_count__iexact": "test"})
@@ -230,12 +245,16 @@ class BSTListViewTests(TracebaseTestCase):
             {"name_bstrowsort": Lower("name")}, slv.postfilter_annots
         )
 
-    # TODO: Account for the warnings about get_absolute_url not being in the model.
-    # @TracebaseTestCase.assertNotWarns()
+    @TracebaseTestCase.assertNotWarns()
     def test_init_filter_cookie(self):
         request = HttpRequest()
         request.COOKIES.update({f"StudyLV-{StudyLV.filter_cookie_name}-name": "test"})
-        slv = StudyLV(request=request)
+
+        with self.assertWarns(DeveloperWarning) as aw:
+            slv = StudyLV(request=request)
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn("get_absolute_url", str(aw.warnings[0].message))
+
         slv.init_interface()
         q = Q(**{"name__icontains": "test"})
         self.assertDictEquivalent({}, slv.prefilter_annots)
@@ -251,8 +270,7 @@ class BSTListViewTests(TracebaseTestCase):
             slv.postfilter_annots,
         )
 
-    # TODO: Account for the warnings about get_absolute_url not being in the model.
-    # @TracebaseTestCase.assertNotWarns()
+    @TracebaseTestCase.assertNotWarns()
     def test_init_sort_cookie(self):
         request = HttpRequest()
         request.COOKIES.update(
@@ -261,7 +279,12 @@ class BSTListViewTests(TracebaseTestCase):
                 f"StudyLV-{StudyLV.asc_cookie_name}": "false",
             }
         )
-        slv = StudyLV(request=request)
+
+        with self.assertWarns(DeveloperWarning) as aw:
+            slv = StudyLV(request=request)
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn("get_absolute_url", str(aw.warnings[0].message))
+
         slv.init_interface()
         self.assertEqual(Q(), slv.filters)
         self.assertDictEquivalent({}, slv.prefilter_annots)
@@ -285,8 +308,7 @@ class BSTListViewTests(TracebaseTestCase):
             slv.columns[slv.sort_name].sorter.expression,
         )
 
-    # TODO: Account for the warnings about get_absolute_url not being in the model.
-    # @TracebaseTestCase.assertNotWarns()
+    @TracebaseTestCase.assertNotWarns()
     def test_init_sort_group_cookie(self):
         request = HttpRequest()
         request.COOKIES.update(
@@ -297,7 +319,12 @@ class BSTListViewTests(TracebaseTestCase):
                 f"{AnimalWithMultipleStudyColsLV.asc_cookie_name}": "false",
             }
         )
-        alv = AnimalWithMultipleStudyColsLV(request=request)
+
+        with self.assertWarns(DeveloperWarning) as aw:
+            alv = AnimalWithMultipleStudyColsLV(request=request)
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn("get_absolute_url", str(aw.warnings[0].message))
+
         alv.init_interface()
         self.assertEqual(Q(), alv.filters)
         self.assertEqual(
@@ -323,10 +350,14 @@ class BSTListViewTests(TracebaseTestCase):
         self.assertEqual(Lower, alv.columns["studies__name"].sorter._server_sorter)
         self.assertFalse(alv.columns["studies__name"].sorter.asc)
 
-    # TODO: Account for the warnings about get_absolute_url not being in the model.
-    # @TracebaseTestCase.assertNotWarns()
+    @TracebaseTestCase.assertNotWarns()
     def test_get_queryset(self):
-        alv = AnimalWithMultipleStudyColsLV()
+
+        with self.assertWarns(DeveloperWarning) as aw:
+            alv = AnimalWithMultipleStudyColsLV()
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn("get_absolute_url", str(aw.warnings[0].message))
+
         alv.init_interface()
         with self.assertNumQueries(2):
             # get_queryset doesn't return records, but it makes 2 queries:
@@ -339,8 +370,7 @@ class BSTListViewTests(TracebaseTestCase):
         self.assertEqual(2, alv.raw_total)
         self.assertEqual(2, alv.total)
 
-    # TODO: Account for the warnings about get_absolute_url not being in the model.
-    # @TracebaseTestCase.assertNotWarns()
+    @TracebaseTestCase.assertNotWarns()
     def test_get_user_queryset(self):
         request = HttpRequest()
         request.COOKIES.update(
@@ -353,7 +383,12 @@ class BSTListViewTests(TracebaseTestCase):
                 f"{AnimalWithMultipleStudyColsLV.filter_cookie_name}-studies__name": "s",
             }
         )
-        alv1 = AnimalWithMultipleStudyColsLV(request=request)
+
+        with self.assertWarns(DeveloperWarning) as aw:
+            alv1 = AnimalWithMultipleStudyColsLV(request=request)
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn("get_absolute_url", str(aw.warnings[0].message))
+
         alv1.init_interface()
         with self.assertNumQueries(2):
             qs1 = alv1.get_queryset()
@@ -372,7 +407,12 @@ class BSTListViewTests(TracebaseTestCase):
                 f"{AnimalWithMultipleStudyColsLV.asc_cookie_name}": "true",
             }
         )
-        alv2 = AnimalWithMultipleStudyColsLV(request=request)
+
+        with self.assertWarns(DeveloperWarning) as aw:
+            alv2 = AnimalWithMultipleStudyColsLV(request=request)
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn("get_absolute_url", str(aw.warnings[0].message))
+
         alv2.init_interface()
         with self.assertNumQueries(2):
             qs2 = alv2.get_queryset()
@@ -387,7 +427,12 @@ class BSTListViewTests(TracebaseTestCase):
             f"{AnimalWithMultipleStudyColsLV.__name__}-"
             f"{AnimalWithMultipleStudyColsLV.filter_cookie_name}-treatment": "ball",
         }
-        alv3 = AnimalWithMultipleStudyColsLV(request=request)
+
+        with self.assertWarns(DeveloperWarning) as aw:
+            alv3 = AnimalWithMultipleStudyColsLV(request=request)
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn("get_absolute_url", str(aw.warnings[0].message))
+
         alv3.init_interface()
         with self.assertNumQueries(2):
             qs3 = alv3.get_queryset()
@@ -398,10 +443,14 @@ class BSTListViewTests(TracebaseTestCase):
             qs3,
         )
 
-    # TODO: Account for the warnings about get_absolute_url not being in the model.
-    # @TracebaseTestCase.assertNotWarns()
+    @TracebaseTestCase.assertNotWarns()
     def test_get_prefetches(self):
-        alv = AnimalWithMultipleStudyColsLV()
+
+        with self.assertWarns(DeveloperWarning) as aw:
+            alv = AnimalWithMultipleStudyColsLV()
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn("get_absolute_url", str(aw.warnings[0].message))
+
         self.assertEqual(set(["studies", "treatment"]), set(alv.get_prefetches()))
 
         # Ensure that related model paths are extracted from annotations and added to the prefetches.
@@ -413,11 +462,14 @@ class BSTListViewTests(TracebaseTestCase):
                 )
             }
 
-        slv = StudyWithDistantAnnotLV()
+        with self.assertWarns(DeveloperWarning) as aw:
+            slv = StudyWithDistantAnnotLV()
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn("get_absolute_url", str(aw.warnings[0].message))
+
         self.assertEqual(set(["animals__treatment"]), set(slv.get_prefetches()))
 
-    # TODO: Account for the warnings about get_absolute_url not being in the model.
-    # @TracebaseTestCase.assertNotWarns()
+    @TracebaseTestCase.assertNotWarns()
     def test_get_filters(self):
         request = HttpRequest()
         request.COOKIES.update(
@@ -428,21 +480,30 @@ class BSTListViewTests(TracebaseTestCase):
                 f"{AnimalWithMultipleStudyColsLV.filter_cookie_name}-desc": "test2",
             }
         )
-        alv = AnimalWithMultipleStudyColsLV(request=request)
+
+        with self.assertWarns(DeveloperWarning) as aw:
+            alv = AnimalWithMultipleStudyColsLV(request=request)
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn("get_absolute_url", str(aw.warnings[0].message))
+
         alv.init_interface()
         self.assertEqual(
             "(AND: ('studies__name__icontains', 'test1'), ('desc__icontains', 'test2'))",
             str(alv.get_filters()),
         )
 
-    # TODO: Account for the warnings about get_absolute_url not being in the model.
-    # @TracebaseTestCase.assertNotWarns()
+    @TracebaseTestCase.assertNotWarns()
     def test_search(self):
         request = HttpRequest()
         request.COOKIES.update(
             {f"{AnimalWithMultipleStudyColsLV.__name__}-search": "test1"}
         )
-        alv = AnimalWithMultipleStudyColsLV(request=request)
+
+        with self.assertWarns(DeveloperWarning) as aw:
+            alv = AnimalWithMultipleStudyColsLV(request=request)
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn("get_absolute_url", str(aw.warnings[0].message))
+
         alv.init_interface()
         self.assertEqual(
             (
@@ -456,11 +517,15 @@ class BSTListViewTests(TracebaseTestCase):
             str(alv.search()),
         )
 
-    # TODO: Account for the warnings about get_absolute_url not being in the model.
-    # @TracebaseTestCase.assertNotWarns()
+    @TracebaseTestCase.assertNotWarns()
     def test_get_annotations_no_subquery(self):
         # No search or filter
-        alv1 = StudyLV()
+
+        with self.assertWarns(DeveloperWarning) as aw:
+            alv1 = StudyLV()
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn("get_absolute_url", str(aw.warnings[0].message))
+
         before, after = alv1.get_annotations()
         self.assertDictEquivalent(
             {
@@ -477,7 +542,12 @@ class BSTListViewTests(TracebaseTestCase):
         # Search
         request = HttpRequest()
         request.COOKIES.update({"StudyLV-search": "test1"})
-        alv2 = StudyLV(request=request)
+
+        with self.assertWarns(DeveloperWarning) as aw:
+            alv2 = StudyLV(request=request)
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn("get_absolute_url", str(aw.warnings[0].message))
+
         alv2.init_interface()
         before, after = alv2.get_annotations()
         self.assertDictEquivalent(
@@ -493,7 +563,12 @@ class BSTListViewTests(TracebaseTestCase):
 
         # Filter
         request.COOKIES = {"StudyLV-filter-description": "test1"}
-        alv3 = StudyLV(request=request)
+
+        with self.assertWarns(DeveloperWarning) as aw:
+            alv3 = StudyLV(request=request)
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn("get_absolute_url", str(aw.warnings[0].message))
+
         alv3.init_interface()
         before, after = alv3.get_annotations()
         self.assertDictEquivalent(
@@ -512,7 +587,12 @@ class BSTListViewTests(TracebaseTestCase):
 
         # No search or filter (but cookies)
         request.COOKIES = {"StudyLV-asc": "false"}
-        alv4 = StudyLV(request=request)
+
+        with self.assertWarns(DeveloperWarning) as aw:
+            alv4 = StudyLV(request=request)
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn("get_absolute_url", str(aw.warnings[0].message))
+
         alv4.init_interface()
         before, after = alv4.get_annotations()
         self.assertDictEquivalent({}, before)
@@ -529,7 +609,12 @@ class BSTListViewTests(TracebaseTestCase):
 
         # Sort with an annotation
         request.COOKIES = {"StudyLV-sortcol": "animals_mm_count", "StudyLV-asc": "true"}
-        alv5 = StudyLV(request=request)
+
+        with self.assertWarns(DeveloperWarning) as aw:
+            alv5 = StudyLV(request=request)
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn("get_absolute_url", str(aw.warnings[0].message))
+
         alv5.init_interface()
         before, after = alv5.get_annotations()
         self.assertDictEquivalent({}, before)
@@ -546,11 +631,15 @@ class BSTListViewTests(TracebaseTestCase):
             after,
         )
 
-    # TODO: Account for the warnings about get_absolute_url not being in the model.
-    # @TracebaseTestCase.assertNotWarns()
+    @TracebaseTestCase.assertNotWarns()
     def test_get_annotations_with_subquery(self):
         # No search or filter
-        alv1 = StudyLV()
+
+        with self.assertWarns(DeveloperWarning) as aw:
+            alv1 = StudyLV()
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn("get_absolute_url", str(aw.warnings[0].message))
+
         before, after = alv1.get_annotations({"animals__name": "A1"})
         self.assertDictEquivalent(
             {
@@ -568,22 +657,30 @@ class BSTListViewTests(TracebaseTestCase):
             after,
         )
 
-    # TODO: Account for the warnings about get_absolute_url not being in the model.
-    # @TracebaseTestCase.assertNotWarns()
+    @TracebaseTestCase.assertNotWarns()
     def test_apply_annotations(self):
-        slv = StudyLV()
+
+        with self.assertWarns(DeveloperWarning) as aw:
+            slv = StudyLV()
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn("get_absolute_url", str(aw.warnings[0].message))
+
         qs = BSTLVStudyTestModel.objects.all()
         aqs = slv.apply_annotations(qs, slv.get_annotations()[1])
         self.assertEqual(
             set(["S1", "S2"]), set(list(aqs.values_list("description", flat=True)))
         )
 
-    # TODO: Account for the warnings about get_absolute_url not being in the model.
-    # @TracebaseTestCase.assertNotWarns()
+    @TracebaseTestCase.assertNotWarns()
     def test_apply_filters_success(self):
         request = HttpRequest()
         request.COOKIES = {f"StudyLV-{StudyLV.filter_cookie_name}-name": "2"}
-        slv = StudyLV(request=request)
+
+        with self.assertWarns(DeveloperWarning) as aw:
+            slv = StudyLV(request=request)
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn("get_absolute_url", str(aw.warnings[0].message))
+
         slv.init_interface()
         qs = BSTLVStudyTestModel.objects.all()
         fqs = slv.apply_filters(qs)
@@ -592,8 +689,7 @@ class BSTListViewTests(TracebaseTestCase):
             fqs,
         )
 
-    # TODO: Account for the warnings about get_absolute_url not being in the model.
-    # @TracebaseTestCase.assertNotWarns()
+    @TracebaseTestCase.assertNotWarns()
     def test_apply_filters_warns(self):
         request = HttpRequest()
         request.COOKIES = {f"StudyLV-{StudyLV.filter_cookie_name}-desc": "2"}
@@ -607,6 +703,7 @@ class BSTListViewTests(TracebaseTestCase):
             len(aw.warnings),
             msg=f"Expected 2 warning about the 'desc' filter.  Got: {[str(w.message) for w in aw.warnings]}",
         )
+        self.assertIn("get_absolute_url", str(aw.warnings[0].message))
         self.assertIn(
             "Invalid 'filter' column encountered: 'desc'", str(aw.warnings[1].message)
         )
@@ -618,13 +715,17 @@ class BSTListViewTests(TracebaseTestCase):
         )
         self.assertEqual([f"{StudyLV.filter_cookie_name}-desc"], slv.cookie_resets)
 
-    # TODO: Account for the warnings about get_absolute_url not being in the model.
-    # @TracebaseTestCase.assertNotWarns()
+    @TracebaseTestCase.assertNotWarns()
     def test_paginate_queryset(self):
         request = HttpRequest()
         request.COOKIES = {f"StudyLV-{StudyLV.limit_cookie_name}": "1"}
         qs = BSTLVStudyTestModel.objects.all()
-        slv = StudyLV(request=request)
+
+        with self.assertWarns(DeveloperWarning) as aw:
+            slv = StudyLV(request=request)
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn("get_absolute_url", str(aw.warnings[0].message))
+
         slv.init_interface()
         qs = slv.get_queryset()
 
@@ -647,6 +748,7 @@ class BSTListViewTests(TracebaseTestCase):
         self.assertQuerySetEqual(qs.all()[0:1], object_list)
         self.assertTrue(is_paginated)
 
+    @TracebaseTestCase.assertNotWarns()
     def test_paginate_queryset_with_key_annot(self):
         # NOTE: This test raises 2 expected warnings:
         # 1. From the attempt to get help text:
@@ -666,7 +768,16 @@ class BSTListViewTests(TracebaseTestCase):
 
         request = HttpRequest()
         qs = BSTLVAnimalTestModel.objects.all()
-        alv = AnimalWithFKAnnotColLV(request=request)
+
+        with self.assertWarns(DeveloperWarning) as aw:
+            alv = AnimalWithFKAnnotColLV(request=request)
+        self.assertEqual(2, len(aw.warnings))
+        self.assertEqual(
+            "Sorting of key fields such as 'ManyToManyField' is not yet supported.",
+            str(aw.warnings[0].message),
+        )
+        self.assertIn("get_absolute_url", str(aw.warnings[1].message))
+
         alv.init_interface()
         qs = alv.get_queryset()
 
@@ -675,11 +786,15 @@ class BSTListViewTests(TracebaseTestCase):
         self.assertIsInstance(object_list[0].studyannot, BSTLVStudyTestModel)
         self.assertEquivalent(self.s1, object_list[0].studyannot)
 
-    # TODO: Account for the warnings about get_absolute_url not being in the model.
-    # @TracebaseTestCase.assertNotWarns()
+    @TracebaseTestCase.assertNotWarns()
     def test_set_list_attr(self):
         # TODO: Move this test to the BSTManyRelatedColumn tests
-        alv1 = AnimalDefaultLV()
+
+        with self.assertWarns(DeveloperWarning) as aw:
+            alv1 = AnimalDefaultLV()
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn("get_absolute_url", str(aw.warnings[0].message))
+
         studycol: BSTManyRelatedColumn = alv1.columns["studies"]
         with self.assertNumQueries(0):
             studycol.set_list_attr(self.a2, [self.s1, self.s2])
@@ -690,7 +805,12 @@ class BSTListViewTests(TracebaseTestCase):
         # We are still sending in 2 study records, because that's what the code outside this does: it retrieves the
         # limit + 1.
         delattr(self.a2, studycol.list_attr_name)
-        alv2 = AnimalDefaultLV()
+
+        with self.assertWarns(DeveloperWarning) as aw:
+            alv2 = AnimalDefaultLV()
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn("get_absolute_url", str(aw.warnings[0].message))
+
         studycol: BSTManyRelatedColumn = alv2.columns["studies"]
         studycol.limit = 1
         with self.assertNumQueries(0):
@@ -701,7 +821,12 @@ class BSTListViewTests(TracebaseTestCase):
         # Now let's simulate a count annotation having been added as an attribute/annotation
         delattr(self.a2, studycol.list_attr_name)
         setattr(self.a2, studycol.count_attr_name, 2)
-        alv3 = AnimalDefaultLV()
+
+        with self.assertWarns(DeveloperWarning) as aw:
+            alv3 = AnimalDefaultLV()
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn("get_absolute_url", str(aw.warnings[0].message))
+
         studycol: BSTManyRelatedColumn = alv3.columns["studies"]
         studycol.limit = 1
         with self.assertNumQueries(0):
@@ -716,7 +841,12 @@ class BSTListViewTests(TracebaseTestCase):
         request.COOKIES = {
             f"{AnimalWithMultipleStudyColsLV.__name__}-{AnimalWithMultipleStudyColsLV.limit_cookie_name}": "1"
         }
-        alv4 = AnimalWithMultipleStudyColsLV(request=request)
+
+        with self.assertWarns(DeveloperWarning) as aw:
+            alv4 = AnimalWithMultipleStudyColsLV(request=request)
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn("get_absolute_url", str(aw.warnings[0].message))
+
         alv4.init_interface()
         studynamecol: BSTManyRelatedColumn = alv4.columns["studies__name"]
         studynamecol.limit = 1
@@ -750,10 +880,14 @@ class BSTListViewTests(TracebaseTestCase):
         delattr(self.a2, studycol.list_attr_name)
         delattr(self.a2, studycol.count_attr_name)
 
-    # TODO: Account for the warnings about get_absolute_url not being in the model.
-    # @TracebaseTestCase.assertNotWarns()
+    @TracebaseTestCase.assertNotWarns()
     def test_get_column_val_by_iteration_with_annot(self):
-        alv1 = AnimalDefaultLV()
+
+        with self.assertWarns(DeveloperWarning) as aw:
+            alv1 = AnimalDefaultLV()
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn("get_absolute_url", str(aw.warnings[0].message))
+
         qs1 = BSTLVAnimalTestModel.objects.annotate(
             studies_mm_count=Count(
                 "studies", distinct=True, output_field=IntegerField()
@@ -784,10 +918,14 @@ class BSTListViewTests(TracebaseTestCase):
             #    From "for mr_rec in mr_qs.all()" in _recursive_many_rec_iterator
             self.assertEqual(["S1"], alv1.get_column_val_by_iteration(rec1, stdynmcol))
 
-    # TODO: Account for the warnings about get_absolute_url not being in the model.
-    # @TracebaseTestCase.assertNotWarns()
+    @TracebaseTestCase.assertNotWarns()
     def test_get_column_val_by_iteration_annot_excluded(self):
-        alv1 = AnimalDefaultLV()
+
+        with self.assertWarns(DeveloperWarning) as aw:
+            alv1 = AnimalDefaultLV()
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn("get_absolute_url", str(aw.warnings[0].message))
+
         qs1 = BSTLVAnimalTestModel.objects.order_by("name")
         stdynmcol = BSTManyRelatedColumn("studies__name", BSTLVAnimalTestModel)
         rec1 = qs1.first()
@@ -798,10 +936,14 @@ class BSTListViewTests(TracebaseTestCase):
         # - "Cannot guarantee the top 3 records will include the the min/max"
         # because the count is now retrieved even when the count annotation is excluded via column.count_attr_name.
 
-    # TODO: Account for the warnings about get_absolute_url not being in the model.
-    # @TracebaseTestCase.assertNotWarns()
+    @TracebaseTestCase.assertNotWarns()
     def test_get_many_related_column_val_by_subquery(self):
-        alv = AnimalWithMultipleStudyColsLV()
+
+        with self.assertWarns(DeveloperWarning) as aw:
+            alv = AnimalWithMultipleStudyColsLV()
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn("get_absolute_url", str(aw.warnings[0].message))
+
         alv.init_interface()
         qs = alv.get_queryset()
         rec = qs.first()
@@ -819,8 +961,7 @@ class BSTListViewTests(TracebaseTestCase):
         # THIS DOESN'T MATTER BECAUSE THE DEFAULT ASC FOR studynamecol IS TRUE, so the EXPECTED RESULT IS ["S1", "S2"]
         self.assertEqual(["S1", "S2"], val)
 
-    # TODO: Account for the warnings about get_absolute_url not being in the model.
-    # @TracebaseTestCase.assertNotWarns()
+    @TracebaseTestCase.assertNotWarns()
     def test_get_context_data(self):
         # This creates a GET request.  The URL argument doesn't matter.  We just want the request object, with a little
         # bit of setup.
@@ -830,7 +971,12 @@ class BSTListViewTests(TracebaseTestCase):
         request.COOKIES = {f"StudyLV-{StudyLV.filter_cookie_name}-name": "2"}
 
         # The cookies are handled in the constructor.
-        slv = StudyLV(request=request)
+
+        with self.assertWarns(DeveloperWarning) as aw:
+            slv = StudyLV(request=request)
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn("get_absolute_url", str(aw.warnings[0].message))
+
         slv.init_interface()
 
         # Perform some manual setup.  slv.object_list would otherwise be set when slv.get(request) is called, but we
@@ -849,26 +995,37 @@ class BSTListViewTests(TracebaseTestCase):
         # Finally, assure there were no warnings.
         self.assertEqual([], context["warnings"])
 
-    # TODO: Account for the warnings about get_absolute_url not being in the model.
-    # @TracebaseTestCase.assertNotWarns()
+    @TracebaseTestCase.assertNotWarns()
     def test_get_sub_queryset(self):
         qs = BSTLVAnimalTestModel.objects.all()
 
-        alv1 = AnimalDefaultLV()
+        with self.assertWarns(DeveloperWarning) as aw:
+            alv1 = AnimalDefaultLV()
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn("get_absolute_url", str(aw.warnings[0].message))
+
         alv1.subquery = {"studies": self.s1.pk}
         qs1: QuerySet = alv1.get_sub_queryset(qs)
         self.assertEqual(2, qs1.count())
 
-        alv2 = AnimalDefaultLV()
+        with self.assertWarns(DeveloperWarning) as aw:
+            alv2 = AnimalDefaultLV()
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn("get_absolute_url", str(aw.warnings[0].message))
+
         alv2.subquery = {"studies__name": "S2"}
         qs2: QuerySet = alv2.get_sub_queryset(qs)
         self.assertEqual(1, qs2.count())
 
-    # TODO: Account for the warnings about get_absolute_url not being in the model.
-    # @TracebaseTestCase.assertNotWarns()
+    @TracebaseTestCase.assertNotWarns()
     def test_init_subquery(self):
         request = HttpRequest()
-        alv = StudyLV(request=request)
+
+        with self.assertWarns(DeveloperWarning) as aw:
+            alv = StudyLV(request=request)
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn("get_absolute_url", str(aw.warnings[0].message))
+
         alv.presubset_annots = None
         alv.subquery = {"animals__name": "A1"}
         alv.init_subquery()

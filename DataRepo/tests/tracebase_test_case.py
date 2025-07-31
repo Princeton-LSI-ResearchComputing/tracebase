@@ -13,6 +13,7 @@ from django.db.models import AutoField, Field, Model
 from django.test import TestCase, TransactionTestCase, override_settings
 
 from DataRepo.models.utilities import get_all_models
+from DataRepo.utils.exceptions import trace
 
 try:
     import importlib
@@ -224,6 +225,24 @@ def test_case_class_factory(base_class: Type[T]) -> Type[T]:
             """
 
             def decorator(fn):
+                # This is to be able to be able to include the lines in the test that caused the assertion error about
+                # an unexpected warning
+                traceback = trace().split("\n")
+                tb = ""
+                include = False
+                for tbl in traceback:
+                    if include:
+                        if "tracebase_test_case.py" in tbl:
+                            # Stop including this portion of the trace when it gets back to here
+                            include = False
+                            continue
+                        tb += "\n" + tbl
+                        continue
+                    if "File " in tbl and "/test_" in tbl:
+                        # Start including the portion of the trace when it gets into a test file
+                        tb += "\n" + tbl
+                        include = True
+
                 def wrapper(testcase_obj, *args, **kwargs):
                     aw = None
                     other_exception = None
@@ -240,7 +259,6 @@ def test_case_class_factory(base_class: Type[T]) -> Type[T]:
                         if aw is None or len(aw.warnings) == 0:
                             raise ae
 
-                    # if f"{unexpected_warning.__name__} not triggered" not in str(ar.exception):
                     if other_exception is not None:
                         raise other_exception.with_traceback(
                             other_exception.__traceback__
@@ -249,7 +267,7 @@ def test_case_class_factory(base_class: Type[T]) -> Type[T]:
                     if len(aw.warnings) > 0:
                         uws = "\n\t".join([str(w.message) for w in aw.warnings])
                         raise AssertionError(
-                            f"{len(aw.warnings)} unexpected {unexpected_warning.__name__} triggered:\n\t{uws}"
+                            f"{tb}\n{len(aw.warnings)} unexpected {unexpected_warning.__name__} triggered:\n\t{uws}"
                         )
 
                 return wrapper
