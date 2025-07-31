@@ -43,12 +43,6 @@ class BSTQueryViewTests(TracebaseTestCase):
     pass
 
 
-
-class BSTQueryViewTests(TracebaseTestCase):
-    # NOTE: BSTQueryView's methods are tested via its derived classes
-    pass
-
-
 BSTLVStudyTestModel = create_test_model(
     "BSTLVStudyTestModel",
     {
