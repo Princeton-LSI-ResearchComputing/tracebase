@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Optional, cast
+from typing import Optional
 
 from DataRepo.views.models.bst.column.many_related_field import (
     BSTManyRelatedColumn,
