@@ -95,6 +95,27 @@ class BSTListViewClient(BSTClientInterface, ListView):
             scripts_var_name (str) ["scripts"]
             raw_total_var_name (str) ["raw_total"]
             total_var_name (str) ["total"]
+            subquery_param_name (str) ["subquery"]: The subquery URL parameter is for subsetting the table using one or
+                more search field and search term key value pairs.  The "subquery" URL paramater is an internally used
+                URL parameter that tells the list view that the filter cookies have been cleared.  When the "subquery"
+                parameter is not present and search parameters have been found in the URL parameters, the filter cookies
+                are cleared and the respose is redirected to the same URL with "&subquery=true" appended to the URL
+                parameters.  Any further reloads will not clear the filter cookies.  I.e. it allows the user to search
+                the subsetted list.
+                Example:
+                    1. This URL comes in: http://tracebase.princeton.edu/DataRepo/animals/?treatment=5
+                    2. treatment=5 is identified as a subquery
+                    3. Any previously saved filter cookies are deleted
+                    4. Response redirects to: http://tracebase.princeton.edu/DataRepo/animals/?treatment=5&subquery=true
+                    5. henceforth, the user can filter the subsetted results.
+            subtitles_var_name (str) ["subtitles"]: This is a list of subquery field names and values to be used as a
+                page subtitle.
+                Example:
+                    When this URL comes in: http://tracebase.princeton.edu/DataRepo/animals/?treatment=5
+                    The top of the page will be:
+                    <h4>Animals</h4>
+                    <h5>for Treatment "no treatment"</h5>
+                Note that the field and value are modified to be readable.
     Instance Attributes:
         kwargs (dict)
         javascripts (List[str]) [__class__.scripts]: List of javascript paths relative to the static directory.
@@ -146,11 +167,15 @@ class BSTListViewClient(BSTClientInterface, ListView):
     cookie_resets_var_name = "cookie_resets"
     clear_cookies_var_name = "clear_cookies"
 
+    # URL Parameter names
+    page_var_name = "page"
+    subquery_param_name = "subquery"
+
     # JavaScript
     scripts_var_name = "scripts"
 
-    # Basics
-    page_var_name = "page"
+    # Other context variables
+    subtitles_var_name = "subtitles"  # For URL Param subqueries
     limit_default_var_name = "limit_default"
 
     # QuerySet metadata
@@ -201,6 +226,12 @@ class BSTListViewClient(BSTClientInterface, ListView):
         # Initialize default values that will be obtained from URL parameters (or cookies)
         self.page = 1
         self.limit = self.paginate_by
+
+        # Initialize variables associated with subquery functionality
+        self.subquery: Optional[Dict[str, str]] = None
+        self.subtitles: Optional[Dict[str, str]] = None
+        self.subquery_exists = False
+        self.subquery_ready = False
 
         # Used for the pagination control (be sure to update in get_queryset)
         self.total = 0
@@ -258,6 +289,17 @@ class BSTListViewClient(BSTClientInterface, ListView):
                 self.limit = self.paginate_by
         else:
             self.limit = int(limit_param)
+
+    def init_subquery(self):
+        """Initializes the subquery dict from the URL search parameters and the subtitle dict used to supplement the
+        page title.
+
+        Basically, this facillitates linking to subsets of data in this view.  Links can add field_paths and their
+        search terms to the URL parameters in order to displat a subset of records in the list view.  When a subquery is
+        active, at "sub title" below the page title appears showing the context of the subset.
+        """
+        # NOTE: The value of the subquery_param_name doesn't matter
+        self.subquery_ready = self.subquery_param_name in self.request.GET.keys()
 
     def get_paginate_by(self, qs: Optional[Union[list, QuerySet]]):
         """An override of the superclass method to allow the user to change the rows per page.
@@ -520,14 +562,10 @@ class BSTListViewClient(BSTClientInterface, ListView):
             columns (List[Union[str, BSTBaseColumn]]): A list of BST columns or column names.
             name (str): The name of the cookie variable specific to the column.
         Exceptions:
-            ValueError when columns is invalid.
+            None
         Returns:
             None
         """
-        if columns is None or len(columns) == 0:
-            raise ValueError(
-                f"Invalid columns: [{columns}].  Must be a non-empty list of strs or BSTBaseColumns."
-            )
         for col in columns:
             self.reset_column_cookie(col, name)
 

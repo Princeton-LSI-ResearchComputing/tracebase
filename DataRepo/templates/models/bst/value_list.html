@@ -5,11 +5,17 @@
 {% with column_values=object|get_rec_val:column %}
     {% for column_value in column_values %}
         {% if column_value|is_model_obj and column_value|has_attr:"get_absolute_url" %}
-            {# Render model object in string context for the link's display value #}
-            <span class="nobr"><a href="{{ column_value|get_absolute_url }}">{{ column_value }}</a>{% if not forloop.last %}{{ column.delim }}</span><br class="cell-wrap {% if collapsed %}d-none{% endif %}">{% else %}</span>{% endif %}
+            {% if column.display_field_name and column.display_field_path != column.display_field_name %}
+                <span class="nobr"><a href="{{ column_value|get_absolute_url }}">{{ column_value|get_attr:column.display_field_name }}</a>{% if not forloop.last %}{{ column.delim }}</span><br class="cell-wrap {% if collapsed %}d-none{% endif %}">{% else %}</span>{% endif %}
+            {% else %}
+                {# Render model object in string context for the link's display value #}
+                <span class="nobr"><a href="{{ column_value|get_absolute_url }}">{{ column_value }}</a>{% if not forloop.last %}{{ column.delim }}</span><br class="cell-wrap {% if collapsed %}d-none{% endif %}">{% else %}</span>{% endif %}
+            {% endif %}
         {% else %}
             {% if column_value is None %}
                 <span class="text-muted">None</span>{% if not forloop.last %}{{ column.delim }}<br class="cell-wrap{% if collapsed %} d-none{% endif %}">{% endif %}
+            {% elif column_value|is_model_obj and column.display_field_name and column.display_field_path != column.display_field_name %}
+                <span class="nobr">{{ column_value|get_attr:column.display_field_name }}{% if not forloop.last %}{{ column.delim }}</span><br class="cell-wrap{% if collapsed %} d-none{% endif %}">{% else %}</span>{% endif %}
             {% else %}
                 <span class="nobr">{{ column_value }}{% if not forloop.last %}{{ column.delim }}</span><br class="cell-wrap{% if collapsed %} d-none{% endif %}">{% else %}</span>{% endif %}
             {% endif %}
