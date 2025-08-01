@@ -1552,10 +1552,6 @@ def _get_field_val_by_iteration_onerelated_helper(
     if val_or_rec is None:
         return None, None, None
 
-    # The foreign key is None and iterating deeper would cause an exception, so return a None tuple
-    if val_or_rec is None:
-        return None, None, None
-
     return _get_field_val_by_iteration_helper(
         val_or_rec,
         field_path[1:],
