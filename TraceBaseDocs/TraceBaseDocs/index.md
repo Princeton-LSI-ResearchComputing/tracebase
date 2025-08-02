@@ -2,12 +2,13 @@
 
 ![TraceBase logo](Attachments/TraceBase%20logo.png)
 
-TraceBase is a data repository and analysis tool for mass-spectrometry data
-from isotope tracing studies used to quantify metabolism in vivo. Lab members
-submit data corrected for natural isotope abundance (by AccuCor or IsoCorr),
-along with details about their experiment. TraceBase organizes this data and
-computes useful metrics such as enrichment, normalized labeling, and FCirc.
-Data on TraceBase is easy to browse, collate, compare, and download.
+TraceBase is a mass spectrometry data repository and analysis tool for isotopic tracing studies used to quantify in vivo
+metabolism.  It is designed to be downloaded and installed for individual labs so that lab members can make their
+natural isotopic abundance corrected data (along with associated experimental metadata) available to the rest of the
+lab.  It currently supports [AccuCor](https://doi.org/10.1021/acs.analchem.7b00396),
+[IsoCor](https://doi.org/10.1093/bioinformatics/btz209), and [Iso-AutoCor](https://github.com/xxing9703/Iso-Autocorr).
+TraceBase organizes this data and computes useful metrics such as enrichment, normalized labeling, and FCirc.  Data on
+TraceBase is easy to browse, collate, compare, and download.
 
 ## Overview
 
@@ -15,13 +16,13 @@ Slideshow introduction:  [221011_tracebase REintroduction to lab.pptx](https://d
 
 [Structure of TraceBase for the Researcher](Structure%20of%20TraceBase%20for%20the%20Researcher.md)
 
-[Navigating TraceBase](Overview/Navigating%20TraceBase.md)
+[Navigation](Overview/Navigating%20TraceBase.md)
 
 [Glossary of Calculated Values](Values/Glossary%20of%20Calculated%20Values.md)
 
-## Uploading to TraceBase
+## Uploading
 
-[How to Upload](How%20to%20Upload.md)
+[How to Upload Data](How%20to%20Upload.md)
 
 [Input Data for TraceBase Upload](Upload/Input%20Data%20for%20TraceBase%20Upload.md)
 
@@ -29,24 +30,35 @@ Slideshow introduction:  [221011_tracebase REintroduction to lab.pptx](https://d
 
 [Labeling and Organizing Data](Upload/Labeling%20and%20Organizing%20Data.md)
 
-## Downloading from TraceBase
+## Downloading
 
 [How to Download](Types%20of%20Data%20Output/How%20to%20Download.md)
 
 [Downloaded Data Formats](Types%20of%20Data%20Output/Downloaded%20Data%20Formats.md)
 
+### Analysis
+
 [How do I analyze data downloaded from TraceBase?](Download/How%20to%20analyze%20data%20downloaded%20from%20TraceBase.md)
 
-[Example_compare isotopomer labeling from glucose across studies](Download/Example_compare%20isotopomer%20labeling%20from%20glucose%20across%20studies.md)
+#### Examples
 
-[Example_compare normalized labeling from glucose across studies](Download/Example_compare%20normalized%20labeling%20from%20glucose%20across%20studies.md)
+- [FCirc barplot example](https://rpubs.com/lparsons/tracebase-fcirc-plots).
 
-## Contact Developers and Additional Links
+- [PeakGroup plots example](https://rpubs.com/lparsons/tracebase-peakgroup-plots) comparing normalized labeling from
+  glucose across studies and serine labeling within and across studies.
+  _([source](https://github.com/PrincetonUniversity/tracebase-data-analysis))_
 
-[People Who Contributed to TraceBase Development](Overview/People%20Who%20Contributed%20to%20TraceBase%20Development.md)
+_Note: These examples link to a private TraceBase instance, so the associated data cannot be retrieved, but the data_
+_retrieval process described is accurate._
+
+## Contact
+
+[Team](Overview/People%20Who%20Contributed%20to%20TraceBase%20Development.md)
 
 [GitHub Repository](https://github.com/Princeton-LSI-ResearchComputing/tracebase)
 
-- [Report a bug on GitHub](Contributing/Report%20a%20bug%20or%20request%20a%20feature%20on%20github.md)
+- [Report a bug](https://github.com/Princeton-LSI-ResearchComputing/tracebase/issues/new?template=bug_report.md)
+- [Request a feature](https://github.com/Princeton-LSI-ResearchComputing/tracebase/issues/new?template=feature_request.md)
+- [Contribute](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md)
 
-[Provide feedback in a google form](https://docs.google.com/forms/d/e/1FAIpQLSdnYe_gvKdoELXexZ9508xO8o59F1WgXcWBNh-_oxYh9WfHPg/viewform?usp=pp_url&entry.1881422913=/TraceBaseDocs/TraceBaseDocs)
+[Leave Feedback](https://docs.google.com/forms/d/e/1FAIpQLSdnYe_gvKdoELXexZ9508xO8o59F1WgXcWBNh-_oxYh9WfHPg/viewform?usp=pp_url&entry.1881422913=/TraceBaseDocs/TraceBaseDocs)
