@@ -136,9 +136,19 @@ dmypy.json
 .pyre/
 archive
 
-# Robs custom ignores - I use the following file that I haven't made into an "app" yet
-DataRepo/management/commands/list_tests.py
+# Node linters
 node_modules
 package-lock.json
 package.json
 *.patch
+
+# Scratch files
+scratch.*
+
+# Robs custom ignores - I use the following file that I haven't made into an "app" yet
+DataRepo/management/commands/list_tests.py
+
+# Django debug toolbar.  See traceBase/settings.py.
+static/admin
+static/debug_toolbar
+TraceBase/static
