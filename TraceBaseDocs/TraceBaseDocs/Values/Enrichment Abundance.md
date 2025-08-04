@@ -1,6 +1,6 @@
 # Enrichment Abundance
 
-Found in [PeakGroups](../Types%20of%20Data%20Output/PeakGroups.md)
+Found in [PeakGroups](../Download/About%20the%20Data/Data%20Types/PeakGroups.md)
 
 [GitHub Link](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/c8ef01327429b31a25c9824050487ecb641f491c/DataRepo/models/peak_group_label.py#L155-L167)
 

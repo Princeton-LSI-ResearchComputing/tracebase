@@ -10,13 +10,13 @@ calculated.
 
 ---
 
-* [PeakData](../Types%20of%20Data%20Output/PeakData.md)
+* [PeakData](../Download/About%20the%20Data/Data%20Types/PeakData.md)
   * [[Corrected Abundance]]
   * [Fraction](Fraction.md)
 
 ---
 
-* [PeakGroups](../Types%20of%20Data%20Output/PeakGroups.md)
+* [PeakGroups](../Download/About%20the%20Data/Data%20Types/PeakGroups.md)
   * [Total Abundance](Total%20Abundance.md)
   * [Enrichment](Enrichment.md)
   * [Enrichment Abundance](Enrichment%20Abundance.md)
@@ -25,4 +25,4 @@ calculated.
 
 ---
 
-* [Fcirc](../Types%20of%20Data%20Output/Fcirc.md)
+* [Fcirc](../Download/About%20the%20Data/Data%20Types/FCirc.md)

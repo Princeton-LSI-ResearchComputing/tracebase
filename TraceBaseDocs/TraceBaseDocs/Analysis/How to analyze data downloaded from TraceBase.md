@@ -1,20 +1,13 @@
 # How do I analyze data downloaded from TraceBase?
 
-Data downloaded from the Download menu or from the advanced search is in TSV (tab separated values) format.  It is
-available in 3 varieties:
-
-- PeakData
-- PeakGroups
-- Fcirc
-
-See [Format of Downloaded Data](Format%20of%20Downloaded%20Data.md) for details.
+See [Format of Downloaded Data](Format%20of%20Downloaded%20Data.md) for details on the datatypes available.
 
 ## Analyze in Excel
 
-TSV can be opened in Excel in multiple ways:
+TSV files can be opened in Excel in multiple ways:
 
-- Open a blank workbook, drag and drop the TSV file into the workbook.
-- Excel > Open > Browse > select tsv file (you may need to enable "all files") > follow import wizard using "Delimited"
+* Open a blank workbook, drag and drop the TSV file into the workbook.
+* Excel > Open > Browse > select tsv file (you may need to enable "all files") > follow import wizard using "Delimited"
   settings
 
 Excel PivotTables are a powerful tool to quickly browse TraceBase data.  To create a PivotTable, follow these
@@ -33,3 +26,10 @@ GraphPad table.
 ## Analyze in R
 
 Downloaded data is formatted in a 'tidy' way where each observation is in one row.
+
+### Examples
+
+* [FCirc barplot](Examples/fcirc_plots.html)
+
+* [PeakGroup plots](Examples/peakgroup_plots.html) comparing normalized labeling from glucose across studies and
+  serine labeling within and across studies.

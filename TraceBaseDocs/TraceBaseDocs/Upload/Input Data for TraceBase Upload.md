@@ -20,4 +20,4 @@ Therefore, a typical workflow to put data on TraceBase could be:
 
 TraceBase uses the [Sample Information Sheet](Sample%20Information%20Sheet.md)
 to label and organize this data, and produces three types of [output
-formats](../Types%20of%20Data%20Output/Downloaded%20Data%20Formats.md).
+formats](../Download/About%20the%20Data/Format%20of%20Downloaded%20Data.md).

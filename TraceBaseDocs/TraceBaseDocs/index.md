@@ -14,15 +14,15 @@ TraceBase is easy to browse, collate, compare, and download.
 
 Slideshow introduction:  [221011_tracebase REintroduction to lab.pptx](https://docs.google.com/presentation/d/1vIZvU5Q-hY7zUOC4fvMDuVONvQZR5jlC/edit?usp=sharing&ouid=102781029027637329166&rtpof=true&sd=true)
 
-[Structure of TraceBase for the Researcher](Structure%20of%20TraceBase%20for%20the%20Researcher.md)
+[Structure of TraceBase for the Researcher](Overview/Structure%20of%20TraceBase%20for%20the%20Researcher.md)
 
 [Navigation](Overview/Navigating%20TraceBase.md)
 
 [Glossary of Calculated Values](Values/Glossary%20of%20Calculated%20Values.md)
 
-## Uploading
+## Upload
 
-[How to Upload Data](How%20to%20Upload.md)
+[How to Upload Data](Upload/How%20to%20Upload.md)
 
 [Input Data for TraceBase Upload](Upload/Input%20Data%20for%20TraceBase%20Upload.md)
 
@@ -30,26 +30,13 @@ Slideshow introduction:  [221011_tracebase REintroduction to lab.pptx](https://d
 
 [Labeling and Organizing Data](Upload/Labeling%20and%20Organizing%20Data.md)
 
-## Downloading
+## Download
 
-[How to Download](Types%20of%20Data%20Output/How%20to%20Download.md)
+[How to Download](Download/How%20to%20Download.md)
 
-[Downloaded Data Formats](Types%20of%20Data%20Output/Downloaded%20Data%20Formats.md)
+[Downloaded Data Formats](Download/About%20the%20Data/Format%20of%20Downloaded%20Data.md)
 
-### Analysis
-
-[How do I analyze data downloaded from TraceBase?](Download/How%20to%20analyze%20data%20downloaded%20from%20TraceBase.md)
-
-#### Examples
-
-- [FCirc barplot example](https://rpubs.com/lparsons/tracebase-fcirc-plots).
-
-- [PeakGroup plots example](https://rpubs.com/lparsons/tracebase-peakgroup-plots) comparing normalized labeling from
-  glucose across studies and serine labeling within and across studies.
-  _([source](https://github.com/PrincetonUniversity/tracebase-data-analysis))_
-
-_Note: These examples link to a private TraceBase instance, so the associated data cannot be retrieved, but the data_
-_retrieval process described is accurate._
+[How do I analyze data downloaded from TraceBase?](Analysis/How%20to%20analyze%20data%20downloaded%20from%20TraceBase.md)
 
 ## Contact
 
@@ -57,8 +44,8 @@ _retrieval process described is accurate._
 
 [GitHub Repository](https://github.com/Princeton-LSI-ResearchComputing/tracebase)
 
-- [Report a bug](https://github.com/Princeton-LSI-ResearchComputing/tracebase/issues/new?template=bug_report.md)
-- [Request a feature](https://github.com/Princeton-LSI-ResearchComputing/tracebase/issues/new?template=feature_request.md)
-- [Contribute](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md)
+* [Report a bug](https://github.com/Princeton-LSI-ResearchComputing/tracebase/issues/new?template=bug_report.md)
+* [Request a feature](https://github.com/Princeton-LSI-ResearchComputing/tracebase/issues/new?template=feature_request.md)
+* [Contribute](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md)
 
 [Leave Feedback](https://docs.google.com/forms/d/e/1FAIpQLSdnYe_gvKdoELXexZ9508xO8o59F1WgXcWBNh-_oxYh9WfHPg/viewform?usp=pp_url&entry.1881422913=/TraceBaseDocs/TraceBaseDocs)

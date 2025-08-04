@@ -22,9 +22,9 @@ ensures that data can be compiled and compared across different studies.
 Consistency is ensured by developers that review data submitted for upload.
 
 **Calculated** data are found in three types of output:
-[PeakData](../Types%20of%20Data%20Output/PeakData.md),
-[PeakGroups](../Types%20of%20Data%20Output/PeakGroups.md), and
-[Fcirc](../Types%20of%20Data%20Output/Fcirc.md).  Some calculations rely on
+[PeakData](../Download/About%20the%20Data/Data%20Types/PeakData.md),
+[PeakGroups](../Download/About%20the%20Data/Data%20Types/PeakGroups.md), and
+[Fcirc](../Download/About%20the%20Data/Data%20Types/FCirc.md).  Some calculations rely on
 other sample attributes (ie [Normalized
 Labeling](../Values/Normalized%20Labeling.md) uses the
 [Enrichment](../Values/Enrichment.md) of the tracer compound in a specific

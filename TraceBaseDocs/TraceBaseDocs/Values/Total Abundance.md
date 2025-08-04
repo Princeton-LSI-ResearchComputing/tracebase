@@ -1,6 +1,6 @@
 # Total Abundance
 
-Found in [PeakGroups](../Types%20of%20Data%20Output/PeakGroups.md)
+Found in [PeakGroups](../Download/About%20the%20Data/Data%20Types/PeakGroups.md)
 
 [GitHub Link](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/1a7e9f9a05b01e00fdb83b4e1e97ef54c6588302/DataRepo/models/peak_group.py#L53-L65)
 
