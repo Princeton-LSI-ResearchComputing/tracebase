@@ -19,15 +19,22 @@ for details.
 A researcher may wish to calculate multiple forms of FCirc depending on their experimental goals.  These forms are based
 on whether the tracer infusion is included in the flux (Ra vs Rd, or "rates of appearance versus disappearance" of the
 fully labeled tracer) and whether the intact or atom-averaged flux is preferred.  TraceBase calculates all of four of
-these.
+these and automates the standard calculations for FCirc without making any assumptions.
 
-![image](https://user-images.githubusercontent.com/34348153/205693110-8e852f8f-0c27-456e-a42c-e705e42ff72a.png)
+![Types of FCirc](../Attachments/types_of_fcirc.png)
 (from Bartman, TeSlaa, and Rabinowitz)
 
-TraceBase automates the standard calculations for FCirc without making any assumptions.  Note that **TraceBase**
-**attempts to calculate FCirc for every serum/plasma sample, so it will sometimes estimate FCirc that is invalid (ie**
-**before steady state)**.  In other cases, TraceBase will report an Ra value in an infusion that was perturbative.  This
-can still be a useful and valid measurement, but it should not be interpreted as the normal circulatory flux (FCirc).
+It's important to note however that serum samples are collected at multiple points before sacrifice and TraceBase
+calculates FCirc values for **every** serum/plasma sample, regardless of stead-state.  So be aware that the serum sample
+with the most accurate FCirc calculations will be derived from the **last** collected serum sample.
+
+The FCirc view in the Advanced Search can be filtered for the "last serum sample" manually, as a row in the search or
+using the checkbox shortcut above the results:
+
+![Filter out "previous" serum samples](../Attachments/last_serum_sample.png)
+
+It's also important to note that TraceBase will report an Ra value in an infusion that was perturbative.  This can still
+be a useful and valid measurement, but it should not be interpreted as the normal circulatory flux (FCirc).
 
 Finally, FCirc can either be normalized to animal body weight (reported as nmol/minute/gram body weight) or not
 (nmol/minute/animal).  TraceBase calculates all of these so that the researcher can select the appropriate measurement.
