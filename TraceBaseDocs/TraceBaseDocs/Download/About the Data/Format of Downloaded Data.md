@@ -37,10 +37,6 @@ by the comment character `#`.
 
 ## ZIP
 
-NOTE: mzXML files are optional when loading data into TraceBase, so not all rows in the PeakGroups and PeakData searches
-have them.  Thus, mzXML downloads can contain a subset of the displayed rows: It includes only those rows that have
-mzXML files available.
-
 The mzXMLs download button on the advanced search downloads a ZIP archive containing a TSV file listing the mzXML files
 with associated metadata and mzXML files organized into the following directory structure:
 
