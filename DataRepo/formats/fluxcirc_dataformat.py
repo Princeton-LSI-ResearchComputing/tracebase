@@ -26,7 +26,7 @@ class FluxCircFormat(Format):
             },
             "fields": {
                 "element": {
-                    "displayname": "Peak Group Labeled Element",
+                    "displayname": "Labeled Element",
                     "searchable": True,
                     "displayed": True,
                     "type": "enumeration",
@@ -266,10 +266,14 @@ class FluxCircFormat(Format):
                     "displayname": "(Internal) Sample Index",
                     "searchable": True,
                     "displayed": False,  # Used in link
-                    # "handoff": "",
-                    # Using in link will expose the internal index field in the search form because there's no
-                    # searchable unique field for handoff
+                    "handoff": "name",  # This is the field that will be loaded in the search form
                     "type": "number",
+                },
+                "name": {
+                    "displayname": "Serum Sample",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
                 },
                 "time_collected": {
                     "displayname": "Time Collected (since infusion)",
