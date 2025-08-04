@@ -41,12 +41,11 @@ Finally, FCirc can either be normalized to animal body weight (reported as nmol/
 
 ## For Multiple Tracers or Labeled Elements
 
-If a single tracer is infused in one animal, FCirc values are calculated for each tracer compound.
+An animal can be infused with multiple tracers and any tracer can have multiple different labeled elements.
 
-If multiple elements are labeled in a given tracer, FCirc values are calculated separately for each element (and
-tracer).  This was a specific design choice made to enable comparison of tracer infusions across different studies.  For
-example, FCirc-intact for carbon can be directly compared between an animal given U13C-alanine infusion and another
-animal given U13C-15N-alanine infusion.
+FCirc values are calculated separately for each labeled element in each tracer compound.  This was a specific design
+choice made to enable comparison of tracer infusions across different studies.  For example, FCirc-intact for carbon can
+be directly compared between an animal given U13C-alanine infusion and another animal given U13C-15N-alanine infusion.
 
 * Note that for "intact" FCirc values, this is different than "any transformation".  (e.g. the FCirc-intact for
   U13C-15N-alanine infusion counts U13C-alanine and U13C-15N-alanine as un-transformed).
