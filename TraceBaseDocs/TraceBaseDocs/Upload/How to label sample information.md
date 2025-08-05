@@ -2,8 +2,6 @@
 
 Sample information in TraceBase is kept consistent with existing data in TraceBase.  This document describes in detail where sample information should be stored and how it should be formatted.  It also describes what happens if you have new sample information (ie new Diet, Compound, etc).
 
-See also [../Overview/TraceBase Terms and Definitions](TraceBase%20Terms%20and%20Definitions.md).
-
 If you are unsure of how to label something, write whatever you think fits and upload anyway.  Indicate what you are unsure about in the upload form or on the information sheet.  The developer team will check the data and help you label it properly.
 
 ## Animals Sheet
