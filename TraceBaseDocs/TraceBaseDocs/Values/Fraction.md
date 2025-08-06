@@ -1,6 +1,6 @@
 # Fraction
 
-Found in [PeakData](../Types%20of%20Data%20Output/PeakData.md)
+Found in [PeakData](../Download/About%20the%20Data/Data%20Types/PeakData.md)
 
 [GitHub Link](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/86fee46e86add535348a2d717324c3465b8d5d9b/DataRepo/models/peak_data.py#L44-L58)
 

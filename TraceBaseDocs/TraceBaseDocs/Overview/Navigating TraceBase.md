@@ -30,9 +30,9 @@ study opens a new page with more details for that specific study:
 ![Study record in TraceBase](../Attachments/Study%20Record%20Screenshot.png)
 
 After browsing to a subset samples, the actual data can be viewed by selecting
-the links for [PeakGroups](../Types%20of%20Data%20Output/PeakGroups.md),
-[PeakData](../Types%20of%20Data%20Output/PeakData.md), and
-[Fcirc](../Types%20of%20Data%20Output/Fcirc.md).  Clicking these links takes
+the links for [PeakGroups](../Download/About%20the%20Data/Data%20Types/PeakGroups.md),
+[PeakData](../Download/About%20the%20Data/Data%20Types/PeakData.md), and
+[Fcirc](../Download/About%20the%20Data/Data%20Types/FCirc.md).  Clicking these links takes
 you to an advanced search page that matches what you had previously viewed.
 
 ## ADVANCED SEARCH
@@ -67,4 +67,4 @@ Adjust filters and search again, or download the table.
 
 To download the table of whatever you have filtered down into, click the blue
 download button.  Note that this downloaded table adheres to strict [Downloaded
-Data Formats](../Types%20of%20Data%20Output/Downloaded%20Data%20Formats.md).
+Data Formats](../Download/About%20the%20Data/Format%20of%20Downloaded%20Data.md).
