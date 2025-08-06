@@ -18,6 +18,6 @@ Therefore, a typical workflow to put data on TraceBase could be:
 2. Correct for natural abundance using Accucor or isocorr13C15N.
 3. Upload data to TraceBase.
 
-TraceBase uses the [Sample Information Sheet](Sample%20Information%20Sheet.md)
+TraceBase uses the [Sample Information Sheet](Study%20Doc.md)
 to label and organize this data, and produces three types of [output
 formats](../Download/About%20the%20Data/Format%20of%20Downloaded%20Data.md).

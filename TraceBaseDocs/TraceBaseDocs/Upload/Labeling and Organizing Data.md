@@ -4,8 +4,7 @@
 
 TraceBase is designed to match an LCMS sample name found in an input file
 (Accucor or IsoCorr) to a biological sample (specific tissue from a specific
-animal, listed in the [Sample Information
-Sheet](Sample%20Information%20Sheet.md)).
+animal, listed in the [Study Doc](Study%20Doc.md)).
 
 Most importantly, the Sample ID and Animal ID should be unique for a given Study.
 
@@ -82,8 +81,7 @@ into one folder labeled for each study "study001_my first infusion",
 in this folder, for example:
 
 - mouse information sheets
-- sample information sheets (even a copy of the TraceBase [Sample Information
-  Sheet](Sample%20Information%20Sheet.md))
+- sample information sheets (even a copy of the TraceBase [Study Doc](Study%20Doc.md))
 - LCMS data (mzxml)
 - accucor / isocorr files
 - Maven project files
