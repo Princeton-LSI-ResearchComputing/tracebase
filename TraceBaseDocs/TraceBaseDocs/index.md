@@ -20,13 +20,15 @@ Slideshow introduction:  [221011_tracebase REintroduction to lab.pptx](https://d
 
 [Glossary of Calculated Values](Values/Glossary%20of%20Calculated%20Values.md)
 
+[Going Deeper](Overview/Going%20Deeper.md)
+
 ## Upload
 
 [How to Upload Data](Upload/How%20to%20Upload.md)
 
 [Input Data for TraceBase Upload](Upload/Input%20Data%20for%20TraceBase%20Upload.md)
 
-[Sample Information Sheet](Upload/Sample%20Information%20Sheet.md)
+[Submission Template](Upload/Study%20Doc.md)
 
 [Labeling and Organizing Data](Upload/Labeling%20and%20Organizing%20Data.md)
 
@@ -40,7 +42,7 @@ Slideshow introduction:  [221011_tracebase REintroduction to lab.pptx](https://d
 
 ## Contact
 
-[Team](Overview/People%20Who%20Contributed%20to%20TraceBase%20Development.md)
+[Team](Overview/Team.md)
 
 [GitHub Repository](https://github.com/Princeton-LSI-ResearchComputing/tracebase)
 
@@ -48,4 +50,4 @@ Slideshow introduction:  [221011_tracebase REintroduction to lab.pptx](https://d
 * [Request a feature](https://github.com/Princeton-LSI-ResearchComputing/tracebase/issues/new?template=feature_request.md)
 * [Contribute](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md)
 
-[Leave Feedback](https://docs.google.com/forms/d/e/1FAIpQLSdnYe_gvKdoELXexZ9508xO8o59F1WgXcWBNh-_oxYh9WfHPg/viewform?usp=pp_url&entry.1881422913=/TraceBaseDocs/TraceBaseDocs)
+[General Feedback](https://docs.google.com/forms/d/e/1FAIpQLSdnYe_gvKdoELXexZ9508xO8o59F1WgXcWBNh-_oxYh9WfHPg/viewform?usp=pp_url&entry.1881422913=/TraceBaseDocs/TraceBaseDocs)

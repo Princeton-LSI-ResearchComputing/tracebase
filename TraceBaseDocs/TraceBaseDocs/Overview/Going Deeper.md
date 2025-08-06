@@ -1,46 +1,47 @@
 # Going Deeper
 
 TraceBase was built to solve a practical problem, inherent to how the science of metabolomics is performed.  Each
-experiment is designed around a specific question or questions about a metabolite.  However, when you analyze samples,
-the instruments used yield information that is much more than sufficient to answer one question, so much of the data
-generated goes unscrutinized/uninspected/unused.  This is valuable data that can potentially be applied to other
-scientific questions, but if those questions arise much later, perhaps _years_ later, if may be difficult to track down
-that data and all associated metadata.  It could be spread across computers, external hard drives, lab notebooks, or
-even only exist in one resercher's memory.  And that researcher and those data sources may have moved on, thus tracking
-down that potentially useful data can be an arduous and time consuming task.
+experiment is designed around a specific question or questions about specific metabolites.  However, when you process
+samples through liquid chromatography and mass spectrometry, the instruments yield information on much more than just
+the metabolites of interest.  Much of the data often goes unscrutinized/uninspected/unused, because it may not relate
+directly to the question the experimentalist is currently trying to answer.  This is valuable data that can potentially
+be applied to other scientific questions about the same metabolites, but if those questions arise much later, perhaps
+_years_ later, it may be difficult to track down that data and all associated metadata.  It could be spread across
+computers, external hard drives, lab notebooks, or even only exist in one resercher's memory.  And that researcher and
+those data sources may have moved on, thus tracking down that potentially useful data can be arduous and time consuming.
 
-Tracebase can serve as a repository to store all of that unused data in one central location, to be searched and
+Tracebase can serve as a central repository to store all of that unused data in one central location, to be searched and
 analyzed.  It even enables the ability to answer broader holistic scientific questions that could not be asked when the
-data is not all in one accessible location or whose calculations were performed using different methods.
+data is not all in one accessible location, or when the calculations used in the various analyses were performed using
+different methods.
 
-Such repositories, historically speaking, have difficult requirements that tend to be a barrier to data submission.  The
-data can be complex and accuracy is dependent on the integrity of the relationships in the data.  It can also be
-difficult to compile multiple files in a way that is consistent from file to file.  E.g. Typos in controlled terms (e.g.
-tissue or compound names), or even access to acceptable variants of those terms can be time consuming to get right.
-
-TraceBase endeavors to smooth all of that out, which brings us to the guiding general requirements for the development
-of TraceBase.
+Such repositories, historically speaking, have exacting submission requirements that tend to be a barrier to data
+submission.  The data can be complex and challenging.  TraceBase endeavors to smooth all of that out, which brings us to
+the guiding general requirements for the development of TraceBase.
 
 ## Goals
 
 TraceBase was developed with a primary focus the following development goals/features that were determined to be
 critical to mission success:
 
-* Submission
-* Search
-* Accuracy
-* Comparability
+* Ease of Data Submission
+* Robust Search Capabilities
+* Data Accuracy
+* Data Inter-comparability
 
 And more generally, we expect TraceBase to grow and evolve with ever increasing data, feature requests, data types, and
-changes to existing data.  And we are aware that the curation of complex data can be a slow and complex process.  In
-order for people to install and maintain a TraceBase instance for themselves, overhead needed to be simple and
-minimized.  Thus, this project was also tackled with these core principles in mind:
+changes to existing data.  And we are aware that the curation of complex data can be a slow and difficult task.  In
+order for people to install and maintain their own instance of TraceBase for themselves, overhead needed to be simple
+and minimized.  Thus, this project was also tackled with these core principles in mind:
 
-* Minimize overhead
+* Minimize Overhead
   * Empower researchers to solve their own submission issues (e.g. the validation page) so that they don't have to wait
-    through a time consuming curation process that involves multiple back and forths while working through issues.  At
-    the same time, this reduces the maintenance efforts necessary to keep TraceBase working.
-  * Automate the upkeep of calculated values when data changes
+    through a time consuming curation process that involves a slow correspondence between the curator and the researcher
+    as they work through issues in the data.  By enabling researchers to solve these problems on their own through
+    thoughtfully constructed and streamlined error messages, this reduces the maintenance efforts necessary to keep
+    TraceBase working, shortens the time between submission and load, and reduces the overhead for maintainers to
+    service study submissions.
+  * Automate the upkeep of calculated values when data changes.
 * Adaptability
   * TraceBase was made to be largely data-independent.  E.g. Add a field to a table in the database and features like
     the list views, the loading scripts, or the advanced search either automatically adapt or only require relatively
@@ -59,35 +60,34 @@ efforts.
 
 ### Search Strategy
 
-The advanced search code was written to work on any database table field, and it pulls in fields from multiple related
-tables into a single hybrid representation (e.g. the
+The advanced search was designed to work on any database table field, and works across numerous tables to construct any
+desired hybrid representation using a simple configuration file.  The current representations include, for example
 [PeakGroups](../Download/About%20the%20Data/Data%20Types/PeakGroups.md),
 [PeakData](../Download/About%20the%20Data/Data%20Types/PeakData.md), and
-[FCirc](../Download/About%20the%20Data/Data%20Types/FCirc.md)).  Each hybrid data "format" is configurable and the
-search code is independent of the configuration, thus adding or changing fields/columns is a straightforward edit.
-Creation of new formats is also relatively simple.
-
-Thus the Advanced Search interface is scalable and adaptable.
+[FCirc](../Download/About%20the%20Data/Data%20Types/FCirc.md).  The search is performed independent of the
+configuration, which means that adding or changing fields/columns is a straightforward and trivial task.  Any changes to
+the configuration are instantly searchable.  This design choice is powerful in that the Advanced Search interface is
+inherently scalable and adaptable.  New search formats can be created with minimal effort.
 
 ### Caching Strategy
 
-Caching of various expensive-to-calculate values in TraceBase increases performance.  Typical caching strategies
-periodically refresh cached values based on a simple time schedule, but during times of low traffic, the periodic
-rebuilding of those values is susceptible to significantly impacting the performance of a large streamed search results
-download, for example.
+Caching of various expensive-to-calculate values in TraceBase improves performance.  Typical caching strategies
+periodically refresh cached values based on a simple cached value expiration date.  However, this strategy has
+drawbacks.  During times of low traffic, the periodic rebuilding of values is susceptible to significantly impacting the
+performance of a large search results download, for example.
 
 Additionally, if new data is loaded or changed, cached values can be incorrect until affected cached values are rebuilt,
-so a user may be presented with that inaccurate data.
+so a user may occasionally be presented with that inaccurate data.
 
 To solve both of these issues, TraceBase employs a caching strategy that sets monitors on specific data that, if it's
-changed, will trigger an immediate cache update of the affected values.  That means that as long as a study doesn't
+ever changed, will trigger an immediate cache update of the affected values.  That means that as long as a study doesn't
 change, performance will always be optimal, and the values always accurate.
 
 ### Dynamically Maintained Database Fields
 
 While the caching strategy above assures data accuracy and consistent performance, it has one big drawback: cached
-values are not searchable, which is for example why you cannot search based on calculated FCirc values.  It also has a
-little overhead of generating those cached values after a load.
+values are not searchable, which is for example, why you cannot search based on calculated FCirc values.  It also has
+occasional maintenance tasks associated with it, such as generating those cached values after a load.
 
 A strategy newer than the caching strategy that solves accuracy, performance, _and_ searchability, is maintained
 database table fields, and that work was done with a mind toward both scalability and adaptability.  It works much in

@@ -21,7 +21,7 @@ on whether the tracer infusion is included in the flux (Ra vs Rd, or "rates of a
 fully labeled tracer) and whether the intact or atom-averaged flux is preferred.  TraceBase calculates all of four of
 these and automates the standard calculations for FCirc without making any assumptions.
 
-![Types of FCirc](../Attachments/types_of_fcirc.png)
+![Types of FCirc](../../../Attachments/types_of_fcirc.png)
 (from Bartman, TeSlaa, and Rabinowitz)
 
 It's important to note however that serum samples are collected at multiple points before sacrifice and TraceBase
@@ -31,7 +31,7 @@ with the most accurate FCirc calculations will be derived from the **last** coll
 The FCirc view in the Advanced Search can be filtered for the "last serum sample" manually, as a row in the search or
 using the checkbox shortcut above the results:
 
-![Filter out "previous" serum samples](../Attachments/last_serum_sample.png)
+![Filter out "previous" serum samples](../../../Attachments/last_serum_sample.png)
 
 It's also important to note that TraceBase will report an Ra value in an infusion that was perturbative.  This can still
 be a useful and valid measurement, but it should not be interpreted as the normal circulatory flux (FCirc).
