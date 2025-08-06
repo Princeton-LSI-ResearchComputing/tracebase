@@ -38,6 +38,7 @@ changes to existing data.  And we are aware that the curation of complex data ca
 order for people to install and maintain their own instance of TraceBase for themselves, overhead needed to be simple
 and minimized.  Thus, this project was also tackled with these core principles in mind:
 
+<!-- markdownlint-disable MD007 -->
 * Minimize Overhead
     * Empower researchers to solve their own submission issues (e.g. the validation page) so that they don't have to wait
       through a time consuming curation process that involves a slow correspondence between the curator and the researcher
@@ -55,3 +56,4 @@ and minimized.  Thus, this project was also tackled with these core principles i
 * Scalability
     * From a development standpoint, this is similar to the adaptability goal.
     * From a database size standpoint, this means ensuring that performance doesn't wane as data is added.
+<!-- markdownlint-enable MD007 -->

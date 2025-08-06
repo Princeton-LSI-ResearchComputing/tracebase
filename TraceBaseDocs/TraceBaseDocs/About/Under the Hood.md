@@ -51,7 +51,7 @@ extra features:
 ## Validation Interface
 
 As the most visible under-the-hood feature, the data submission interface's validation page uses the exact same code
-that is used to load the database on the back end.  Designing the validation interface this way dramatically reduces
+that is used to load the database on the backend.  Designing the validation interface this way dramatically reduces
 future development efforts and ensures consistency between what users and curators see when working with load data.
 
 One typical pitfall of a large complex data loading (or validation) is that the loading process stops at the first error
