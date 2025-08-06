@@ -1,4 +1,4 @@
-# People Who Contributed to TraceBase Development
+# Team
 
 TraceBase is developed and maintained by the
 [Research Computing](https://lsi.princeton.edu/people/staff#Research-Computing) group in the

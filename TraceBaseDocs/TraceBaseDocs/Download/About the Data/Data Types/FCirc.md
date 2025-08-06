@@ -2,7 +2,7 @@
 
 FCirc data has a row for every combination of serum sample, tracer, and labeled element.
 
-See [For Multiple Tracers or Labeled Elements](FCirc.md#For%20Multiple%20Tracers%20or%20Labeled%20Elements).
+See [For Multiple Tracers or Labeled Elements](#MultipleTracersElements).
 
 ## Definition
 
@@ -39,7 +39,7 @@ be a useful and valid measurement, but it should not be interpreted as the norma
 Finally, FCirc can either be normalized to animal body weight (reported as nmol/minute/gram body weight) or not
 (nmol/minute/animal).  TraceBase calculates all of these so that the researcher can select the appropriate measurement.
 
-## For Multiple Tracers or Labeled Elements
+## <a name="MultipleTracersElements"></a>For Multiple Tracers or Labeled Elements
 
 An animal can be infused with multiple tracers and any tracer can have multiple different labeled elements.
 

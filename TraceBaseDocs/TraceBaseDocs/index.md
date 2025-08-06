@@ -1,6 +1,6 @@
 # TraceBase
 
-![TraceBase logo](Attachments/TraceBase%20logo.png)
+![TraceBase Logo](Attachments/TraceBase%20logo.png)
 
 TraceBase is a mass spectrometry data repository and analysis tool for isotopic tracing studies used to quantify in vivo
 metabolism.  It is designed to be downloaded and installed for individual labs so that lab members can make their
@@ -10,17 +10,19 @@ lab.  It currently supports [AccuCor](https://doi.org/10.1021/acs.analchem.7b003
 TraceBase organizes this data and computes useful metrics such as enrichment, normalized labeling, and FCirc.  Data on
 TraceBase is easy to browse, collate, compare, and download.
 
-## Overview
+## About
 
-Slideshow introduction:  [221011_tracebase REintroduction to lab.pptx](https://docs.google.com/presentation/d/1vIZvU5Q-hY7zUOC4fvMDuVONvQZR5jlC/edit?usp=sharing&ouid=102781029027637329166&rtpof=true&sd=true)
+[Slideshow Introduction](https://docs.google.com/presentation/d/1vIZvU5Q-hY7zUOC4fvMDuVONvQZR5jlC/edit?usp=sharing&ouid=102781029027637329166&rtpof=true&sd=true)
 
-[Structure of TraceBase for the Researcher](Overview/Structure%20of%20TraceBase%20for%20the%20Researcher.md)
+[How TraceBase Handles Data](About/How%20TraceBase%20Handles%20Data.md)
 
-[Navigation](Overview/Navigating%20TraceBase.md)
+[Navigating TraceBase](About/Navigating%20TraceBase.md)
 
-[Glossary of Calculated Values](Values/Glossary%20of%20Calculated%20Values.md)
+[TraceBase Design](About/TraceBase%20Design.md)
 
-[Going Deeper](Overview/Going%20Deeper.md)
+[Under the Hood](About/Under%20the%20Hood.md)
+
+[Team](About/Team.md)
 
 ## Upload
 
@@ -42,7 +44,7 @@ Slideshow introduction:  [221011_tracebase REintroduction to lab.pptx](https://d
 
 ## Contact
 
-[Team](Overview/Team.md)
+[Team](About/Team.md)
 
 [GitHub Repository](https://github.com/Princeton-LSI-ResearchComputing/tracebase)
 

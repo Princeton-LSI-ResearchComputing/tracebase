@@ -1,4 +1,4 @@
-# Types of Information
+# How TraceBase Handles Data
 
 TraceBase consists of three basic types of information:
 

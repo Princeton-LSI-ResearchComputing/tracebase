@@ -21,7 +21,7 @@ clicking the blue mzXMLs download button.
 
 The mzXMLs download button on the advanced search downloads a ZIP archive containing a TSV file listing the mzXML files
 with associated metadata and mzXML files organized into subsirectories.  See the
-[ZIP](Format%20of%20Downloaded%20Data.md#ZIP) format description for details.
+[ZIP](About%20the%20Data/Format%20of%20Downloaded%20Data.md#ZIP) format description for details.
 
 [Buttons at the top of TraceBase search results with arrow pointing to the mzXMLs download button](../Attachments/advanced_search_mzxmls_button)
 
