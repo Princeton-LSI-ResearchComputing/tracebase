@@ -8,13 +8,13 @@ TraceBase is developed and maintained by the
 
 ## Research Software Engineers
 
-* [Fan Kang](https://lsi.princeton.edu/people/fan-kang)
-* [Robert Leach](https://lsi.princeton.edu/people/robert-w-leach)
-* [John Matese](https://lsi.princeton.edu/people/john-c-matese-phd)
-* [Lance Parsons](https://researchcomputing.princeton.edu/about/people-directory/lance-r-parsons)
-* Rachid Ounit
+* [Fan Kang](mailto:fkang@princeton.edu)
+* [Robert Leach](mailto:rleach@princeton.edu)
+* [John Matese](mailto:jcmatese@princeton.edu)
+* [Rachid Ounit](mailto:ro9002@princeton.edu)
+* [Lance Parsons](mailto:lparsons@princeton.edu)
 
 ## Rabinowitz Lab
 
-* [Michael Neinast](https://rabinowitz.scholar.princeton.edu/people/michael-neinast)
-* [Josh Rabinowitz](https://rabinowitz.scholar.princeton.edu/people/joshua-d-rabinowitz-md-phd)
+* [Michael Neinast](mailto:mneinast@princeton.edu)
+* [Josh Rabinowitz](mailto:joshr@princeton.edu)
