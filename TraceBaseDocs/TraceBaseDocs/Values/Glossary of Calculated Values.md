@@ -1,28 +1,38 @@
 # Glossary of Calculated Values
 
 Terms and calculations in TraceBase are based on Bartman, TeSlaa and Rabinowitz
-["Quantitative flux analysis in
-mammals"](https://doi.org/10.1038/s42255-021-00419-2).
+["Quantitative flux analysis in mammals"](https://doi.org/10.1038/s42255-021-00419-2).
 
-The following list of calculated values includes a short definition, pseudocode
-of calcuations, examples, and a GitHub link to the code where the term is
-calculated.
+The following list of calculated values includes a short definition, pseudocode of calcuations, examples, and a GitHub
+link to the code where the term is calculated.
 
----
+<!-- markdownlint-disable MD007 -->
+## [PeakData](../Download/About%20the%20Data/Data%20Types/PeakData.md)
+* [[Corrected Abundance]]
+* [[Fraction]]
 
-* [PeakData](../Download/About%20the%20Data/Data%20Types/PeakData.md)
-  * [[Corrected Abundance]]
-  * [Fraction](Fraction.md)
+## [PeakGroups](../Download/About%20the%20Data/Data%20Types/PeakGroups.md)
+* [[Total Abundance]]
+* [[Normalized Labeling]]
+* Enrichment of a Label in a Measured Compound in a PeakGroup
+    * [[Enrichment Fraction]]
+    * [[Enrichment Abundance]]
+    * [[Enrichment Example]]
 
----
-
-* [PeakGroups](../Download/About%20the%20Data/Data%20Types/PeakGroups.md)
-  * [Total Abundance](Total%20Abundance.md)
-  * [Enrichment](Enrichment.md)
-  * [Enrichment Abundance](Enrichment%20Abundance.md)
-  * [Normalized Labeling](Normalized%20Labeling.md)
-  * [Example of Enrichment Fraction and Abundance Calculation](Example%20of%20Enrichment%20Fraction%20and%20Abundance%20Calculation.md)
-
----
-
-* [Fcirc](../Download/About%20the%20Data/Data%20Types/FCirc.md)
+## [FCirc](../Download/About%20the%20Data/Data%20Types/FCirc.md)
+* [Serum Tracers Enrichment Fraction](FCirc%20Rates.md#serum_tracers_enrichment_fraction)
+* Intact FCirc
+    * Per Gram
+        * [Intact Weight Normalized Rate of Disappearance (`Rd_intact_g`)](FCirc%20Rates.md#Rd_intact_g)
+        * [Intact Weight Normalized Rate of Appearance (`Ra_intact_g`)](FCirc%20Rates.md#Ra_intact_g)
+    * Per Animal
+        * [Intact Animal Normalized Rate of Disappearance (`Rd_intact`)](FCirc%20Rates.md#Rd_intact)
+        * [Intact Animal Normalized Rate of Appearance (`Ra_intact`)](FCirc%20Rates.md#Ra_intact)
+* Average FCirc
+    * Per Gram
+        * [Average Weight Normalized Rate of Disappearance (`Rd_avg_g`)](FCirc%20Rates.md#Rd_avg_g)
+        * [Average Weight Normalized Rate of Appearance (`Ra_avg_g`)](FCirc%20Rates.md#Ra_avg_g)
+    * Per Animal
+        * [Average Animal Normalized Rate of Disappearance (`Rd_avg`)](FCirc%20Rates.md#Rd_avg)
+        * [Average Animal Normalized Rate of Appearance (`Ra_avg`)](FCirc%20Rates.md#Ra_avg)
+<!-- markdownlint-enable MD007 -->

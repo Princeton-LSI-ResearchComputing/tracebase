@@ -30,5 +30,5 @@ be found in three types of output: [PeakData](../Download/About%20the%20Data/Dat
 [PeakGroups](../Download/About%20the%20Data/Data%20Types/PeakGroups.md), and
 [FCirc](../Download/About%20the%20Data/Data%20Types/FCirc.md).  Some calculations rely on other calculated data (e.g.
 [Normalized Labeling](../Values/Normalized%20Labeling.md) of a measured compound in a PeakGroup from one sample uses the
-[Enrichment](../Values/Enrichment.md) of the tracer compound in the last serum sample from the same animal).  Calculated
-values are generally comparable across experiments.
+[Enrichment Fraction](../Values/Enrichment%20Fraction.md) of the tracer compound in the last serum sample from the same
+animal).  Calculated values are generally comparable across experiments.
