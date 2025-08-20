@@ -181,10 +181,12 @@ editor. Some linters that may be useful to install locally include:
   - [stylelint](https://stylelint.io)
 - Markdown
   - [markdownlint](https://github.com/igorshubovych/markdownlint-cli#readme)
+    - Example install: `brew install markdownlint-cli`
+    - Recommended version: `0.45.0`
   - [textlint](https://github.com/textlint/textlint)
-    - `npm install --save-dev textlint`
-    - `npm install --save-dev textlint-rule-terminology`
-    - Example: `npx textlint -c .textlintrc.json CHANGELOG.md`
+    - Example install
+      - `npm install --save-dev textlint`
+      - `npm install --save-dev textlint-rule-terminology`
 - Config
   - [editorconfig-checker](https://www.npmjs.com/package/editorconfig-checker)
 
@@ -207,7 +209,8 @@ using each linter's config that we've set up for superlinter:
     htmlhint -c .htmlhintrc .
     stylelint --config .stylelintrc.json --ip '**/bootstrap*' **/*.css
     markdownlint --config .markdown-lint.yml .
-    textlint -c .textlintrc.json **/*.md
+    find . \( ! -iname "*bootstrap*" -not -path '*/\.*' -iname "*.md" \) \
+        -exec textlint -c .textlintrc.json {} \;
     editorconfig-checker -v -exclude '__pycache__|\.DS_Store|\~\$.*' TraceBase DataRepo
 
 Note, some of these linter installs can be rather finicky, so if you have

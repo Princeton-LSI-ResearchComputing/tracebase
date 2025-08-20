@@ -16,7 +16,7 @@ TraceBase is easy to browse, collate, compare, and download.
 
 [How TraceBase Handles Data](About/How%20TraceBase%20Handles%20Data.md)
 
-[Glossary of Calculated Values](Values/Glossary%20of%20Calculated%20Values.md)
+[Calculated Values Glossary](Values/Calculated%20Values%20Glossary.md)
 
 [Navigating TraceBase](About/Navigating%20TraceBase.md)
 

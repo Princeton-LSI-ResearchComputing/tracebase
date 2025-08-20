@@ -97,6 +97,7 @@ Treatment Description
 - A thorough description of an animal treatment protocol. This will be useful for searching and filtering, so use standard terms and be as complete as possible.
 - Any difference in Treatment should be indicated by a new Animal Treatment
   - Example:  different doses of T3 in drinking water are indicated by different Animal Treatments
+
   - | **Animal Treatment**            | **Treatment Description**                                                                                |
     |---------------------------------|----------------------------------------------------------------------------------------------------------|
     | no treatment                    | No treatment was applied to the animal. Animal was housed at room temperature with a normal light cycle. |
