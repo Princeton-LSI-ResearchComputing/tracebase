@@ -1,7 +1,7 @@
-# Example of Enrichment Fraction and Abundance Calculation
+# Enrichment Example
 
-This is an example for a measured compound alanine (C3H7NO2) measured with 13C
-and 15N labeling.
+This is an example for a measured compound alanine (C3H7NO2) measured with 13C and 15N labeling showing the enrichment
+fraction and enrichment abundance calculations.
 
 ## PeakData
 
@@ -18,7 +18,7 @@ C:3; N:1 | 438849.7 | 0.254966
 
 ## PeakGroup
 
-Sample | Tissue | Measured Compound | Labeled Element | Total Abundance | Enrichment Fraction | Enrichment Abundance
+Sample | Tissue | Measured<br>Compound | Labeled<br>Element | Total<br>Abundance | Enrichment<br>Fraction | Enrichment<br>Abundance
 -- | -- | -- | -- | -- | -- | --
 sampleid | serum_plasma_tail | alanine | C | 1721209.0 | 0.2759 | 474909.4989
 sampleid | serum_plasma_tail | alanine | N | 1721209.0 | 0.3449 | 593677.6307

@@ -14,7 +14,7 @@ contains a row for each compound and labeled element combination.
 Some key values reported in PeakGroups are:
 
 * [Total Abundance](../../../Values/Total%20Abundance.md)
-* [Enrichment](../../../Values/Enrichment.md)
+* [Enrichment Fraction](../../../Values/Enrichment%20Fraction.md)
 * [Enrichment Abundance](../../../Values/Enrichment%20Abundance.md)
 * [Normalized Labeling](../../../Values/Normalized%20Labeling.md)
 
