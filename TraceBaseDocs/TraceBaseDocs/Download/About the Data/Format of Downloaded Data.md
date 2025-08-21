@@ -35,7 +35,7 @@ by the comment character `#`.
 > Column Names
 > data, where one row = 1 observation
 
-## ZIP
+## <a name="ZIP"></a>ZIP
 
 The mzXMLs download button on the advanced search downloads a ZIP archive containing a TSV file listing the mzXML files
 with associated metadata and mzXML files organized into the following directory structure:

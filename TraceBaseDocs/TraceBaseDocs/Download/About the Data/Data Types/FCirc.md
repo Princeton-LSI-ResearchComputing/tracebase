@@ -2,7 +2,7 @@
 
 FCirc data has a row for every combination of serum sample, tracer, and labeled element.
 
-See [For Multiple Tracers or Labeled Elements](FCirc.md#For%20Multiple%20Tracers%20or%20Labeled%20Elements).
+See [For Multiple Tracers or Labeled Elements](#MultipleTracersElements).
 
 ## Definition
 
@@ -21,7 +21,7 @@ on whether the tracer infusion is included in the flux (Ra vs Rd, or "rates of a
 fully labeled tracer) and whether the intact or atom-averaged flux is preferred.  TraceBase calculates all of four of
 these and automates the standard calculations for FCirc without making any assumptions.
 
-![Types of FCirc](../Attachments/types_of_fcirc.png)
+![Types of FCirc](../../../Attachments/types_of_fcirc.png)
 (from Bartman, TeSlaa, and Rabinowitz)
 
 It's important to note however that serum samples are collected at multiple points before sacrifice and TraceBase
@@ -31,7 +31,7 @@ with the most accurate FCirc calculations will be derived from the **last** coll
 The FCirc view in the Advanced Search can be filtered for the "last serum sample" manually, as a row in the search or
 using the checkbox shortcut above the results:
 
-![Filter out "previous" serum samples](../Attachments/last_serum_sample.png)
+![Filter out "previous" serum samples](../../../Attachments/last_serum_sample.png)
 
 It's also important to note that TraceBase will report an Ra value in an infusion that was perturbative.  This can still
 be a useful and valid measurement, but it should not be interpreted as the normal circulatory flux (FCirc).
@@ -39,7 +39,7 @@ be a useful and valid measurement, but it should not be interpreted as the norma
 Finally, FCirc can either be normalized to animal body weight (reported as nmol/minute/gram body weight) or not
 (nmol/minute/animal).  TraceBase calculates all of these so that the researcher can select the appropriate measurement.
 
-## For Multiple Tracers or Labeled Elements
+## <a name="MultipleTracersElements"></a>For Multiple Tracers or Labeled Elements
 
 An animal can be infused with multiple tracers and any tracer can have multiple different labeled elements.
 
@@ -52,28 +52,57 @@ be directly compared between an animal given U13C-alanine infusion and another a
 
 ## Calculations
 
-[GitHub Link](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/1a7e9f9a05b01e00fdb83b4e1e97ef54c6588302/DataRepo/models/peak_group_label.py#L464-L477)
+Each FCirc calculation is performed per labeled element, and requires the following values/metadata to have been
+supplied by the researcher:
 
-*for each element:*
+* Animal body weight
+* Serum sample collection time
+* MS Run Date
+  * Note: reruns take precedence over previous runs
+  * If this date is not provided, and the last serum sample was run multiple times, an arbitrary run is selected
+* At least 1 serum sample, from which:
+  * A peak group has been supplied for every tracer the animal was infused with
+  * Note: Additionally, the **intact** FCirc calculations require the detection of a fully labeled tracer in its
+    PeakGroup.
 
-* `Rd_g` = `rate_disappearance_intact_per_gram = infusion_rate *
-  tracer_concentration / fraction`
+### Serum tracers enrichment fraction
 
-* `Ra_g` = `rate_appearance_intact_per_gram
-  = rate_disappearance_intact_per_gram - infusion_rate * tracer_concentration`
+The rates of appearance and disappearance of the average labeled state of any measured compound rely on the calculation
+of a weighted average of the enrichment fraction of labeled atoms among of all of the infused tracers in the animal's
+final serum sample.  E.g. The fraction of labeled carbons among all the final serum sample's tracer compounds.
 
-* `Rd_avg_g` = `rate_disappearance_average_per_gram = tracer_concentration *
-  infusion_rate * tracer_concentration /
-  enrichment_fraction_of_labeled_element`
+This calculation is performed for a single labeled element in the following manner:
 
-* `Ra_avg_g` = `rate_appearance_average_per_gram
-  = rate_disappearance_average_per_gram - infusion_rate * tracer_concentration
-  / enrichment_fraction_of_labeled_element`
+First, the label enrichment is summed for all of the tracers in the last serum sample:
 
-* `Rd` = `rate_disappearance_intact_per_gram * animal_body_weight`
+`serum_tracers_enrichment_sum = Sum for every tracer peak observation (fraction * labeled_count)`
 
-* `Ra` = `rate_appearance_intact_per_gram * animal_body_weight`
+Then the serum tracers' enrichment fraction is calculated with:
 
-* `Rd_avg` = `rate_disappearance_average_per_gram * animal_body_weight`
+`serum_tracers_enrichment_fraction = serum_tracers_enrichment_sum / total_atom_count`
 
-* `Ra_avg` = `rate_appearance_average_per_gram * animal_body_weight`
+Where:
+
+* `labeled_count` refers to the number of labeled elements in a single tracer observation (/peak).
+* `total_atom_count` is the number of occurrences the element summed across all tracers' formulas (labeled or not).
+* `fraction`: See [Fraction](../../../Values/Fraction.md)
+
+### Per gram rates of appearance/disappearance
+
+* `Rd_intact_g = infusion_rate * tracer_concentration / fraction`
+
+* `Ra_intact_g = Rd_intact_g - infusion_rate * tracer_concentration`
+
+* `Rd_avg_g = infusion_rate * tracer_concentration / serum_tracers_enrichment_fraction`
+
+* `Ra_avg_g = Rd_avg_g - infusion_rate * tracer_concentration`
+
+### Per animal rates of appearance/disappearance
+
+* `Rd_intact` = `Rd_intact_g * animal_body_weight`
+
+* `Ra_intact` = `Ra_intact_g * animal_body_weight`
+
+* `Rd_avg` = `Rd_avg_g * animal_body_weight`
+
+* `Ra_avg` = `Ra_avg_g * animal_body_weight`
