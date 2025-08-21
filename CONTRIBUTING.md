@@ -209,8 +209,8 @@ using each linter's config that we've set up for superlinter:
     htmlhint -c .htmlhintrc .
     stylelint --config .stylelintrc.json --ip '**/bootstrap*' **/*.css
     markdownlint --config .markdown-lint.yml .
-    find . \( ! -iname "*bootstrap*" -not -path '*/\.*' -iname "*.md" \) \
-        -exec textlint -c .textlintrc.json {} \;
+    find . \( ! -iname "*bootstrap*" -not -path '*/\.*' -not -path '*node_modules*' \
+        -iname "*.md" \) -exec npx textlint -c .textlintrc.json {} \;
     editorconfig-checker -v -exclude '__pycache__|\.DS_Store|\~\$.*' TraceBase DataRepo
 
 Note, some of these linter installs can be rather finicky, so if you have

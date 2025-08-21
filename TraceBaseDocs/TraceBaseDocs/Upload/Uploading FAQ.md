@@ -1,0 +1,90 @@
+# Uploading FAQ
+
+## Do my compound names need to match TraceBase compound names?
+
+No.  TraceBase maintains a list of primary compound names associated with synonyms.  If you upload data with a new
+compound name, we will contact you to resolve the difference.  If it is a new compound, then your name becomes the
+primary compound name.  If your name matches an existing compound in TraceBase, then your name is added as a synonym,
+and your next upload will not have any issues.
+
+Ideally, every new compound will have an [HMDB](https://hmdb.ca) ID associated with it.  If HMDB does not have a record
+for your compound, enter a fake HMDB ID in the form `FakeHMDB0000` in order to validate associated data (because it's a
+required value), and add a compound synonym with the compound's [PubChem](https://pubchem.ncbi.nlm.nih.gov/) ID in the
+form `PubChem0000000`.^
+
+Note however that currently, tracer/infusate names are always converted to TraceBase's primary compound name for
+consistent/uniform search results and that PeakGroup names always use whatever synonym is present in the peak annotation
+files.  _The original design thinking was that this would support distinct stereo-isomers, but this may change in the_
+_future._
+
+^ _Support for PubChem is a planned feature that will make either an HMDB or PubChem ID required, eliminating the need_
+_for the "fake" HMDB ID._
+
+## I have a new Tissue.  How do I upload?
+
+In the sample information workbook, on the Tissues tab, add your new Tissue name to the list.  This will update the
+tissue dropdown in the tissue column of the Samples sheet, allowing you to select your new Tissue name.  When you submit
+the google form, tell the developer you are adding a new Tissue.
+
+## Can I upload multiple data files at once?
+
+Yes!  Upload as many data files as you want.  Ideally, use only one Study Doc.  This will allow the software to catch
+multiple representations of the same compound picked for the same sample(s) in multiple peak annotation files (e.g. the
+same compound picked in positive versus negative mode).  TraceBase allows only one representation of a compound in a
+sample.
+
+## My sample names in one Accucor/Isocorr file are not unique.  Can I upload these together?
+
+E.g. Samples `Mouse1_Q`, `Mouse2_Q`, `Mouse3_Q` are in one data file for one experiment, and `Mouse1_Q`, `Mouse2_Q`,
+`Mouse3_Q` in a second data file for a second experiment.
+
+Yes, but this may require some special attention.  Ideally, every sample name in the data file should correspond to one
+unique biological sample in a `Study`.  If that's not the case, and the 2 files containing this name collision are
+uploaded together on the **Start** page, TraceBase will assume they are the same biological samples and create a single
+sample row for each in the Samples sheet.  This can be fixed manually, but in this case, it is far easier to create
+separate Study Docs to avoid the errors.
+
+If you overlooked the existence of this same-named but different biological sample case and generate a single Study Doc,
+you may (or may not) see any errors, despite the existing problem (missing distinct samples).  The errors you might see
+are `MultipleRepresentation` errors on the **Start** page and a `Peak Group Conflicts` sheet in the downloaded Study
+Doc.  Whether this happens or not depends on the compounds in the peak annotation files.  If 2 of the same-named
+different samples analyze the same compounds (i.e. you picked the same peaks), since TraceBase thinks there was a single
+sample, it assumes that you picked peaks for the same compound twice.  Only 1 such compound representation is allowed
+per sample, so TraceBase issues the error and prompts you to pick one of the 2 compound representations in the `Peak
+Group Conflicts` sheet.  But since the samples **should** be different biological samples, picking a representative
+compound will only make the problem worse.
+
+The ultimate fix is to modify one or both of each sample name pair in both the `Samples` sheet and the sample name
+column in the `Peak Annotation Details` sheet, then remove the associated rows in the `Peak Group Conflicts` sheet, but
+this can all be avoided if you create separate Study docs for the commonly named samples.
+
+Let us know when you have this issue and a curator can make the sample name modification for you after your submission
+is received.
+
+## I added or edited sample rows manually.  Can I upload these files?
+
+Yes.  Any study-specific data can be manually edited.  Note that corresponding edits should be made in related sheets.
+
+For example, if you add or edit a sample row, rows in the `Peak Annotation Details` sheet must also added/edited.
+
+Edited data that is subject to stricter nomenclature control and curator approval is the data in sheets:
+
+* Tissues
+* Compounds
+* LC Protocols
+
+Additions to these sheets are simpler, as long as it is not redundant.  If you make modifications to these sheets, let
+us know.  We will help you come up with an easy solution for uploading modified files.  Just upload what you have and we
+will contact you to confirm our solution is OK.
+
+## Can I upload some data now, and upload more data from the same samples later?
+
+Yes.  TraceBase will add new data to existing samples.  If the same compound is uploaded a second time, TraceBase will
+use the latest upload.  The same is true of all data in the Study Doc.
+
+Edited rows (outside of compound synonyms) that were already loaded are a different story and require special curator
+attention.  Let us know if you need to modify any previously loaded data and a TraceBase curator will make the update.
+
+## What kind of data can be uploaded?
+
+See [[Input Data for TraceBase Upload]]
