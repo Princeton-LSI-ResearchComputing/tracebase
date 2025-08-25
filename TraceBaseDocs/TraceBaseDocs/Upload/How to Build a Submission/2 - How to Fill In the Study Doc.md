@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD007 -->
 # How to Fill In the Study Doc
 
 The Researcher uploading data supplies sample information into a submission template (a.k.a. the "Study Doc") to
@@ -330,7 +331,7 @@ row, make sure to remove every row with the same `Infusate Row Group`.
     Type of tissue.  A tissue can be selected via drop-down menu.  If the desired tissue is not in the drop-down, enter
     it in the `Tissues` sheet, then come back and select it in the automatically updated drop-down in this column.
 
-    The list of tissues in TraceBase can also be viewed on the TraceBase website's Tissues page.
+    The list of tissues in TraceBase can also be viewed on the TraceBase site's Tissues page.
 
 * Collection Time
 
@@ -416,6 +417,8 @@ row, make sure to remove every row with the same `Infusate Row Group`.
 
 ### Peak Annotation Files Sheet
 
+<!-- Ignoring the terminology rule for "filename" -->
+<!-- textlint-disable terminology -->
 * Peak Annotation File
 
     Peak annotation file, e.g. AccuCor, IsoCorr, etc.
@@ -470,7 +473,7 @@ row, make sure to remove every row with the same `Infusate Row Group`.
 
     A file representing a subset of data extracted from the raw file (e.g. an `mzXML` file).
 
-    Note, you can load any/all `mzXML File Name`s for a `Sample Name` *before* the Peak Annotation File is ready to
+    Note, you can load any/all `mzXML File Name`s for a `Sample Name` _before_ the Peak Annotation File is ready to
     load, in which case you can just leave this value empty.
 
     Note, this column is only conditionally required with `Sample Data Header`.  I.e. an `mzXML File Name` can be loaded
@@ -504,6 +507,7 @@ row, make sure to remove every row with the same `Infusate Row Group`.
     validation, even though they won't be used).
 
     Boolean: `skip` or '' (i.e. empty).
+<!-- textlint-enable terminology -->
 
 ### Peak Group Conflicts Sheet
 
@@ -597,7 +601,7 @@ complete compound records with matching formulas so that you can check if any no
 _caveat: The formulas in peak annotation files often represent the **ionized** version of the compound, in which case,_
 _an existing compound in TraceBase may not be included in the `Compounds` sheet because its formula is not an exact_
 _match.  In this case, after adding an **HMDB ID**, you will encounter a duplicate record error.  Unfortunately, the_
-_only current way to resolve this is to consult the TraceBase website to copy over the record to the `Compounds` sheet._
+_only current way to resolve this is to consult the TraceBase site to copy over the record to the `Compounds` sheet._
 
 * Compound
 
@@ -644,3 +648,4 @@ _only current way to resolve this is to consult the TraceBase website to copy ov
 * Description
 
     Unique full-text description of the liquid chromatography method.
+<!-- markdownlint-enable MD007 -->

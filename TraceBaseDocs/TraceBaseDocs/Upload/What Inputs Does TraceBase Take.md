@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD007 -->
 # What Inputs Does TraceBase Take
 
 TraceBase takes 3 kinds of input data:
@@ -103,3 +104,4 @@ Note that these labeling schemes can be applied to your general organization of 
     * E.g. for tissue extraction from `study001`, label working tubes `Q_1`, `Q_2`....  Label final tubes `001_m1_Q`
 * Data and any other information related to your experiments can be organized in folders labeled for each study
   `study001_my first infusion`, `study001b_fixing my first infusion`
+<!-- markdownlint-enable MD007 -->

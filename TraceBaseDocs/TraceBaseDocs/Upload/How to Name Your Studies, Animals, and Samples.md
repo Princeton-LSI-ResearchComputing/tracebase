@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD007 -->
 # How to Name Your Studies, Animals, and Samples
 
 ## Recommended Sample Naming Best Practices
@@ -109,3 +110,4 @@ label it properly before adding to the live data on TraceBase.
 
 The key steps to remember for this sheet are to match sample names and animal IDs:
 ![Diagram showing how the AccuCor files, Samples Table, and Animals Table must match](../Attachments/Sample%20Information%20Sheet%20Sketch.png)
+<!-- markdownlint-enable MD007 -->

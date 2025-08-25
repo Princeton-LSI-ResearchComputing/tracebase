@@ -19,6 +19,7 @@ After you run the validation and receive a status report detailing issues found 
 issues in the Study Doc itself and resubmit to see if the error or warning goes away.  Here are some suggestion that
 will make this process go quickly and smoothly.
 
+<!-- markdownlint-disable MD007 -->
 * **Make most of your edits to your uploaded file instead of the "repaired" version that is downloaded**
 
     The validation page always exports a copy of your study doc, potentially with some minor repairs, but in most cases,
@@ -54,5 +55,6 @@ will make this process go quickly and smoothly.
     The validation page tries to limit cascades of errors that all stem from a root cause, but it's not perfect, so if
     you see repeated errors or errors that make no sense, fix the first one or as many as you can and then revalidate to
     see if the root cause has been addressed and the repeated errors disappear.
+<!-- markdownlint-enable MD007 -->
 
-# TODO: Add documentation on the specific errors
+<!-- TODO: Add documentation on the specific errors -->
