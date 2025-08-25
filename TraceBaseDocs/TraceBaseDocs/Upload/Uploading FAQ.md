@@ -1,5 +1,35 @@
 # Uploading FAQ
 
+## How "ready" does my data have to be to upload to TraceBase?
+
+Every data submission to TraceBase (sample metadata, `peak annotation files` (`AccuCor`/`IsoCor`/`Iso-AutoCor`), and
+`RAW`/`mzXML` files) is described/organized in a submission template we refer to as a **`Study Doc`** (an Excel
+Spreadsheet).  You can create a study doc that contains the samples/animals associated with as few as one peak
+annotation file, an entire MS Run, a whole Study, or even multiple studies.  We recommend that as soon as you have a
+peak annotation file, you draft a submission to TraceBase.
+
+The submission process uses the `peak annotation files` to automate the entry of a large portion of the metadata when
+you download the template, such as sample names and compounds, but some manual metadata entry (for example, describing
+the animals and samples) is required.  The required^ columns are highlighted in blue in the downloaded Study Doc.  See
+**[[How to Upload Data to TraceBase]]** for details.
+
+> ^ _Note that in order for FCirc calculations to be displayed on TraceBase, some optional columns described at the top_
+> _of the [FCirc Rates](../Values/FCirc%20Rates.md) are required._
+
+The upload process ensures that the data integrity is preserved from study to study and from sample to sample.  For
+example, the process ensures:
+
+* Samples are labeled accurately
+* Animal, Sample, and Study names are unique
+* Consistent nomenclature is used
+
+Your data is initially uploaded to a private folder, where a curator checks the data to ensure it is formatted correctly
+before it is loaded.  When all checks have passed, the curator adds the data to TraceBase.  This means it is OK (and
+expected) for your data to be imperfectly labeled when you initially submit for upload, however the process provided
+empowers each user to be able to solve problems on their own.  As the author of the data, you are the most knowledgeable
+person to fix issues that come up.  However, you can choose to engage as much as you want in the validation of your
+data.
+
 ## Do my compound names need to match TraceBase compound names?
 
 No.  TraceBase maintains a list of primary compound names associated with synonyms.  If you upload data with a new
@@ -87,4 +117,4 @@ attention.  Let us know if you need to modify any previously loaded data and a T
 
 ## What kind of data can be uploaded?
 
-See [[Input Data for TraceBase Upload]]
+See [[What Inputs Does TraceBase Take]]

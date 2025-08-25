@@ -11,8 +11,9 @@ TraceBase consists of three basic types of information:
 **Unique** information consists of identifying sample information.  Individual samples are associated with an Animal,
 which is itself part of one or more studies.  A Study is a collection of Animals as defined by the researcher who
 uploaded them.  This information is provided by the Researcher in the Samples sheet of the
-[Study Doc](../Upload/Study%20Doc.md).  Although samples are organized in this way, data from different studies can be
-searched, browsed, or downloaded together in TraceBase.
+[Study Doc](../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc.md).  Although
+samples are organized in this way, data from different studies can be searched, browsed, or downloaded together in
+TraceBase.
 
 **Standardized** data refers to Sample and Compound attributes that are kept consistent across datasets in TraceBase.
 Examples of these consistent data include compound names, tissue names, researcher names, and key animal attributes
