@@ -164,6 +164,7 @@ class InfusatesLoader(TableLoader):
                 loader_header_key=TracersLoader.NAME_KEY,
             ),
         ),
+        # TODO: Add a format note to TRACERCONC that mentions significant figures.
         TRACERCONC=TableColumn.init_flat(
             name=DataHeaders.TRACERCONC,
             field=InfusateTracer.concentration,
