@@ -36,6 +36,8 @@ TraceBase is easy to browse, collate, compare, and download.
 
 [How to Name Your Studies, Animals, and Samples](Upload/How%20to%20Name%20Your%20Studies,%20Animals,%20and%20Samples.md)
 
+[Errors and Warnings Reference](Upload/Errors%20and%20Warnings%20Reference.md)
+
 ## Download
 
 [How to Download](Download/How%20to%20Download.md)

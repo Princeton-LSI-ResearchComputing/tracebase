@@ -55,6 +55,12 @@ will make this process go quickly and smoothly.
     The validation page tries to limit cascades of errors that all stem from a root cause, but it's not perfect, so if
     you see repeated errors or errors that make no sense, fix the first one or as many as you can and then revalidate to
     see if the root cause has been addressed and the repeated errors disappear.
-<!-- markdownlint-enable MD007 -->
 
-<!-- TODO: Add documentation on the specific errors -->
+* **Use the *Errors and Warnings Reference***
+
+    Sometimes, an error or warning encountered in the submission process may not be enough to know what to do to fix it.
+    If that's the case, it may help to look up a more detailed explanation of what the exception means, what can cause
+    it, or how to fix it.  Every current custom TraceBase exception is provided in the
+    [Errors and Warnings Reference](../Errors%20and%20Warnings%20Reference.md).  You can use it to search for the
+    exception name to see what extra guidance it provides.
+<!-- markdownlint-enable MD007 -->
