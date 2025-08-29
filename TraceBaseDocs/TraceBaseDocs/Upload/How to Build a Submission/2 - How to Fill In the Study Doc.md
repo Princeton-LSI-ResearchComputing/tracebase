@@ -1,6 +1,6 @@
-<!-- markdownlint-disable MD007 -->
 # How to Fill In the Study Doc
 
+<!-- markdownlint-disable MD007 -->
 The Researcher uploading data supplies sample information into a submission template (a.k.a. the "Study Doc") to
 describe the samples to be included in TraceBase.
 
@@ -13,9 +13,9 @@ new sample information (i.e. new Diet, Compound, etc).
 * **When in doubt, wing it**
 
     If you are unsure of how to label something and the Study Doc's header comment seems ambiguous, enter whatever you
-    think fits, and leave it for the validation step to see if you get an errors.  If you get an error during validation
-    that still doesn't clarify what is needed, indicate what you are unsure about in the final google submission form.
-    A curator will check the data and help you work out what is needed.
+    think fits, and leave it for the validation step to see if you get any errors.  If you get an error during
+    validation that still doesn't clarify what is needed, indicate what you are unsure about in the final google
+    submission form. A curator will check the data and help you work out what is needed.
 
 * **Fill in the sheets from left to right**
 

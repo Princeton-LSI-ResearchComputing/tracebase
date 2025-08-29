@@ -36,7 +36,7 @@ doc template.
 
 ## Exceptions
 
-### AnimalWithoutSamples (AnimalsWithoutSamples)
+### `AnimalWithoutSamples` (`AnimalsWithoutSamples`)
 
 An animal was detected without any samples associated with it in the `Samples` sheet.
 
@@ -58,7 +58,7 @@ You may alternatively elect to add the forgotten peak annotation files in a sepa
 data has been loaded.  You may keep the animal records and ignore this warning.  The subsequent submission should
 include the complete animal record and associated study record.
 
-### AnimalWithoutSerumSamples (AnimalsWithoutSerumSamples)
+### `AnimalWithoutSerumSamples` (`AnimalsWithoutSerumSamples`)
 
 An animal with a tracer infusion was detected without any serum samples associated with it in the `Samples`
 sheet.
@@ -83,7 +83,7 @@ You may alternatively elect to add the forgotten peak annotation files in a sepa
 data has been loaded.  You may keep the animal records and ignore this warning.  The subsequent submission should
 include the complete animal record and associated study record.
 
-### AssumedMzxmlSampleMatch (AssumedMzxmlSampleMatches)
+### `AssumedMzxmlSampleMatch` (`AssumedMzxmlSampleMatches`)
 
 The sample name embedded in the mzXML filename uniquely but imperfectly matches.
 
@@ -104,26 +104,26 @@ association being automatically made, in order to catch any potential authentic 
 
 In every known case, this warning can be safely ignored.
 
-### CompoundDoesNotExist
+### `CompoundDoesNotExist`
 
 The compound from the input file does not exist as either a primary compound name or synonym.
 
-There are 2 possible resolutions to this exception.  Both involve updates to the Compounds sheet.
+There are 2 possible resolutions to this exception.  Both involve updates to the `Compounds` sheet.
 
 * Add the name as a synonym to an existing matching compound record.
-* Add a new row to the compounds sheet.
+* Add a new row to the `Compounds` sheet.
 
-In either case, if no matching compound exists in the Compounds sheet of the Study Doc, be sure to check TraceBase’s
-Compounds page for a matching compound record (missing the current name as a synonym).  The Upload **Start** page
-which generates the Study Doc populates the sheet with existing compounds from TraceBase whose formulas exactly
-match the formula obtained from the peak annotation file(s).  But the formula derived from a peak annotation file
-may represent an ionized version of the compound record in TraceBase and thus, may not have been auto-added^, which
-is why the TraceBase site should be consulted.
+In either case, if no matching compound exists in the `Compounds` sheet of the Study Doc, be sure to check TraceBase’s
+Compounds page for a matching compound record (missing the current name as a synonym).  The Upload **Start** page which
+generates the Study Doc populates the sheet with existing compounds from TraceBase whose formulas exactly match the
+formula obtained from the peak annotation file(s).  But the formula derived from a peak annotation file may represent an
+ionized version of the compound record in TraceBase and thus, may not have been auto-added^, which is why the TraceBase
+site should be consulted.
 
-^ _Note that pre-populating the Compounds sheet with ionization variants is a proposed feature._
+^ _Note that pre-populating the `Compounds` sheet with ionization variants is a proposed feature._
 _See GitHub issue [#1195](https://github.com/Princeton-LSI-ResearchComputing/tracebase/issues/1195)._
 
-### CompoundExistsAsMismatchedSynonym
+### `CompoundExistsAsMismatchedSynonym`
 
 The compound name already exists as a synonym of a differing compound.
 
@@ -140,7 +140,7 @@ existing compound synonym may already be associated with a different compound in
 would need to be made to those other studies or the new study would need to be edited to distinguish the different
 compounds.  Either way, a curator will need to coordinate the fix to ensure database-wide consistency.
 
-### ConflictingValueError (ConflictingValueErrors)
+### `ConflictingValueError` (`ConflictingValueErrors`)
 
 A conflicting value was encountered between previously loaded data and data being loaded from an input file.
 
@@ -154,13 +154,13 @@ previously loaded, you will get a `ConflictingValueError` exception.
 
 Note that formatted columns (e.g. an infusate name) may use delimiters, but are not treated as delimited columns.
 
-### DateParseError
+### `DateParseError`
 
 Unable to parse date string.  Date string not in the expected format.
 
 To resolve this exception, reformat the date using the format reported in the error.
 
-### DefaultSequenceNotFound
+### `DefaultSequenceNotFound`
 
 An MS Run Sequence record, expected to exist in the database, could not be found.
 
@@ -176,7 +176,7 @@ and became unlinked.
 To resolve this exception, either the previous error must be fixed, or the `Default Sequence` column’s value in the
 `Peak Annotation Files` sheet must be updated to match a row in the `Sequence Name` column in the `Sequences` sheet.
 
-### DuplicateCompoundIsotopes
+### `DuplicateCompoundIsotopes`
 
 Summary of `DuplicateValues` exceptions specific to the peak annotation files.  It does not report the affected
 samples because all such errors always affect all samples, as peak annotation files typically have a column for each
@@ -184,13 +184,13 @@ sample and a row for each compound’s isotopic state.
 
 This error occurs when a compound’s unique isotopic makeup appears in multiple rows.
 
-### DuplicateHeaders
+### `DuplicateHeaders`
 
 Duplicate headers encountered in the input file.
 
 No duplicate headers are allowed.
 
-### DuplicatePeakAnnotationFileName
+### `DuplicatePeakAnnotationFileName`
 
 Multiple peak annotation files appear to have the same name.
 
@@ -202,7 +202,7 @@ files to make their names unique.
 TraceBase requires that peak annotation filenames be globally unique to avoid ambiguities when sharing or
 referencing data files.
 
-### DuplicatePeakGroupResolutions
+### `DuplicatePeakGroupResolutions`
 
 A row in the `Peak Group Conflicts` sheet is duplicated, and may contain conflicting resolutions.
 
@@ -217,23 +217,23 @@ selected representation - the peak annotation file) is different on each row.
 
 ^ _The **same** samples means **all** samples.  There is assumed to be no partial overlap between sample sets for_
 _the same compounds because the automated construction of this file separates them programmatically, so be_
-_careful editing the ``Peak Group Conflicts`` sheet, to make sure you do not introduce partial sample overlap_
+_careful editing the `Peak Group Conflicts` sheet, to make sure you do not introduce partial sample overlap_
 _between rows._
 
-### DuplicateValues (DuplicateValueErrors)
+### `DuplicateValues` (`DuplicateValueErrors`)
 
 A duplicate value (or value combination) was found in an input file column (or columns) that requires unique
 values (or a unique combination of values with 1 or more other columns).
 
 Fixing this issue typically involves either deleting a duplicate row or editing the duplicate to make it unique.
 
-### DurationError
+### `DurationError`
 
 Invalid time duration value.  Must be a number.
 
 To resolve this exception, edit the value to only be a number (no units symbol).
 
-### EmptyColumns
+### `EmptyColumns`
 
 The data import encountered empty columns that were expected to have data.
 
@@ -245,18 +245,18 @@ manipulation has occurred).  Whatever the case may be, the excel reader package 
 these empty columns as populated and names them with an arbitrary column header that starts with ‘Unnamed: ‘.
 
 In the error case, no sample headers were found.  The file either contains no sample data and should be either
-repaired or excluded from loading, meaning that it will need to be removed from the Peak Annotation Details and
-Files sheets.
+repaired or excluded from loading, meaning that it will need to be removed from the `Peak Annotation Details` and
+`Peak Annotation Files` sheets.
 
-### ExcelSheetNotFound
+### `ExcelSheetNotFound`
 
 Expected Excel file sheet not found.  Ensure the correct file was supplied.
 
-### FileFromInputNotFound
+### `FileFromInputNotFound`
 
 A report of filenames obtained from an input file that could not be found.
 
-### InfileDatabaseError
+### `InfileDatabaseError`
 
 An unexpected internal database error has been encountered when trying to load specific input from an input file.
 
@@ -270,24 +270,24 @@ If the cause of the error is not easily discernible, feel free to leave it for a
 These exceptions, when they occur on a somewhat regular basis, are figured out and the work in figuring out the
 cause and likely solution is saved in a custom exception class to make them easier to fix when they crop up again.
 
-### InfusateParsingError
+### `InfusateParsingError`
 
 A regular expression or other parsing error was encountered when parsing an Infusate string.  The formatting or
 completeness of the string must be manually fixed.  Consult formatting guidelines (check the file’s header
 comment).
 
-### InvalidHeaders
+### `InvalidHeaders`
 
 Unexpected headers encountered in the input file.
 
 No unexpected headers are allowed.
 
-### InvalidMSRunName
+### `InvalidMSRunName`
 
-Unable to parse Sequence Name.  Must be 4 comma-delimited values of Operator, LC Protocol, Instrument, and
-Date].
+Unable to parse Sequence Name.  Must be 4 comma-delimited values of `Operator`, `LC Protocol`, `Instrument`, and
+`Date`.
 
-### InvalidPeakAnnotationFileFormat
+### `InvalidPeakAnnotationFileFormat`
 
 The peak annotation file format code is either unrecognized, or doesn’t appear to match the auto-detected format
 of the supplied file.
@@ -301,13 +301,13 @@ Note that this error is more likely to occur when supplying CSV or TSV versions 
 format determination is based on the Excel sheet and/or column names, and there is a lot of overlap in the column
 names of the different formats.
 
-### IsotopeParsingError
+### `IsotopeParsingError`
 
 A regular expression or other parsing error was encountered when parsing an Isotope string.  The formatting or
 completeness of the string must be manually fixed.  Consult formatting guidelines (check the file’s header
 comment).
 
-### IsotopeStringDupe
+### `IsotopeStringDupe`
 
 The formatted isotope string matches the same labeled element more than once.
 
@@ -321,7 +321,7 @@ duplicate.
 Example:
 `C13N15C13-label-2-1-1` would match `C13` twice, resulting in this error.
 
-### MissingC12ParentPeak (MissingC12ParentPeaks)
+### `MissingC12ParentPeak` (`MissingC12ParentPeaks`)
 
 No C12 PARENT row was found for this compound in the peak annotation file.
 
@@ -330,31 +330,33 @@ This exception occurs (as a warning) in 2 cases:
 * The C12 PARENT peak exists, but was not picked in El-Maven.  In this case, the best solution is to redo the peak annotation file starting from re-picked peaks from El-Maven that include the parent peak.  Alternatively, the peak annotation file could be edited to remove all of that compound’s peaks and a subsequent file could be loaded using the complete peak group.
 * The C12 PARENT peak was below the detection threshold.  In this case, the warning can be ignored and a 0-count will be assumed.
 
-### MissingCompounds (AllMissingCompounds)
+### `MissingCompounds` (`AllMissingCompounds`)
 
 Summary of compounds expected to exist in the database that were not found, while loading a single input file.
 
-### MissingDataAdded
+### `MissingDataAdded`
 
-Use this for warnings only, when missing data exceptions are caught, handled to autofill missing data in a
-related sheet, and repackaged as a warning to transparently let the user know when repairs have occurred.
+Different sheets in the Study Doc reference other sheets.  When a user enters data in one of those referential columns
+without using the supplied drop-down menu, the interface autofills the entered value into the related sheet, and reports
+this warning to transparently let the user know when repairs have occurred.
 
 Examples:
-Novel animal treatment:
-A novel animal treatment is entered into the `Treatment` column of the `Animals` sheet in the Study Doc, but
-not into the `Treatments` sheet.  The TraceBase Upload **Validate** page will autofill the new treatment
-name in a new row added to the `Treatments` sheet of the Study Doc.
 
-```default
-Novel tissue:
+* Novel animal treatment:
+
+    A novel animal treatment is entered into the `Treatment` column of the `Animals` sheet in the Study Doc, but
+    not into the `Treatments` sheet.  The TraceBase Upload **Validate** page will autofill the new treatment
+    name in a new row added to the `Treatments` sheet of the Study Doc.
+
+* Novel tissue:
+
     A novel tissue is entered into the `Tissue` column of the `Samples` sheet in the Study Doc, but not into the
     `Tissues` sheet.  The TraceBase Upload **Validate** page will autofill the new tissue name in a new row
     added to the `Tissues` sheet of the Study Doc.
-```
 
 This warning is an indicator that there is new data to potentially fill in in the mentioned sheet.
 
-### MissingFCircCalculationValue (MissingFCircCalculationValues)
+### `MissingFCircCalculationValue` (`MissingFCircCalculationValues`)
 
 A value, while not required, but necessary for (accurate) FCirc calculations, is missing.
 
@@ -366,30 +368,30 @@ exception as a warning.
 While your data can be loaded without these values, it is highly recommended that all such values be supplied in
 order to show FCirc records with calculated values and without associated errors or warnings.
 
-### MissingSamples (AllMissingSamples)
+### `MissingSamples` (`AllMissingSamples`)
 
 Summary of samples expected to exist in the database that were not found, while loading a single input file.
 
-### MissingStudies (AllMissingStudies)
+### `MissingStudies` (`AllMissingStudies`)
 
 Summary of studies expected to exist in the database that were not found, while loading a single input file.
 
-### MissingTissues (AllMissingTissues)
+### `MissingTissues` (`AllMissingTissues`)
 
 Summary of tissues expected to exist in the database that were not found, while loading a single input file.
 
-### MissingTreatments (AllMissingTreatments)
+### `MissingTreatments` (`AllMissingTreatments`)
 
 Summary of treatments expected to exist in the database that were not found, while loading a single input
 file.
 
-### MixedPolarityErrors
+### `MixedPolarityErrors`
 
 A mix of positive and negative polarities were found in an mzXML file.
 
 TraceBase does not support mixed polarity mzXML files.
 
-### MultiplePeakAnnotationFileFormats
+### `MultiplePeakAnnotationFileFormats`
 
 The peak annotation file format could not be uniquely determined.
 
@@ -402,7 +404,7 @@ Note that this error is more likely to occur when supplying CSV or TSV versions 
 format determination is based on the Excel sheet and/or column names, and there is a lot of overlap in the column
 names of the different formats.
 
-### MultiplePeakGroupRepresentation (MultiplePeakGroupRepresentations, AllMultiplePeakGroupRepresentations)
+### `MultiplePeakGroupRepresentation` (`MultiplePeakGroupRepresentations`, `AllMultiplePeakGroupRepresentations`)
 
 A peak group for a measured compound was picked multiple times and abundance corrected for 1 or more samples.
 
@@ -434,7 +436,7 @@ Note that while manual editing of this sheet is discouraged, you can manually ed
 hidden column.  There is a hidden sample column containing delimited sample names.  This column is required to
 accurately update all multiple representations.
 
-### MultipleRecordsReturned
+### `MultipleRecordsReturned`
 
 The record search was expected to match exactly 1 record, but multiple records were found.
 
@@ -444,9 +446,9 @@ produces the peak annotation files (e.g. AccuCor), and TraceBase’s unique biol
 related to scan labels.
 
 TraceBase’s attempts to map differing sample names in differing contexts to a single biological Sample record can
-yield this exception in one case when there exists a biological sample duplicate in the Study Doc’s Samples sheet.
+yield this exception in one case when there exists a biological sample duplicate in the Study Doc’s `Samples` sheet.
 This can happen due to the retention of scan labels in sample names when populating that sheet.  So one possible
-resolution may be to merge duplicate sample records in the Samples sheet that happen to be different scans of the
+resolution may be to merge duplicate sample records in the `Samples` sheet that happen to be different scans of the
 same biological sample.
 
 Another possibility could be misidentified “scan labels” that for example do not refer to polarity that were
@@ -455,7 +457,7 @@ those Sample records.
 
 Each issue should be handled on a case-by-case basis.
 
-### MultipleStudyDocVersions
+### `MultipleStudyDocVersions`
 
 The study doc version could not be automatically narrowed down to a single matching version.
 
@@ -471,7 +473,7 @@ differ between versions.  There is currently no fix for this issue on the Upload
 must happen on the command-line where a version number can be supplied.  In this case, it is recommended that you
 skip validation and if you think the data is complete, move on to the **Submit** step.
 
-### MzXMLSkipRowError (AllMzXMLSkipRowErrors, AllMzXMLSkipRowErrors)
+### `MzXMLSkipRowError` (`AllMzXMLSkipRowErrors`, `AllMzXMLSkipRowErrors`)
 
 Could not determine which mzXML file loads to skip.
 
@@ -485,16 +487,16 @@ files in which they were used, but if that cannot be figured out, this error wil
 This can be resolved either by accounting for all mzXML files in the `Peak Annotation Details` sheet with their
 paths or by organizing the mzXML files with the peak annotation files they were used to produce.
 
-### MzxmlColocatedWithMultipleAnnot
+### `MzxmlColocatedWithMultipleAnnot`
 
 mzXML files are in a directory that has multiple peak annotation files somewhere along its path.
 
 This exception has to do with determining which MS Run `Sequence` produced the mzXML file, which is dynamically
 determined when there are multiple sequences containing the same sample names.
 
+<!-- textlint-disable terminology -->
 mzXML files are assigned an MS Run Sequence based on either the value in the `Sequence` column in the
 `Peak Annotation Details` sheet or (if that’s empty), the `Default Sequence` defined in the `Peak Annotation Files`
-<!-- textlint-disable terminology -->
 sheet and the `Peak Annotation File Name` column in the `Peak Annotation Details` sheet.
 <!-- textlint-enable terminology -->
 
@@ -512,7 +514,7 @@ The easiest fix is to put peak annotation files in a directory along with only t
 production.  The more laborious (but more versatile) solution is to add the file path of every mzXML reported in the
 error to the `Peak Annotation Details` sheet along with the `Sequence`.
 
-### MzxmlNotColocatedWithAnnot
+### `MzxmlNotColocatedWithAnnot`
 
 mzXML files are not in a directory under an unambiguously associated peak annotation file in which they were
 used.
@@ -520,9 +522,9 @@ used.
 This exception has to do with determining which MS Run `Sequence` produced the mzXML file, which is dynamically
 determined when there are multiple sequences containing the same sample names.
 
+<!-- textlint-disable terminology -->
 mzXML files are assigned an MS Run Sequence based on either the value in the `Sequence` column in the
 `Peak Annotation Details` sheet or (if that’s empty), the `Default Sequence` defined in the `Peak Annotation Files`
-<!-- textlint-disable terminology -->
 sheet and the `Peak Annotation File Name` column in the `Peak Annotation Details` sheet.
 <!-- textlint-enable terminology -->
 
@@ -540,7 +542,7 @@ The easiest fix is to put peak annotation files in a directory along with only t
 production.  The more laborious (but more versatile) solution is to add the file path of every mzXML reported in the
 error to the `Peak Annotation Details` sheet along with the `Sequence`.
 
-### MzxmlParseError
+### `MzxmlParseError`
 
 The structure of the mzXML file is not as expected.  An expected XML element or element attribute was not found.
 
@@ -548,24 +550,24 @@ This could be due to an mzXML version change or a malformed or truncated file.
 
 TraceBase supports mzXML version 3.2.
 
-### MzxmlSampleHeaderMismatch
+### `MzxmlSampleHeaderMismatch`
 
 The mzXML filename does not match the sample header in the peak annotation file.
 
 <!-- textlint-disable terminology -->
 This situation can arise either if the filename has been (knowingly) manually modified or when the `mzXML File Name`
-<!-- textlint-enable terminology -->
 entered into the `Peak Annotation Details` sheet was mistakenly associated with the wrong `Sample Data Header`.
+<!-- textlint-enable terminology -->
 
 This exception is only ever raised as a warning and is not inspected by curators, so confirm the association and
 either make a correction or ignore, if the association is correct.
 
-### MzxmlSequenceUnknown (AllMzxmlSequenceUnknown)
+### `MzxmlSequenceUnknown` (`AllMzxmlSequenceUnknown`)
 
 Unable to reliably match an mzXML file with an MSRunSequence.
 
 This exception is raised as a warning when the number of mzXML files with the same name are not all accounted for in
-the Peak Annotation Details sheet of the Study Doc.  I.e. there are more mzXML files than peak annotation files with
+the `Peak Annotation Details` sheet of the Study Doc.  I.e. there are more mzXML files than peak annotation files with
 sample headers of this name.
 
 There are a number of ways this can happen:
@@ -580,29 +582,25 @@ provides information that can help figure out the problem.
 
 In all of the other cases, there are 2 ways to resolve the warning:
 
-* Add rows to the Peak Annotation Details sheet that account for all the files (adding ‘skip’ to the `Skip` column for any files that should be ignored).  This is the preferred solution.
 <!-- textlint-disable terminology -->
+* Add rows to the `Peak Annotation Details` sheet that account for all the files (adding ‘skip’ to the `Skip` column for any files that should be ignored).  This is the preferred solution.
 * Add the relative path from the study folder to the specific mzXML file in the existing `mzXML File Name` column (not including the study folder name).
-<!-- textlint-enable terminology -->
 
 Despite the ‘required columns’ highlighted in blue indicating that ‘Sample Name’ and ‘Sample Data Header’ are
-<!-- textlint-disable terminology -->
 required, when there is no associated peak annotation file, the `mzXML File Name`, `Sequence`, and `Skip` columns
-<!-- textlint-enable terminology -->
 are all that’s required.  This is a special case.
 
 If all of the files are for the same MS Run, nothing further is needed.  But if they are from different MS Runs, the
-<!-- textlint-disable terminology -->
 `mzXML File Name` column must contain the relative path from the study folder to the mzXML file (not including the
-<!-- textlint-enable terminology -->
 study folder name).
+<!-- textlint-enable terminology -->
 
-### NewResearcher (NewResearchers, AllNewResearchers)
+### `NewResearcher` (`NewResearchers`, `AllNewResearchers`)
 
 When an as-yet unencountered researcher name is encountered, this exception is raised as a warning to ensure it
 is not a spelling variant of an existing researcher name.
 
-### NoSamples
+### `NoSamples`
 
 None of the samples in the indicated file, required to exist in the database, were found.
 
@@ -619,7 +617,7 @@ that links to that animal is loaded, this error will occur.
 The loading code tries to avoid these “redundant” errors, but it also tries to gather as many errors as possible to
 reduce repeated validate/edit iterations.
 
-### NoScans (AllNoScans)
+### `NoScans` (`AllNoScans`)
 
 An mzXML file was encountered that contains no scan data.
 
@@ -627,7 +625,7 @@ This exception is raised as a warning and can be safely ignored.  Empty mzXML fi
 the way they are produced.  Such files could be excluded from a study submission, but are hard to distinguish
 without looking inside the same-named files.  It is recommended that the files be left as-is.
 
-### NoTracerLabeledElements (NoTracerLabeledElementsError)
+### `NoTracerLabeledElements` (`NoTracerLabeledElementsError`)
 
 A compound in a peak annotation file was encountered that does not contain any of the labeled elements from any
 of the tracers.
@@ -635,7 +633,7 @@ of the tracers.
 The purpose of a peak group (which the loading code populates) is to group a compound’s peaks that result from
 various isotopic states (the incorporation of labeled elements from the tracer compounds).  If the formula of the
 measured compound does not contain any of the elements that are labeled in the tracers, this suggests a potential
-problem, such as the animal’s infusate from the Animals sheet was incorrectly selected or omits a tracer with labels
+problem, such as the animal’s infusate from the `Animals` sheet was incorrectly selected or omits a tracer with labels
 that are in this compound.
 
 Resolutions to this issue can involve either updating the associated animal’s infusate/tracers to include a tracer
@@ -646,7 +644,7 @@ not be loaded as a peak group.^
 _data is a planned feature.  See GitHub issue_
 _[#1192](https://github.com/Princeton-LSI-ResearchComputing/tracebase/issues/1192)._
 
-### NoTracers
+### `NoTracers`
 
 An operation that requires an animal to have been infused with tracers encountered an animal that was not infused
 with tracers, such as FCirc calculations.
@@ -655,28 +653,25 @@ This error occurs when an animal is associated with an infusate record, but that
 tracers.  This is likely because an error occurred during infusate/tracer loading and arises when validating a serum
 sample.
 
-### ObservedIsotopeParsingError
+### `ObservedIsotopeParsingError`
 
 A regular expression or other parsing error was encountered when parsing an Isotope observation string.  The
 formatting or completeness of the string must be manually fixed.  Consult formatting guidelines (check the file’s
 header comment).
 
-### ObservedIsotopeUnbalancedError
+### `ObservedIsotopeUnbalancedError`
 
 The number of elements, mass numbers, and counts parsed from the isotope string differ.  A single (fully labeled)
 isotope must include each value in the order of mass number, element symbol, and count.  E.g. `13C5` means that
 there are 5 heavy carbons of mass number 13 in a compound.
 
 Examples:
-- `13C` would cause this error because there is no count.
-- `C5` would cause this error because there is no mass number.
-- `135` would cause this error because there is no element and there’s no way to tell where the count begins.
 
-### ParsingError
+* `13C` would cause this error because there is no count.
+* `C5` would cause this error because there is no mass number.
+* `135` would cause this error because there is no element and there’s no way to tell where the count begins.
 
-Superclass of infusate, tracer, and isotope parsing errors.
-
-### PossibleDuplicateSample (PossibleDuplicateSamples)
+### `PossibleDuplicateSample` (`PossibleDuplicateSamples`)
 
 Multiple peak annotation files have an identical sample header, but are associated with distinctly different
 TraceBase biological Sample records.
@@ -689,7 +684,7 @@ ignored.  If they are the same biological sample, the `Sample Name` column in th
 must be updated.  You may also need to delete or update the associated row in the `Samples` sheet, if no other
 verified rows in the `Peak Annotation Details` sheet refers to it.
 
-### ProhibitedCompoundName (ProhibitedCompoundNames)
+### `ProhibitedCompoundName` (`ProhibitedCompoundNames`)
 
 The compound name or synonym contains disallowed characters that were replaced with similar allowed characters.
 
@@ -700,15 +695,15 @@ loading.
 
 While the offending characters are automatically replaced, you may elect to use an alternate character.  If you go
 with the automatic replacement, nothing further needs to be done, but if you edit the values in the Study Doc, but
-be sure to make the edit everywhere, including the Compounds sheet, the Tracers/Infusates sheet (and in the Infusate
-column in the Animals sheet), the Peak Group Conflicts sheet.  Also, all peak annotation files will need to be
-updated as well.
+be sure to make the edit everywhere, including the `Compounds` sheet, the `Tracers`/`Infusates` sheet (and in the
+`Infusate` column in the `Animals` sheet), the `Peak Group Conflicts` sheet.  Also, all peak annotation files will need
+to be updated as well.
 
-### RecordDoesNotExist
+### `RecordDoesNotExist`
 
 The expected record from the indicated database model was not found.
 
-### ReplacingPeakGroupRepresentation
+### `ReplacingPeakGroupRepresentation`
 
 A previously loaded peak group from a previous submission (for a measured compound was picked multiple times and
 abundance corrected for 1 or more samples) will be replaced with a new representation from a new peak annotation
@@ -724,15 +719,15 @@ Group records.  By selecting the new peak annotation file as the peak group repr
 This exception is expected when a selection has been made that supercedes a selection made in a previous load
 relating to the same samples and compound.
 
-### RequiredColumnValue (RequiredColumnValues)
+### `RequiredColumnValue` (`RequiredColumnValues`)
 
 A value, required to exist in the input table, was not supplied.
 
-### RequiredHeadersError
+### `RequiredHeadersError`
 
 Supplies a list of missing required column headers in the input file.
 
-### RequiredValueError (RequiredValueErrors)
+### `RequiredValueError` (`RequiredValueErrors`)
 
 A value, required to exist in the database, was found to be missing.
 
@@ -749,9 +744,7 @@ that links to that animal is loaded, this error will occur.
 The loading code tries to avoid these “redundant” errors, but it also tries to gather as many errors as possible to
 reduce repeated validate/edit iterations.
 
-### SheetMergeError
-
-### SynonymExistsAsMismatchedCompound
+### `SynonymExistsAsMismatchedCompound`
 
 The compound synonym already exists as the primary name of a differing compound.
 
@@ -768,7 +761,7 @@ existing compound name may already be associated with a different compound in ot
 need to be made to those other studies or the new study would need to be edited to distinguish the different
 compounds.  Either way, a curator will need to coordinate the fix to ensure database-wide consistency.
 
-### TracerCompoundNameInconsistent
+### `TracerCompoundNameInconsistent`
 
 The compound name used in the tracer name is not the primary compound name.
 
@@ -779,7 +772,7 @@ warning, to be transparent about the modification of the user-entered compound n
 If the established primary compound name is problematic, reach out to a TraceBase curator to propose a change of a
 compound’s primary name.  Note that such a change will affect all studies that use this tracer (if any).
 
-### TracerGroupsInconsistent
+### `TracerGroupsInconsistent`
 
 An infusate is either a duplicate or exists with a conflicting tracer group name.
 
@@ -800,13 +793,13 @@ and isotopic inclusion.
 If the tracer group name differs, you must use the pre-existing group name already in TraceBase.  If the group name
 is problematic, reach out to a TraceBase curator to fix it.
 
-### TracerParsingError
+### `TracerParsingError`
 
 A regular expression or other parsing error was encountered when parsing a Tracer string.  The formatting or
 completeness of the string must be manually fixed.  Consult formatting guidelines (check the file’s header
 comment).
 
-### UnexpectedInput
+### `UnexpectedInput`
 
 The value in the indicated column is optional, but is required to be supplied **with** another neighboring
 column value, that was found to be absent.
@@ -818,29 +811,29 @@ Example:
 If an infusion rate is supplied, but there was no infusate supplied, the infusion rate will cause an
 UnexpectedInput exception, because an infusion rate without an infusate makes no sense.
 
-### UnexpectedLabel (UnexpectedLabels, AllUnexpectedLabels)
+### `UnexpectedLabel` (`UnexpectedLabels`, `AllUnexpectedLabels`)
 
 An isotope label, e.g. nitrogen (`N`) was detected in a measured compound, but that labeled element was not in
 any of the tracers.  This is reported as a warning to suggest that there could be contamination or the wrong
 infusate was selected for an animal, but this is often the result of naturally occurring isotopes and can be
 ignored.
 
-### UnexpectedSamples
+### `UnexpectedSamples`
 
-Sample headers found in a peak annotations file were not in the Study Doc’s Peak Annotation Details sheet.
+Sample headers found in a peak annotations file were not in the Study Doc’s `Peak Annotation Details` sheet.
 
-This could either be due to a sample header omission in the Peak Annotation Details sheet or due to the wrong peak
-annotation file being associated with one or more sample headers in the Peak Annotation Details sheet.
+This could either be due to a sample header omission in the `Peak Annotation Details` sheet or due to the wrong peak
+annotation file being associated with one or more sample headers in the `Peak Annotation Details` sheet.
 
-### UnknownHeader
+### `UnknownHeader`
 
 A column header was encountered that is not a part of the file specification.
 
-### UnknownHeaders
+### `UnknownHeaders`
 
 A list of column headers encountered that are not a part of the file specification.
 
-### UnknownPeakAnnotationFileFormat
+### `UnknownPeakAnnotationFileFormat`
 
 The peak annotation file format is unrecognized.
 
@@ -852,7 +845,7 @@ formats in the dropdown match the file format, reach out to the TraceBase team t
 format.  In the meantime, it is recommended that you use one of the supported natural abundance correction tools to
 regenerate the file in a TraceBase-compatible format.
 
-### UnknownStudyDocVersion
+### `UnknownStudyDocVersion`
 
 The study doc version could not be automatically determined.
 
@@ -867,116 +860,21 @@ This exception could arise if the sheet names and/or column names were modified.
 from the Upload **Start** page and compare the sheet and column names to ensure they were not inadvertently altered.
 If there are differences, fix them so that the version can be identified by the Upload **Validate** interface.
 
-### UnmatchedBlankMzXML (UnmatchedBlankMzXMLs)
+### `UnmatchedBlankMzXML` (`UnmatchedBlankMzXMLs`)
 
 This exception is the same as `UnmatchedMzXML`, but is a warning because the files have “blank” in their sample
 names and are assumed to have been intentionally excluded.
 
-### UnskippedBlanks
+### `UnskippedBlanks`
 
 A sample, slated for loading, appears to be a blank.  Loading of blank samples should be skipped.
 
-Blank samples should be entirely excluded from the Samples sheet, but listed in the `Peak Annotation Details` sheet
+Blank samples should be entirely excluded from the `Samples` sheet, but listed in the `Peak Annotation Details` sheet
 with a non-empty value in the `Skip` column.  This tells the peak annotations loader that loads the peak annotations
 file to ignore the sample column with this sample name.
 
 Blank samples are automatically skipped in the Upload **Start** page’s Study Doc download, based on the sample name
 containing “blank” in its name.
-
-## Module contents
-
-### CompoundExistsAsMismatchedSynonym
-
-The compound name already exists as a synonym of a differing compound.
-
-To resolve this issue, either edit the compound in the input file to match and merge it with the existing compound
-or remove the synonym from the differing compound record so that peak groups (and tracers) are associated with the
-other compound record.
-
-Note that this exception can arise due to either a formula that represents the ionized state of a compound or the
-HMDB ID could be inaccurately assigned.
-
-If the compound from the peak annotation file(s) differs from the existing TraceBase compound record (e.g. different
-formula or HMDB ID), and the new record represents a distinctly different compound, reach out to the curators.  The
-existing compound synonym may already be associated with a different compound in other studies, so either changes
-would need to be made to those other studies or the new study would need to be edited to distinguish the different
-compounds.  Either way, a curator will need to coordinate the fix to ensure database-wide consistency.
-
-### ConflictingValueError (ConflictingValueErrors)
-
-A conflicting value was encountered between previously loaded data and data being loaded from an input file.
-
-The loading code does not currently support database model record updates, but it does support **adding** data to an
-existing (and previously loaded) input file.  Some of those additions can **look** like updates.  Values on a
-previously loaded row in delimited columns like the `Synonyms` column in the `Compounds` sheet, can receive
-additional delimited values without error.
-
-But when values in a column (outside of columns containing delimited values) change in a file that has been
-previously loaded, you will get a `ConflictingValueError` exception.
-
-Note that formatted columns (e.g. an infusate name) may use delimiters, but are not treated as delimited columns.
-
-### DuplicateValues (DuplicateValueErrors)
-
-A duplicate value (or value combination) was found in an input file column (or columns) that requires unique
-values (or a unique combination of values with 1 or more other columns).
-
-Fixing this issue typically involves either deleting a duplicate row or editing the duplicate to make it unique.
-
-### IsotopeParsingError
-
-A regular expression or other parsing error was encountered when parsing an Isotope string.  The formatting or
-completeness of the string must be manually fixed.  Consult formatting guidelines (check the file’s header
-comment).
-
-### ObservedIsotopeParsingError
-
-A regular expression or other parsing error was encountered when parsing an Isotope observation string.  The
-formatting or completeness of the string must be manually fixed.  Consult formatting guidelines (check the file’s
-header comment).
-
-### QuerysetToPandasDataFrame
-
-convert several querysets to Pandas DataFrames, then create additional
-DataFrames for study or animal based summary data
-
-### RequiredValueError (RequiredValueErrors)
-
-A value, required to exist in the database, was found to be missing.
-
-Each sheet in an excel file is loaded independently and the loads proceed in the order of those dependencies.
-
-Errors like this usually only happen when related dependent data failed to load (due to some other error) and is
-evidenced by the fact that the indicated columns/rows have values.  Fixing errors that appear above this will fix
-this error.
-
-For example, an Animal record must be loaded and exist in the database before a Sample record (which links to an
-Animal record) can be loaded.  If the loading of the Animal record encountered an error, anytime a Sample record
-that links to that animal is loaded, this error will occur.
-
-The loading code tries to avoid these “redundant” errors, but it also tries to gather as many errors as possible to
-reduce repeated validate/edit iterations.
-
-### SynonymExistsAsMismatchedCompound
-
-The compound synonym already exists as the primary name of a differing compound.
-
-To resolve this issue, either edit the new compound containing the conflicting synonym in the input file to match
-and merge it with the existing compound or remove the new compound record so that peak groups (and tracers) are
-associated with the other compound record.
-
-Note that this exception can arise due to either a formula that represents the ionized state of a compound or the
-HMDB ID could be inaccurately assigned.
-
-If the compound from the peak annotation file(s) differs from the existing TraceBase compound record (e.g. different
-formula or HMDB ID), and the new record represents a distinctly different compound, reach out to the curators.  The
-existing compound name may already be associated with a different compound in other studies, so either changes would
-need to be made to those other studies or the new study would need to be edited to distinguish the different
-compounds.  Either way, a curator will need to coordinate the fix to ensure database-wide consistency.
-
-### UnknownHeaders
-
-A list of column headers encountered that are not a part of the file specification.
 
 ## About This Document
 
