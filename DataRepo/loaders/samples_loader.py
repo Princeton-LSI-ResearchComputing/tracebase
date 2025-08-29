@@ -255,7 +255,7 @@ class SamplesLoader(TableLoader):
                     self.aggregated_errors_object.buffer_warning(
                         NoTracers(
                             message=(
-                                "Unable to add FCirc records for serun samples because there are either no tracers or "
+                                "Unable to add FCirc records for serum samples because there are either no tracers or "
                                 "no tracer label records associated with the source animal (e.g. animal "
                                 f"'{sample.animal}')."
                             )

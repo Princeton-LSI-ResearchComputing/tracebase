@@ -152,3 +152,6 @@ DataRepo/management/commands/list_tests.py
 static/admin
 static/debug_toolbar
 TraceBase/static
+
+# Sphinx
+docs

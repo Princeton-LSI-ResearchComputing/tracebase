@@ -195,19 +195,20 @@ class Compound(MaintainedModel):
         secondary_replacement: str = secondary_replacement,
         fix=False,
     ):
-        """Validate a compound or compound synonym name.  It basically disallows the names to contain the delimiters
+        """Validate a compound or compound synonym name and optionally return an automatically fixed version of the
+        name.  It basically disallows the names to contain the delimiters
         that are used in import/export and in PeakGroup names.
 
         Args:
-            name (str): Compound or compound synonym name.
-            replacement (str) [Compound.replacement]: A character to replace delimiter characters with.
-            secondary_replacement (str) [Compound.secondary_replacement]: A character to replace secondary delimiter
+            name (str): Compound or compound synonym name.  replacement (str) [Compound.replacement]: A character to
+            replace delimiter characters with.  secondary_replacement (str) [Compound.secondary_replacement]: A
+            character to replace secondary delimiter
                 characters with.
-            fix (bool) [False]
+            fix (bool) [False]: When True, the offending characters are replaced with similar acceptable characters.
         Exceptions:
-            ProhibitedCharacter
+            ProhibitedStringValue
         Returns:
-            name (str)
+            name (str): A fixed version of the name (if fix was True).  Otherwise, an exception is raised.
         """
         from DataRepo.utils.exceptions import ProhibitedStringValue
 
