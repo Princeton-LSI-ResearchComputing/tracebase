@@ -1,4 +1,4 @@
-# Glossary of Calculated Values
+# Calculated Values Glossary
 
 Terms and calculations in TraceBase are based on Bartman, TeSlaa and Rabinowitz
 ["Quantitative flux analysis in mammals"](https://doi.org/10.1038/s42255-021-00419-2).
