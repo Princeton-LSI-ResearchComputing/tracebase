@@ -16,7 +16,7 @@ TraceBase is easy to browse, collate, compare, and download.
 
 [How TraceBase Handles Data](About/How%20TraceBase%20Handles%20Data.md)
 
-[Glossary of Calculated Values](Values/Glossary%20of%20Calculated%20Values.md)
+[Calculated Values Glossary](Values/Calculated%20Values%20Glossary.md)
 
 [Navigating TraceBase](About/Navigating%20TraceBase.md)
 
@@ -28,13 +28,15 @@ TraceBase is easy to browse, collate, compare, and download.
 
 ## Upload
 
-[How to Upload Data](Upload/How%20to%20Upload.md)
+[How to Upload Data](Upload/How%20to%20Upload%20Data%20to%20TraceBase.md)
 
-[Input Data for TraceBase Upload](Upload/Input%20Data%20for%20TraceBase%20Upload.md)
+[What Inputs Does TraceBase Take](Upload/What%20Inputs%20Does%20TraceBase%20Take.md)
 
-[Submission Template](Upload/Study%20Doc.md)
+[Submission Template](Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc.md)
 
-[Labeling and Organizing Data](Upload/Labeling%20and%20Organizing%20Data.md)
+[How to Name Your Studies, Animals, and Samples](Upload/How%20to%20Name%20Your%20Studies,%20Animals,%20and%20Samples.md)
+
+[Errors and Warnings Reference](Upload/Errors%20and%20Warnings%20Reference.md)
 
 ## Download
 
