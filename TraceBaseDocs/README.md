@@ -29,7 +29,7 @@ locally served site updates live as changes are made to the Markdown documents.
 
 ### Build the static site on GitHub Pages
 
-Build the site to serve publicly on GitHub Pages: at:
+Build the site to serve publicly on GitHub Pages:
 
 1) `mkdocs gh-deploy -m "description of site update"`
 
@@ -41,15 +41,18 @@ site until a developer deploys the revised site.
 
 ## User-facing Exception Documentation Generation Notes
 
-The Upload page described the submission building process, which involved guidance on resolving errors and warnings.
-The documentation for those errors and warnings is aided by sphinx, which automatically generates documentatiomn from
-python docstrings.  The following are tips to use when refreshing/updating that documentation.
+The Upload page described the submission building process, which involved guidance on resolving errors and warnings. The
+documentation for those errors and warnings is aided by [Sphinx](https://www.sphinx-doc.org/), which automatically
+generates documentatiomn from python docstrings.  The following are tips to use when refreshing/updating that
+documentation.
+
+For a Sphinx overview, see this [YouTube Demo](https://youtu.be/BWIrhgCAae0?si=_U98ZRF60E86Jht4).
 
 ### Install
 
-To integrate the manually maintained documentation and the sphinx-generated documentation, we generate the sphinx
-dopcumentation in Markdown and copy it to the manually generated documentation using `sphinx-markdown-builder`.  In
-=stall be `sphinx` and `sphinx-markdown-builder` in your `venv`:
+To integrate the manually maintained documentation and the [Sphinx](https://www.sphinx-doc.org/)-generated
+documentation, we generate the sphinx dopcumentation in Markdown and copy it to the manually generated documentation
+using `sphinx-markdown-builder`.  Install `sphinx` and `sphinx-markdown-builder` in your `venv`:
 
 ```bash
 pip install -U sphinx
