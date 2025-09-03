@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="http://Princeton-LSI-ResearchComputing.github.io/tracebase/Upload/How%20to%20Build%20a%20Submission/1%20-%20How%20to%20Start%20an%20Upload/" />
+      <link rel="shortcut icon" href="../../../img/favicon.ico" />
+    <title>How to Start an Upload - TraceBase Documentation</title>
+    <link rel="stylesheet" href="../../../css/theme.css" />
+    <link rel="stylesheet" href="../../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "How to Start an Upload";
+        var mkdocs_page_input_path = "Upload/How to Build a Submission/1 - How to Start an Upload.md";
+        var mkdocs_page_url = "/tracebase/Upload/How%20to%20Build%20a%20Submission/1%20-%20How%20to%20Start%20an%20Upload/";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../../.." class="icon icon-home"> TraceBase Documentation
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../..">TraceBase</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">About</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../../About/How%20TraceBase%20Handles%20Data/">How TraceBase Handles Data</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../../About/Navigating%20TraceBase/">Navigating TraceBase</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../../About/Team/">Team</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../../About/TraceBase%20Design/">TraceBase Design</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../../About/Under%20the%20Hood/">Under the hood</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Analysis</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../../Analysis/How%20to%20analyze%20data%20downloaded%20from%20TraceBase/">How do I analyze data downloaded from TraceBase?</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Download</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../../Download/How%20to%20Download/">How to Download</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >About the Data</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../../../Download/About%20the%20Data/Format%20of%20Downloaded%20Data/">Format of Downloaded Data</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" >Data Types</a>
+    <ul>
+                <li class="toctree-l3"><a class="reference internal" href="../../../Download/About%20the%20Data/Data%20Types/FCirc/">FCirc</a>
+                </li>
+                <li class="toctree-l3"><a class="reference internal" href="../../../Download/About%20the%20Data/Data%20Types/PeakData/">PeakData</a>
+                </li>
+                <li class="toctree-l3"><a class="reference internal" href="../../../Download/About%20the%20Data/Data%20Types/PeakGroups/">PeakGroups</a>
+                </li>
+    </ul>
+                </li>
+    </ul>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Upload</span></p>
+              <ul class="current">
+                  <li class="toctree-l1"><a class="reference internal" href="../../Errors%20and%20Warnings%20Reference/">Errors and Warnings Reference</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../How%20to%20Name%20Your%20Studies%2C%20Animals%2C%20and%20Samples/">How to Name Your Studies, Animals, and Samples</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../How%20to%20Upload%20Data%20to%20TraceBase/">How to Upload Data to TraceBase</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../Uploading%20FAQ/">Uploading FAQ</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../What%20Inputs%20Does%20TraceBase%20Take/">What Inputs Does TraceBase Take</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" >How to Build a Submission</a>
+    <ul class="current">
+                <li class="toctree-l2 current"><a class="reference internal current" href="#">How to Start an Upload</a>
+    <ul class="current">
+    <li class="toctree-l3"><a class="reference internal" href="#how-to-leverage-peak-annotation-files-to-jump-start-a-data-submission">How to Leverage Peak Annotation Files to Jump Start a Data Submission</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#how-to-label-mass-spec-run-information">How to Label Mass Spec Run Information</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#run-date">Run Date</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#instrument">Instrument</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#operator">Operator</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#lc-protocol">LC Protocol</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#polarity-and-scan-range">Polarity and Scan Range</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#notes">Notes</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#how-to-handle-errors-and-warnings-encountered-on-the-start-page">How to Handle Errors and Warnings encountered on the Start Page</a>
+    </li>
+    </ul>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc/">How to Fill In the Study Doc</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../3%20-%20How%20to%20Validate%20a%20Study%20Doc/">How to Validate a Study Doc</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../4%20-%20How%20to%20Submit%20Data/">How to Submit Data</a>
+                </li>
+    </ul>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Values</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../../Values/Calculated%20Values%20Glossary/">Calculated Values Glossary</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../../Values/Corrected%20Abundance/">Corrected Abundance</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../../Values/Enrichment%20Abundance/">Enrichment Abundance</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../../Values/Enrichment%20Example/">Enrichment Example</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../../Values/Enrichment%20Fraction/">Enrichment Fraction</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../../Values/FCirc%20Rates/">FCirc Rates</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../../Values/Fraction/">Fraction</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../../Values/Normalized%20Labeling/">Normalized Labeling</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../../Values/Total%20Abundance/">Total Abundance</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../..">TraceBase Documentation</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../.." class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Upload</li>
+          <li class="breadcrumb-item">How to Build a Submission</li>
+      <li class="breadcrumb-item active">How to Start an Upload</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="how-to-start-an-upload">How to Start an Upload</h1>
+<h2 id="how-to-leverage-peak-annotation-files-to-jump-start-a-data-submission">How to Leverage Peak Annotation Files to Jump Start a Data Submission</h2>
+<p>TraceBase accepts mass spectrometry data that has been corrected for the natural abundance of isotopomers.</p>
+<p>Specifically, TraceBase supports the output from 3 popular tools for natural abundance correction:</p>
+<ul>
+<li><a href="https://doi.org/10.1021/acs.analchem.7b00396">AccuCor</a> <em>(<a href="https://github.com/lparsons/accucor">AccuCor on GitHub</a>)</em></li>
+<li><a href="https://doi.org/10.1093/bioinformatics/btz209">IsoCor</a> <em>(<a href="https://github.com/xxing9703/isocorr13C15N">isocorr13C15N on GitHub</a>)</em></li>
+<li><a href="https://github.com/xxing9703/Iso-Autocorr">Iso-AutoCor</a></li>
+</ul>
+<p>Therefore, a typical workflow to put data on TraceBase could be:</p>
+<!-- markdownlint-disable MD007 -->
+<ol>
+<li>Select peaks from a set of <code>.mzXML</code> files using either of these peak-picking tools<ul>
+<li><a href="http://maven.princeton.edu/index.php">Maven</a></li>
+<li><a href="https://www.elucidata.io/el-maven">El-Maven</a></li>
+</ul>
+</li>
+<li>Correct for natural abundance using AccuCor or IsoCor</li>
+<li>Upload data to TraceBase to generate a submission template</li>
+</ol>
+<!-- markdownlint-enable MD007 -->
+
+<p>TraceBase uses an Excel spreadsheet called a <code>Study Doc</code> to label and organize submission data.</p>
+<p>The Upload <strong>Start</strong> page does not save your uploaded peak annotation files in TraceBase.  Its only purpose is to create
+a Study Doc from scratch using your peak annotation files, so feel free to submit any combination of the files mentioned
+above as either a:</p>
+<!-- markdownlint-disable MD007 -->
+<ul>
+<li>Microsoft Excel Spreadsheet</li>
+<li>Corrected data sheet only in one of 2 plain text formats (e.g. using NotePad or TextEdit):<ul>
+<li>CSV (comma separated values)</li>
+<li>TSV (tab separated values)</li>
+</ul>
+</li>
+</ul>
+<!-- markdownlint-enable MD007 -->
+
+<!-- textlint-disable terminology -->
+<p>The default file name of a study doc generated by the Upload <strong>Start</strong> page is <code>study.xlsx</code>.  It is suggested that you
+rename this file using the study name (without spaces), but any name is acceptable.</p>
+<!-- textlint-enable terminology -->
+
+<p>Ensure that each peak annotation file is annotated with the Mass Spec Run information using the fields next to each
+file.</p>
+<h2 id="how-to-label-mass-spec-run-information">How to Label Mass Spec Run Information</h2>
+<p>The Start page interface provides form elements to enter metadata about the MS Run associated with each peak annotation
+file.  Each field has a drop-down, but any value can be entered.</p>
+<ul>
+<li>MS Operator</li>
+<li>Instrument</li>
+<li>LC Protocol</li>
+<li>Run Date</li>
+</ul>
+<p>Since it is expected that multiple peak annotation files will have much of the same metadata, you can enter terms common
+to all the files you intend to drop.  After dropping the files, you can enter the specific values relevant to each
+specific file.</p>
+<p>The fields next to the drop area will apply to every file dropped, but they must be filled in <strong>before you drop them</strong>,
+as the form fields next to the drop area are ignored when the form is submitted.  Only the values next to each
+individually dropped file are submitted in the final form.  You can edit those associated with each individual file
+using the form rows that appear below the drop area for each dropped file.  For example:</p>
+<blockquote>
+<blockquote>
+<p><img alt="peak annot drop example" src="../../../Attachments/drag_annots_forms.png" /></p>
+<p>In this example, the operator, instrument, and LC protocol were filled in before dropping and the date was left empty
+because each was run on a different date, to be filled in after dropping in the forms that appear below the drag and
+drop area.</p>
+</blockquote>
+</blockquote>
+<p>The metadata entered about each Mass Spectrometry Run is distilled into unique rows and saved in the <code>Sequences</code> sheet
+in the Study Doc.  There is no succinct ID/Name for each of these rows, so an Excel formula is used to generate one that
+is available in drop-downs in 2 other sheets:</p>
+<ul>
+<li>The <code>Peak Annotation Files</code> sheet, which denotes a "default" associated run associated with a peak annotation file</li>
+<li>The <code>Peak Annotation Details</code> sheet, whose values can override the default set in the <code>Peak Annotation Files</code> sheet.</li>
+</ul>
+<p>All of these values will be automatically populated when you supply the metadata on the <strong>Upload</strong> page's <strong>Start</strong> tab.</p>
+<p>Read on for details about each tracked piece of MS Run metadata.</p>
+<h3 id="run-date">Run Date</h3>
+<p>Date that the sequence was run on the mass spec instrument in <code>YYYY-MM-DD</code> format.  The drop-down on the Upload
+<strong>Start</strong> page provides selections for the past 2 weeks, but any date can be entered.</p>
+<h3 id="instrument">Instrument</h3>
+<p>The instrument (model) that was used for the MS Run.</p>
+<p>Note that there is no distinction made between 2 instruments of the same model.</p>
+<p>Current options:</p>
+<ul>
+<li>HILIC</li>
+<li>QE</li>
+<li>QE2</li>
+<li>QEPlus</li>
+<li>QEHF</li>
+<li>Exploris240</li>
+<li>Exploris480</li>
+<li>unknown</li>
+</ul>
+<p>A new instrument model can be entered and the select list will automatically include the new model in the future after
+the study is loaded.</p>
+<h3 id="operator">Operator</h3>
+<p>The name of the researcher who prepared samples for MS and ran them on the instrument.  A drop-down is provided on the
+Upload <strong>Start</strong> page to mitigate name variants.</p>
+<h3 id="lc-protocol">LC Protocol</h3>
+<p>Name of the Liquid Chromatography LS Protocol used.</p>
+<ul>
+<li>polar-HILIC-25-min</li>
+<li>polar-reversed-phase-ion-pairing-25-min</li>
+<li>polar-reversed-phase-25-min</li>
+<li>lipid-reversed-phase-25-min</li>
+<li>SCFA-reversed-phase-22-min</li>
+<li>unknown</li>
+</ul>
+<p>Any novel LS Protocol can be entered and will appear in the <code>LC Protocols</code> sheet in the Study Doc, but names should have
+no spaces (only dashes), start with the LC Method, end with <code>-min</code>, have a run length greater than <code>0</code>, and appear in
+the following format:</p>
+<p><code>MYNAME-0-min</code></p>
+<blockquote>
+<blockquote>
+<p>Example: <code>lipid-reversed-phase-25-min</code></p>
+<p>This method involves the analysis of lipids using reversed-phase chromatography on C18 columns, coupled with high
+resolution mass spectrometry.  It is mainly used for the analysis of lipids.</p>
+</blockquote>
+</blockquote>
+<p>If you need to edit the protocol in the Study Doc, do not edit the <code>Name</code> column.  Edit the other columns in the sheet
+and copy the formula from the first unpopulated row in the <code>Name</code> column to paste on the edited row.</p>
+<h3 id="polarity-and-scan-range">Polarity and Scan Range</h3>
+<p>Note that polarity and scan range are not recorded in the Study Doc.  This information is only ever automatically
+extracted from the <code>mzXML</code> files, if supplied with your final submission.</p>
+<h3 id="notes">Notes</h3>
+<p>The Study Doc's <code>Sequences</code> sheet has a <code>Notes</code> column if you want to add any extra information about the run that is
+not captured in the other columns.  You can add that information after generating the Study Doc template.</p>
+<h2 id="how-to-handle-errors-and-warnings-encountered-on-the-start-page">How to Handle Errors and Warnings encountered on the Start Page</h2>
+<p>The Upload <strong>Start</strong> page is the only tool in the submission process that checks for conflicts between your peak
+annotation files.  If any errors or warnings are encountered on that page, they must be fixed in the downloaded Study
+Doc.  The <strong>Validate</strong> page will not bring them up again (unless they refer specifically to the otherwise hidden <code>Peak
+Group Conflicts</code> sheet).</p>
+<p>If an error or warning encountered on the <strong>Start</strong> page is not enough to know what to do to fix it, it may help to look
+up a more detailed explanation of what the exception means, what can cause it, or how to fix it.  Every current custom
+TraceBase exception is provided in the <a href="../../Errors%20and%20Warnings%20Reference/">Errors and Warnings Reference</a>.  You
+can use it to search for the exception name to see what extra guidance it provides.</p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../../What%20Inputs%20Does%20TraceBase%20Take/" class="btn btn-neutral float-left" title="What Inputs Does TraceBase Take"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc/" class="btn btn-neutral float-right" title="How to Fill In the Study Doc">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../../What%20Inputs%20Does%20TraceBase%20Take/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../../../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "../../..";</script>
+    <script src="../../../js/theme_extra.js"></script>
+    <script src="../../../js/theme.js"></script>
+      <script src="../../../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

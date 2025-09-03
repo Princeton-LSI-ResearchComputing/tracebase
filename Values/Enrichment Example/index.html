@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="http://Princeton-LSI-ResearchComputing.github.io/tracebase/Values/Enrichment%20Example/" />
+      <link rel="shortcut icon" href="../../img/favicon.ico" />
+    <title>Enrichment Example - TraceBase Documentation</title>
+    <link rel="stylesheet" href="../../css/theme.css" />
+    <link rel="stylesheet" href="../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Enrichment Example";
+        var mkdocs_page_input_path = "Values/Enrichment Example.md";
+        var mkdocs_page_url = "/tracebase/Values/Enrichment%20Example/";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../.." class="icon icon-home"> TraceBase Documentation
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../..">TraceBase</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">About</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../About/How%20TraceBase%20Handles%20Data/">How TraceBase Handles Data</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../About/Navigating%20TraceBase/">Navigating TraceBase</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../About/Team/">Team</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../About/TraceBase%20Design/">TraceBase Design</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../About/Under%20the%20Hood/">Under the hood</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Analysis</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../Analysis/How%20to%20analyze%20data%20downloaded%20from%20TraceBase/">How do I analyze data downloaded from TraceBase?</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Download</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../Download/How%20to%20Download/">How to Download</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >About the Data</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../../Download/About%20the%20Data/Format%20of%20Downloaded%20Data/">Format of Downloaded Data</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" >Data Types</a>
+    <ul>
+                <li class="toctree-l3"><a class="reference internal" href="../../Download/About%20the%20Data/Data%20Types/FCirc/">FCirc</a>
+                </li>
+                <li class="toctree-l3"><a class="reference internal" href="../../Download/About%20the%20Data/Data%20Types/PeakData/">PeakData</a>
+                </li>
+                <li class="toctree-l3"><a class="reference internal" href="../../Download/About%20the%20Data/Data%20Types/PeakGroups/">PeakGroups</a>
+                </li>
+    </ul>
+                </li>
+    </ul>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Upload</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../Upload/Errors%20and%20Warnings%20Reference/">Errors and Warnings Reference</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../Upload/How%20to%20Name%20Your%20Studies%2C%20Animals%2C%20and%20Samples/">How to Name Your Studies, Animals, and Samples</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../Upload/How%20to%20Upload%20Data%20to%20TraceBase/">How to Upload Data to TraceBase</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../Upload/Uploading%20FAQ/">Uploading FAQ</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../Upload/What%20Inputs%20Does%20TraceBase%20Take/">What Inputs Does TraceBase Take</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >How to Build a Submission</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../../Upload/How%20to%20Build%20a%20Submission/1%20-%20How%20to%20Start%20an%20Upload/">How to Start an Upload</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc/">How to Fill In the Study Doc</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../Upload/How%20to%20Build%20a%20Submission/3%20-%20How%20to%20Validate%20a%20Study%20Doc/">How to Validate a Study Doc</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../Upload/How%20to%20Build%20a%20Submission/4%20-%20How%20to%20Submit%20Data/">How to Submit Data</a>
+                </li>
+    </ul>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Values</span></p>
+              <ul class="current">
+                  <li class="toctree-l1"><a class="reference internal" href="../Calculated%20Values%20Glossary/">Calculated Values Glossary</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../Corrected%20Abundance/">Corrected Abundance</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../Enrichment%20Abundance/">Enrichment Abundance</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Enrichment Example</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#peakdata">PeakData</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#peakgroup">PeakGroup</a>
+    </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../Enrichment%20Fraction/">Enrichment Fraction</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../FCirc%20Rates/">FCirc Rates</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../Fraction/">Fraction</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../Normalized%20Labeling/">Normalized Labeling</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../Total%20Abundance/">Total Abundance</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../..">TraceBase Documentation</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Values</li>
+      <li class="breadcrumb-item active">Enrichment Example</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="enrichment-example">Enrichment Example</h1>
+<p>This is an example for a measured compound alanine (C3H7NO2) measured with 13C and 15N labeling showing the enrichment
+fraction and enrichment abundance calculations.</p>
+<h2 id="peakdata">PeakData</h2>
+<table>
+<thead>
+<tr>
+<th>Labeled Element:Count</th>
+<th>Corrected Abundance</th>
+<th>Fraction</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>C:0; N:0</td>
+<td>1090437</td>
+<td>0.633529</td>
+</tr>
+<tr>
+<td>C:0; N:1</td>
+<td>154827.9</td>
+<td>0.089953</td>
+</tr>
+<tr>
+<td>C:1; N:0</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr>
+<td>C:1; N:1</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr>
+<td>C:2; N:0</td>
+<td>3105.043</td>
+<td>0.001804</td>
+</tr>
+<tr>
+<td>C:2; N:1</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr>
+<td>C:3; N:0</td>
+<td>33989.78</td>
+<td>0.019748</td>
+</tr>
+<tr>
+<td>C:3; N:1</td>
+<td>438849.7</td>
+<td>0.254966</td>
+</tr>
+</tbody>
+</table>
+<h2 id="peakgroup">PeakGroup</h2>
+<table>
+<thead>
+<tr>
+<th>Sample</th>
+<th>Tissue</th>
+<th>Measured<br>Compound</th>
+<th>Labeled<br>Element</th>
+<th>Total<br>Abundance</th>
+<th>Enrichment<br>Fraction</th>
+<th>Enrichment<br>Abundance</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>sampleid</td>
+<td>serum_plasma_tail</td>
+<td>alanine</td>
+<td>C</td>
+<td>1721209.0</td>
+<td>0.2759</td>
+<td>474909.4989</td>
+</tr>
+<tr>
+<td>sampleid</td>
+<td>serum_plasma_tail</td>
+<td>alanine</td>
+<td>N</td>
+<td>1721209.0</td>
+<td>0.3449</td>
+<td>593677.6307</td>
+</tr>
+</tbody>
+</table>
+<p>Note that PeakGroup data is split into a separate row for each element.</p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../Enrichment%20Abundance/" class="btn btn-neutral float-left" title="Enrichment Abundance"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../Enrichment%20Fraction/" class="btn btn-neutral float-right" title="Enrichment Fraction">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../Enrichment%20Abundance/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../Enrichment%20Fraction/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "../..";</script>
+    <script src="../../js/theme_extra.js"></script>
+    <script src="../../js/theme.js"></script>
+      <script src="../../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

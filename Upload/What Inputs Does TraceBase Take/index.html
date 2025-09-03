@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="http://Princeton-LSI-ResearchComputing.github.io/tracebase/Upload/What%20Inputs%20Does%20TraceBase%20Take/" />
+      <link rel="shortcut icon" href="../../img/favicon.ico" />
+    <title>What Inputs Does TraceBase Take - TraceBase Documentation</title>
+    <link rel="stylesheet" href="../../css/theme.css" />
+    <link rel="stylesheet" href="../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "What Inputs Does TraceBase Take";
+        var mkdocs_page_input_path = "Upload/What Inputs Does TraceBase Take.md";
+        var mkdocs_page_url = "/tracebase/Upload/What%20Inputs%20Does%20TraceBase%20Take/";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../.." class="icon icon-home"> TraceBase Documentation
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../..">TraceBase</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">About</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../About/How%20TraceBase%20Handles%20Data/">How TraceBase Handles Data</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../About/Navigating%20TraceBase/">Navigating TraceBase</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../About/Team/">Team</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../About/TraceBase%20Design/">TraceBase Design</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../About/Under%20the%20Hood/">Under the hood</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Analysis</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../Analysis/How%20to%20analyze%20data%20downloaded%20from%20TraceBase/">How do I analyze data downloaded from TraceBase?</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Download</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../Download/How%20to%20Download/">How to Download</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >About the Data</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../../Download/About%20the%20Data/Format%20of%20Downloaded%20Data/">Format of Downloaded Data</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" >Data Types</a>
+    <ul>
+                <li class="toctree-l3"><a class="reference internal" href="../../Download/About%20the%20Data/Data%20Types/FCirc/">FCirc</a>
+                </li>
+                <li class="toctree-l3"><a class="reference internal" href="../../Download/About%20the%20Data/Data%20Types/PeakData/">PeakData</a>
+                </li>
+                <li class="toctree-l3"><a class="reference internal" href="../../Download/About%20the%20Data/Data%20Types/PeakGroups/">PeakGroups</a>
+                </li>
+    </ul>
+                </li>
+    </ul>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Upload</span></p>
+              <ul class="current">
+                  <li class="toctree-l1"><a class="reference internal" href="../Errors%20and%20Warnings%20Reference/">Errors and Warnings Reference</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../How%20to%20Name%20Your%20Studies%2C%20Animals%2C%20and%20Samples/">How to Name Your Studies, Animals, and Samples</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../How%20to%20Upload%20Data%20to%20TraceBase/">How to Upload Data to TraceBase</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../Uploading%20FAQ/">Uploading FAQ</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">What Inputs Does TraceBase Take</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#raw-mass-spectrometry-peak-data">Raw Mass Spectrometry Peak Data</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#corrected-mass-spectrometry-peak-data">Corrected Mass Spectrometry Peak Data</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#experimental-metadata">Experimental Metadata</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#recommended-practices-for-organizing-data">Recommended Practices for Organizing Data</a>
+    </li>
+        </ul>
+    </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >How to Build a Submission</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../How%20to%20Build%20a%20Submission/1%20-%20How%20to%20Start%20an%20Upload/">How to Start an Upload</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc/">How to Fill In the Study Doc</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../How%20to%20Build%20a%20Submission/3%20-%20How%20to%20Validate%20a%20Study%20Doc/">How to Validate a Study Doc</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../How%20to%20Build%20a%20Submission/4%20-%20How%20to%20Submit%20Data/">How to Submit Data</a>
+                </li>
+    </ul>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Values</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../Values/Calculated%20Values%20Glossary/">Calculated Values Glossary</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../Values/Corrected%20Abundance/">Corrected Abundance</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../Values/Enrichment%20Abundance/">Enrichment Abundance</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../Values/Enrichment%20Example/">Enrichment Example</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../Values/Enrichment%20Fraction/">Enrichment Fraction</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../Values/FCirc%20Rates/">FCirc Rates</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../Values/Fraction/">Fraction</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../Values/Normalized%20Labeling/">Normalized Labeling</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../Values/Total%20Abundance/">Total Abundance</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../..">TraceBase Documentation</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Upload</li>
+      <li class="breadcrumb-item active">What Inputs Does TraceBase Take</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <!-- markdownlint-disable MD007 -->
+<h1 id="what-inputs-does-tracebase-take">What Inputs Does TraceBase Take</h1>
+<p>TraceBase takes 3 kinds of input data:</p>
+<ul>
+<li>Raw Mass Spectrometry Peak Data<ul>
+<li><code>RAW</code> files from the Mass Spec Instrument</li>
+<li><code>mzXML</code> files</li>
+</ul>
+</li>
+<li>Corrected Mass Spectrometry Peak Data<ul>
+<li>We refer to these inputs as <code>peak annotation files</code></li>
+<li>Used initially to extract experimental metadata</li>
+<li>Included in the final submission with associated raw data</li>
+</ul>
+</li>
+<li>Experimental Metadata<ul>
+<li>All experimental metadata (e.g. sample details, compounds, protocols, etc) is entered into a single Excel file</li>
+<li>We refer to this input file as the <code>Study Doc</code></li>
+</ul>
+</li>
+</ul>
+<p>The experimental metadata includes some nomenclature-controlled metadata to make sure all data is inter-comparable and
+reliably searchable across studies.  See <a href="../../About/How%20TraceBase%20Handles%20Data/">How TraceBase Handles Data</a> for
+more information on how TraceBase treats both input and output data.</p>
+<h2 id="raw-mass-spectrometry-peak-data">Raw Mass Spectrometry Peak Data</h2>
+<p>TraceBase currently supports 2 forms or raw Mass Spec files"</p>
+<ul>
+<li><code>RAW</code> files produced by a Mass Spec instrument</li>
+<li><code>mzXML</code> files containing a portion of the RAW data that are typically used in peak correction</li>
+</ul>
+<p>TraceBase archives each of these file types to make them searchable in order to find unanalyzed peak data for future
+studies (as opposed to the curated corrected data that TraceBase provides calculated values for, like
+<a href="../../Values/FCirc%20Rates/">FCirc Rates</a>).</p>
+<p>A collection of either form of raw file is too large and impractical to provide via upload on the web, so study
+submissions are delivered for loading using a shared drive, as described on the Upload <strong>Submit</strong> page.</p>
+<p>The <code>mzXML</code> files are parsed by TraceBase to extract:</p>
+<ul>
+<li>Polarity</li>
+<li>Scan Range</li>
+</ul>
+<h2 id="corrected-mass-spectrometry-peak-data">Corrected Mass Spectrometry Peak Data</h2>
+<p>TraceBase supports the output from 3 popular tools for natural abundance correction:</p>
+<ul>
+<li><a href="https://doi.org/10.1021/acs.analchem.7b00396">AccuCor</a> <em>(<a href="https://github.com/lparsons/accucor">GitHub</a>)</em></li>
+<li><a href="https://doi.org/10.1093/bioinformatics/btz209">IsoCor</a> <em>(<a href="https://github.com/xxing9703/isocorr13C15N">GitHub</a>)</em>^</li>
+<li><a href="https://github.com/xxing9703/Iso-Autocorr">Iso-AutoCor</a></li>
+</ul>
+<p>Therefore, a typical workflow to put data in TraceBase could start with:</p>
+<ol>
+<li>Create <code>mzXML</code> files from the Mass Spec instrument's <code>RAW</code> files using conversion tools like<ul>
+<li>ProteoWizard's MSConvert</li>
+<li>OpenMS FileConverter</li>
+<li>custom scripts</li>
+</ul>
+</li>
+<li>Select peaks from a set of <code>mzXML</code> files using peak-picking tools like<ul>
+<li><a href="http://maven.princeton.edu/index.php">Maven</a></li>
+<li><a href="https://www.elucidata.io/el-maven">El-Maven</a></li>
+</ul>
+</li>
+<li>Create a <code>peak annotation file</code> using one of the natural abundance correction tools mentioned above</li>
+</ol>
+<p>Tracebase can take any of the 3 <code>peak annotation file</code> types (AccuCor, IsoCor, or Iso-AutoCor) in any one of 3 formats:</p>
+<ul>
+<li>Microsoft Excel Spreadsheet</li>
+<li>Corrected data sheet only in one of 2 plain text formats (e.g. using NotePad or TextEdit):<ul>
+<li>CSV (comma separated values)</li>
+<li>TSV (tab separated values)</li>
+</ul>
+</li>
+</ul>
+<p>Peak annotation files are included in 2 steps during the upload process:</p>
+<ul>
+<li>They are used on the Upload <strong>Start</strong> page to stub out a <code>Study Doc</code> template to get a jump start on experimental
+  metadata entry.</li>
+<li>They are included in the final submission, organized into folders on a shared drive with their associated raw files.</li>
+</ul>
+<p>^ The GitHub version of IsoCor is called <em>isocorr13C15N</em>.  These two terms are used interchangeably on TraceBase.</p>
+<h2 id="experimental-metadata">Experimental Metadata</h2>
+<p>To empower the user and engender a sense of ownership and control over your data, all experimental metadata (even the
+nomenclature-controlled metadata that subject to curator oversight), is localized in a single Excel document that you
+build during the submission process.</p>
+<p>TraceBase is designed to match an LCMS sample name to a biological sample.  In a submission, the sample names and the
+compounds are extracted and processed from the <code>peak annotation files</code>.  It's not possible to extract all other metadata
+automatically, thus much of this data entry is manual, but the data is organized around how researchers tend to store
+this kind of data.</p>
+<h3 id="recommended-practices-for-organizing-data"><a name="metadata_recommendations"></a>Recommended Practices for Organizing Data</h3>
+<p>Some researchers keep a single list of Animal IDs for all experiments.  This works well for TraceBase, because each
+Animal ID is unique.  Other researchers keep a list of animal IDs for each experiment (aka "Study").  In this example,
+the study should have a unique identifier and that should be combined with the animal identifier (e.g.
+<code>study001_mouse001</code>).  This also works well for TraceBase.</p>
+<p>If the Animal ID or Sample ID is not unique, upload is more difficult but still achievable.  Feel free to enter what
+you have and TraceBase curators can help make your data compatible.</p>
+<p>Note that these labeling schemes can be applied to your general organization of data outside of tracebase:
+* For a new experiment, create a new identifier counting up from <code>study001</code>
+    * A related follow up experiment may have an extension, e.g. <code>study001b</code>, <code>study001c</code>
+    * Any text could be used in place of "study"
+* Within each experiment, count animal identifiers <code>study001_m01</code>, <code>study001_m02</code>...
+* When labeling sample files, provide full animal identifier, tissue, and sometimes time collected:
+    * E.g. <code>study001_m01_quad</code>, <code>study001_m01_tailserum_000</code>, <code>study001_m01_tailserum_120</code>
+* When working with samples in the lab, it is not feasible to label every tube with the full identifier, but shorthand
+  can be used for intermediate tubes if everything is from the same study:
+    * E.g. for tissue extraction from <code>study001</code>, label working tubes <code>Q_1</code>, <code>Q_2</code>....  Label final tubes <code>001_m1_Q</code>
+* Data and any other information related to your experiments can be organized in folders labeled for each study
+  <code>study001_my first infusion</code>, <code>study001b_fixing my first infusion</code></p>
+<!-- markdownlint-enable MD007 -->
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../Uploading%20FAQ/" class="btn btn-neutral float-left" title="Uploading FAQ"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../How%20to%20Build%20a%20Submission/1%20-%20How%20to%20Start%20an%20Upload/" class="btn btn-neutral float-right" title="How to Start an Upload">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../Uploading%20FAQ/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../How%20to%20Build%20a%20Submission/1%20-%20How%20to%20Start%20an%20Upload/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "../..";</script>
+    <script src="../../js/theme_extra.js"></script>
+    <script src="../../js/theme.js"></script>
+      <script src="../../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="http://Princeton-LSI-ResearchComputing.github.io/tracebase/About/Under%20the%20Hood/" />
+      <link rel="shortcut icon" href="../../img/favicon.ico" />
+    <title>Under the hood - TraceBase Documentation</title>
+    <link rel="stylesheet" href="../../css/theme.css" />
+    <link rel="stylesheet" href="../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Under the hood";
+        var mkdocs_page_input_path = "About/Under the Hood.md";
+        var mkdocs_page_url = "/tracebase/About/Under%20the%20Hood/";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../.." class="icon icon-home"> TraceBase Documentation
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../..">TraceBase</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">About</span></p>
+              <ul class="current">
+                  <li class="toctree-l1"><a class="reference internal" href="../How%20TraceBase%20Handles%20Data/">How TraceBase Handles Data</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../Navigating%20TraceBase/">Navigating TraceBase</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../Team/">Team</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../TraceBase%20Design/">TraceBase Design</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Under the hood</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#search-strategy">Search Strategy</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#caching-strategy">Caching Strategy</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#dynamically-maintained-database-fields">Dynamically Maintained Database Fields</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#validation-interface">Validation Interface</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#consolidated-input">Consolidated Input</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#standardized-loading">Standardized Loading</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#customized-errors-and-warnings-and-handling">Customized Errors and Warnings and Handling</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#template-creation-and-autofill">Template Creation and Autofill</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#universal-peak-annotation-format">Universal Peak Annotation Format</a>
+    </li>
+    </ul>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Analysis</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../Analysis/How%20to%20analyze%20data%20downloaded%20from%20TraceBase/">How do I analyze data downloaded from TraceBase?</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Download</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../Download/How%20to%20Download/">How to Download</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >About the Data</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../../Download/About%20the%20Data/Format%20of%20Downloaded%20Data/">Format of Downloaded Data</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" >Data Types</a>
+    <ul>
+                <li class="toctree-l3"><a class="reference internal" href="../../Download/About%20the%20Data/Data%20Types/FCirc/">FCirc</a>
+                </li>
+                <li class="toctree-l3"><a class="reference internal" href="../../Download/About%20the%20Data/Data%20Types/PeakData/">PeakData</a>
+                </li>
+                <li class="toctree-l3"><a class="reference internal" href="../../Download/About%20the%20Data/Data%20Types/PeakGroups/">PeakGroups</a>
+                </li>
+    </ul>
+                </li>
+    </ul>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Upload</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../Upload/Errors%20and%20Warnings%20Reference/">Errors and Warnings Reference</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../Upload/How%20to%20Name%20Your%20Studies%2C%20Animals%2C%20and%20Samples/">How to Name Your Studies, Animals, and Samples</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../Upload/How%20to%20Upload%20Data%20to%20TraceBase/">How to Upload Data to TraceBase</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../Upload/Uploading%20FAQ/">Uploading FAQ</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../Upload/What%20Inputs%20Does%20TraceBase%20Take/">What Inputs Does TraceBase Take</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >How to Build a Submission</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../../Upload/How%20to%20Build%20a%20Submission/1%20-%20How%20to%20Start%20an%20Upload/">How to Start an Upload</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc/">How to Fill In the Study Doc</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../Upload/How%20to%20Build%20a%20Submission/3%20-%20How%20to%20Validate%20a%20Study%20Doc/">How to Validate a Study Doc</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../Upload/How%20to%20Build%20a%20Submission/4%20-%20How%20to%20Submit%20Data/">How to Submit Data</a>
+                </li>
+    </ul>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Values</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../Values/Calculated%20Values%20Glossary/">Calculated Values Glossary</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../Values/Corrected%20Abundance/">Corrected Abundance</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../Values/Enrichment%20Abundance/">Enrichment Abundance</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../Values/Enrichment%20Example/">Enrichment Example</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../Values/Enrichment%20Fraction/">Enrichment Fraction</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../Values/FCirc%20Rates/">FCirc Rates</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../Values/Fraction/">Fraction</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../Values/Normalized%20Labeling/">Normalized Labeling</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../Values/Total%20Abundance/">Total Abundance</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../..">TraceBase Documentation</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">About</li>
+      <li class="breadcrumb-item active">Under the hood</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="under-the-hood">Under the hood</h1>
+<p>Given a development plan with the outlined <a href="../TraceBase%20Design/#Goals">goals</a>, TraceBase contains a number of hidden
+features that end users don't usually see, but bring enormous value to the TraceBase codebase in terms of maintenance
+and future development efforts.</p>
+<h2 id="search-strategy">Search Strategy</h2>
+<p>The advanced search was designed to work on any database table field, and works across numerous tables to construct any
+desired hybrid representation using a simple configuration file.  The current representations include, for example
+<a href="../../Download/About%20the%20Data/Data%20Types/PeakGroups/">PeakGroups</a>,
+<a href="../../Download/About%20the%20Data/Data%20Types/PeakData/">PeakData</a>, and
+<a href="../../Download/About%20the%20Data/Data%20Types/FCirc/">FCirc</a>.  The search is performed independent of the
+configuration, which means that adding or changing fields/columns is a straightforward and trivial task.  Any changes to
+the configuration are instantly searchable.  This design choice is powerful in that the Advanced Search interface is
+inherently scalable and adaptable.  New search formats can be created with minimal effort.</p>
+<h2 id="caching-strategy">Caching Strategy</h2>
+<p>Caching of various expensive-to-calculate values in TraceBase improves performance.  Typical caching strategies
+periodically refresh cached values based on a simple cached value expiration date.  However, this strategy has
+drawbacks.  During times of low traffic, the periodic rebuilding of values is susceptible to significantly impacting the
+performance of a large search results download, for example.</p>
+<p>Additionally, if new data is loaded or changed, cached values can be incorrect until affected cached values are rebuilt,
+so a user may occasionally be presented with that inaccurate data.</p>
+<p>To solve both of these issues, TraceBase employs a caching strategy that sets monitors on specific data that, if it's
+ever changed, will trigger an immediate cache update of the affected values.  That means that as long as a study doesn't
+change, performance will always be optimal, and the values always accurate.</p>
+<h2 id="dynamically-maintained-database-fields">Dynamically Maintained Database Fields</h2>
+<p>While the caching strategy above assures data accuracy and consistent performance, it has one big drawback: cached
+values are not searchable, which is for example, why you cannot search based on calculated FCirc values.  It also has
+occasional maintenance tasks associated with it, such as generating those cached values after a load.</p>
+<p>A strategy newer than the caching strategy that solves accuracy, performance, <em>and</em> searchability, is maintained
+database table fields, and that work was done with a mind toward both scalability and adaptability.  It works much in
+the same way that the caching strategy does, as it triggers updates based on monitored database records, but comes with
+extra features:</p>
+<ul>
+<li>Multiple configurable modes that govern when to perform the updates.</li>
+<li>A mass autoupdate feature integrated with the loading scripts (to eliminate all associated overhead tasks).</li>
+<li>An extremely small code usage footprint that can</li>
+<li>Apply field maintenance to a field in a table with as few as 2 lines of code (when given a method to generate a
+    field value), making it highly robust to change.</li>
+<li>Apply mass autoupdate functionality to load methods with a single line of code.</li>
+<li>Restricts maintained fields from manual updates to ensure accuracy and proper loading code development.</li>
+</ul>
+<h2 id="validation-interface">Validation Interface</h2>
+<p>As the most visible under-the-hood feature, the data submission interface's validation page uses the exact same code
+that is used to load the database on the backend.  Designing the validation interface this way dramatically reduces
+future development efforts and ensures consistency between what users and curators see when working with load data.</p>
+<p>One typical pitfall of a large complex data loading (or validation) is that the loading process stops at the first error
+it encounters, thus a load attempt is made, an error occurs, the problem is fixed, then you start over and wait through
+an entire load attempt again only to encounter another error.  This repeated start/stop is inefficient.  It would be
+much more efficient to see all (or as many) of the errors that can be found and then fix them all in one go.  Somtimes,
+subsequent errors are unavoidable, but handling them in groups would at least be a step forward.</p>
+<p>To reduce the repeated data debugging iterations, the data loading strategy was designed to gather as many errors and
+warnings as is possible in a single load/validation attempt.  A number of components and fine-grained strategies
+coalesced to contribute to this overall strategy and are described below.</p>
+<h3 id="consolidated-input">Consolidated Input</h3>
+<p>To empower users and expedite the submission building process, eliminating the time consuming back and forth with a
+curator when the researcher needs new/novel standardized data, all metadata including nomenclature-controlled data can
+be loaded using a single excel spreadsheet.  A one-stop shop for all data in TraceBase makes the compilation of study
+data as smooth as possible.</p>
+<p>An excel speadsheet was chosen as the vehicle for the data because inter-sheet formulas are capable of providing select
+lists for data entry, reducing the opportunities for user error and speeding up manual data entry.</p>
+<h3 id="standardized-loading">Standardized Loading</h3>
+<p>All loading functionality is inherited from a common source that handles the minutiae of loading data so that
+individually developed loading scripts can focus on the data.  Every loading script is reversible, using a strategy
+called atomic transactions.  This is what allows the loading code to be able to be re-used for the validation page, so
+that the errors and warnings that the researcher sees while validating their data is exactly what the curator sees when
+they attempt to load the submission into the database.</p>
+<p>Also, each load data type defines the structure of the associated sheet in the Study Doc (xlsx file), which is
+constructed dynamically.  It uses the database table definitions to populate the column headers and datatype and is thus
+able to provide tips and information in the spreadsheet itself, while at the same time, making it robust to database
+changes.  If a new database table or field is added or changed, updating the loading code is very straightforward and
+the excel sheet update is automatic, making it fast and easy to adapt to change.</p>
+<h3 id="customized-errors-and-warnings-and-handling">Customized Errors and Warnings and Handling</h3>
+<p>Database errors on the validation interface can be cryptic and hard to interpret to understand what change is needed to
+make in the data to fix it, even for developers, so particular attention was given to creating helpful errors for common
+or not-so-common but difficult-to-solve errors.  Anytime an error was encountered, what was learned from the debug
+process was saved in a custom error that explains what the issue is and when possible, a suggestion is made as to the
+likely fix.</p>
+<p>These errors and warnings are aggregated and organized into categorical groups to streamline the submission building
+process.  Plus, since repeated similar errors can hamper the process of fixing a submission, similar errors are
+collected and summarized in a master error, including the collation and summarization of similar errors from multiple
+load scripts.</p>
+<p>All of these error features come together to make it possible for researchers to be able to fix data issues on their
+own, ensuring that data is loaded as quickly as possible and that researchers, who are the closest to the data, feel
+empowered to handle things on their own, and retain a sense of ownership and control over their data, instead of waiting
+for a curator to address the issues in a fashion that impeeds the researcher's input.</p>
+<h3 id="template-creation-and-autofill">Template Creation and Autofill</h3>
+<p>The most time consuming task in building a TraceBase submission is manual data entry.  To boost the study submission
+building process, a custom template can be build by simply submitting all of the peak annotation files, along with
+optional mass spec metadata associated with each file.  Samples and compounds will be parsed from those files and as
+much metadata as is possible will be automatically entered into a downloaded template.  Standardized data from the
+database will be included as well.</p>
+<p>What's more is that every time you validate a study doc, any partially entered data will be propagated to other sheets
+as well.  For example, if you enter a novel tissue name in the Samples sheet or a compound name in the Tracers sheet
+that do not exist in the corresponding Tissues or Compounds sheet, that name will be added to the corresponding sheet in
+the resulting download.</p>
+<h2 id="universal-peak-annotation-format">Universal Peak Annotation Format</h2>
+<p>TraceBase currently supports the following peak annotation file types (in excel, tsv, and csv format):</p>
+<ul>
+<li><a href="https://doi.org/10.1021/acs.analchem.7b00396">AccuCor</a></li>
+<li><a href="https://doi.org/10.1093/bioinformatics/btz209">IsoCor</a></li>
+<li><a href="https://github.com/xxing9703/Iso-Autocorr">Iso-AutoCor</a></li>
+</ul>
+<p>However, TraceBase also supports its own internal format called <code>UniCorr</code>, which contains only the common portions of
+each of the above formats that are relevant to TraceBase.  Each of those formats is automatically converted to the
+<code>UniCorr</code> format so that the same loading code is used for every peak annotation data source.  Thus, to support a new
+data type, all that needs to be developed is a converter to the <code>UniCorr</code> format, which is faster to do and easier to
+maintain than dealing with a series of largely redundant loaders.</p>
+<p>This makes TraceBase more robust to change and scalable, as support for new data types/formats are requested.</p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../TraceBase%20Design/" class="btn btn-neutral float-left" title="TraceBase Design"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../../Analysis/How%20to%20analyze%20data%20downloaded%20from%20TraceBase/" class="btn btn-neutral float-right" title="How do I analyze data downloaded from TraceBase?">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../TraceBase%20Design/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../../Analysis/How%20to%20analyze%20data%20downloaded%20from%20TraceBase/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "../..";</script>
+    <script src="../../js/theme_extra.js"></script>
+    <script src="../../js/theme.js"></script>
+      <script src="../../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>
