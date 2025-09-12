@@ -1,52 +1,59 @@
 # TraceBase
 
-![TraceBase logo](Attachments/TraceBase%20logo.png)
+![TraceBase Logo](Attachments/TraceBase%20logo.png)
 
-TraceBase is a data repository and analysis tool for mass-spectrometry data
-from isotope tracing studies used to quantify metabolism in vivo. Lab members
-submit data corrected for natural isotope abundance (by AccuCor or IsoCorr),
-along with details about their experiment. TraceBase organizes this data and
-computes useful metrics such as enrichment, normalized labeling, and FCirc.
-Data on TraceBase is easy to browse, collate, compare, and download.
+TraceBase is a mass spectrometry data repository and analysis tool for isotopic tracing studies used to quantify in vivo
+metabolism.  It is designed to be downloaded and installed for individual labs so that lab members can make their
+natural isotopic abundance corrected data (along with associated experimental metadata) available to the rest of the
+lab.  It currently supports [AccuCor](https://doi.org/10.1021/acs.analchem.7b00396),
+[IsoCor](https://doi.org/10.1093/bioinformatics/btz209), and [Iso-AutoCor](https://github.com/xxing9703/Iso-Autocorr).
+TraceBase organizes this data and computes useful metrics such as enrichment, normalized labeling, and FCirc.  Data on
+TraceBase is easy to browse, collate, compare, and download.
 
-## Overview
+## About
 
-Slideshow introduction:  [221011_tracebase REintroduction to lab.pptx](https://docs.google.com/presentation/d/1vIZvU5Q-hY7zUOC4fvMDuVONvQZR5jlC/edit?usp=sharing&ouid=102781029027637329166&rtpof=true&sd=true)
+[Slideshow Introduction](https://docs.google.com/presentation/d/1vIZvU5Q-hY7zUOC4fvMDuVONvQZR5jlC/edit?usp=sharing&ouid=102781029027637329166&rtpof=true&sd=true)
 
-[Structure of TraceBase for the Researcher](Structure%20of%20TraceBase%20for%20the%20Researcher.md)
+[How TraceBase Handles Data](About/How%20TraceBase%20Handles%20Data.md)
 
-[Navigating TraceBase](Overview/Navigating%20TraceBase.md)
+[Calculated Values Glossary](Values/Calculated%20Values%20Glossary.md)
 
-[Glossary of Calculated Values](Values/Glossary%20of%20Calculated%20Values.md)
+[Navigating TraceBase](About/Navigating%20TraceBase.md)
 
-## Uploading to TraceBase
+[TraceBase Design](About/TraceBase%20Design.md)
 
-[How to Upload](How%20to%20Upload.md)
+[Under the Hood](About/Under%20the%20Hood.md)
 
-[Input Data for TraceBase Upload](Upload/Input%20Data%20for%20TraceBase%20Upload.md)
+[Team](About/Team.md)
 
-[Sample Information Sheet](Upload/Sample%20Information%20Sheet.md)
+## Upload
 
-[Labeling and Organizing Data](Upload/Labeling%20and%20Organizing%20Data.md)
+[How to Upload Data](Upload/How%20to%20Upload%20Data%20to%20TraceBase.md)
 
-## Downloading from TraceBase
+[What Inputs Does TraceBase Take](Upload/What%20Inputs%20Does%20TraceBase%20Take.md)
 
-[How to Download](Types%20of%20Data%20Output/How%20to%20Download.md)
+[Submission Template](Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc.md)
 
-[Downloaded Data Formats](Types%20of%20Data%20Output/Downloaded%20Data%20Formats.md)
+[How to Name Your Studies, Animals, and Samples](Upload/How%20to%20Name%20Your%20Studies,%20Animals,%20and%20Samples.md)
 
-[How do I analyze data downloaded from TraceBase?](Download/How%20to%20analyze%20data%20downloaded%20from%20TraceBase.md)
+[Errors and Warnings Reference](Upload/Errors%20and%20Warnings%20Reference.md)
 
-[Example_compare isotopomer labeling from glucose across studies](Download/Example_compare%20isotopomer%20labeling%20from%20glucose%20across%20studies.md)
+## Download
 
-[Example_compare normalized labeling from glucose across studies](Download/Example_compare%20normalized%20labeling%20from%20glucose%20across%20studies.md)
+[How to Download](Download/How%20to%20Download.md)
 
-## Contact Developers and Additional Links
+[Downloaded Data Formats](Download/About%20the%20Data/Format%20of%20Downloaded%20Data.md)
 
-[People Who Contributed to TraceBase Development](Overview/People%20Who%20Contributed%20to%20TraceBase%20Development.md)
+[How do I analyze data downloaded from TraceBase?](Analysis/How%20to%20analyze%20data%20downloaded%20from%20TraceBase.md)
+
+## Contact
+
+[Team](About/Team.md)
 
 [GitHub Repository](https://github.com/Princeton-LSI-ResearchComputing/tracebase)
 
-- [Report a bug on GitHub](Contributing/Report%20a%20bug%20or%20request%20a%20feature%20on%20github.md)
+* [Report a bug](https://github.com/Princeton-LSI-ResearchComputing/tracebase/issues/new?template=bug_report.md)
+* [Request a feature](https://github.com/Princeton-LSI-ResearchComputing/tracebase/issues/new?template=feature_request.md)
+* [Contribute](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md)
 
-[Provide feedback in a google form](https://docs.google.com/forms/d/e/1FAIpQLSdnYe_gvKdoELXexZ9508xO8o59F1WgXcWBNh-_oxYh9WfHPg/viewform?usp=pp_url&entry.1881422913=/TraceBaseDocs/TraceBaseDocs)
+[General Feedback](https://docs.google.com/forms/d/e/1FAIpQLSdnYe_gvKdoELXexZ9508xO8o59F1WgXcWBNh-_oxYh9WfHPg/viewform?usp=pp_url&entry.1881422913=/TraceBaseDocs/TraceBaseDocs)
