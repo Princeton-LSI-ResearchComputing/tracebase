@@ -74,38 +74,31 @@ uploaded together on the **Start** page, TraceBase will assume they are the same
 sample row for each in the Samples sheet.  This can be fixed manually, but in this case, it is far easier to create
 separate Study Docs to avoid the errors.
 
-If you overlooked the existence of this same-named but different biological sample case and generate a single Study Doc,
-you may (or may not) see any errors, despite the existing problem (missing distinct samples).  The errors you might see
-are `MultipleRepresentation` errors on the **Start** page and a `Peak Group Conflicts` sheet in the downloaded Study
-Doc.  Whether this happens or not depends on the compounds in the peak annotation files.  If 2 of the same-named
-different samples analyze the same compounds (i.e. you picked the same peaks), since TraceBase thinks there was a single
-sample, it assumes that you picked peaks for the same compound twice.  Only 1 such compound representation is allowed
-per sample, so TraceBase issues the error and prompts you to pick one of the 2 compound representations in the `Peak
-Group Conflicts` sheet.  But since the samples **should** be different biological samples, picking a representative
-compound will only make the problem worse.
-
-The ultimate fix is to modify one or both of each sample name pair in both the `Samples` sheet and the sample name
-column in the `Peak Annotation Details` sheet, then remove the associated rows in the `Peak Group Conflicts` sheet, but
-this can all be avoided if you create separate Study docs for the commonly named samples.
+If you generate a single Study Doc with this name conflict, you may (or may not) see any errors, despite the existing
+problem (missing distinct samples).  The errors you might see are `MultipleRepresentation` errors on the **Start** page
+and a `Peak Group Conflicts` sheet in the downloaded Study Doc.  Whether this happens or not depends on the compounds in
+the peak annotation files.  If 2 of the same-named different samples analyze the same compounds (i.e. you picked the
+same peaks), since TraceBase thinks there was a single sample, it assumes that you picked peaks for the same compound
+twice.  Only 1 such compound representation is allowed per sample, so TraceBase issues the error and prompts you to pick
+one of the 2 compound representations in the `Peak Group Conflicts` sheet.  But since the samples **should** be
+different biological samples, picking a representative compound will only make the problem worse.
 
 Let us know when you have this issue and a curator can make the sample name modification for you after your submission
 is received.
 
 ## I added or edited sample rows manually.  Can I upload these files?
 
-Yes.  Any study-specific data can be manually edited.  Note that corresponding edits should be made in related sheets.
+Yes.  Any previously unloaded (i.e. new) samples can be manually edited.
 
-For example, if you add or edit a sample row, rows in the `Peak Annotation Details` sheet must also added/edited.
+> Note that corresponding edits should be made in related sheets.  For example, if you add or edit a sample row, rows in
+> the `Peak Annotation Details` sheet must also added/edited.
+>
+> If you want to add lots of samples from a peak annotation files (e.g. _Accucor_) that was missed when the template was
+> generated, the easiest solution is likely creating a new template and copying over your work.  The benefit of this is
+> that all of the extracted data is filled in in multiple sheets, e.g. novel compounds.
 
-Edited data that is subject to stricter nomenclature control and curator approval is the data in sheets:
-
-* Tissues
-* Compounds
-* LC Protocols
-
-Additions to these sheets are simpler, as long as it is not redundant.  If you make modifications to these sheets, let
-us know.  We will help you come up with an easy solution for uploading modified files.  Just upload what you have and we
-will contact you to confirm our solution is OK.
+If you run into errors in the validate step associated with the added samples, let us know.  We will help you to load
+your modified files.  Just send us what you have and we will contact you to confirm our solution is OK.
 
 ## Can I upload some data now, and upload more data from the same samples later?
 

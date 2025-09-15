@@ -1,15 +1,16 @@
 # PeakGroups
 
-Individual peaks in the mass spec data are grouped for every detected compound.  Since an animal is infused with a
-compound containing one or more radio labeled elements, and the animal's biochemistry has metabolized that compound to
-produce various other compounds, those isotopes end up in other compounds with mutiple different states of incorporation
-of the labeled elements.  As such, any measured compound has multiple peaks associated with it.  Those individual peaks
-(which are represented in the [[PeakData]] format) are grouped by compound to produce the PeakGroups output to summarize
-or combine all isotopomers for a given compound.
+PeakGroups report the abundance and enrichment summated from each isotope associated with a measured compound (as listed
+in [[PeakData]]).  Thus, they report values for the entire "group" of peaks for each compound.
 
-TraceBase makes it possible for all PeakGroups to be directly compared to one other, even if the tracer(s) contain
-multiple different labeled elements, thus the data in a PeakGroups file is element-specific, so the PeakGroups file
-contains a row for each compound and labeled element combination.
+PeakGroup values are almost always reported in a single row for each observed compound.  Multiple PeakGroups rows are
+generated when the animal was infused with a tracer(s) that contains multiple labeled elements.  For example, a mouse
+could be infused with a single amino acid labeled with both 13C and 15N.  In this case, TraceBase reports a separate
+PeakGroup for each labeled element.  This ensures that PeakGroups are always comparable between experiments, even when
+comparing a mouse infused with 13C-15N tracers to a mouse given only 13C.  Any analysis that relies on considering both
+labeled elements simultaneously can be performed on [[PeakData]].
+
+See this [example](../../../Values/Enrichment%20Example.md) for a measured compound with multiple labeled elements.
 
 Some key values reported in PeakGroups are:
 

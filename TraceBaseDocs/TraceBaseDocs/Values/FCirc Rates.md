@@ -4,40 +4,29 @@ Each FCirc calculation is performed per labeled element, and requires the follow
 supplied by the researcher:
 
 <!-- markdownlint-disable MD007 -->
-* Animal body weight
-* Serum sample collection time
-* MS Run Date
+* Animal Body [Weight](../How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc.md#weight)
+* [Infusion Rate](../How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc.md#infusionrate)
+* MS [Run Date](../How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc.md#rundate)
     * Note: reruns take precedence over previous runs
     * If this date is not provided, and the last serum sample was run multiple times, an arbitrary run is selected
-* At least 1 serum sample, from which:
-    * A peak group has been supplied for every tracer the animal was infused with
-    * Note: Additionally, the **intact** FCirc calculations require the detection of a fully labeled tracer in its
-      PeakGroup.
+* At least 1 serum sample, with:
+    * [tissue](../How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc.md#tissue) name
+      containing "serum".
+    * [collection time](../How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc.md#coltim)
+    * A peak group for every tracer the animal was infused with
+    * Note: The **intact** FCirc calculations require the detection of a fully labeled tracer in each of the infused
+      tracers' PeakGroups.
 <!-- markdownlint-enable MD007 -->
 
-## <a name="serum_tracers_enrichment_fraction"></a>Serum Tracers Enrichment Fraction
-
-[_source_](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/241e47de6a06df543ad73c6ceb82d758ce373cbe/DataRepo/models/animal_label.py#L89-L171)
-
-The rates of appearance and disappearance of the average labeled state of any measured compound rely on the calculation
-of a weighted average of the enrichment fraction of labeled atoms among of all of the infused tracers in the animal's
-final serum sample.  E.g. The fraction of labeled carbons among all the final serum sample's tracer compounds.
-
-This calculation is performed for a single labeled element in the following manner:
-
-The label enrichment is summed for all of the tracers in the last serum sample, and is divided by the total count of the
-element among all the tracers' formulas (labeled or not).
-
-`serum_tracers_enrichment_fraction = ∑_tracer_peak(fraction * labeled_count) / element_count`
-
-Where:
-
-* `∑_tracer_peak` stands for the sum across all tracer peaks/observations.
-* `labeled_count` refers to the number of labeled elements in a single tracer observation (/peak).
-* `element_count` is the number of occurrences the element summed across all tracers' formulas (labeled or not).
-* `fraction`: See [[Fraction]]
-
 ## Rates of Appearance/Disappearance (`Ra`/`Rd`)
+
+For more information of the variables in the equations below:
+
+* [`animal_body_weight`](../How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc.md#weight)
+* [`enrichment_fraction`](Enrichment%20Fraction.md)
+* [`fraction`](Fraction.md)
+* [`infusion_rate`](../How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc.md#infusionrate)
+* [`tracer_concentration`](../How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc.md#conc)
 
 ### Intact
 
@@ -57,7 +46,7 @@ Where:
 
 #### Per Gram
 
-* <a name="Rd_avg_g"></a>`Rd_avg_g = infusion_rate * tracer_concentration / serum_tracers_enrichment_fraction` ([_source_](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/241e47de6a06df543ad73c6ceb82d758ce373cbe/DataRepo/models/peak_group_label.py#L527-L552))
+* <a name="Rd_avg_g"></a>`Rd_avg_g = infusion_rate * tracer_concentration / enrichment_fraction` ([_source_](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/241e47de6a06df543ad73c6ceb82d758ce373cbe/DataRepo/models/peak_group_label.py#L527-L552))
 
 * <a name="Ra_avg_g"></a>`Ra_avg_g = Rd_avg_g - infusion_rate * tracer_concentration` ([_source_](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/241e47de6a06df543ad73c6ceb82d758ce373cbe/DataRepo/models/peak_group_label.py#L556-L579))
 

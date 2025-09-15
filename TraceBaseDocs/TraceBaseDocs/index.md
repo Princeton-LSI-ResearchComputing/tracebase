@@ -5,14 +5,14 @@
 TraceBase is a mass spectrometry data repository and analysis tool for isotopic tracing studies used to quantify in vivo
 metabolism.  It is designed to be downloaded and installed for individual labs so that lab members can make their
 natural isotopic abundance corrected data (along with associated experimental metadata) available to the rest of the
-lab.  It currently supports [AccuCor](https://doi.org/10.1021/acs.analchem.7b00396),
+lab.  It currently supports data imported from [AccuCor](https://doi.org/10.1021/acs.analchem.7b00396),
 [IsoCor](https://doi.org/10.1093/bioinformatics/btz209), and [Iso-AutoCor](https://github.com/xxing9703/Iso-Autocorr).
-TraceBase organizes this data and computes useful metrics such as enrichment, normalized labeling, and FCirc.  Data on
-TraceBase is easy to browse, collate, compare, and download.
+It also loads `RAW` and `mzXML` files for raw data retrieval. TraceBase organizes this data and computes useful metrics
+such as enrichment, normalized labeling, and FCirc.  TraceBase data is easy to browse, collate, compare, and download.
 
 ## About
 
-[Slideshow Introduction](https://docs.google.com/presentation/d/1vIZvU5Q-hY7zUOC4fvMDuVONvQZR5jlC/edit?usp=sharing&ouid=102781029027637329166&rtpof=true&sd=true)
+[Slideshow Introduction](https://docs.google.com/presentation/d/11ijvT4R92qVLFpPL44oYJk04goolQGM5/edit?usp=sharing&ouid=102781029027637329166&rtpof=true&sd=true)
 
 [How TraceBase Handles Data](About/How%20TraceBase%20Handles%20Data.md)
 

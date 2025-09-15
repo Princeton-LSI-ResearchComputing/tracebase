@@ -1,6 +1,6 @@
-<!-- markdownlint-disable MD007 -->
 # What Inputs Does TraceBase Take
 
+<!-- markdownlint-disable MD007 -->
 TraceBase takes 3 kinds of input data:
 
 * Raw Mass Spectrometry Peak Data
@@ -18,16 +18,16 @@ The experimental metadata includes some nomenclature-controlled metadata to make
 reliably searchable across studies.  See [How TraceBase Handles Data](../About/How%20TraceBase%20Handles%20Data.md) for
 more information on how TraceBase treats both input and output data.
 
-## Raw Mass Spectrometry Peak Data
+## <a name="raw_data"></a>Raw Mass Spectrometry Peak Data
 
-TraceBase currently supports 2 forms or raw Mass Spec files"
+TraceBase currently supports 2 forms of "raw" Mass Spec files:
 
-* `RAW` files produced by a Mass Spec instrument
+* `RAW` files produced by a _Thermo Fisher_ Mass Spec instrument (proprietary format)
 * `mzXML` files containing a portion of the RAW data that are typically used in peak correction
 
 TraceBase archives each of these file types to make them searchable in order to find unanalyzed peak data for future
-studies (as opposed to the curated corrected data that TraceBase provides calculated values for, like
-[FCirc Rates](../Values/FCirc%20Rates.md)).
+studies (as opposed to the curated natural abundance-corrected data (generated from Accucor, IsoCor, Iso-AutoCor, etc)
+that TraceBase provides calculated values for, like [FCirc Rates](../Values/FCirc%20Rates.md)).
 
 A collection of either form of raw file is too large and impractical to provide via upload on the web, so study
 submissions are delivered for loading using a shared drive, as described on the Upload **Submit** page.
@@ -36,6 +36,10 @@ The `mzXML` files are parsed by TraceBase to extract:
 
 * Polarity
 * Scan Range
+
+For more details on the relationship between raw file data and curated data, see
+[Raw Versus Curated Data](../About/How%20TraceBase%20Handles%20Data.md#curated_v_raw) in
+[How TraceBase Handles Data](../About/How%20TraceBase%20Handles%20Data.md).
 
 ## Corrected Mass Spectrometry Peak Data
 
@@ -77,10 +81,8 @@ To empower the user and engender a sense of ownership and control over your data
 nomenclature-controlled metadata that subject to curator oversight), is localized in a single Excel document that you
 build during the submission process.
 
-TraceBase is designed to match an LCMS sample name to a biological sample.  In a submission, the sample names and the
-compounds are extracted and processed from the `peak annotation files`.  It's not possible to extract all other metadata
-automatically, thus much of this data entry is manual, but the data is organized around how researchers tend to store
-this kind of data.
+TraceBase is designed to match an LCMS sample name (carried from the name of the mzXML file to the sample name in a peak
+annotation file) to a biological sample.
 
 ### <a name="metadata_recommendations"></a>Recommended Practices for Organizing Data
 
