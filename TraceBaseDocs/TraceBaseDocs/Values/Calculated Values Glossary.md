@@ -6,6 +6,8 @@ Terms and calculations in TraceBase are based on Bartman, TeSlaa and Rabinowitz
 The following list of calculated values includes a short definition, pseudocode of calcuations, examples, and a GitHub
 link to the code where the term is calculated.
 
+They are organized according to the type of Output table where they are found.
+
 <!-- markdownlint-disable MD007 -->
 ## [PeakData](../Download/About%20the%20Data/Data%20Types/PeakData.md)
 * [[Corrected Abundance]]
@@ -14,13 +16,13 @@ link to the code where the term is calculated.
 ## [PeakGroups](../Download/About%20the%20Data/Data%20Types/PeakGroups.md)
 * [[Total Abundance]]
 * [[Normalized Labeling]]
+    * [Serum Tracers Enrichment Fraction](Normalized%20Labeling.md#serum_tracers_enrichment_fraction)
 * Enrichment of a Label in a Measured Compound in a PeakGroup
     * [[Enrichment Fraction]]
     * [[Enrichment Abundance]]
     * [[Enrichment Example]]
 
 ## [FCirc](../Download/About%20the%20Data/Data%20Types/FCirc.md)
-* [Serum Tracers Enrichment Fraction](FCirc%20Rates.md#serum_tracers_enrichment_fraction)
 * Intact FCirc
     * Per Gram
         * [Intact Weight Normalized Rate of Disappearance (`Rd_intact_g`)](FCirc%20Rates.md#Rd_intact_g)

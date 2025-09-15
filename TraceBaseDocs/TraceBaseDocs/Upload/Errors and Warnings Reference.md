@@ -9,12 +9,8 @@ The TraceBase submission interface was built with researchers in mind, to empowe
 their own, thereby speeding up the curation and loading process.  It also is intended to give users a sense of ownership
 over their own data.
 
-Not every possible exception you can encounter is here.  The excpetions in this documentation represent the debug work
-of curators who have figured out the meaning behind common context-lacking cryptic/technical database exceptions that
-have been encountered in past submissions and saved that work in the form of custom exceptions that refer to the precise
-corresponding input data's file location.  Cryptic exceptions (for previously unencountered issues) can still arise.  If
-you see any, leave it for a curator to figure out so that that work can be saved in a new, more easy to understand
-exception, so that future users can benefit from that work, should they encounter the same issue.
+Not every possible exception you can encounter is here. If you see an exception that is not listed here, leave it for
+the curator to solve and proceed with your upload.
 
 ## How to Use this Exception Lookup Reference
 
@@ -23,10 +19,6 @@ look up the exception's name on this page to get hints on what the exception mea
 potentially, a more in depth suggestion on how to fix the issues in the submission that lead to the error.  If you have
 any suggestions on improving the wording in any exception you encounter in the submission process, please share feedback
 using the **Feedback** link at the top of the page where you encountered it.
-
-Most such errors and warnings about your submission data will be encountered on the **Validate** tab, but a small subset
-will only ever be seen on the **Start** tab.  That's because it is the only time during the submission build process
-where TraceBase evaluates your peak annotation files collectively.
 
 It is important to note that if you discover an overlooked peak annotation file, it should be submitted on the **Start**
 page with all other peak annotation files.  That is the only way to identify some issues and it auto-fills multiple

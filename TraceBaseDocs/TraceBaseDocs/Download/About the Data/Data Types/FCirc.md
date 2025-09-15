@@ -27,8 +27,10 @@ these and automates the standard calculations for FCirc without making any assum
 (from Bartman, TeSlaa, and Rabinowitz)
 
 It's important to note however that serum samples are collected at multiple points before sacrifice and TraceBase
-calculates FCirc values for **every** serum/plasma sample, regardless of stead-state.  So be aware that the serum sample
-with the most accurate FCirc calculations will be derived from the **last** collected serum sample.
+calculates FCirc values for **every** serum/plasma sample, regardless of steady-state.  So be aware that for that
+reason, TraceBase makes a distinction between FCirc values calculated from the **last** serum sample and all prior Serum
+Samples, but note that the best value **may** sometimes be the average of the last few, thus TraceBase presents FCirc
+calculations for every individual Serum Sample, regardless of timepoint.
 
 The FCirc view in the Advanced Search can be filtered for the "last serum sample" manually, as a row in the search or
 using the checkbox shortcut above the results:

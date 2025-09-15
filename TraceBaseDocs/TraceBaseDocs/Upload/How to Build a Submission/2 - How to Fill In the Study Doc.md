@@ -196,7 +196,7 @@ row, make sure to remove every row with the same `Infusate Row Group`.
     Select a 'Tracer' from the dropdowns in this column.  The dropdowns are populated by the `Tracer Name` column in the
     `Tracers` sheet, so if the dropdowns are empty, add rows to the `Tracers` sheet.
 
-* Tracer Concentration
+* <a name="conc"></a>Tracer Concentration
 
     The millimolar (mM) concentration of the tracer in a specific infusate 'recipe'.
 
@@ -241,7 +241,7 @@ row, make sure to remove every row with the same `Infusate Row Group`.
     select list with the current unique genotypes in TraceBase.  If necessary, indicate genotype as "unknown" (e.g. if
     the animal is a mixed background wildtype).
 
-* Weight
+* <a name="weight"></a>Weight
 
     Weight in grams of the animal at the start time of infusion.
 
@@ -258,7 +258,7 @@ row, make sure to remove every row with the same `Infusate Row Group`.
     Consult the description of the `Infusate Name` column in the `Infusates` sheet documentation above for a format
     description.
 
-* Infusion Rate
+* <a name="infusionrate"></a>Infusion Rate
 
     Volume of infusate solution infused (microliters (ul) per minute per gram of animal body weight).
 
@@ -301,7 +301,7 @@ row, make sure to remove every row with the same `Infusate Row Group`.
 
     See [Recommended Practices for Organizing Data](What%20Inputs%20Does%20TraceBase%20Take.md#metadata_recommendations)
 
-### Samples Sheet
+### <a name="samples"></a>Samples Sheet
 
 * Sample
 
@@ -326,14 +326,14 @@ row, make sure to remove every row with the same `Infusate Row Group`.
 
     Secondary people (PI, collaborator, etc) should be mentioned in the study description.
 
-* Tissue
+* <a name="tissue"></a>Tissue
 
     Type of tissue.  A tissue can be selected via drop-down menu.  If the desired tissue is not in the drop-down, enter
     it in the `Tissues` sheet, then come back and select it in the automatically updated drop-down in this column.
 
     The list of tissues in TraceBase can also be viewed on the TraceBase site's Tissues page.
 
-* Collection Time
+* <a name="coltim"></a>Collection Time
 
     Minutes after the start of the infusion when the tissue was collected.
 
@@ -405,7 +405,7 @@ row, make sure to remove every row with the same `Infusate Row Group`.
 
     You may enter a new model, if necessary.
 
-* Date
+* <a name="rundate"></a>Date
 
     The date that the mass spectrometer was run.
 
@@ -454,7 +454,7 @@ row, make sure to remove every row with the same `Infusate Row Group`.
     Select a `Default Sequence` from the dropdowns in this column.  The dropdowns are populated by the `Sequence Name`
     column in the `Sequences` sheet, so if the dropdowns are empty, add rows to the `Sequences` sheet.
 
-### Peak Annotation Details Sheet
+### <a name="details"></a>Peak Annotation Details Sheet
 
 * Sample Name
 
