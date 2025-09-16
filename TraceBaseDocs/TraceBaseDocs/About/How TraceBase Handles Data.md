@@ -66,8 +66,8 @@ A single biological `Sample` can have multiple `MSRunSample` records associated 
 * A sample tube on the Mass Spec was injected twice
 * **Multiple `mzXML` files were produced**.
 
-[Raw files](TraceBaseDocs/TraceBaseDocs/Upload/What%20Inputs%20Does%20TraceBase%20Take.md#raw_data) (both `.raw` and
-`.mzXML`) link to an `MSRunSample` and an `MSRunSample` contains multiple `PeakGroup` records.
+[Raw files](../Upload/What%20Inputs%20Does%20TraceBase%20Take.md#raw_data) (both `.raw` and `.mzXML`) link to an
+`MSRunSample` and an `MSRunSample` contains multiple `PeakGroup` records.
 
 ### Display of Raw Files
 

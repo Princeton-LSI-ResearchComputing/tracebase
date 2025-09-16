@@ -4,15 +4,15 @@ Each FCirc calculation is performed per labeled element, and requires the follow
 supplied by the researcher:
 
 <!-- markdownlint-disable MD007 -->
-* Animal Body [Weight](../How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc.md#weight)
-* [Infusion Rate](../How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc.md#infusionrate)
-* MS [Run Date](../How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc.md#rundate)
+* Animal Body [Weight](../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc.md#weight)
+* [Infusion Rate](../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc.md#infusionrate)
+* MS [Run Date](../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc.md#rundate)
     * Note: reruns take precedence over previous runs
     * If this date is not provided, and the last serum sample was run multiple times, an arbitrary run is selected
 * At least 1 serum sample, with:
-    * [tissue](../How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc.md#tissue) name
+    * [tissue](../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc.md#tissue) name
       containing "serum".
-    * [collection time](../How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc.md#coltim)
+    * [collection time](../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc.md#coltim)
     * A peak group for every tracer the animal was infused with
     * Note: The **intact** FCirc calculations require the detection of a fully labeled tracer in each of the infused
       tracers' PeakGroups.
@@ -22,11 +22,11 @@ supplied by the researcher:
 
 For more information of the variables in the equations below:
 
-* [`animal_body_weight`](../How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc.md#weight)
+* [`animal_body_weight`](../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc.md#weight)
 * [`enrichment_fraction`](Enrichment%20Fraction.md)
 * [`fraction`](Fraction.md)
-* [`infusion_rate`](../How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc.md#infusionrate)
-* [`tracer_concentration`](../How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc.md#conc)
+* [`infusion_rate`](../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc.md#infusionrate)
+* [`tracer_concentration`](../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc.md#conc)
 
 ### Intact
 

@@ -23,7 +23,7 @@ The mzXMLs download button on the advanced search downloads a ZIP archive contai
 with associated metadata and mzXML files organized into subsirectories.  See the
 [ZIP](About%20the%20Data/Format%20of%20Downloaded%20Data.md#ZIP) format description for details.
 
-[Buttons at the top of TraceBase search results with arrow pointing to the mzXMLs download button](../Attachments/advanced_search_mzxmls_button)
+![Buttons at the top of TraceBase search results with arrow pointing to the mzXMLs download button](../Attachments/advanced_search_mzxmls_button.png)
 
 TraceBase metadata found in other pages (e.g. "Studies" table) can be downloaded in multiple formats by clicking the
 blue download button.  These are typically sample information tables that do not contain the underlying PeakGroups,

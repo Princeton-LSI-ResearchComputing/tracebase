@@ -47,7 +47,7 @@ If anything is unclear, know that the next step (Validation) will help identify 
 not be loaded to TraceBase until the curators have reviewed it.
 
 For some general tips to keep in mind that can ensure the process proceeds smoothly and for detailed information, see
-[How To Fill In the Study Doc](How%20to%20Build%20a%20Submission/2%20-%20How%20To%20Fill%20In%20the%20Study%20Doc.md).
+[How To Fill In the Study Doc](How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc.md).
 
 ### 3. Validate - Check your Study doc for warnings and errors
 
