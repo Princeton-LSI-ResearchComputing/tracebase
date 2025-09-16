@@ -211,7 +211,7 @@ For help on deploying TraceBase, reach out to the development [[Team]].
 
 ## Maintenance
 
-All loading and database maintenance of TraceBase happens on the command line utilizing django management commands.
+All loading and database maintenance of TraceBase happens on the command-line utilizing django management commands.
 Those who install TraceBase are responsible for its maintenance and the curation process (with the assistance of a
 responsible party in the lab, familiar with the scientific data).
 
