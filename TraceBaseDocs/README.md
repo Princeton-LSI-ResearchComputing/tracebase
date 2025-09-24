@@ -23,9 +23,11 @@ the general requirements document for tracebase):
 The site can be accessed at [http://127.0.0.1:8000/repo-name/](http://127.0.0.1:8000/repo-name/). The locally served
 site updates live as changes are made to the Markdown documents.
 
-### Build the static site on GitHub Pages
+## Deployment
 
-Build the site to serve publicly on GitHub Pages:
+### GitHub Pages
+
+Build the site to serve publicly on [GitHub Pages](https://princeton-lsi-researchcomputing.github.io/tracebase/):
 
 1) `mkdocs gh-deploy -m "description of site update"`
 
@@ -40,6 +42,23 @@ This generates HTML based on Markdown documents.  It can be accessed by anyone a
 [https://Princeton-LSI-ResearchComputing.github.io/tracebase/](https://Princeton-LSI-ResearchComputing.github.io/tracebase/).
 Note that updated Markdown docs in the repository will not be reflected in the public site until a developer deploys the
 revised site.
+
+### GitHub Wiki
+
+The TraceBase repository on GitHub has a `Wiki` tab whose content is independent of GitHub Pages (that are served via
+github.io).  The Wiki serves a different purpose from the Pages and is incompatible with the `mkdocs` deployment (i.e.
+the documentation for Pages cannot be deployed to the Wiki).  The Wiki is intended for internal and contributor content,
+not user content.  That said, this is how the Wiki content is managed.  The TraceBase repository has a separate
+repository that manages the Wiki.  That repository must be cloned and the files updated based on the contents of the
+`TraceBaseDocs` directory.
+
+You can manage that content by cloning the wiki repository:
+
+```bash
+git clone https://github.com/Princeton-LSI-ResearchComputing/tracebase.wiki.git
+```
+
+All pushes are immediately rendered under the TraceBase repository's Wiki tab.
 
 ## User-facing Exception Documentation Generation Notes
 
