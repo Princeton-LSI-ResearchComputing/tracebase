@@ -3536,14 +3536,13 @@ class MzxmlColocatedWithMultipleAnnot(InfileError):
     in the error to the `Peak Annotation Details` sheet along with the `Sequence`.
     """
 
-    def __init__(self, msrun_sequence_names, matching_annot_dirs, **kwargs):
+    def __init__(self, msrun_sequence_names, **kwargs):
         nlt = "\n\t"
         message = (
             "mzXML file '%s' shares a common path with multiple peak annotation files (from the peak annotation files "
-            f"sheet), located in directories:\n\t{nlt.join(matching_annot_dirs)}\nthat are associated with different "
-            f"sequences:\n\t{nlt.join(msrun_sequence_names)}\nCo-location of mzXML files with peak annotation files is "
-            "what allows mzXML files to be linked to an MSRunSequence, based on the Default Sequence column in the "
-            "Peak Annotation Files sheet."
+            f"sheet) that are associated with different sequences:\n\t{nlt.join(msrun_sequence_names)}\nCo-location of "
+            "mzXML files with peak annotation files is what allows mzXML files to be linked to an MSRunSequence, based "
+            "on the Default Sequence column in the Peak Annotation Files sheet."
         )
         super().__init__(message, **kwargs)
 
