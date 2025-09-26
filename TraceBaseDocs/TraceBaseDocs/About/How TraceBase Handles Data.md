@@ -41,70 +41,29 @@ TraceBase updates the (previously missing) Fcirc value (and any other calculated
 
 ## <a name="curated_v_raw"></a>Raw Versus Curated Data
 
-TraceBase is a portal primarily for exploring manually curated data.  Researchers have inspected the Mass Spec peaks,
-identified the compounds they came from, and grouped and quantified the isotopic variant peaks that represent that
-compound.  It is that data to which TraceBase's calculations are applied.
+TraceBase provides the option to upload raw mass spectrometry files (e.g. .raw and .mzXML files) for each `Sample`.
+Importantly, TraceBase does not directly associate the curated data (`PeakData` or `PeakGroup`s) with the exact `.mzXML`
+file from which it came.  Instead, TraceBase associates the mass spectrometry file(s) with the `Sample` (which is a
+description of the biological entity, like the quadricep from animal 123). The exact relationship within the database is
+more complex but beyond the scope of this description.
 
-However, TraceBase also tracks the raw data (e.g. mzXML files) from which those peaks were derived.  Each raw file
-potentially contains all the peak information (i.e. every detected compound) associated with a single sample.  The
-manually picked and identified compounds selected from this raw data is a subset of the information it contains.  Hence,
-much of the information in a raw file is "unanalyzed".  It may represent unidentified, ambiguous, or unknown compounds.
-Or it may just represent the compounds that are unrelated to the scientific question the researcher was interested in
-when they generated it.
-
-Since one of TraceBase's primary goals is to make this unanalyzed data accessible, it's important to understand the
-relationship between the curated data and the raw data.  The following is a simplified hierarchy of the relationships in
-the database:
-
-> `Study` > `Animal` > `Sample` > **`MSRunSample`** > `PeakGroup` > `PeakData`
-
-where a Study contains animals, an animal contains samples, etc.
-
-A single biological `Sample` can have multiple `MSRunSample` records associated with it for a few reasons:
-
-* Technical replicates
-* A sample tube on the Mass Spec was injected twice
-* **Multiple `mzXML` files were produced**.
-
-[Raw files](../Upload/What%20Inputs%20Does%20TraceBase%20Take.md#raw_data) (both `.raw` and `.mzXML`) link to an
-`MSRunSample` and an `MSRunSample` contains multiple `PeakGroup` records.
-
-### Display of Raw Files
-
-You may note on TraceBase that a `PeakGroup` can be associated with multiple `mzXML` files.  That's because a
-`PeakGroup` cannot currently be associated with a specific `mzXML` file it came from, as there is not a reliable
-programatic means to reliably associate them - only to the group of `mzXML` files associated with the `Sample`.^
-
-TraceBase handles this using placeholder `MSRunSample` records.  If a `Sample` has more than 1 `mzXML` file, a
-placeholder is created that all of the `PeakGroup` records link to.  (This is also used when `mzXML` files are not
-included in the submission.)
-
-^ *This is planned to change in a future version of TraceBase.*
-
-### Loading Raw Files
-
-In practice, the only raw files that are loaded into TraceBase are those that have been imported into El-Maven and had
-peaks picked from them and used for natural abundance correction with (for example) *AccuCor*, but TraceBase **can**
-load completely unanalyzed/unprocessed raw files.  The only requirements are that they must be associated with each of
-these types of database records:
-
-* `MSRunSequence`
-* `Sample`
-
-The `MSRunSequence` and `Sample` must be linked with the raw file(s) in the
-[Peak Annotation Details](../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc.md#details)
-sheet of a submitted Study Doc, even if there is no associated peak annotation file.  If a `Sample` does not exist for
-it in the
-[`Samples`](../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc.md#samples)
-sheet, the raw file(s) cannot be loaded.
-
-All submitted `raw` and `mzXML` files are automatically loaded when a study is submitted, whether they were used in the
-production of a peak annotation file or not.  If the associated records don't exist in the Study Doc, an error will be
-raised when the curator attempts the load.
+Practically, you can download mzXML files associated with the `Samples` found in an Advanced Search of `PeakData` or
+`PeakGroups`.  This download is uniformly organized based on the sequence and the information extracted from the `mzXML`
+file (e.g. polarity and scan range).
 
 ### Searching for Raw Data Files
 
-Note that all search functionality on TraceBase is geared toward curated peak data.  Even though polarity and scan range
-metadata is automatically extracted and saved in an `MSRunSample` record, if you are searching the `PeakData` or
-`PeakGroups` format, you will not find those unanalyzed raw files because they have no picked peaks associated with
-them.  To retrieve totally unanalyzed raw files, you must locate them on the `Archive Files` page.
+Note that all search functionality on TraceBase is geared toward curated peak data (e.g. `PeakData` and `PeakGroup`
+records that were manually picked by a researcher in El-Maven and natural abundance corrected).  Every one of those
+records is associated with a sample (and a MS run sequence), and every one of the `mzXML` files associated with that
+sample will be included in the search results whether it was used for peak picking or not.  I.e. as long as the
+researcher provided the sample metadata and picked **any** peaks from it, and loaded natural abundance corrected data on
+those peaks, you can find all mzXML files associated with that sample in the Advanced Search.
+
+However, there can exist as-yet totally unanalyzed `mzXML` files in the archive that will not show up in the Advanced
+Search because either the associated sample was never loaded or that sample's raw data was never peak-picked.  TraceBase
+archives all raw files whether they were included in the researcher's analysis or not.  You can find these totally
+unanalyzed raw files via the archive page.
+
+In the case where a sample was loaded, but peaks were never picked (or the peak annotation file was excluded from the
+load), you can also find it via the MS Run Samples page (which you can navigate to via the MS Run Sequences page).

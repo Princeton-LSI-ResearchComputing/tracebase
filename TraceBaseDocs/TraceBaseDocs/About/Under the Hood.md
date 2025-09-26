@@ -204,7 +204,7 @@ recommend using a private GitHub repository to house the study doc, peak annotat
 
 TraceBase was designed to be lab-specific.  It has no user-accounts and no data ownership control, so it is up to
 systems administrators to employ authentication processes to govern access.  Anyone with access to TraceBase has access
-to all of its data.  If you would like a subset of data to be public, you must setup and load publicly access ible
+to all of its data.  If you would like a subset of data to be public, you must setup and load publicly accessible
 studies on a separate public instance of TraceBase, with its own database and web server.
 
 For help on deploying TraceBase, reach out to the development [[Team]].
