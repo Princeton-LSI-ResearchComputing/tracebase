@@ -53,17 +53,6 @@ file (e.g. polarity and scan range).
 
 ### Searching for Raw Data Files
 
-Note that all search functionality on TraceBase is geared toward curated peak data (e.g. `PeakData` and `PeakGroup`
-records that were manually picked by a researcher in El-Maven and natural abundance corrected).  Every one of those
-records is associated with a sample (and a MS run sequence), and every one of the `mzXML` files associated with that
-sample will be included in the search results whether it was used for peak picking or not.  I.e. as long as the
-researcher provided the sample metadata and picked **any** peaks from it, and loaded natural abundance corrected data on
-those peaks, you can find all mzXML files associated with that sample in the Advanced Search.
+mzXML files from which curated peaks were derived can be found using the Advanced Search.  In the rare case, when a Sample was uploaded without any curated data, the mzXML exists in TraceBase, but cannot be found using the Advanced Search page.  However, any mzXML can be found on the Archive Files page.
 
-However, there can exist as-yet totally unanalyzed `mzXML` files in the archive that will not show up in the Advanced
-Search because either the associated sample was never loaded or that sample's raw data was never peak-picked.  TraceBase
-archives all raw files whether they were included in the researcher's analysis or not.  You can find these totally
-unanalyzed raw files via the archive page.
-
-In the case where a sample was loaded, but peaks were never picked (or the peak annotation file was excluded from the
-load), you can also find it via the MS Run Samples page (which you can navigate to via the MS Run Sequences page).
+Support for improved access to all mzXML files regardless of the existence of curated peaks will be added in the future.
