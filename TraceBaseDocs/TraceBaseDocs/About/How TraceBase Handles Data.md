@@ -53,6 +53,8 @@ file (e.g. polarity and scan range).
 
 ### Searching for Raw Data Files
 
-mzXML files from which curated peaks were derived can be found using the Advanced Search.  In the rare case, when a Sample was uploaded without any curated data, the mzXML exists in TraceBase, but cannot be found using the Advanced Search page.  However, any mzXML can be found on the Archive Files page.
+mzXML files from which curated peaks were derived can be found using the Advanced Search.  In the rare case, when a
+Sample was uploaded without any curated data, the mzXML exists in TraceBase, but cannot be found using the Advanced
+Search page.  However, any mzXML can be found on the Archive Files page.
 
 Support for improved access to all mzXML files regardless of the existence of curated peaks will be added in the future.
