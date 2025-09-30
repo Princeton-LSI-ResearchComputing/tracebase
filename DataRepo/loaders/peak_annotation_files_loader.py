@@ -91,6 +91,8 @@ class PeakAnnotationFilesLoader(TableLoader):
             name=DataHeaders.FORMAT,
             value_required=False,
             help_text="Peak annotation file format.  Default: automatically detected.",
+            # TODO: Add links to supported natural abundance correction tools in a format description.  Save them links
+            # in the converter classes.
             static_choices=[
                 (code, code) for code in PeakAnnotationsLoader.get_supported_formats()
             ],
