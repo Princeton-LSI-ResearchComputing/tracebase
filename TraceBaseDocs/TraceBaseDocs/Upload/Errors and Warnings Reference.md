@@ -9,12 +9,8 @@ The TraceBase submission interface was built with researchers in mind, to empowe
 their own, thereby speeding up the curation and loading process.  It also is intended to give users a sense of ownership
 over their own data.
 
-Not every possible exception you can encounter is here.  The excpetions in this documentation represent the debug work
-of curators who have figured out the meaning behind common context-lacking cryptic/technical database exceptions that
-have been encountered in past submissions and saved that work in the form of custom exceptions that refer to the precise
-corresponding input data's file location.  Cryptic exceptions (for previously unencountered issues) can still arise.  If
-you see any, leave it for a curator to figure out so that that work can be saved in a new, more easy to understand
-exception, so that future users can benefit from that work, should they encounter the same issue.
+Not every possible exception you can encounter is here. If you see an exception that is not listed here, leave it for
+the curator to solve and proceed with your upload.
 
 ## How to Use this Exception Lookup Reference
 
@@ -23,10 +19,6 @@ look up the exception's name on this page to get hints on what the exception mea
 potentially, a more in depth suggestion on how to fix the issues in the submission that lead to the error.  If you have
 any suggestions on improving the wording in any exception you encounter in the submission process, please share feedback
 using the **Feedback** link at the top of the page where you encountered it.
-
-Most such errors and warnings about your submission data will be encountered on the **Validate** tab, but a small subset
-will only ever be seen on the **Start** tab.  That's because it is the only time during the submission build process
-where TraceBase evaluates your peak annotation files collectively.
 
 It is important to note that if you discover an overlooked peak annotation file, it should be submitted on the **Start**
 page with all other peak annotation files.  That is the only way to identify some issues and it auto-fills multiple
@@ -125,20 +117,30 @@ _See GitHub issue [#1195](https://github.com/Princeton-LSI-ResearchComputing/tra
 
 ### `CompoundExistsAsMismatchedSynonym`
 
-The compound name already exists as a synonym of a differing compound.
+A compound row was added to the Compounds sheet whose name exists as a synonym of another compound.
 
-To resolve this issue, either edit the compound in the input file to match and merge it with the existing compound
-or remove the synonym from the differing compound record so that peak groups (and tracers) are associated with the
-other compound record.
+This exception can arise automatically in the downloaded study doc template all on its own.  TraceBase tries to add rows
+in the Compounds sheet for both compounds that already exist in TraceBase and novel compounds that do not yet exist in
+TraceBase.  However, the compound name and formula must both match.  When they do not match, a new row for a novel
+compound is added to the sheet, whether or not it creates a conflict.  Such a conflict can arise due to the formula
+(derived from the peak annotation file) representing the ionized state of the compound, e.g. with 1 less or 1 more
+proton (H).
 
-Note that this exception can arise due to either a formula that represents the ionized state of a compound or the
-HMDB ID could be inaccurately assigned.
+A researcher can also cause this exception if they were to assign an HMDB ID that is already assigned to another
+compound existing in TraceBase.  This can often happen after fixing the issue described above caused by an ionized
+formula, because TraceBase did not pre-fill the existing compound due to the formula difference.
+
+Lastly, this issue can arise if the conflicting compound record simply has a synonym associated with a compound record
+that is just wrong.
+
+To resolve this issue, either merge the compound records (editing them to fix the formula) or remove the synonym from
+the differing compound record so that peak groups (and tracers) are associated with the other compound record.
 
 If the compound from the peak annotation file(s) differs from the existing TraceBase compound record (e.g. different
 formula or HMDB ID), and the new record represents a distinctly different compound, reach out to the curators.  The
-existing compound synonym may already be associated with a different compound in other studies, so either changes
-would need to be made to those other studies or the new study would need to be edited to distinguish the different
-compounds.  Either way, a curator will need to coordinate the fix to ensure database-wide consistency.
+existing compound synonym may already be associated with a different compound in other studies, so either changes would
+need to be made to those other studies or the new study would need to be edited to distinguish the different compounds.
+Either way, a curator will need to coordinate the fix to ensure database-wide consistency.
 
 ### `ConflictingValueError` (`ConflictingValueErrors`)
 
@@ -272,9 +274,8 @@ cause and likely solution is saved in a custom exception class to make them easi
 
 ### `InfusateParsingError`
 
-A regular expression or other parsing error was encountered when parsing an Infusate string.  The formatting or
-completeness of the string must be manually fixed.  Consult formatting guidelines (check the file’s header
-comment).
+An error was encountered when reading (parsing) your Infusate.  The format or completeness of the infusate name must be
+manually corrected.  Consult formatting guidelines in the Study Doc Infusate column header's comment.
 
 ### `InvalidHeaders`
 
@@ -746,20 +747,30 @@ reduce repeated validate/edit iterations.
 
 ### `SynonymExistsAsMismatchedCompound`
 
-The compound synonym already exists as the primary name of a differing compound.
+A compound row was added to the Compounds sheet whose synonym exists as a primary name of another compound.
 
-To resolve this issue, either edit the new compound containing the conflicting synonym in the input file to match
-and merge it with the existing compound or remove the new compound record so that peak groups (and tracers) are
-associated with the other compound record.
+This exception can arise automatically in the downloaded study doc template all on its own.  TraceBase tries to add rows
+in the Compounds sheet for both compounds that already exist in TraceBase and novel compounds that do not yet exist in
+TraceBase.  However, the compound name and formula must both match.  When they do not match, a new row for a novel
+compound is added to the sheet, whether or not it creates a conflict.  Such a conflict can arise due to the formula
+(derived from the peak annotation file) representing the ionized state of the compound, e.g. with 1 less or 1 more
+proton (H).
 
-Note that this exception can arise due to either a formula that represents the ionized state of a compound or the
-HMDB ID could be inaccurately assigned.
+A researcher can also cause this exception if they were to assign an HMDB ID that is already assigned to another
+compound existing in TraceBase.  This can often happen after fixing the issue described above caused by an ionized
+formula, because TraceBase did not pre-fill the existing compound due to the formula difference.
+
+Lastly, this issue can arise if the conflicting compound record simply has a synonym associated with a compound record
+that is just wrong.
+
+To resolve this issue, either merge the compound records (editing them to fix the formula) or remove the synonym from
+the differing compound record so that peak groups (and tracers) are associated with the other compound record.
 
 If the compound from the peak annotation file(s) differs from the existing TraceBase compound record (e.g. different
 formula or HMDB ID), and the new record represents a distinctly different compound, reach out to the curators.  The
 existing compound name may already be associated with a different compound in other studies, so either changes would
-need to be made to those other studies or the new study would need to be edited to distinguish the different
-compounds.  Either way, a curator will need to coordinate the fix to ensure database-wide consistency.
+need to be made to those other studies or the new study would need to be edited to distinguish the different compounds.
+Either way, a curator will need to coordinate the fix to ensure database-wide consistency.
 
 ### `TracerCompoundNameInconsistent`
 

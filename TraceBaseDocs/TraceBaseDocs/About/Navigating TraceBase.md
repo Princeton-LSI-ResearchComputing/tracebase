@@ -36,8 +36,8 @@ specifically for that study's data:
 
 ## Advanced Search
 
-The advanced search page provides a method to rapidly drill down to exactly what you’re looking for, and the adbility to
-export what you have found as a downloaded data file, containing metadata about the search that pulled up that data.
+The advanced search page provides a method to rapidly find and download a specific set of data.  It is especially ideal
+for collating data from multiple studies (e.g. all data where glucose was a tracer).
 
 ![Advanced search form](../Attachments/Snapshot%20Advanced%20Search.png)
 

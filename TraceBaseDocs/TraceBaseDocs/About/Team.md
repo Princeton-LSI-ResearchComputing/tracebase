@@ -4,7 +4,7 @@ TraceBase is developed and maintained by the
 [Research Computing](https://lsi.princeton.edu/people/staff#Research-Computing) group in the
 [Lewis-Siglar Institute for Integrated Genomics](https://lsi.princeton.edu) at
 [Princeton University](https://www.princeton.edu), in collaboration with the
-[laboratory](https://rabinowitz.scholar.princeton.edu) of Josh Rabinowitz, M.D., Ph.D.
+[laboratory](https://rabinowitz.scholar.princeton.edu) of Joshua Rabinowitz, M.D., Ph.D.
 
 ## Research Software Engineers
 
@@ -17,4 +17,4 @@ TraceBase is developed and maintained by the
 ## Rabinowitz Lab
 
 * [Michael Neinast](mailto:mneinast@princeton.edu)
-* [Josh Rabinowitz](mailto:joshr@princeton.edu)
+* [Joshua Rabinowitz](mailto:joshr@princeton.edu)

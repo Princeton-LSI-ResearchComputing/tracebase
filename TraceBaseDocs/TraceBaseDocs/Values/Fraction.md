@@ -5,8 +5,8 @@
 Found in the [PeakData](../Download/About%20the%20Data/Data%20Types/PeakData.md) data format.
 
 The corrected abundance of the labeled element in this PeakData as a fraction of the total abundance of this isotopomer
-in a PeakGroup for a particular compound.  AccuCor calculates this as "Normalized", but TraceBase renames it to
-`fraction` to avoid confusion with other variables like `normalized_labeling`.
+in a PeakGroup for a particular compound.  AccuCor calculates this as "Normalized", but Tracebase calculates this value
+as `fraction` to avoid confusion with other variables like `normalized_labeling`.
 
 `fraction = corrected_abundance / total_abundance`
 
