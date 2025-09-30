@@ -200,9 +200,9 @@ class Compound(MaintainedModel):
         that are used in import/export and in PeakGroup names.
 
         Args:
-            name (str): Compound or compound synonym name.  replacement (str) [Compound.replacement]: A character to
-            replace delimiter characters with.  secondary_replacement (str) [Compound.secondary_replacement]: A
-            character to replace secondary delimiter
+            name (str): Compound or compound synonym name.
+            replacement (str) [Compound.replacement]: A character to replace delimiter characters with.
+            secondary_replacement (str) [Compound.secondary_replacement]: A character to replace secondary delimiter
                 characters with.
             fix (bool) [False]: When True, the offending characters are replaced with similar acceptable characters.
         Exceptions:
