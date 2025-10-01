@@ -113,18 +113,19 @@ class MSRunsLoader(TableLoader):
 
     # List of required header keys
     DataRequiredHeaders = [
-        SAMPLENAME_KEY,
         [
-            # Either the sample header or the mzXML file name (e.g. files not associated with a peak annot file)
-            SAMPLEHEADER_KEY,
-            MZXMLNAME_KEY,
-        ],
-        # Annot name is optional (assuming identical headers indicate the same sample)
-        # Note that SEQNAME is effectively optional since the loader can be supplied default values, but *a* value is
-        # required, thus SEQNAME is always required - UNLESS the skip column has a value.
-        [
-            SEQNAME_KEY,
+            # Don't apply required columns (below) if the Skip column has any value
             SKIP_KEY,
+            [
+                SAMPLENAME_KEY,
+                [
+                    # Supply only the sample header from the peak annotation file (because mzXML is filled in
+                    # automatically), but if there is no peak annotation file, but there are mzXML files from an
+                    # unanalyzed run, supply the mzXML file name
+                    SAMPLEHEADER_KEY,
+                    MZXMLNAME_KEY,
+                ],
+            ],
         ],
     ]
 
