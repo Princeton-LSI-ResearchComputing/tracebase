@@ -12,7 +12,7 @@ from django.core.exceptions import (
     ValidationError,
 )
 from django.db import IntegrityError, transaction
-from django.db.models import Model, Q
+from django.db.models import Model, Q, UniqueConstraint
 from django.db.utils import ProgrammingError
 
 from DataRepo.models.maintained_model import AutoUpdateFailed
@@ -2623,9 +2623,9 @@ class TableLoader(ABC):
 
     def check_for_inconsistencies(
         self,
-        rec,
-        rec_dict,
-        orig_exception=None,
+        rec: Model,
+        rec_dict: dict,
+        orig_exception: Optional[Exception] = None,
         is_error=True,
         is_fatal=True,
     ):
@@ -2653,8 +2653,8 @@ class TableLoader(ABC):
         It buffers any issues it encounters as a ConflictingValueError inside self.aggregated_errors_object.
 
         Args:
-            rec (Model object)
-            rec_dict (dict of objects): A dict (e.g., as supplied to get_or_create() or create())
+            rec (Model)
+            rec_dict (dict): A dict (e.g., as supplied to get_or_create() or create())
             orig_exception (Optional[Exception]): The exception that preceded the call to this method, if any
             is_error (bool)
             is_fatal (bool)
@@ -2666,6 +2666,7 @@ class TableLoader(ABC):
         Returns:
             found_errors (bool)
         """
+        # Now look for differences between the rec and the rec_dict
         found_errors = False
         differences = {}
         for field, new_value in rec_dict.items():
@@ -2867,9 +2868,9 @@ class TableLoader(ABC):
 
     def handle_load_db_errors(
         self,
-        exception,
-        model,
-        rec_dict,
+        exception: Exception,
+        model: Type[Model],
+        rec_dict: dict,
         columns=None,
         handle_all=True,
         is_error=True,
@@ -2887,9 +2888,9 @@ class TableLoader(ABC):
 
         Args:
             exception (Exception): Exception, e.g. obtained from `except` block
-            model (Model): Model being loaded when the exception occurred
+            model (Type[Model]): Model being loaded when the exception occurred
             rec_dict (dict): Fields and their values that were passed to either `create` or `get_or_create`
-            columns (object): Column or columns that were being processed when the exception occurred.
+            columns (Any): Column or columns that were being processed when the exception occurred.
             handle_all (bool) [True]: Whether to handle exceptions unrelated to specifically supported db exceptions.
             is_error (bool)
             is_fatal (bool)
@@ -2917,30 +2918,48 @@ class TableLoader(ABC):
 
         if isinstance(exception, IntegrityError):
             if "duplicate key value violates unique constraint" in estr:
-                # Create a list of lists of unique fields and unique combos of fields
-                # First, get unique fields and force them into a list of lists (so that we only need to loop once)
-                unique_combos = [
-                    [f] for f in self.get_unique_fields(model, fields=rec_dict.keys())
-                ]
-                # Now add in the unique field combos from the model's unique constraints
-                unique_combos.extend(self.get_unique_constraint_fields(model))
 
-                # Create a set of the fields in the dict causing the error so that we can only check unique its fields
-                field_set = set(rec_dict.keys())
-
-                # We're going to loop over unique records until we find one that conflicts with the dict
-                for combo_fields in unique_combos:
+                # Iterate through the unique fields to find a conflicting record
+                for ufield in self.get_unique_fields(model, fields=rec_dict.keys()):
                     # Only proceed if we have all the values
-                    combo_set = set(combo_fields)
+                    # NOTE: If we don't find the conflict, that's OK.  The original exception will be buffered.
+                    if ufield not in rec_dict.keys():
+                        continue
+
+                    qs = model.objects.filter(
+                        Q(**{f"{ufield}__exact": rec_dict[ufield]})
+                    )
+
+                    # If there was a record found using a unique field
+                    if qs.count() == 1:
+                        rec = qs.first()
+                        errs_found = self.check_for_inconsistencies(
+                            rec,
+                            rec_dict,
+                            orig_exception=exception,
+                            is_error=is_error,
+                            is_fatal=is_fatal,
+                        )
+                        if errs_found:
+                            return True
+
+                # If there was no conflict found using unique fields, iterate through the custom unique constraints
+                constraint: UniqueConstraint
+                # Create a set of the fields in the dict that caused the error
+                field_set = set(rec_dict.keys())
+                for constraint in self.get_unique_constraints(model):
+                    # Only proceed if we have all the values
+                    # NOTE: If we don't find the conflict, that's OK.  The original exception will be buffered.
+                    combo_set = set(constraint.fields)
                     if not combo_set.issubset(field_set):
                         continue
 
-                    # Retrieve the record with the conflicting value(s) that caused the unique constraint error using
-                    # the unique fields
                     q = Q()
-                    for uf in combo_fields:
+                    for uf in constraint.fields:
                         q &= Q(**{f"{uf}__exact": rec_dict[uf]})
                     qs = model.objects.filter(q)
+                    if constraint.condition:
+                        qs = qs.filter(constraint.condition)
 
                     # If there was a record found using a unique field (combo)
                     if qs.count() == 1:
@@ -3202,20 +3221,20 @@ class TableLoader(ABC):
         return dupe_dict, all_row_idxs_with_dupes
 
     @classmethod
-    def get_unique_constraint_fields(cls, model):
-        """Returns a list of lists of names of fields involved in UniqueConstraints in a given model.
+    def get_unique_constraints(cls, model: Type[Model]):
+        """Returns a list of UniqueConstraint objects from the supplied model.
         Args:
-            model (Model)
+            model (Type[Model])
         Exceptions:
             None
         Returns:
-            uflds (List of model fields)
+            uflds (List[UniqueConstraint])
         """
         uflds = []
         if hasattr(model._meta, "constraints"):
             for constraint in model._meta.constraints:
-                if type(constraint).__name__ == "UniqueConstraint":
-                    uflds.append(constraint.fields)
+                if isinstance(constraint, UniqueConstraint):
+                    uflds.append(constraint)
         return uflds
 
     @classmethod
