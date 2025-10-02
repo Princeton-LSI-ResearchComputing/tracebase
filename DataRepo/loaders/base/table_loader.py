@@ -14,6 +14,7 @@ from django.core.exceptions import (
 from django.db import IntegrityError, transaction
 from django.db.models import Model, Q, UniqueConstraint
 from django.db.utils import ProgrammingError
+from django.forms import model_to_dict
 
 from DataRepo.models.maintained_model import AutoUpdateFailed
 from DataRepo.models.utilities import get_model_fields
@@ -2666,10 +2667,35 @@ class TableLoader(ABC):
         Returns:
             found_errors (bool)
         """
+        # Make sure that all relevant values are compared, i.e. the rec_dict may exclude fields that have values in the
+        # DB record.  So we should populate the rec_dict with `None` for fields it doesn't have that the DB record has
+        # non-null values for.
+        # Shallow-copy the rec_dict so that we're not changing the caller's dict.
+        tmp_rec_dict = rec_dict.copy()
+        # NOTE: Be aware that model_to_dict does not get all potentially populated fields
+        for fld, val in model_to_dict(rec).items():
+            # If the rec_dict passed in does not have a field and its value in the DB is populated
+            # 1. Do not add fields that do not map to infile columns 1:1 (this includes fields like 'id' and maintained
+            # fields whose values are updated after insertion) [first 2 lines of the conditional]
+            # 2. The field from the database is not in the new record's dict [third line of the conditional]
+            # 3. The value in the DB is not a None value [last 2 lines of the conditional]
+            if (
+                type(rec).__name__ in self.FieldToDataHeaderKey.keys()
+                and fld in self.FieldToDataHeaderKey[type(rec).__name__].keys()
+                and fld not in tmp_rec_dict.keys()
+                and val is not None
+                and str(val) not in self.none_vals
+            ):
+                # Set the new field value to None so we can include that difference as a cause for the IntegrityError
+                tmp_rec_dict[fld] = None
+
+        # TODO: Take field default values into account in the above loop.  I.e. The DB will fill in a default for
+        # missing fields in the dict instead of the None values we populate here.
+
         # Now look for differences between the rec and the rec_dict
         found_errors = False
         differences = {}
-        for field, new_value in rec_dict.items():
+        for field, new_value in tmp_rec_dict.items():
             orig_value = getattr(rec, field)
             differs = False
             if type(orig_value) is type(new_value) and orig_value != new_value:
@@ -2733,7 +2759,7 @@ class TableLoader(ABC):
                 ConflictingValueError(
                     rec,
                     differences,
-                    rec_dict=rec_dict,
+                    rec_dict=tmp_rec_dict,
                     rownum=self.rownum,
                     sheet=self.sheet,
                     file=self.friendly_file,
