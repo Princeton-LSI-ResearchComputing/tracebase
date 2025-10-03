@@ -30,6 +30,7 @@ from DataRepo.tests.tracebase_test_case import (
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     AllMzxmlSequenceUnknown,
+    ConditionallyRequiredArgs,
     InfileError,
     MissingSamples,
     MutuallyExclusiveArgs,
@@ -571,6 +572,55 @@ class MSRunsLoaderTests(TracebaseTestCase):
         seq = msrl.get_msrun_sequence()
         self.assertEqual(0, len(msrl.aggregated_errors_object.exceptions))
         self.assertEqual(self.msr.msrun_sequence, seq)
+
+    def test_get_msrun_sequence_no_default(self):
+        """This test ensures that when there is no default, there is an error when sequence names are not provided.
+
+        This serves to effectively test the check_seqname_column method.
+        """
+        # Create a Sample for the MSRunSample record to link to:
+        Sample.objects.create(
+            name="s1",
+            tissue=self.tsu,
+            animal=self.anml,
+            researcher="John Clease",
+            date=datetime.now(),
+        )
+
+        with self.assertRaises(AggregatedErrors) as ar:
+            MSRunsLoader(
+                # Supply 2 rows: one without skip, and one with - both missing a sequence name
+                df=pd.DataFrame.from_dict(
+                    {
+                        MSRunsLoader.DataHeaders.SEQNAME: [None, None],
+                        MSRunsLoader.DataHeaders.SAMPLENAME: ["s1", "s2"],
+                        MSRunsLoader.DataHeaders.SAMPLEHEADER: ["s1_pos", "s2_pos"],
+                        MSRunsLoader.DataHeaders.MZXMLNAME: [None, None],
+                        MSRunsLoader.DataHeaders.ANNOTNAME: [None, None],
+                        MSRunsLoader.DataHeaders.SKIP: [None, "skip"],
+                    }
+                ),
+                mzxml_files=[
+                    # Arbitrarily selected mzXML - whether it matches the sample doesn't matter for this test.
+                    "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML"
+                ],
+            )
+
+        aes = ar.exception
+
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertIsInstance(aes.exceptions[0], ConditionallyRequiredArgs)
+        self.assertIn(
+            f"1 rows that do not have a value in the '{MSRunsLoader.DataHeaders.SEQNAME}' column",
+            str(aes.exceptions[0]),
+        )
+
+        # NOTE: This essentially asserts that the skipped row is not among the reported missing sequence name rows (by
+        # the fact it matches ['2'] and not ['2-3'])
+        self.assertIn(
+            f"Rows missing {MSRunsLoader.DataHeaders.SEQNAME} values: ['2']",
+            str(aes.exceptions[0]),
+        )
 
     def test_get_sample_by_name(self):
         msrl = MSRunsLoader()
@@ -1485,59 +1535,6 @@ class MSRunsLoaderTests(TracebaseTestCase):
         ]
         self.assertEqual(set(expected), set(mzxml_files))
 
-    def test_sequence_or_skip_required(self):
-        """This tests that a sequence name is not required if the row is being skipped."""
-        msrl = MSRunsLoader(
-            df=pd.DataFrame.from_dict(
-                {
-                    MSRunsLoader.DataHeaders.SEQNAME: [
-                        None,  # No error
-                        None,  # No error
-                        None,  # Should produce RequiredColumnValue exception since SKIP is also None
-                    ],
-                    MSRunsLoader.DataHeaders.SAMPLENAME: [
-                        "s1",
-                        "s2",
-                        "s3",
-                    ],
-                    MSRunsLoader.DataHeaders.SAMPLEHEADER: [
-                        "s1_pos",
-                        None,
-                        "s3_pos",
-                    ],
-                    MSRunsLoader.DataHeaders.MZXMLNAME: [
-                        None,
-                        "s2_pos.mzXML",
-                        None,
-                    ],
-                    MSRunsLoader.DataHeaders.ANNOTNAME: [
-                        None,
-                        None,
-                        None,
-                    ],
-                    MSRunsLoader.DataHeaders.SKIP: [
-                        "skip",  # No error
-                        "skip",  # No error
-                        None,  # Should produce RequiredColumnValue exception since SEQNAME is also None
-                    ],
-                }
-            ),
-        )
-        # This should buffer RequiredColumnValue exceptions if there are any missing required values, one for each
-        # offending row - and we only expect 1 for the last row (identified as row 4 in an excel sheet)
-        msrl.check_dataframe_values()
-        self.assertEqual(1, len(msrl.aggregated_errors_object.exceptions))
-        self.assertEqual(
-            1,
-            len(msrl.aggregated_errors_object.get_exception_type(RequiredColumnValue)),
-        )
-        self.assertEqual("4", str(msrl.aggregated_errors_object.exceptions[0].rownum))
-        self.assertEqual(
-            "(Sequence, Skip)^ (^ = Any Required)",
-            str(msrl.aggregated_errors_object.exceptions[0].column),
-            msg=f"'(Sequence, Skip)^ (^ = Any Required)' != {msrl.aggregated_errors_object.exceptions[0].column}",
-        )
-
     def test_msrunsamples_created_for_mzxmls_with_same_name_using_default_seq(self):
         """This tests that MSRunSample records are created using the default sequence arguments and sample records
         matching the mzXML filenames."""
@@ -1891,6 +1888,85 @@ class MSRunsLoaderTests(TracebaseTestCase):
         )
         self.assertFalse(msrl.aggregated_errors_object.exceptions[0].is_error)
         self.assertFalse(msrl.aggregated_errors_object.exceptions[0].is_fatal)
+
+    def test_skip_rows_do_not_error(self):
+        """Ensures that skipped rows never result in RequiredColumnValue errors.
+
+        This also checks for the ConditionallyRequiredArgs error, because although the sequence name column does not
+        require a value, that is because the sequence name has multiple means of supplying a default value.  The
+        sequence name is used to set the MSRunSample.msrun_sequence foreign key, which is a required field.  Since the
+        loading of mzXML files happens first and can take a long time, there is a quick check (whenever mzXML files are
+        supplied) that looks for (unskipped) missing sequence name values when there are no defaults.  Note that that
+        check happens whether there are mzXML files or not, but when there are mzXML files and the
+        ConditionallyRequiredArgs exception occurs, it is immediately raised instead of buffered.
+
+        This serves to effectively test the check_seqname_column method.
+        """
+
+        # Data with missing required value records and no skips should result in 4 RequiredColumnValue errors
+        df_dict = {
+            "Sample Name": ["s1", None, None, None],
+            "Sample Data Header": [None, None, None, None],
+            "mzXML File Name": [
+                None,
+                "s2_pos.mzXML",
+                "BAT-xz971.mzXML",
+                "BAT-xz971.mzXML",
+            ],
+            "Peak Annotation File Name": ["accucor.xlsx", "accucor2.xlsx", None, None],
+            "Sequence": [
+                "Dick, polar-HILIC-25-min, QE, 1991-5-7",
+                "Dick, polar-HILIC-25-min, QE, 1991-5-7",
+                None,
+                None,
+            ],
+            "Skip": [None, None, None, None],
+        }
+
+        # First, test that if not skipped (and there are no mzXML files), we would get a RequiredColumnValue error for
+        # each of the 4 rows with missing required data, and a ConditionallyRequiredArgs error.  (Without this
+        # assertion, the check that they do not occur when skipped is nearly meaningless.)
+        mrl = MSRunsLoader(
+            df=pd.DataFrame.from_dict(df_dict),
+            file="DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",
+        )
+        mrl.check_dataframe_values()
+        self.assertEqual(5, len(mrl.aggregated_errors_object.exceptions))
+        self.assertEqual(
+            set([RequiredColumnValue, ConditionallyRequiredArgs]),
+            set(mrl.aggregated_errors_object.get_exception_types()),
+        )
+
+        # Now check that we only get the ConditionallyRequiredArgs error when there are mzXML files and that it raises
+        with self.assertRaises(AggregatedErrors) as ar:
+            mrl = MSRunsLoader(
+                df=pd.DataFrame.from_dict(df_dict),
+                file="DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",
+                mzxml_files=[
+                    "DataRepo/data/tests/same_name_mzxmls/mzxmls/BAT-xz971.mzXML",
+                    "DataRepo/data/tests/same_name_mzxmls/mzxmls/pos/BAT-xz971.mzXML",
+                ],
+            )
+        aes = ar.exception
+        # mrl.check_dataframe_values()
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertEqual(
+            [ConditionallyRequiredArgs],
+            aes.get_exception_types(),
+        )
+
+        # Now, if the rows are skipped, there should be no exceptions at all
+        df_dict["Skip"] = ["skip", "skip", "skip", "skip"]
+        mrl = MSRunsLoader(
+            df=pd.DataFrame.from_dict(df_dict),
+            file="DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",
+            mzxml_files=[
+                "DataRepo/data/tests/same_name_mzxmls/mzxmls/BAT-xz971.mzXML",
+                "DataRepo/data/tests/same_name_mzxmls/mzxmls/pos/BAT-xz971.mzXML",
+            ],
+        )
+        mrl.check_dataframe_values()
+        self.assertEqual(0, len(mrl.aggregated_errors_object.exceptions))
 
 
 class MSRunsLoaderArchiveTests(TracebaseArchiveTestCase):
