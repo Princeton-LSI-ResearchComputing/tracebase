@@ -40,6 +40,8 @@ from DataRepo.utils.exceptions import (
     RecordDoesNotExist,
     RequiredColumnValue,
     RollbackException,
+    UnmatchedBlankMzXML,
+    UnmatchedMzXML,
     UnskippedBlanks,
 )
 from DataRepo.utils.file_utils import read_from_file
@@ -576,6 +578,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         msrl = MSRunsLoader()
         sample = msrl.get_sample_by_name("Sample Name")
         self.assertEqual(Sample.objects.get(name="Sample Name"), sample)
+        # NOTE: See test_check_mzxml_files for testing the handling of unmatched mzXML exceptions added by this method
 
     def test_get_or_create_msrun_sample_from_mzxml_success(self):
         msrl = MSRunsLoader()
@@ -1891,6 +1894,34 @@ class MSRunsLoaderTests(TracebaseTestCase):
         )
         self.assertFalse(msrl.aggregated_errors_object.exceptions[0].is_error)
         self.assertFalse(msrl.aggregated_errors_object.exceptions[0].is_fatal)
+
+    def test_check_mzxml_files(self):
+        """This test ensures that every unmatched mzXML gets its own exception."""
+        mrl = MSRunsLoader(
+            df=pd.DataFrame.from_dict({}),
+            file="DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",  # Peak Annotation Dtls not used
+            mzxml_files=[
+                "unknown_sample.mzXML",
+                "scan2/unknown_sample.mzXML",
+                "unknown_blank.mzXML",
+                "scan2/unknown_blank.mzXML",
+            ],
+        )
+        with self.assertRaises(AggregatedErrors) as ar:
+            mrl.check_mzxml_files()
+        aes = ar.exception
+        # Assert that aes contains 2 errors for "unknown_sample.mzXML" and "scan2/unknown_sample.mzXML"
+        self.assertEqual(2, aes.num_errors)
+        self.assertIsInstance(aes.exceptions[0], UnmatchedMzXML)
+        self.assertEqual("unknown_sample.mzXML", aes.exceptions[0].mzxml_file)
+        self.assertIsInstance(aes.exceptions[1], UnmatchedMzXML)
+        self.assertEqual("scan2/unknown_sample.mzXML", aes.exceptions[1].mzxml_file)
+        # Assert that aes contains 2 warnings for "unknown_blank.mzXML" and "scan2/unknown_blank.mzXML"
+        self.assertEqual(2, aes.num_warnings)
+        self.assertIsInstance(aes.exceptions[2], UnmatchedBlankMzXML)
+        self.assertEqual("unknown_blank.mzXML", aes.exceptions[2].mzxml_file)
+        self.assertIsInstance(aes.exceptions[3], UnmatchedBlankMzXML)
+        self.assertEqual("scan2/unknown_blank.mzXML", aes.exceptions[3].mzxml_file)
 
 
 class MSRunsLoaderArchiveTests(TracebaseArchiveTestCase):
