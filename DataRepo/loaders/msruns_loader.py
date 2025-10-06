@@ -843,6 +843,7 @@ class MSRunsLoader(TableLoader):
         expected_mzxmls = defaultdict(lambda: defaultdict(dict))
         expected_samples = []
         unexpected_sample_headers = defaultdict(list)
+        explicitly_skipped_mzxmls = []
 
         # Take an accounting of all expected samples and mzXML files.  Note that in the absence of an explicitly entered
         # mzXML file, the sample header is used as a stand-in for the mzXML file's name (minus extension).
@@ -857,7 +858,11 @@ class MSRunsLoader(TableLoader):
                 else False
             )
 
-            # Keep track of samples that have been accounted for (skipped or not)
+            if mzxml_name_with_opt_path is not None and skip:
+                explicitly_skipped_mzxmls.append(mzxml_name_with_opt_path)
+                continue
+
+            # Keep track of samples that have been accounted for
             if sample_name not in expected_samples:
                 expected_samples.append(sample_name)
 
@@ -888,11 +893,19 @@ class MSRunsLoader(TableLoader):
                 expected_mzxmls[modded_sh][dr] = {
                     "sample_header": sample_header if sample_header is not None else sh,
                     "sample_name": sample_name,
-                    "skip": skip,
                 }
 
         # Now go through the actual supplied mzXML files and see if any are totally unaccounted for.
         for actual_mzxml_file in self.mzxml_files:
+            # If this mzxml_file is in the explicitly_skipped_mzxmls, don't check it.
+            # NOTE: The file does not have to exist.  The supplied paths just have to be the same.  I.e. don't cause a
+            # file system error based on a row that is skipped.
+            if any(
+                os.path.normpath(actual_mzxml_file) == os.path.normpath(skipped_file)
+                for skipped_file in explicitly_skipped_mzxmls
+            ):
+                continue
+
             dr = os.path.dirname(actual_mzxml_file)
             fn = os.path.basename(actual_mzxml_file)
             sh = str(os.path.splitext(fn)[0])
