@@ -3125,7 +3125,39 @@ class MzxmlSequenceUnknown(InfileError, SummarizableError):
         self.match_files = match_files
 
 
-class MzxmlNotColocatedWithAnnot(InfileError):
+class MzxmlNotColocatedWithAnnots(Exception):
+    """Takes a list of MzxmlNotColocatedWithAnnot exceptions and summarizes them in a single exception."""
+
+    def __init__(
+        self,
+        exceptions: List[MzxmlNotColocatedWithAnnot],
+        message: Optional[str] = None,
+        **kwargs,
+    ):
+        if not message:
+            files = []
+            exc: MzxmlNotColocatedWithAnnot
+            for exc in exceptions:
+                files.append(exc.file)
+            nlt = "\n\t"
+            message = (
+                f"The following mzXML files do not have a peak annotation file existing along their paths.\n"
+                "When a sequence is not provided in the 'Peak Annotation Details' sheet for an mzXML file, the "
+                "association between an mzXML and the MSRunSequence it belongs to is inferred by its colocation with "
+                "(or its location under a parent directory containing) a peak annotation file, based on the 'Default "
+                "Sequence' column in the 'Peak Annotation Files' sheet.  These files do not have a peak annotation "
+                "file associated with them:\n"
+                f"\t{nlt.join(files)}\n"
+                "Either provide values in the 'Sequence' column in the 'Peak Annotation Files' sheet or add the "
+                "related peak annotation file to the directory containing the mzXML files that were used to generate "
+                "it."
+            )
+        super().__init__(message, **kwargs)
+
+
+class MzxmlNotColocatedWithAnnot(InfileError, SummarizableError):
+    SummarizerExceptionClass = MzxmlNotColocatedWithAnnots
+
     def __init__(self, annot_dirs=None, **kwargs):
         if annot_dirs is None:
             annot_dirs = ["No peak annotation directories supplied."]
@@ -3136,18 +3168,75 @@ class MzxmlNotColocatedWithAnnot(InfileError):
             "MSRunSequence, based on the Default Sequence column in the Peak Annotation Files sheet."
         )
         super().__init__(message, **kwargs)
+        self.annot_dirs = annot_dirs
 
 
-class MzxmlColocatedWithMultipleAnnot(InfileError):
-    def __init__(self, msrun_sequence_names, **kwargs):
+class MzxmlColocatedWithMultipleAnnots(Exception):
+    """Takes a list of MzxmlNotColocatedWithAnnot exceptions and summarizes them in a single exception."""
+
+    def __init__(
+        self,
+        exceptions: List[MzxmlColocatedWithMultipleAnnot],
+        message: Optional[str] = None,
+        **kwargs,
+    ):
+        if not message:
+            dirs: Dict[str, Dict[str, List[str]]] = defaultdict(
+                lambda: {"files": [], "seqs": []}
+            )
+            exc: MzxmlColocatedWithMultipleAnnot
+            for exc in exceptions:
+                # Append the mzXML file to the files list for that directory combo
+                dirs[exc.matching_annot_dir]["files"].append(exc.file)
+                # Append the differing sequences if not already encountered
+                for seqn in exc.msrun_sequence_names:
+                    if seqn not in dirs[exc.matching_annot_dir]["seqs"]:
+                        dirs[exc.matching_annot_dir]["seqs"].append(seqn)
+            # Summarize the nested lists in a string
+            summary = ""
+            for dir in dirs.keys():
+                summary += (
+                    f"\n\tDirectory '{dir}' contains multiple peak annotation files associated with sequences "
+                    f"{dirs[dir]['seqs']}:"
+                )
+                for mzxml in dirs[dir]["files"]:
+                    summary += f"\n\t\t{mzxml}"
+            message = (
+                f"The following directories have multiple peak annotation files (associated with different 'Default "
+                "Sequence's, assigned in the 'Peak Annotation Files' sheet), meaning that the listed mzXML files "
+                "cannot be unambiguously assigned an MSRunSequence record.\n"
+                f"{summary}\n\n"
+                "Explanation: When a sequence is not provided in the 'Peak Annotation Details' sheet for an mzXML "
+                "file, the association between an mzXML and the MSRunSequence it belongs to is inferred by its "
+                "colocation with (or its location under a parent directory containing) a peak annotation file, based "
+                "on the 'Default Sequence' assigned in the 'Peak Annotation Files' sheet.\n\n"
+                "Suggestion: Either provide values in the 'Sequence' column in the 'Peak Annotation Files' sheet or re-"
+                "arrange the multiple colocated peak annotation files to ensure that they are in the directory "
+                "containing the mzXML files that were used to generate them.  (If a peak annotation file was generated "
+                "using a mix of mzXML files from different sequences, the 'Sequence' column in the 'Oeak Annotation "
+                "Details' sheet must be filled in and it is recommended that mzXML files are grouped into directories "
+                "defined by the sequence that generated them.)"
+            )
+        super().__init__(message, **kwargs)
+
+
+class MzxmlColocatedWithMultipleAnnot(InfileError, SummarizableError):
+    SummarizerExceptionClass = MzxmlColocatedWithMultipleAnnots
+
+    def __init__(
+        self, msrun_sequence_names: List[str], matching_annot_dir: str, **kwargs
+    ):
         nlt = "\n\t"
         message = (
             "mzXML file '%s' shares a common path with multiple peak annotation files (from the peak annotation files "
-            f"sheet) that are associated with different sequences:\n\t{nlt.join(msrun_sequence_names)}\nCo-location of "
-            "mzXML files with peak annotation files is what allows mzXML files to be linked to an MSRunSequence, based "
-            "on the Default Sequence column in the Peak Annotation Files sheet."
+            f"sheet), located in directory '{matching_annot_dir}' that are associated with different "
+            f"sequences:\n\t{nlt.join(msrun_sequence_names)}\nCo-location of mzXML files with peak annotation files is "
+            "what allows mzXML files to be linked to an MSRunSequence, based on the Default Sequence column in the "
+            "Peak Annotation Files sheet."
         )
         super().__init__(message, **kwargs)
+        self.msrun_sequence_names = msrun_sequence_names
+        self.matching_annot_dir = matching_annot_dir
 
 
 class DefaultSequenceNotFound(Exception):
