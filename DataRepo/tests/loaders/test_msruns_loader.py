@@ -1892,6 +1892,41 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertFalse(msrl.aggregated_errors_object.exceptions[0].is_error)
         self.assertFalse(msrl.aggregated_errors_object.exceptions[0].is_fatal)
 
+    def test_get_msrun_sequence_from_dir_last_annot(self):
+        """Tests that if there exists an unambiguous sequence assignment in the directory closest to an mzXML file (and
+        an ambiguous sequence assignment in the directory above that), there is no error about a default sequence
+        conflict that came from multiple peak annotation file sequence defaults (i.e. the unambiguous sequence assigned
+        from the closest directory is used)."""
+        # Create a sequence record
+        defseq = MSRunSequence.objects.create(
+            researcher="Rob",
+            date=datetime.strptime("1972-11-24", "%Y-%m-%d"),
+            instrument="QE",
+            lc_method=LCMethod.objects.get(name__exact="polar-HILIC-25-min"),
+        )
+
+        msrunsloader = MSRunsLoader()
+        # Create the metadata as if the 'Sequences' sheet had been loaded
+        msrunsloader.annotdir_to_seq_dict = {
+            "path/to": [
+                "Rob, polar-HILIC-25-min, QE, 1972-11-24",
+                "Zoe, polar-HILIC-25-min, QE, 1985-4-18",
+            ],
+            "path/to/scan2": [
+                "Rob, polar-HILIC-25-min, QE, 1972-11-24",
+            ],
+        }
+        # Test the target method where the requirements were implemented
+        seq = msrunsloader.get_msrun_sequence_from_dir(
+            "sample.mzXML",
+            "path/to/scan2",
+            None,
+        )
+        # Ensure there was no error
+        self.assertEqual(0, len(msrunsloader.aggregated_errors_object.exceptions))
+        # Ensure the correct record was obtained
+        self.assertEqual(defseq, seq)
+
 
 class MSRunsLoaderArchiveTests(TracebaseArchiveTestCase):
     fixtures = ["lc_methods.yaml", "data_types.yaml", "data_formats.yaml"]

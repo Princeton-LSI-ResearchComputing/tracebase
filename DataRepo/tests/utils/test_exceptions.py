@@ -30,7 +30,9 @@ from DataRepo.utils.exceptions import (
     MultipleDefaultSequencesFound,
     MutuallyExclusiveOptions,
     MzxmlColocatedWithMultipleAnnot,
+    MzxmlColocatedWithMultipleAnnots,
     MzxmlNotColocatedWithAnnot,
+    MzxmlNotColocatedWithAnnots,
     MzxmlSampleHeaderMismatch,
     NewResearcher,
     NewResearchers,
@@ -1280,14 +1282,106 @@ class ExceptionTests(TracebaseTestCase):
         )
         self.assertIn("Move a peak annot file to a point along the path.", str(mncwa))
 
+    def test_MzxmlNotColocatedWithAnnots(self):
+        """Tests that the summary exception includes all the mzXMLs not colocated with a peak annotation file, that the
+        exception describes this, and contains a suggestion of how to fix it."""
+        exc1 = MzxmlNotColocatedWithAnnot(
+            file="/abs/path/to/file.mzXML",
+        )
+        exc2 = MzxmlNotColocatedWithAnnot(
+            file="/second/abs/path/to/otherfile.mzXML",
+        )
+        mncwas = MzxmlNotColocatedWithAnnots([exc1, exc2])
+        self.assertIn(
+            "/abs/path/to/file.mzXML",
+            str(mncwas),
+        )
+        self.assertIn(
+            "/second/abs/path/to/otherfile.mzXML",
+            str(mncwas),
+        )
+        self.assertIn(
+            "do not have a peak annotation file existing along their paths",
+            str(mncwas),
+        )
+        self.assertIn(
+            "add the related peak annotation file to the directory containing the mzXML files",
+            str(mncwas),
+        )
+
     def test_MzxmlColocatedWithMultipleAnnot(self):
         mcwma = MzxmlColocatedWithMultipleAnnot(
             ["name1", "name2"],
+            "/abs/path/",
             file="/abs/path/to/file.mzXML",
         )
         self.assertIn(
             "associated with different sequences:\n\tname1\n\tname2\n", str(mcwma)
         )
+
+    def test_MzxmlColocatedWithMultipleAnnots(self):
+        """Tests that the summary exception includes:
+
+        1. An explanation of the cause of the exception
+        2. All mzXML files
+        3. A suggestion how to fix the data to resolve the exception
+        4. The directory containing the peak annotation files associated with sequence defaults
+        5. The sequence names associated with the directory
+
+        Example:
+            The following directories have multiple peak annotation files (associated with different 'Default
+            Sequence's, assigned in the 'Peak Annotation Files' sheet), meaning that the listed mzXML files cannot be
+            unambiguously assigned an MSRunSequence record.
+
+                Directory '/abs/path/' contains multiple peak annotation files associated with sequences ['seqname1',
+                'seqname2']:
+                    /abs/path/to/file.mzXML
+                Directory '/abs/path2/' contains multiple peak annotation files associated with sequences ['seqnameA',
+                'seqnameB']:
+                    /abs/path/to/file.mzXML
+
+            Explanation: When a sequence is not provided in the 'Peak Annotation Details' sheet for an mzXML file, the
+            association between an mzXML and the MSRunSequence it belongs to is inferred by its colocation with (or its
+            location under a parent directory containing) a peak annotation file, based on the 'Default Sequence'
+            assigned in the 'Peak Annotation Files' sheet.
+
+            Suggestion: Either provide values in the 'Sequence' column in the 'Peak Annotation Files' sheet or
+            re-arrange the multiple colocated peak annotation files to ensure that they are in the directory containing
+            the mzXML files that were used to generate them.  (If a peak annotation file was generated using a mix of
+            mzXML files from different sequences, the 'Sequence' column in the 'Oeak Annotation Details' sheet must be
+            filled in and it is recommended that mzXML files are grouped into directories defined by the sequence that
+            generated them.)
+        """
+        exc1 = MzxmlColocatedWithMultipleAnnot(
+            ["seqname1", "seqname2"],
+            "/abs/path/",
+            file="/abs/path/to/file.mzXML",
+        )
+        exc2 = MzxmlColocatedWithMultipleAnnot(
+            ["seqnameA", "seqnameB"],
+            "/abs/path2/",
+            file="/abs/path/to/file.mzXML",
+        )
+        mcwmas = MzxmlColocatedWithMultipleAnnots([exc1, exc2])
+        # Explanation
+        self.assertIn(
+            "mzXML and the MSRunSequence it belongs to is inferred by its colocation",
+            str(mcwmas),
+        )
+        # mzXML files
+        self.assertIn("/abs/path/to/file.mzXML", str(mcwmas))
+        self.assertIn("/abs/path/to/file.mzXML", str(mcwmas))
+        # Suggestion
+        self.assertIn("provide values in the 'Sequence' column", str(mcwmas))
+        self.assertIn(
+            "re-arrange the multiple colocated peak annotation files", str(mcwmas)
+        )
+        # Directories
+        self.assertIn("'/abs/path/'", str(mcwmas))
+        self.assertIn("'/abs/path2/'", str(mcwmas))
+        # Sequences
+        self.assertIn("['seqname1', 'seqname2']", str(mcwmas))
+        self.assertIn("['seqnameA', 'seqnameB']", str(mcwmas))
 
     def test_NoScans(self):
         ns = NoScans("/abs/path/to/file.mzXML")
