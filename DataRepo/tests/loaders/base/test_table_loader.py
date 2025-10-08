@@ -21,6 +21,7 @@ from DataRepo.utils.exceptions import (
     AggregatedErrors,
     ConflictingValueError,
     ConflictingValueErrors,
+    DBFieldVsFileColDeveloperWarning,
     DryRun,
     DuplicateHeaders,
     DuplicateValueErrors,
@@ -59,6 +60,7 @@ class TableLoaderTests(TracebaseTestCase):
             name = CharField(unique=True)
             uf1 = CharField()
             uf2 = CharField()
+            opt_str = CharField()
 
             class Meta:
                 app_label = "loader"
@@ -441,10 +443,10 @@ class TableLoaderTests(TracebaseTestCase):
         self.assertFalse(tl.aggregated_errors_object.is_fatal)
         self.assertFalse(tl.aggregated_errors_object.exceptions[0].is_fatal)
         self.assertIsInstance(
-            tl.aggregated_errors_object.exceptions[0], ProgrammingError
+            tl.aggregated_errors_object.exceptions[0], DBFieldVsFileColDeveloperWarning
         )
         self.assertIn(
-            "'2' (a 'str' from the database) and '2' (a 'int' from the file)",
+            "database ('2', a 'str') and the type of the value from the file ('2', a 'int')",
             str(tl.aggregated_errors_object.exceptions[0]),
         )
         self.assertIn(
@@ -474,6 +476,130 @@ class TableLoaderTests(TracebaseTestCase):
         )
         # No error when the field is mapped to a column and the column's type is recorded
         self.assertEqual(0, len(tl.aggregated_errors_object.exceptions))
+
+    def test_check_for_inconsistencies_case4(self):
+        """Tests developer warnings about database/file value type arise when searching for inconsistencies.
+
+        Requirements tested (from GitHub issue #1662):
+            1. Programmer warnings must not be user-facing.
+            8. A warning is buffered when the compared database field and file column value differ by type (other than
+               NoneType)
+
+        This test creates a model record with a str value in a field and calls check_for_inconsistencies, supplying it a
+        rec_dict that has an int for that field.
+        """
+        table_loader = self.test_uc_loader_class()
+        # Circumventing the need to call load_data, set what is needed to call handle_load_db_errors...
+        table_loader.set_row_index(0)  # Converted to row 2 (header line is 1)
+        recdict = {
+            "name": "test4",
+            "uf1": "1",
+            "uf2": "2",
+            "opt_str": "letters",  # This is the value we are testing
+        }
+        self.test_uc_model_class.objects.create(**recdict)
+        rec = self.test_uc_model_class.objects.get(**recdict)
+
+        # NOTE: The loading code automatically casts when it knows the column type, but when when that's not set in the
+        # loader class, when check_for_inconsistencies runs, it gets the uncast value, where Excel or pandas
+        # autodetected a type (inaccurately), e.g. the user enters a number for a string value in the DB.
+        recdict["opt_str"] = 2
+        errfound = table_loader.check_for_inconsistencies(rec, recdict)
+
+        # Test Req 8. See docstring
+        self.assertTrue(errfound)
+        self.assertEqual(2, len(table_loader.aggregated_errors_object.exceptions))
+        self.assertTrue(
+            table_loader.aggregated_errors_object.exception_type_exists(
+                DBFieldVsFileColDeveloperWarning
+            )
+        )
+        # This error is also expected
+        self.assertTrue(
+            table_loader.aggregated_errors_object.exception_type_exists(
+                ConflictingValueError
+            )
+        )
+
+        self.assertIsInstance(
+            table_loader.aggregated_errors_object.exceptions[0],
+            DBFieldVsFileColDeveloperWarning,
+        )
+        dev_warning: DBFieldVsFileColDeveloperWarning = (
+            table_loader.aggregated_errors_object.exceptions[0]
+        )
+
+        # Test Req 1. See docstring
+        self.assertFalse(dev_warning.is_error)
+        self.assertFalse(dev_warning.is_fatal)
+
+    def test_check_for_inconsistencies_case5(self):
+        """Tests developer warnings about database/file value type do not arise when one of the values is 'None'.
+
+        Requirements tested (from GitHub issue #1662):
+            7. This warning must no be risen when one of the compared values is None
+
+        This test creates a model record with a str value in a field and calls check_for_inconsistencies, supplying it a
+        rec_dict that has a NoneType for that field.
+        """
+        table_loader1 = self.test_uc_loader_class()
+        # Circumventing the need to call load_data, set what is needed to call handle_load_db_errors...
+        table_loader1.set_row_index(0)  # Converted to row 2 (header line is 1)
+
+        # Case 1: DB value is null
+        recdict = {
+            "name": "test4",
+            "uf1": "1",
+            "uf2": "2",
+            # Omitting opt_str makes it null in the DB
+        }
+        self.test_uc_model_class.objects.create(**recdict)
+        rec = self.test_uc_model_class.objects.get(**recdict)
+
+        # NOTE: The loading code automatically casts when it knows the column type, but when when that's not set in the
+        # loader class, when check_for_inconsistencies runs, it gets the uncast value, where Excel or pandas
+        # autodetected a type (inaccurately), e.g. the user enters a number for a string value in the DB.
+        recdict["opt_str"] = "2"
+        errfound = table_loader1.check_for_inconsistencies(rec, recdict)
+
+        # We still expect a ConflictingValueError
+        self.assertTrue(errfound)
+        self.assertEqual(1, len(table_loader1.aggregated_errors_object.exceptions))
+        self.assertTrue(
+            table_loader1.aggregated_errors_object.exception_type_exists(
+                ConflictingValueError
+            )
+        )
+        self.assertFalse(
+            table_loader1.aggregated_errors_object.exception_type_exists(
+                DBFieldVsFileColDeveloperWarning
+            )
+        )
+
+        # Case 2: File value is None
+        table_loader2 = self.test_uc_loader_class()
+        # Circumventing the need to call load_data, set what is needed to call handle_load_db_errors...
+        table_loader2.set_row_index(0)  # Converted to row 2 (header line is 1)
+
+        rec.opt_str = "2"
+        rec.full_clean()
+        rec.save()
+        recdict["opt_str"] = None
+        errfound = table_loader2.check_for_inconsistencies(rec, recdict)
+
+        self.assertTrue(errfound)
+        print(table_loader2.aggregated_errors_object.exceptions)
+        self.assertEqual(1, len(table_loader2.aggregated_errors_object.exceptions))
+        self.assertTrue(
+            table_loader2.aggregated_errors_object.exception_type_exists(
+                ConflictingValueError
+            )
+        )
+        self.assertFalse(
+            table_loader2.aggregated_errors_object.exception_type_exists(
+                DBFieldVsFileColDeveloperWarning
+            )
+        )
 
     def test_model_field_to_column_type(self):
         tucl = self.test_uc_loader_class()
@@ -978,6 +1104,7 @@ class TableLoaderTests(TracebaseTestCase):
             "name",
             "uf1",
             "uf2",
+            "opt_str",
         ]
         field_names = [
             f.name if hasattr(f, "name") else f.field_name
