@@ -356,6 +356,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             date=kwargs.pop("date", None),
             lc_protocol_name=kwargs.pop("lc_protocol_name", None),
             instrument=kwargs.pop("instrument", None),
+            skip_mzxmls=True,
         )
 
         # Example: self.peak_group_selections[sample][pgname.lower()]["filename"] = selected_peak_annotation_filename

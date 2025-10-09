@@ -103,6 +103,15 @@ class Command(LoadTableCommand):
                 "exact matches."
             ),
         )
+        parser.add_argument(
+            "--skip-mzxmls",
+            action="store_true",
+            default=False,
+            help=(
+                "Skip the loading of mzXML files, even if --mzxml-dir or --mzxml-files is provided.  Note that a "
+                "warning about these options being mutually exclusive will be printed."
+            ),
+        )
 
     def handle(self, *args, **options):
         """Code to run when the command is called from the command line.
@@ -186,5 +195,6 @@ class Command(LoadTableCommand):
             lc_protocol_name=options.get("lc_protocol_name"),
             instrument=options.get("instrument"),
             exact_mode=options.get("exact_mode"),
+            skip_mzxmls=options.get("skip_mzxmls"),
         )
         self.load_data()
