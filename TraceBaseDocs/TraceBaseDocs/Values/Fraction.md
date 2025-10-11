@@ -1,17 +1,23 @@
 # Fraction
 
-Found in [PeakData](../Types%20of%20Data%20Output/PeakData.md)
+[_source_](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/241e47de6a06df543ad73c6ceb82d758ce373cbe/DataRepo/models/peak_data.py#L52-L69)
 
-[GitHub Link](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/86fee46e86add535348a2d717324c3465b8d5d9b/DataRepo/models/peak_data.py#L44-L58)
+Found in the [PeakData](../Download/About%20the%20Data/Data%20Types/PeakData.md) data format.
 
-The corrected abundance of the labeled element in this PeakData as a fraction
-of the total abundance of this isotopomer in this PeakGroup. Accucor calculates
-this as "Normalized", but TraceBase renames it to "fraction" to avoid confusion
-with other variables like "normalized labeling".
+The corrected abundance of the labeled element in this PeakData as a fraction of the total abundance of this isotopomer
+in a PeakGroup for a particular compound.  AccuCor calculates this as "Normalized", but Tracebase calculates this value
+as `fraction` to avoid confusion with other variables like `normalized_labeling`.
 
-`fraction = peak_corrected_abundance / peak_group_total_abundance`
+`fraction = corrected_abundance / total_abundance`
 
-Example:  alanine (C3H7NO2) measured with 13C and 15N labeling:
+See:
+
+* [Corrected Abundance](Corrected%20Abundance.md)
+* [Total Abundance](Total%20Abundance.md)
+
+## Example
+
+Alanine (C3H7NO2) measured with 13C and 15N labeling:
 
 Labeled Element:Count | Corrected Abundance | Fraction
 -- | -- | --

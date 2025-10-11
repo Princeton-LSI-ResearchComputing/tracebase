@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.shortcuts import render
 from django.urls import reverse
 
@@ -120,6 +121,9 @@ def home(request):
 
     context = {}
     context["card_grid"] = card_grid
-    context["leaderboards"] = Researcher.leaderboard_data()
+
+    # Only supply the leaderboard if READONLY is False
+    if settings.READONLY is False:
+        context["leaderboards"] = Researcher.leaderboard_data()
 
     return render(request, "home/base.html", context)

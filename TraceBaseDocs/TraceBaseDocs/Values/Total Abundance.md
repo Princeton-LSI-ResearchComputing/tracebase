@@ -1,10 +1,15 @@
 # Total Abundance
 
-Found in [PeakGroups](../Types%20of%20Data%20Output/PeakGroups.md)
+[_source_](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/241e47de6a06df543ad73c6ceb82d758ce373cbe/DataRepo/models/peak_group.py#L78-L90)
 
-[GitHub Link](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/1a7e9f9a05b01e00fdb83b4e1e97ef54c6588302/DataRepo/models/peak_group.py#L53-L65)
+Found in the [PeakGroups](../Download/About%20the%20Data/Data%20Types/PeakGroups.md) data format.
 
-Total ion counts for this compound. Accucor provides this in the tab "pool
-size". Sum of the corrected_abundance of all PeakData for this PeakGroup.
+Total ion counts for this compound.  AccuCor provides this in the tab "pool size".  Sum of the `corrected_abundance` of
+all peaks (i.e. PeakData) for this PeakGroup representing the compound.
 
-`total_abundance = Sum(corrected_abundance)`
+`total_abundance = ∑_peak(corrected_abundance)`
+
+Where:
+
+* `∑_peak` stands for the sum across all peaks in a PeakGroup for a particular compound.
+* See [[Corrected Abundance]]
