@@ -5,14 +5,14 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="http://Princeton-LSI-ResearchComputing.github.io/tracebase/About/Under%20the%20Hood/" />
       <link rel="shortcut icon" href="../../img/favicon.ico" />
-    <title>Under the hood - TraceBase Documentation</title>
+    <title>Under the Hood - TraceBase Documentation</title>
     <link rel="stylesheet" href="../../css/theme.css" />
     <link rel="stylesheet" href="../../css/theme_extra.css" />
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
     
       <script>
         // Current page data
-        var mkdocs_page_name = "Under the hood";
+        var mkdocs_page_name = "Under the Hood";
         var mkdocs_page_input_path = "About/Under the Hood.md";
         var mkdocs_page_url = "/tracebase/About/Under%20the%20Hood/";
       </script>
@@ -53,7 +53,7 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../TraceBase%20Design/">TraceBase Design</a>
                   </li>
-                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Under the hood</a>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="./">Under the Hood</a>
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#search-strategy">Search Strategy</a>
     </li>
@@ -75,6 +75,20 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#universal-peak-annotation-format">Universal Peak Annotation Format</a>
     </li>
+    <li class="toctree-l2"><a class="reference internal" href="#architecture">Architecture</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#database">Database</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#data-submission-via-shared-drive">Data Submission via Shared Drive</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#storage-and-backup">Storage and Backup</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#deployment-and-data-privacy">Deployment and Data Privacy</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#maintenance">Maintenance</a>
+    </li>
     </ul>
                   </li>
               </ul>
@@ -87,11 +101,11 @@
               <ul>
                   <li class="toctree-l1"><a class="reference internal" href="../../Download/How%20to%20Download/">How to Download</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" >About the Data</a>
+                  <li class="toctree-l1"><a class="reference internal" href="#">About the Data</a>
     <ul>
                 <li class="toctree-l2"><a class="reference internal" href="../../Download/About%20the%20Data/Format%20of%20Downloaded%20Data/">Format of Downloaded Data</a>
                 </li>
-                <li class="toctree-l2"><a class="reference internal" >Data Types</a>
+                <li class="toctree-l2"><a class="reference internal" href="#">Data Types</a>
     <ul>
                 <li class="toctree-l3"><a class="reference internal" href="../../Download/About%20the%20Data/Data%20Types/FCirc/">FCirc</a>
                 </li>
@@ -116,7 +130,7 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../Upload/What%20Inputs%20Does%20TraceBase%20Take/">What Inputs Does TraceBase Take</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" >How to Build a Submission</a>
+                  <li class="toctree-l1"><a class="reference internal" href="#">How to Build a Submission</a>
     <ul>
                 <li class="toctree-l2"><a class="reference internal" href="../../Upload/How%20to%20Build%20a%20Submission/1%20-%20How%20to%20Start%20an%20Upload/">How to Start an Upload</a>
                 </li>
@@ -165,7 +179,7 @@
   <ul class="wy-breadcrumbs">
     <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
           <li class="breadcrumb-item">About</li>
-      <li class="breadcrumb-item active">Under the hood</li>
+      <li class="breadcrumb-item active">Under the Hood</li>
     <li class="wy-breadcrumbs-aside">
     </li>
   </ul>
@@ -174,7 +188,7 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
             <div class="section" itemprop="articleBody">
               
-                <h1 id="under-the-hood">Under the hood</h1>
+                <h1 id="under-the-hood">Under the Hood</h1>
 <p>Given a development plan with the outlined <a href="../TraceBase%20Design/#Goals">goals</a>, TraceBase contains a number of hidden
 features that end users don't usually see, but bring enormous value to the TraceBase codebase in terms of maintenance
 and future development efforts.</p>
@@ -190,30 +204,35 @@ inherently scalable and adaptable.  New search formats can be created with minim
 <h2 id="caching-strategy">Caching Strategy</h2>
 <p>Caching of various expensive-to-calculate values in TraceBase improves performance.  Typical caching strategies
 periodically refresh cached values based on a simple cached value expiration date.  However, this strategy has
-drawbacks.  During times of low traffic, the periodic rebuilding of values is susceptible to significantly impacting the
-performance of a large search results download, for example.</p>
+drawbacks.  For example, during times of low traffic, the periodic rebuilding of values is susceptible to significantly
+impacting the performance of a large search results download, for example.</p>
 <p>Additionally, if new data is loaded or changed, cached values can be incorrect until affected cached values are rebuilt,
 so a user may occasionally be presented with that inaccurate data.</p>
-<p>To solve both of these issues, TraceBase employs a caching strategy that sets monitors on specific data that, if it's
+<p>To solve both of these issues, TraceBase employs a caching strategy that sets monitors on specific data that, if it is
 ever changed, will trigger an immediate cache update of the affected values.  That means that as long as a study doesn't
 change, performance will always be optimal, and the values always accurate.</p>
 <h2 id="dynamically-maintained-database-fields">Dynamically Maintained Database Fields</h2>
 <p>While the caching strategy above assures data accuracy and consistent performance, it has one big drawback: cached
 values are not searchable, which is for example, why you cannot search based on calculated FCirc values.  It also has
 occasional maintenance tasks associated with it, such as generating those cached values after a load.</p>
-<p>A strategy newer than the caching strategy that solves accuracy, performance, <em>and</em> searchability, is maintained
-database table fields, and that work was done with a mind toward both scalability and adaptability.  It works much in
-the same way that the caching strategy does, as it triggers updates based on monitored database records, but comes with
-extra features:</p>
+<p>An alternate strategy that improves upon the caching (but has not yet been fully integrated) achieves the same accuracy
+and performance as caching, but <em>adds</em> search/sort ability, is "maintained database table fields". Designed to be
+scalable and adaptable, it works much in the same way that the caching strategy does, as it triggers updates based on
+monitored database records, but comes with extra features:</p>
+<!-- markdownlint-disable MD007 -->
 <ul>
 <li>Multiple configurable modes that govern when to perform the updates.</li>
 <li>A mass autoupdate feature integrated with the loading scripts (to eliminate all associated overhead tasks).</li>
-<li>An extremely small code usage footprint that can</li>
+<li>An extremely small code usage footprint that can<ul>
 <li>Apply field maintenance to a field in a table with as few as 2 lines of code (when given a method to generate a
-    field value), making it highly robust to change.</li>
+  field value), making it highly robust to change.</li>
 <li>Apply mass autoupdate functionality to load methods with a single line of code.</li>
+</ul>
+</li>
 <li>Restricts maintained fields from manual updates to ensure accuracy and proper loading code development.</li>
 </ul>
+<!-- markdownlint-enable MD007 -->
+
 <h2 id="validation-interface">Validation Interface</h2>
 <p>As the most visible under-the-hood feature, the data submission interface's validation page uses the exact same code
 that is used to load the database on the backend.  Designing the validation interface this way dramatically reduces
@@ -229,21 +248,43 @@ coalesced to contribute to this overall strategy and are described below.</p>
 <h3 id="consolidated-input">Consolidated Input</h3>
 <p>To empower users and expedite the submission building process, eliminating the time consuming back and forth with a
 curator when the researcher needs new/novel standardized data, all metadata including nomenclature-controlled data can
-be loaded using a single excel spreadsheet.  A one-stop shop for all data in TraceBase makes the compilation of study
+be loaded using a single Excel spreadsheet.  A one-stop shop for all data in TraceBase makes the compilation of study
 data as smooth as possible.</p>
-<p>An excel speadsheet was chosen as the vehicle for the data because inter-sheet formulas are capable of providing select
-lists for data entry, reducing the opportunities for user error and speeding up manual data entry.</p>
+<p>An Excel spreadsheet was chosen as the vehicle for the data for a few reasons:</p>
+<!-- markdownlint-disable MD007 -->
+<ul>
+<li>Formulas could be used to provide drop-downs for data entry to:<ul>
+<li>Ensure nomenclature consistency of both<ul>
+<li>Uniform controlled terminology</li>
+<li>Consistent flexible terminology (via inter-sheet-populated drop-downs)</li>
+</ul>
+</li>
+<li>Reducing the opportunities for user error</li>
+<li>Speed up manual data entry</li>
+</ul>
+</li>
+<li>Microsoft Excel is<ul>
+<li>Widely available</li>
+<li>Familiar to the researchers</li>
+</ul>
+</li>
+</ul>
+<!-- markdownlint-enable MD007 -->
+
 <h3 id="standardized-loading">Standardized Loading</h3>
 <p>All loading functionality is inherited from a common source that handles the minutiae of loading data so that
 individually developed loading scripts can focus on the data.  Every loading script is reversible, using a strategy
-called atomic transactions.  This is what allows the loading code to be able to be re-used for the validation page, so
-that the errors and warnings that the researcher sees while validating their data is exactly what the curator sees when
-they attempt to load the submission into the database.</p>
+called atomic transactions.  This is what allows the loading code to be able to be re-used for the validation page. I.e.
+the same loading code that a curator runs to load the database is the same code that researchers run on the validation
+page, so that the errors and warnings that the researcher sees while validating their data is exactly what the curator
+sees when they attempt to load the submission into the database.  This makes it easy for researchers and curators to
+communicate about problems in the submission.</p>
+<p><img alt="Researchers and Curators see the same errors" src="../../Attachments/same_code_loads_and_validates.png" /></p>
 <p>Also, each load data type defines the structure of the associated sheet in the Study Doc (xlsx file), which is
 constructed dynamically.  It uses the database table definitions to populate the column headers and datatype and is thus
 able to provide tips and information in the spreadsheet itself, while at the same time, making it robust to database
 changes.  If a new database table or field is added or changed, updating the loading code is very straightforward and
-the excel sheet update is automatic, making it fast and easy to adapt to change.</p>
+the Excel sheet update is automatic, making it fast and easy to adapt to change.</p>
 <h3 id="customized-errors-and-warnings-and-handling">Customized Errors and Warnings and Handling</h3>
 <p>Database errors on the validation interface can be cryptic and hard to interpret to understand what change is needed to
 make in the data to fix it, even for developers, so particular attention was given to creating helpful errors for common
@@ -260,16 +301,16 @@ empowered to handle things on their own, and retain a sense of ownership and con
 for a curator to address the issues in a fashion that impeeds the researcher's input.</p>
 <h3 id="template-creation-and-autofill">Template Creation and Autofill</h3>
 <p>The most time consuming task in building a TraceBase submission is manual data entry.  To boost the study submission
-building process, a custom template can be build by simply submitting all of the peak annotation files, along with
+building process, a custom template can be built by simply submitting all of the peak annotation files, along with
 optional mass spec metadata associated with each file.  Samples and compounds will be parsed from those files and as
 much metadata as is possible will be automatically entered into a downloaded template.  Standardized data from the
 database will be included as well.</p>
-<p>What's more is that every time you validate a study doc, any partially entered data will be propagated to other sheets
-as well.  For example, if you enter a novel tissue name in the Samples sheet or a compound name in the Tracers sheet
-that do not exist in the corresponding Tissues or Compounds sheet, that name will be added to the corresponding sheet in
-the resulting download.</p>
+<p>Additionally, every time a study doc is validated, any partially entered data will be propagated to other sheets.  For
+example, if a novel tissue name is entered in the <code>Samples</code> sheet or a compound name is added to the <code>Tracers</code> sheet
+that does not exist in the corresponding <code>Tissues</code> or <code>Compounds</code> sheets, that name will be added to the corresponding
+sheet in the resulting download.</p>
 <h2 id="universal-peak-annotation-format">Universal Peak Annotation Format</h2>
-<p>TraceBase currently supports the following peak annotation file types (in excel, tsv, and csv format):</p>
+<p>TraceBase currently supports the following peak annotation file types (in Excel, tsv, and csv format):</p>
 <ul>
 <li><a href="https://doi.org/10.1021/acs.analchem.7b00396">AccuCor</a></li>
 <li><a href="https://doi.org/10.1093/bioinformatics/btz209">IsoCor</a></li>
@@ -281,6 +322,53 @@ each of the above formats that are relevant to TraceBase.  Each of those formats
 data type, all that needs to be developed is a converter to the <code>UniCorr</code> format, which is faster to do and easier to
 maintain than dealing with a series of largely redundant loaders.</p>
 <p>This makes TraceBase more robust to change and scalable, as support for new data types/formats are requested.</p>
+<h2 id="architecture">Architecture</h2>
+<p>TraceBase is built on:</p>
+<ul>
+<li><a href="https://www.djangoproject.com">Django</a></li>
+<li><a href="https://www.postgresql.org/">PostgreSQL</a></li>
+</ul>
+<p>As a Django application, you can use any web server to deploy TraceBase that is compatible with:</p>
+<ul>
+<li>WSGI (Web Server Gateway Interface)</li>
+<li>ASGI (Asynchronous Server Gateway Interface) for asynchronous features like WebSockets</li>
+</ul>
+<p>TraceBase deployments have only been tested on Linux.</p>
+<h3 id="database">Database</h3>
+<p>While Django supports multiple database architectures, we selected PostgreSQL due to its robust features and
+reliability.  While not extensively used, there are a few fields and functions used in TraceBase that are specific to
+PostgreSQL.  For example, the positions of labels in a tracer compound are kept in a Postgres <code>ArrayField</code> and the
+format of the display of date-related fields is performed using Postgres-specific functions.</p>
+<p>One key PostgreSQL feature we rely on is its unique ability to perform <code>DISTINCT ON</code> queries.</p>
+<p>For these reasons, an installation of TraceBase using a database architecture other than PostgreSQL is not supported.</p>
+<h3 id="data-submission-via-shared-drive"><a name="shared_drive"></a>Data Submission via Shared Drive</h3>
+<p>Some of the data that TraceBase consumes can be rather large, even for a small study.  Most of the bulk of that data
+comes from <a href="../../Upload/What%20Inputs%20Does%20TraceBase%20Take/#raw_data">RAW and mzXML files</a>.  The data is too large
+to be submitted via a web form, so the transfer of study data is up to the maintainers of any instance of TraceBase.</p>
+<p>For the submission of all study data, we recommend setting up a shared drive of your preference that lab researchers own
+and can edit and organize however they wish.  The location is described on the Upload <strong>Submit</strong> page, whose content
+(e.g. shared drive link) is controlled by environment variables (see <code>TraceBase/.env.example</code>).</p>
+<h3 id="storage-and-backup">Storage and Backup</h3>
+<p>TraceBase has no built-in backup functionality.  Each instance of TraceBase has its own archive (configured via an
+environment variable), but the archive is not a backup.  The database creates and controls the archive.  And all file
+download activity on the TraceBase site come directly from that archive.  But note that backing up the archive does not
+backup the PostgreSQL database.  In order for the database to function correctly, the archive and database need to be
+synchronized.  We recommend backing up both the archive and the PostgreSQL database for a complete backup plan.</p>
+<p>Tracking data corrections and changes in the submission process is outside of that recommended backup plan, so it is up
+to the curators responsible for loading data to track any changes made to user submitted studies.  For that, we
+recommend using a private GitHub repository to house the study doc, peak annotation files, and metadata documentation
+(such as a text document describing changes that the curator makes when resolving problems in a submission.)</p>
+<h2 id="deployment-and-data-privacy">Deployment and Data Privacy</h2>
+<p>TraceBase was designed to be lab-specific.  It has no user-accounts and no data ownership control, so it is up to
+systems administrators to employ authentication processes to govern access.  Anyone with access to TraceBase has access
+to all of its data.  If you would like a subset of data to be public, you must setup and load publicly accessible
+studies on a separate public instance of TraceBase, with its own database and web server.</p>
+<p>For help on deploying TraceBase, reach out to the development <a href="../Team/">Team</a>.</p>
+<h2 id="maintenance">Maintenance</h2>
+<p>All loading and database maintenance of TraceBase happens on the command-line utilizing django management commands.
+Those who install TraceBase are responsible for its maintenance and the curation process (with the assistance of a
+responsible party in the lab, familiar with the scientific data).</p>
+<p>For information on managing TraceBase, reach out to the development <a href="../Team/">Team</a>.</p>
               
             </div>
           </div><footer>

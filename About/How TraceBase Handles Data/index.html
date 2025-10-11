@@ -45,8 +45,16 @@
               </ul>
               <p class="caption"><span class="caption-text">About</span></p>
               <ul class="current">
-                  <li class="toctree-l1 current"><a class="reference internal current" href="#">How TraceBase Handles Data</a>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="./">How TraceBase Handles Data</a>
     <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#types-of-values">Types of Values</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#raw-versus-curated-data">Raw Versus Curated Data</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#searching-for-raw-data-files">Searching for Raw Data Files</a>
+    </li>
+        </ul>
+    </li>
     </ul>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../Navigating%20TraceBase/">Navigating TraceBase</a>
@@ -55,7 +63,7 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../TraceBase%20Design/">TraceBase Design</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../Under%20the%20Hood/">Under the hood</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../Under%20the%20Hood/">Under the Hood</a>
                   </li>
               </ul>
               <p class="caption"><span class="caption-text">Analysis</span></p>
@@ -67,11 +75,11 @@
               <ul>
                   <li class="toctree-l1"><a class="reference internal" href="../../Download/How%20to%20Download/">How to Download</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" >About the Data</a>
+                  <li class="toctree-l1"><a class="reference internal" href="#">About the Data</a>
     <ul>
                 <li class="toctree-l2"><a class="reference internal" href="../../Download/About%20the%20Data/Format%20of%20Downloaded%20Data/">Format of Downloaded Data</a>
                 </li>
-                <li class="toctree-l2"><a class="reference internal" >Data Types</a>
+                <li class="toctree-l2"><a class="reference internal" href="#">Data Types</a>
     <ul>
                 <li class="toctree-l3"><a class="reference internal" href="../../Download/About%20the%20Data/Data%20Types/FCirc/">FCirc</a>
                 </li>
@@ -96,7 +104,7 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../Upload/What%20Inputs%20Does%20TraceBase%20Take/">What Inputs Does TraceBase Take</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" >How to Build a Submission</a>
+                  <li class="toctree-l1"><a class="reference internal" href="#">How to Build a Submission</a>
     <ul>
                 <li class="toctree-l2"><a class="reference internal" href="../../Upload/How%20to%20Build%20a%20Submission/1%20-%20How%20to%20Start%20an%20Upload/">How to Start an Upload</a>
                 </li>
@@ -155,17 +163,20 @@
             <div class="section" itemprop="articleBody">
               
                 <h1 id="how-tracebase-handles-data">How TraceBase Handles Data</h1>
+<h2 id="types-of-values">Types of Values</h2>
 <p>TraceBase consists of three basic types of information:</p>
 <ul>
-<li>Unique</li>
+<li>Experimental</li>
 <li>Standardized</li>
 <li>Calculated</li>
 </ul>
 <p><img alt="TraceBase data organization diagram" src="../../Attachments/Structure%20of%20Tracebase%20Sketch.png" /></p>
-<p><strong>Unique</strong> information consists of identifying sample information.  Individual samples are associated with an Animal,
-which is itself part of one or more studies.  A Study is a collection of Animals as defined by the researcher who
-uploaded them.  This information is provided by the Researcher in the Samples sheet of the
-<a href="../../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc/">Study Doc</a>.  Although
+<p><strong>Experimental</strong> information is the metadata that describes the conditions of the experiment.  It provides context for
+the <em>Calculated</em> values, without which, the results are meaningless.  This data is organized hierarchically by <em>Study</em>,
+<em>Animal</em>, and <em>Sample</em>, each of which is associated with a globally unique name/identifier.  I.e. Individual Samples are
+associated with an Animal, which is itself part of one or more Studies.  A Study is a collection of Animals as defined
+by the researcher who uploaded them.  This information is provided by the Researcher in the Samples sheet of the
+<a href="../../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc/">Study Doc</a>. Although
 samples are organized in this way, data from different studies can be searched, browsed, or downloaded together in
 TraceBase.</p>
 <p><strong>Standardized</strong> data refers to Sample and Compound attributes that are kept consistent across datasets in TraceBase.
@@ -175,16 +186,31 @@ spectrometry (MS).  This ensures that data can be compiled, compared, and search
 Consistency is ensured by developers that review data submitted for upload.  Standardized data can be added or modified
 during a study submission to TraceBase by researchers, but is subject to curator review to ensure consistency and a
 standard nomenclature throughout the database.</p>
-<p><strong>Calculated</strong> data (or "derived data") is data that can be affected by changes to or additions of records in the
-database.  For example, a researcher discovers previously overlooked serum sample data that they submit after an already
-completed (and loaded) submission.  When that new data is loaded, it has the potential to change the results of numerous
-calculated values.  TraceBase dynamically maintains these calculated values for constant accuracy.  Calculated data can
-be found in three types of output: <a href="../../Download/About%20the%20Data/Data%20Types/PeakData/">PeakData</a>,
+<p><strong>Calculated</strong> data (or "derived data") is generated by TraceBase from the originally uploaded data.  TraceBase
+dynamically maintains these calculated values for constant accuracy.  Calculated data can be found in three types of
+output: <a href="../../Download/About%20the%20Data/Data%20Types/PeakData/">PeakData</a>,
 <a href="../../Download/About%20the%20Data/Data%20Types/PeakGroups/">PeakGroups</a>, and
 <a href="../../Download/About%20the%20Data/Data%20Types/FCirc/">FCirc</a>.  Some calculations rely on other calculated data (e.g.
 <a href="../../Values/Normalized%20Labeling/">Normalized Labeling</a> of a measured compound in a PeakGroup from one sample uses the
 <a href="../../Values/Enrichment%20Fraction/">Enrichment Fraction</a> of the tracer compound in the last serum sample from the same
-animal).  Calculated values are generally comparable across experiments.</p>
+animal).  Calculated values are comparable across experiments.  Calculated values can be affected by changes to or
+additions of records in the database.  For example, a researcher discovers previously overlooked serum sample data after
+an already completed (and loaded) submission.  The researcher then uploads additional data for that serum sample, and
+TraceBase updates the (previously missing) Fcirc value (and any other calculated values related to the new data).</p>
+<h2 id="raw-versus-curated-data"><a name="curated_v_raw"></a>Raw Versus Curated Data</h2>
+<p>TraceBase provides the option to upload raw mass spectrometry files (e.g. .raw and .mzXML files) for each <code>Sample</code>.
+Importantly, TraceBase does not directly associate the curated data (<code>PeakData</code> or <code>PeakGroup</code>s) with the exact <code>.mzXML</code>
+file from which it came.  Instead, TraceBase associates the mass spectrometry file(s) with the <code>Sample</code> (which is a
+description of the biological entity, like the quadricep from animal 123). The exact relationship within the database is
+more complex but beyond the scope of this description.</p>
+<p>Practically, you can download mzXML files associated with the <code>Samples</code> found in an Advanced Search of <code>PeakData</code> or
+<code>PeakGroups</code>.  This download is uniformly organized based on the sequence and the information extracted from the <code>mzXML</code>
+file (e.g. polarity and scan range).</p>
+<h3 id="searching-for-raw-data-files">Searching for Raw Data Files</h3>
+<p>mzXML files from which curated peaks were derived can be found using the Advanced Search.  In the rare case, when a
+Sample was uploaded without any curated data, the mzXML exists in TraceBase, but cannot be found using the Advanced
+Search page.  However, any mzXML can be found on the Archive Files page.</p>
+<p>Support for improved access to all mzXML files regardless of the existence of curated peaks will be added in the future.</p>
               
             </div>
           </div><footer>

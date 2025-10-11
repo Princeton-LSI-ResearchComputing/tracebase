@@ -53,7 +53,7 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../About/TraceBase%20Design/">TraceBase Design</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../../About/Under%20the%20Hood/">Under the hood</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../../About/Under%20the%20Hood/">Under the Hood</a>
                   </li>
               </ul>
               <p class="caption"><span class="caption-text">Analysis</span></p>
@@ -65,11 +65,11 @@
               <ul>
                   <li class="toctree-l1"><a class="reference internal" href="../../Download/How%20to%20Download/">How to Download</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" >About the Data</a>
+                  <li class="toctree-l1"><a class="reference internal" href="#">About the Data</a>
     <ul>
                 <li class="toctree-l2"><a class="reference internal" href="../../Download/About%20the%20Data/Format%20of%20Downloaded%20Data/">Format of Downloaded Data</a>
                 </li>
-                <li class="toctree-l2"><a class="reference internal" >Data Types</a>
+                <li class="toctree-l2"><a class="reference internal" href="#">Data Types</a>
     <ul>
                 <li class="toctree-l3"><a class="reference internal" href="../../Download/About%20the%20Data/Data%20Types/FCirc/">FCirc</a>
                 </li>
@@ -94,7 +94,7 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../Upload/What%20Inputs%20Does%20TraceBase%20Take/">What Inputs Does TraceBase Take</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" >How to Build a Submission</a>
+                  <li class="toctree-l1"><a class="reference internal" href="#">How to Build a Submission</a>
     <ul>
                 <li class="toctree-l2"><a class="reference internal" href="../../Upload/How%20to%20Build%20a%20Submission/1%20-%20How%20to%20Start%20an%20Upload/">How to Start an Upload</a>
                 </li>
@@ -119,10 +119,8 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../Enrichment%20Fraction/">Enrichment Fraction</a>
                   </li>
-                  <li class="toctree-l1 current"><a class="reference internal current" href="#">FCirc Rates</a>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="./">FCirc Rates</a>
     <ul class="current">
-    <li class="toctree-l2"><a class="reference internal" href="#serum-tracers-enrichment-fraction">Serum Tracers Enrichment Fraction</a>
-    </li>
     <li class="toctree-l2"><a class="reference internal" href="#rates-of-appearancedisappearance-rard">Rates of Appearance/Disappearance (Ra/Rd)</a>
         <ul>
     <li class="toctree-l3"><a class="reference internal" href="#intact">Intact</a>
@@ -181,39 +179,34 @@
 supplied by the researcher:</p>
 <!-- markdownlint-disable MD007 -->
 <ul>
-<li>Animal body weight</li>
-<li>Serum sample collection time</li>
-<li>MS Run Date<ul>
+<li>Animal Body <a href="../../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc/#weight">Weight</a></li>
+<li><a href="../../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc/#infusionrate">Infusion Rate</a></li>
+<li>MS <a href="../../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc/#rundate">Run Date</a><ul>
 <li>Note: reruns take precedence over previous runs</li>
 <li>If this date is not provided, and the last serum sample was run multiple times, an arbitrary run is selected</li>
 </ul>
 </li>
-<li>At least 1 serum sample, from which:<ul>
-<li>A peak group has been supplied for every tracer the animal was infused with</li>
-<li>Note: Additionally, the <strong>intact</strong> FCirc calculations require the detection of a fully labeled tracer in its
-  PeakGroup.</li>
+<li>At least 1 serum sample, with:<ul>
+<li><a href="../../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc/#tissue">tissue</a> name
+  containing "serum".</li>
+<li><a href="../../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc/#coltim">collection time</a></li>
+<li>A peak group for every tracer the animal was infused with</li>
+<li>Note: The <strong>intact</strong> FCirc calculations require the detection of a fully labeled tracer in each of the infused
+  tracers' PeakGroups.</li>
 </ul>
 </li>
 </ul>
 <!-- markdownlint-enable MD007 -->
 
-<h2 id="serum-tracers-enrichment-fraction"><a name="serum_tracers_enrichment_fraction"></a>Serum Tracers Enrichment Fraction</h2>
-<p><a href="https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/241e47de6a06df543ad73c6ceb82d758ce373cbe/DataRepo/models/animal_label.py#L89-L171"><em>source</em></a></p>
-<p>The rates of appearance and disappearance of the average labeled state of any measured compound rely on the calculation
-of a weighted average of the enrichment fraction of labeled atoms among of all of the infused tracers in the animal's
-final serum sample.  E.g. The fraction of labeled carbons among all the final serum sample's tracer compounds.</p>
-<p>This calculation is performed for a single labeled element in the following manner:</p>
-<p>The label enrichment is summed for all of the tracers in the last serum sample, and is divided by the total count of the
-element among all the tracers' formulas (labeled or not).</p>
-<p><code>serum_tracers_enrichment_fraction = ∑_tracer_peak(fraction * labeled_count) / element_count</code></p>
-<p>Where:</p>
-<ul>
-<li><code>∑_tracer_peak</code> stands for the sum across all tracer peaks/observations.</li>
-<li><code>labeled_count</code> refers to the number of labeled elements in a single tracer observation (/peak).</li>
-<li><code>element_count</code> is the number of occurrences the element summed across all tracers' formulas (labeled or not).</li>
-<li><code>fraction</code>: See <a href="../Fraction/">Fraction</a></li>
-</ul>
 <h2 id="rates-of-appearancedisappearance-rard">Rates of Appearance/Disappearance (<code>Ra</code>/<code>Rd</code>)</h2>
+<p>For more information of the variables in the equations below:</p>
+<ul>
+<li><a href="../../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc/#weight"><code>animal_body_weight</code></a></li>
+<li><a href="../Enrichment%20Fraction/"><code>enrichment_fraction</code></a></li>
+<li><a href="../Fraction/"><code>fraction</code></a></li>
+<li><a href="../../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc/#infusionrate"><code>infusion_rate</code></a></li>
+<li><a href="../../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc/#conc"><code>tracer_concentration</code></a></li>
+</ul>
 <h3 id="intact">Intact</h3>
 <h4 id="per-gram">Per Gram</h4>
 <ul>
@@ -237,7 +230,7 @@ element among all the tracers' formulas (labeled or not).</p>
 <h4 id="per-gram_1">Per Gram</h4>
 <ul>
 <li>
-<p><a name="Rd_avg_g"></a><code>Rd_avg_g = infusion_rate * tracer_concentration / serum_tracers_enrichment_fraction</code> (<a href="https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/241e47de6a06df543ad73c6ceb82d758ce373cbe/DataRepo/models/peak_group_label.py#L527-L552"><em>source</em></a>)</p>
+<p><a name="Rd_avg_g"></a><code>Rd_avg_g = infusion_rate * tracer_concentration / enrichment_fraction</code> (<a href="https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/241e47de6a06df543ad73c6ceb82d758ce373cbe/DataRepo/models/peak_group_label.py#L527-L552"><em>source</em></a>)</p>
 </li>
 <li>
 <p><a name="Ra_avg_g"></a><code>Ra_avg_g = Rd_avg_g - infusion_rate * tracer_concentration</code> (<a href="https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/241e47de6a06df543ad73c6ceb82d758ce373cbe/DataRepo/models/peak_group_label.py#L556-L579"><em>source</em></a>)</p>

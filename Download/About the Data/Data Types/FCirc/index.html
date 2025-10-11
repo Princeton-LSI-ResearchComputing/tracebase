@@ -53,7 +53,7 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../../../About/TraceBase%20Design/">TraceBase Design</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../../../../About/Under%20the%20Hood/">Under the hood</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../../../../About/Under%20the%20Hood/">Under the Hood</a>
                   </li>
               </ul>
               <p class="caption"><span class="caption-text">Analysis</span></p>
@@ -65,13 +65,13 @@
               <ul class="current">
                   <li class="toctree-l1"><a class="reference internal" href="../../../How%20to%20Download/">How to Download</a>
                   </li>
-                  <li class="toctree-l1 current"><a class="reference internal current" >About the Data</a>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">About the Data</a>
     <ul class="current">
                 <li class="toctree-l2"><a class="reference internal" href="../../Format%20of%20Downloaded%20Data/">Format of Downloaded Data</a>
                 </li>
-                <li class="toctree-l2 current"><a class="reference internal current" >Data Types</a>
+                <li class="toctree-l2 current"><a class="reference internal current" href="#">Data Types</a>
     <ul class="current">
-                <li class="toctree-l3 current"><a class="reference internal current" href="#">FCirc</a>
+                <li class="toctree-l3 current"><a class="reference internal current" href="./">FCirc</a>
     <ul class="current">
     <li class="toctree-l4"><a class="reference internal" href="#definition">Definition</a>
     </li>
@@ -104,7 +104,7 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../../../Upload/What%20Inputs%20Does%20TraceBase%20Take/">What Inputs Does TraceBase Take</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" >How to Build a Submission</a>
+                  <li class="toctree-l1"><a class="reference internal" href="#">How to Build a Submission</a>
     <ul>
                 <li class="toctree-l2"><a class="reference internal" href="../../../../Upload/How%20to%20Build%20a%20Submission/1%20-%20How%20to%20Start%20an%20Upload/">How to Start an Upload</a>
                 </li>
@@ -183,8 +183,10 @@ these and automates the standard calculations for FCirc without making any assum
 <p><img alt="Types of FCirc" src="../../../../Attachments/types_of_fcirc.png" />
 (from Bartman, TeSlaa, and Rabinowitz)</p>
 <p>It's important to note however that serum samples are collected at multiple points before sacrifice and TraceBase
-calculates FCirc values for <strong>every</strong> serum/plasma sample, regardless of stead-state.  So be aware that the serum sample
-with the most accurate FCirc calculations will be derived from the <strong>last</strong> collected serum sample.</p>
+calculates FCirc values for <strong>every</strong> serum/plasma sample, regardless of steady-state.  So be aware that for that
+reason, TraceBase makes a distinction between FCirc values calculated from the <strong>last</strong> serum sample and all prior Serum
+Samples, but note that the best value <strong>may</strong> sometimes be the average of the last few, thus TraceBase presents FCirc
+calculations for every individual Serum Sample, regardless of timepoint.</p>
 <p>The FCirc view in the Advanced Search can be filtered for the "last serum sample" manually, as a row in the search or
 using the checkbox shortcut above the results:</p>
 <p><img alt="Filter out &quot;previous&quot; serum samples" src="../../../../Attachments/last_serum_sample.png" /></p>

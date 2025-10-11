@@ -53,7 +53,7 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../About/TraceBase%20Design/">TraceBase Design</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../../About/Under%20the%20Hood/">Under the hood</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../../About/Under%20the%20Hood/">Under the Hood</a>
                   </li>
               </ul>
               <p class="caption"><span class="caption-text">Analysis</span></p>
@@ -65,11 +65,11 @@
               <ul>
                   <li class="toctree-l1"><a class="reference internal" href="../../Download/How%20to%20Download/">How to Download</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" >About the Data</a>
+                  <li class="toctree-l1"><a class="reference internal" href="#">About the Data</a>
     <ul>
                 <li class="toctree-l2"><a class="reference internal" href="../../Download/About%20the%20Data/Format%20of%20Downloaded%20Data/">Format of Downloaded Data</a>
                 </li>
-                <li class="toctree-l2"><a class="reference internal" >Data Types</a>
+                <li class="toctree-l2"><a class="reference internal" href="#">Data Types</a>
     <ul>
                 <li class="toctree-l3"><a class="reference internal" href="../../Download/About%20the%20Data/Data%20Types/FCirc/">FCirc</a>
                 </li>
@@ -92,7 +92,7 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../Uploading%20FAQ/">Uploading FAQ</a>
                   </li>
-                  <li class="toctree-l1 current"><a class="reference internal current" href="#">What Inputs Does TraceBase Take</a>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="./">What Inputs Does TraceBase Take</a>
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#raw-mass-spectrometry-peak-data">Raw Mass Spectrometry Peak Data</a>
     </li>
@@ -106,7 +106,7 @@
     </li>
     </ul>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" >How to Build a Submission</a>
+                  <li class="toctree-l1"><a class="reference internal" href="#">How to Build a Submission</a>
     <ul>
                 <li class="toctree-l2"><a class="reference internal" href="../How%20to%20Build%20a%20Submission/1%20-%20How%20to%20Start%20an%20Upload/">How to Start an Upload</a>
                 </li>
@@ -164,8 +164,8 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
             <div class="section" itemprop="articleBody">
               
-                <!-- markdownlint-disable MD007 -->
-<h1 id="what-inputs-does-tracebase-take">What Inputs Does TraceBase Take</h1>
+                <h1 id="what-inputs-does-tracebase-take">What Inputs Does TraceBase Take</h1>
+<!-- markdownlint-disable MD007 -->
 <p>TraceBase takes 3 kinds of input data:</p>
 <ul>
 <li>Raw Mass Spectrometry Peak Data<ul>
@@ -188,15 +188,15 @@
 <p>The experimental metadata includes some nomenclature-controlled metadata to make sure all data is inter-comparable and
 reliably searchable across studies.  See <a href="../../About/How%20TraceBase%20Handles%20Data/">How TraceBase Handles Data</a> for
 more information on how TraceBase treats both input and output data.</p>
-<h2 id="raw-mass-spectrometry-peak-data">Raw Mass Spectrometry Peak Data</h2>
-<p>TraceBase currently supports 2 forms or raw Mass Spec files"</p>
+<h2 id="raw-mass-spectrometry-peak-data"><a name="raw_data"></a>Raw Mass Spectrometry Peak Data</h2>
+<p>TraceBase currently supports 2 forms of "raw" Mass Spec files:</p>
 <ul>
-<li><code>RAW</code> files produced by a Mass Spec instrument</li>
+<li><code>RAW</code> files produced by a <em>Thermo Fisher</em> Mass Spec instrument (proprietary format)</li>
 <li><code>mzXML</code> files containing a portion of the RAW data that are typically used in peak correction</li>
 </ul>
 <p>TraceBase archives each of these file types to make them searchable in order to find unanalyzed peak data for future
-studies (as opposed to the curated corrected data that TraceBase provides calculated values for, like
-<a href="../../Values/FCirc%20Rates/">FCirc Rates</a>).</p>
+studies (as opposed to the curated natural abundance-corrected data (generated from Accucor, IsoCor, Iso-AutoCor, etc)
+that TraceBase provides calculated values for, like <a href="../../Values/FCirc%20Rates/">FCirc Rates</a>).</p>
 <p>A collection of either form of raw file is too large and impractical to provide via upload on the web, so study
 submissions are delivered for loading using a shared drive, as described on the Upload <strong>Submit</strong> page.</p>
 <p>The <code>mzXML</code> files are parsed by TraceBase to extract:</p>
@@ -204,6 +204,9 @@ submissions are delivered for loading using a shared drive, as described on the 
 <li>Polarity</li>
 <li>Scan Range</li>
 </ul>
+<p>For more details on the relationship between raw file data and curated data, see
+<a href="../../About/How%20TraceBase%20Handles%20Data/#curated_v_raw">Raw Versus Curated Data</a> in
+<a href="../../About/How%20TraceBase%20Handles%20Data/">How TraceBase Handles Data</a>.</p>
 <h2 id="corrected-mass-spectrometry-peak-data">Corrected Mass Spectrometry Peak Data</h2>
 <p>TraceBase supports the output from 3 popular tools for natural abundance correction:</p>
 <ul>
@@ -246,10 +249,8 @@ submissions are delivered for loading using a shared drive, as described on the 
 <p>To empower the user and engender a sense of ownership and control over your data, all experimental metadata (even the
 nomenclature-controlled metadata that subject to curator oversight), is localized in a single Excel document that you
 build during the submission process.</p>
-<p>TraceBase is designed to match an LCMS sample name to a biological sample.  In a submission, the sample names and the
-compounds are extracted and processed from the <code>peak annotation files</code>.  It's not possible to extract all other metadata
-automatically, thus much of this data entry is manual, but the data is organized around how researchers tend to store
-this kind of data.</p>
+<p>TraceBase is designed to match an LCMS sample name (carried from the name of the mzXML file to the sample name in a peak
+annotation file) to a biological sample.</p>
 <h3 id="recommended-practices-for-organizing-data"><a name="metadata_recommendations"></a>Recommended Practices for Organizing Data</h3>
 <p>Some researchers keep a single list of Animal IDs for all experiments.  This works well for TraceBase, because each
 Animal ID is unique.  Other researchers keep a list of animal IDs for each experiment (aka "Study").  In this example,

@@ -51,8 +51,20 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../Team/">Team</a>
                   </li>
-                  <li class="toctree-l1 current"><a class="reference internal current" href="#">TraceBase Design</a>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="./">TraceBase Design</a>
     <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#key-motivations">Key Motivations</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#reducing-the-submission-barrier">Reducing the Submission Barrier</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#ensure-data-integrity-and-accuracy">Ensure Data Integrity and Accuracy</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#enable-holistic-cross-experiment-analyses">Enable Holistic Cross-Experiment Analyses</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#leverage-unanalyzed-raw-data">Leverage Unanalyzed Raw Data</a>
+    </li>
+        </ul>
+    </li>
     <li class="toctree-l2"><a class="reference internal" href="#goals">Goals</a>
         <ul>
     <li class="toctree-l3"><a class="reference internal" href="#end-user-goals">End User Goals</a>
@@ -63,7 +75,7 @@
     </li>
     </ul>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../Under%20the%20Hood/">Under the hood</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../Under%20the%20Hood/">Under the Hood</a>
                   </li>
               </ul>
               <p class="caption"><span class="caption-text">Analysis</span></p>
@@ -75,11 +87,11 @@
               <ul>
                   <li class="toctree-l1"><a class="reference internal" href="../../Download/How%20to%20Download/">How to Download</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" >About the Data</a>
+                  <li class="toctree-l1"><a class="reference internal" href="#">About the Data</a>
     <ul>
                 <li class="toctree-l2"><a class="reference internal" href="../../Download/About%20the%20Data/Format%20of%20Downloaded%20Data/">Format of Downloaded Data</a>
                 </li>
-                <li class="toctree-l2"><a class="reference internal" >Data Types</a>
+                <li class="toctree-l2"><a class="reference internal" href="#">Data Types</a>
     <ul>
                 <li class="toctree-l3"><a class="reference internal" href="../../Download/About%20the%20Data/Data%20Types/FCirc/">FCirc</a>
                 </li>
@@ -104,7 +116,7 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../Upload/What%20Inputs%20Does%20TraceBase%20Take/">What Inputs Does TraceBase Take</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" >How to Build a Submission</a>
+                  <li class="toctree-l1"><a class="reference internal" href="#">How to Build a Submission</a>
     <ul>
                 <li class="toctree-l2"><a class="reference internal" href="../../Upload/How%20to%20Build%20a%20Submission/1%20-%20How%20to%20Start%20an%20Upload/">How to Start an Upload</a>
                 </li>
@@ -163,22 +175,44 @@
             <div class="section" itemprop="articleBody">
               
                 <h1 id="tracebase-design">TraceBase Design</h1>
-<p>TraceBase was built to solve a practical problem, inherent to how the science of metabolomics is performed.  Each
-experiment is designed around a specific question or questions about specific metabolites.  However, when you process
-samples through liquid chromatography and mass spectrometry, the instruments yield information on much more than just
-the metabolites of interest.  Much of the data often goes unscrutinized/uninspected/unused, because it may not relate
-directly to the question the experimentalist is currently trying to answer.  This is valuable data that can potentially
-be applied to other scientific questions about the same metabolites, but if those questions arise much later, perhaps
-<em>years</em> later, it may be difficult to track down that data and all associated metadata.  It could be spread across
-computers, external hard drives, lab notebooks, or even only exist in one resercher's memory.  And that researcher and
-those data sources may have moved on, thus tracking down that potentially useful data can be arduous and time consuming.</p>
-<p>Tracebase can serve as a central repository to store all of that unused data in one central location, to be searched and
-analyzed.  It even enables the ability to answer broader holistic scientific questions that could not be asked when the
-data is not all in one accessible location, or when the calculations used in the various analyses were performed using
-different methods.</p>
-<p>Such repositories, historically speaking, have exacting submission requirements that tend to be a barrier to data
-submission.  The data can be complex and challenging.  TraceBase endeavors to smooth all of that out, which brings us to
-the guiding general requirements for the development of TraceBase.</p>
+<p>The study of metabolism often includes experiments where an animal is infused with a heavy isotope of a nutrient, and
+biological samples are collected and analyzed using a mass spectrometer.  Historically, these costly and time-consuming
+experiments were only analyzed with a specific experimental question in mind, and much of the data available went
+unused.  TraceBase was designed to capture, organize, and share data generated in these isotope tracing experiments.  It
+is ideal for both the researcher who has completed all of their experiments, as well as the researcher whose work is in
+progress.</p>
+<h2 id="key-motivations">Key Motivations</h2>
+<ul>
+<li>Reduce the barrier for scientific data submission.</li>
+<li>Maintain data integrity and calculation accuracy or curated data, despite changes.</li>
+<li>Enable holistic analysis across many experiments.</li>
+<li>Leverage unanalyzed peak data produced in every experiment by making raw data accessible.</li>
+</ul>
+<h3 id="reducing-the-submission-barrier">Reducing the Submission Barrier</h3>
+<p>Metabolomics studies involve lots of complex data, making the organizational burden, high.   As such, metabolomics
+repositories often have exacting submission requirements that create large barriers to data submission.  TraceBase was
+developed around flexible submission requirements and a guided collaborative curation process, while providing tools to
+empower users to prepare data and easily diagnose problems and fix them iteratively/incrementally.  In designing this
+system, the following guiding principles were used:</p>
+<ul>
+<li>Incomplete submissions are OK and can be added to later.</li>
+<li>Imperfect data can be submitted and fixed as you go via the curation process.</li>
+<li>Data must be private to the laboratory (encouraging submission prior to publication).</li>
+<li>Focused design on infusions of isotope tracers into animals.</li>
+</ul>
+<h3 id="ensure-data-integrity-and-accuracy">Ensure Data Integrity and Accuracy</h3>
+<p>TraceBase monitors the data in its studies in such way that ensures accurate calculations, despite changes to the data
+as a study is compiled and/or added-to.  If data changes can affect how other data calculations are made, calculations
+are re-done.  For example, if a later serum sample is added, it represents a better steady state, so normalized labeling
+calculations are updated.</p>
+<h3 id="enable-holistic-cross-experiment-analyses">Enable Holistic Cross-Experiment Analyses</h3>
+<p>TraceBase breaks down common calculations (like FCirc) by labeled element, so that when tracers in different experiments
+have different numbers of labeled elements, their results can still be compared.  This ensures consistent analysis of
+single experiments and enables holistic analysis across many experiments.</p>
+<h3 id="leverage-unanalyzed-raw-data">Leverage Unanalyzed Raw Data</h3>
+<p>Since LCMS data is expensive and produces more data than is necessary to answer the immediate scientific question at
+hand, much of its output goes unused, but if made accessible, can be applied to new scientific questions.  By linking
+this raw data to its related experimental data, it can be searched, downloaded, and used in new studies.</p>
 <h2 id="goals"><a name="Goals"></a>Goals</h2>
 <h3 id="end-user-goals">End User Goals</h3>
 <p>TraceBase was developed with a primary focus the following development goals/features that were determined to be
@@ -226,7 +260,7 @@ and minimized.  Thus, this project was also tackled with these core principles i
           </div><footer>
     <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
         <a href="../Team/" class="btn btn-neutral float-left" title="Team"><span class="icon icon-circle-arrow-left"></span> Previous</a>
-        <a href="../Under%20the%20Hood/" class="btn btn-neutral float-right" title="Under the hood">Next <span class="icon icon-circle-arrow-right"></span></a>
+        <a href="../Under%20the%20Hood/" class="btn btn-neutral float-right" title="Under the Hood">Next <span class="icon icon-circle-arrow-right"></span></a>
     </div>
 
   <hr/>

@@ -53,7 +53,7 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../About/TraceBase%20Design/">TraceBase Design</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../../About/Under%20the%20Hood/">Under the hood</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../../About/Under%20the%20Hood/">Under the Hood</a>
                   </li>
               </ul>
               <p class="caption"><span class="caption-text">Analysis</span></p>
@@ -65,11 +65,11 @@
               <ul>
                   <li class="toctree-l1"><a class="reference internal" href="../../Download/How%20to%20Download/">How to Download</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" >About the Data</a>
+                  <li class="toctree-l1"><a class="reference internal" href="#">About the Data</a>
     <ul>
                 <li class="toctree-l2"><a class="reference internal" href="../../Download/About%20the%20Data/Format%20of%20Downloaded%20Data/">Format of Downloaded Data</a>
                 </li>
-                <li class="toctree-l2"><a class="reference internal" >Data Types</a>
+                <li class="toctree-l2"><a class="reference internal" href="#">Data Types</a>
     <ul>
                 <li class="toctree-l3"><a class="reference internal" href="../../Download/About%20the%20Data/Data%20Types/FCirc/">FCirc</a>
                 </li>
@@ -84,7 +84,7 @@
               </ul>
               <p class="caption"><span class="caption-text">Upload</span></p>
               <ul class="current">
-                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Errors and Warnings Reference</a>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="./">Errors and Warnings Reference</a>
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#how-to-use-this-exception-lookup-reference">How to Use this Exception Lookup Reference</a>
     </li>
@@ -244,7 +244,7 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../What%20Inputs%20Does%20TraceBase%20Take/">What Inputs Does TraceBase Take</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" >How to Build a Submission</a>
+                  <li class="toctree-l1"><a class="reference internal" href="#">How to Build a Submission</a>
     <ul>
                 <li class="toctree-l2"><a class="reference internal" href="../How%20to%20Build%20a%20Submission/1%20-%20How%20to%20Start%20an%20Upload/">How to Start an Upload</a>
                 </li>
@@ -310,21 +310,14 @@ is intended to serve as a reference to help researchers figure out how to addres
 <p>The TraceBase submission interface was built with researchers in mind, to empower users to be able to fix their data on
 their own, thereby speeding up the curation and loading process.  It also is intended to give users a sense of ownership
 over their own data.</p>
-<p>Not every possible exception you can encounter is here.  The excpetions in this documentation represent the debug work
-of curators who have figured out the meaning behind common context-lacking cryptic/technical database exceptions that
-have been encountered in past submissions and saved that work in the form of custom exceptions that refer to the precise
-corresponding input data's file location.  Cryptic exceptions (for previously unencountered issues) can still arise.  If
-you see any, leave it for a curator to figure out so that that work can be saved in a new, more easy to understand
-exception, so that future users can benefit from that work, should they encounter the same issue.</p>
+<p>Not every possible exception you can encounter is here. If you see an exception that is not listed here, leave it for
+the curator to solve and proceed with your upload.</p>
 <h2 id="how-to-use-this-exception-lookup-reference">How to Use this Exception Lookup Reference</h2>
 <p>If a custom exception listed here is encountered and its language is difficult to understand or more context is needed,
 look up the exception's name on this page to get hints on what the exception means, the context surrounding it, and
 potentially, a more in depth suggestion on how to fix the issues in the submission that lead to the error.  If you have
 any suggestions on improving the wording in any exception you encounter in the submission process, please share feedback
 using the <strong>Feedback</strong> link at the top of the page where you encountered it.</p>
-<p>Most such errors and warnings about your submission data will be encountered on the <strong>Validate</strong> tab, but a small subset
-will only ever be seen on the <strong>Start</strong> tab.  That's because it is the only time during the submission build process
-where TraceBase evaluates your peak annotation files collectively.</p>
 <p>It is important to note that if you discover an overlooked peak annotation file, it should be submitted on the <strong>Start</strong>
 page with all other peak annotation files.  That is the only way to identify some issues and it auto-fills multiple
 sheets with the data it extracts.  The best strategy to save work already done up to that point (until the ability to
@@ -397,17 +390,25 @@ site should be consulted.</p>
 <p>^ <em>Note that pre-populating the <code>Compounds</code> sheet with ionization variants is a proposed feature.</em>
 <em>See GitHub issue <a href="https://github.com/Princeton-LSI-ResearchComputing/tracebase/issues/1195">#1195</a>.</em></p>
 <h3 id="compoundexistsasmismatchedsynonym"><code>CompoundExistsAsMismatchedSynonym</code></h3>
-<p>The compound name already exists as a synonym of a differing compound.</p>
-<p>To resolve this issue, either edit the compound in the input file to match and merge it with the existing compound
-or remove the synonym from the differing compound record so that peak groups (and tracers) are associated with the
-other compound record.</p>
-<p>Note that this exception can arise due to either a formula that represents the ionized state of a compound or the
-HMDB ID could be inaccurately assigned.</p>
+<p>A compound row was added to the Compounds sheet whose name exists as a synonym of another compound.</p>
+<p>This exception can arise automatically in the downloaded study doc template all on its own.  TraceBase tries to add rows
+in the Compounds sheet for both compounds that already exist in TraceBase and novel compounds that do not yet exist in
+TraceBase.  However, the compound name and formula must both match.  When they do not match, a new row for a novel
+compound is added to the sheet, whether or not it creates a conflict.  Such a conflict can arise due to the formula
+(derived from the peak annotation file) representing the ionized state of the compound, e.g. with 1 less or 1 more
+proton (H).</p>
+<p>A researcher can also cause this exception if they were to assign an HMDB ID that is already assigned to another
+compound existing in TraceBase.  This can often happen after fixing the issue described above caused by an ionized
+formula, because TraceBase did not pre-fill the existing compound due to the formula difference.</p>
+<p>Lastly, this issue can arise if the conflicting compound record simply has a synonym associated with a compound record
+that is just wrong.</p>
+<p>To resolve this issue, either merge the compound records (editing them to fix the formula) or remove the synonym from
+the differing compound record so that peak groups (and tracers) are associated with the other compound record.</p>
 <p>If the compound from the peak annotation file(s) differs from the existing TraceBase compound record (e.g. different
 formula or HMDB ID), and the new record represents a distinctly different compound, reach out to the curators.  The
-existing compound synonym may already be associated with a different compound in other studies, so either changes
-would need to be made to those other studies or the new study would need to be edited to distinguish the different
-compounds.  Either way, a curator will need to coordinate the fix to ensure database-wide consistency.</p>
+existing compound synonym may already be associated with a different compound in other studies, so either changes would
+need to be made to those other studies or the new study would need to be edited to distinguish the different compounds.
+Either way, a curator will need to coordinate the fix to ensure database-wide consistency.</p>
 <h3 id="conflictingvalueerror-conflictingvalueerrors"><code>ConflictingValueError</code> (<code>ConflictingValueErrors</code>)</h3>
 <p>A conflicting value was encountered between previously loaded data and data being loaded from an input file.</p>
 <p>The loading code does not currently support database model record updates, but it does support <strong>adding</strong> data to an
@@ -489,9 +490,8 @@ report an error.</p>
 <p>These exceptions, when they occur on a somewhat regular basis, are figured out and the work in figuring out the
 cause and likely solution is saved in a custom exception class to make them easier to fix when they crop up again.</p>
 <h3 id="infusateparsingerror"><code>InfusateParsingError</code></h3>
-<p>A regular expression or other parsing error was encountered when parsing an Infusate string.  The formatting or
-completeness of the string must be manually fixed.  Consult formatting guidelines (check the file’s header
-comment).</p>
+<p>An error was encountered when reading (parsing) your Infusate.  The format or completeness of the infusate name must be
+manually corrected.  Consult formatting guidelines in the Study Doc Infusate column header's comment.</p>
 <h3 id="invalidheaders"><code>InvalidHeaders</code></h3>
 <p>Unexpected headers encountered in the input file.</p>
 <p>No unexpected headers are allowed.</p>
@@ -819,17 +819,25 @@ that links to that animal is loaded, this error will occur.</p>
 <p>The loading code tries to avoid these “redundant” errors, but it also tries to gather as many errors as possible to
 reduce repeated validate/edit iterations.</p>
 <h3 id="synonymexistsasmismatchedcompound"><code>SynonymExistsAsMismatchedCompound</code></h3>
-<p>The compound synonym already exists as the primary name of a differing compound.</p>
-<p>To resolve this issue, either edit the new compound containing the conflicting synonym in the input file to match
-and merge it with the existing compound or remove the new compound record so that peak groups (and tracers) are
-associated with the other compound record.</p>
-<p>Note that this exception can arise due to either a formula that represents the ionized state of a compound or the
-HMDB ID could be inaccurately assigned.</p>
+<p>A compound row was added to the Compounds sheet whose synonym exists as a primary name of another compound.</p>
+<p>This exception can arise automatically in the downloaded study doc template all on its own.  TraceBase tries to add rows
+in the Compounds sheet for both compounds that already exist in TraceBase and novel compounds that do not yet exist in
+TraceBase.  However, the compound name and formula must both match.  When they do not match, a new row for a novel
+compound is added to the sheet, whether or not it creates a conflict.  Such a conflict can arise due to the formula
+(derived from the peak annotation file) representing the ionized state of the compound, e.g. with 1 less or 1 more
+proton (H).</p>
+<p>A researcher can also cause this exception if they were to assign an HMDB ID that is already assigned to another
+compound existing in TraceBase.  This can often happen after fixing the issue described above caused by an ionized
+formula, because TraceBase did not pre-fill the existing compound due to the formula difference.</p>
+<p>Lastly, this issue can arise if the conflicting compound record simply has a synonym associated with a compound record
+that is just wrong.</p>
+<p>To resolve this issue, either merge the compound records (editing them to fix the formula) or remove the synonym from
+the differing compound record so that peak groups (and tracers) are associated with the other compound record.</p>
 <p>If the compound from the peak annotation file(s) differs from the existing TraceBase compound record (e.g. different
 formula or HMDB ID), and the new record represents a distinctly different compound, reach out to the curators.  The
 existing compound name may already be associated with a different compound in other studies, so either changes would
-need to be made to those other studies or the new study would need to be edited to distinguish the different
-compounds.  Either way, a curator will need to coordinate the fix to ensure database-wide consistency.</p>
+need to be made to those other studies or the new study would need to be edited to distinguish the different compounds.
+Either way, a curator will need to coordinate the fix to ensure database-wide consistency.</p>
 <h3 id="tracercompoundnameinconsistent"><code>TracerCompoundNameInconsistent</code></h3>
 <p>The compound name used in the tracer name is not the primary compound name.</p>
 <p>TraceBase requires that tracer names use the primary compound name so that searches yield complete and consistent

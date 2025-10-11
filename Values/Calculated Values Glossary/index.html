@@ -53,7 +53,7 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../About/TraceBase%20Design/">TraceBase Design</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../../About/Under%20the%20Hood/">Under the hood</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../../About/Under%20the%20Hood/">Under the Hood</a>
                   </li>
               </ul>
               <p class="caption"><span class="caption-text">Analysis</span></p>
@@ -65,11 +65,11 @@
               <ul>
                   <li class="toctree-l1"><a class="reference internal" href="../../Download/How%20to%20Download/">How to Download</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" >About the Data</a>
+                  <li class="toctree-l1"><a class="reference internal" href="#">About the Data</a>
     <ul>
                 <li class="toctree-l2"><a class="reference internal" href="../../Download/About%20the%20Data/Format%20of%20Downloaded%20Data/">Format of Downloaded Data</a>
                 </li>
-                <li class="toctree-l2"><a class="reference internal" >Data Types</a>
+                <li class="toctree-l2"><a class="reference internal" href="#">Data Types</a>
     <ul>
                 <li class="toctree-l3"><a class="reference internal" href="../../Download/About%20the%20Data/Data%20Types/FCirc/">FCirc</a>
                 </li>
@@ -94,7 +94,7 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../Upload/What%20Inputs%20Does%20TraceBase%20Take/">What Inputs Does TraceBase Take</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" >How to Build a Submission</a>
+                  <li class="toctree-l1"><a class="reference internal" href="#">How to Build a Submission</a>
     <ul>
                 <li class="toctree-l2"><a class="reference internal" href="../../Upload/How%20to%20Build%20a%20Submission/1%20-%20How%20to%20Start%20an%20Upload/">How to Start an Upload</a>
                 </li>
@@ -109,7 +109,7 @@
               </ul>
               <p class="caption"><span class="caption-text">Values</span></p>
               <ul class="current">
-                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Calculated Values Glossary</a>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="./">Calculated Values Glossary</a>
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#peakdata">PeakData</a>
     </li>
@@ -165,6 +165,7 @@
 <a href="https://doi.org/10.1038/s42255-021-00419-2">"Quantitative flux analysis in mammals"</a>.</p>
 <p>The following list of calculated values includes a short definition, pseudocode of calcuations, examples, and a GitHub
 link to the code where the term is calculated.</p>
+<p>They are organized according to the type of Output table where they are found.</p>
 <!-- markdownlint-disable MD007 -->
 <h2 id="peakdata"><a href="../../Download/About%20the%20Data/Data%20Types/PeakData/">PeakData</a></h2>
 <ul>
@@ -174,7 +175,10 @@ link to the code where the term is calculated.</p>
 <h2 id="peakgroups"><a href="../../Download/About%20the%20Data/Data%20Types/PeakGroups/">PeakGroups</a></h2>
 <ul>
 <li><a href="../Total%20Abundance/">Total Abundance</a></li>
-<li><a href="../Normalized%20Labeling/">Normalized Labeling</a></li>
+<li><a href="../Normalized%20Labeling/">Normalized Labeling</a><ul>
+<li><a href="../Normalized%20Labeling/#serum_tracers_enrichment_fraction">Serum Tracers Enrichment Fraction</a></li>
+</ul>
+</li>
 <li>Enrichment of a Label in a Measured Compound in a PeakGroup<ul>
 <li><a href="../Enrichment%20Fraction/">Enrichment Fraction</a></li>
 <li><a href="../Enrichment%20Abundance/">Enrichment Abundance</a></li>
@@ -184,7 +188,6 @@ link to the code where the term is calculated.</p>
 </ul>
 <h2 id="fcirc"><a href="../../Download/About%20the%20Data/Data%20Types/FCirc/">FCirc</a></h2>
 <ul>
-<li><a href="../FCirc%20Rates/#serum_tracers_enrichment_fraction">Serum Tracers Enrichment Fraction</a></li>
 <li>Intact FCirc<ul>
 <li>Per Gram<ul>
 <li><a href="../FCirc%20Rates/#Rd_intact_g">Intact Weight Normalized Rate of Disappearance (<code>Rd_intact_g</code>)</a></li>

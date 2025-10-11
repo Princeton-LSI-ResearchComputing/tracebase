@@ -53,7 +53,7 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../../About/TraceBase%20Design/">TraceBase Design</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../../../About/Under%20the%20Hood/">Under the hood</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../../../About/Under%20the%20Hood/">Under the Hood</a>
                   </li>
               </ul>
               <p class="caption"><span class="caption-text">Analysis</span></p>
@@ -65,11 +65,11 @@
               <ul>
                   <li class="toctree-l1"><a class="reference internal" href="../../../Download/How%20to%20Download/">How to Download</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" >About the Data</a>
+                  <li class="toctree-l1"><a class="reference internal" href="#">About the Data</a>
     <ul>
                 <li class="toctree-l2"><a class="reference internal" href="../../../Download/About%20the%20Data/Format%20of%20Downloaded%20Data/">Format of Downloaded Data</a>
                 </li>
-                <li class="toctree-l2"><a class="reference internal" >Data Types</a>
+                <li class="toctree-l2"><a class="reference internal" href="#">Data Types</a>
     <ul>
                 <li class="toctree-l3"><a class="reference internal" href="../../../Download/About%20the%20Data/Data%20Types/FCirc/">FCirc</a>
                 </li>
@@ -94,11 +94,11 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../What%20Inputs%20Does%20TraceBase%20Take/">What Inputs Does TraceBase Take</a>
                   </li>
-                  <li class="toctree-l1 current"><a class="reference internal current" >How to Build a Submission</a>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">How to Build a Submission</a>
     <ul class="current">
                 <li class="toctree-l2"><a class="reference internal" href="../1%20-%20How%20to%20Start%20an%20Upload/">How to Start an Upload</a>
                 </li>
-                <li class="toctree-l2 current"><a class="reference internal current" href="#">How to Fill In the Study Doc</a>
+                <li class="toctree-l2 current"><a class="reference internal current" href="./">How to Fill In the Study Doc</a>
     <ul class="current">
     <li class="toctree-l3"><a class="reference internal" href="#general-tips">General Tips</a>
     </li>
@@ -362,7 +362,7 @@ or enter a new value.</p>
 <code>Tracers</code> sheet, so if the dropdowns are empty, add rows to the <code>Tracers</code> sheet.</p>
 </li>
 <li>
-<p>Tracer Concentration</p>
+<p><a name="conc"></a>Tracer Concentration</p>
 <p>The millimolar (mM) concentration of the tracer in a specific infusate 'recipe'.</p>
 </li>
 <li>
@@ -401,7 +401,7 @@ select list with the current unique genotypes in TraceBase.  If necessary, indic
 the animal is a mixed background wildtype).</p>
 </li>
 <li>
-<p>Weight</p>
+<p><a name="weight"></a>Weight</p>
 <p>Weight in grams of the animal at the start time of infusion.</p>
 </li>
 <li>
@@ -416,7 +416,7 @@ description of its labels, and the Millimolar (mM) concentration of each tracer 
 description.</p>
 </li>
 <li>
-<p>Infusion Rate</p>
+<p><a name="infusionrate"></a>Infusion Rate</p>
 <p>Volume of infusate solution infused (microliters (ul) per minute per gram of animal body weight).</p>
 </li>
 <li>
@@ -454,7 +454,7 @@ semicolons (<code>;</code>).  Every row in the Animals sheet should represent a 
 <p>See <a href="../../What%20Inputs%20Does%20TraceBase%20Take/#metadata_recommendations">Recommended Practices for Organizing Data</a></p>
 </li>
 </ul>
-<h3 id="samples-sheet">Samples Sheet</h3>
+<h3 id="samples-sheet"><a name="samples"></a>Samples Sheet</h3>
 <ul>
 <li>
 <p>Sample</p>
@@ -477,13 +477,13 @@ for suggestions on how to name samples</p>
 <p>Secondary people (PI, collaborator, etc) should be mentioned in the study description.</p>
 </li>
 <li>
-<p>Tissue</p>
+<p><a name="tissue"></a>Tissue</p>
 <p>Type of tissue.  A tissue can be selected via drop-down menu.  If the desired tissue is not in the drop-down, enter
 it in the <code>Tissues</code> sheet, then come back and select it in the automatically updated drop-down in this column.</p>
 <p>The list of tissues in TraceBase can also be viewed on the TraceBase site's Tissues page.</p>
 </li>
 <li>
-<p>Collection Time</p>
+<p><a name="coltim"></a>Collection Time</p>
 <p>Minutes after the start of the infusion when the tissue was collected.</p>
 <p>Collection Time for samples collected before the infusion should be &lt;= 0.</p>
 </li>
@@ -548,7 +548,7 @@ the <code>LC Protocols</code> sheet, so if the dropdowns are empty, add rows to 
 <p>You may enter a new model, if necessary.</p>
 </li>
 <li>
-<p>Date</p>
+<p><a name="rundate"></a>Date</p>
 <p>The date that the mass spectrometer was run.</p>
 <p>Format: <code>YYYY-MM-DD</code></p>
 </li>
@@ -592,7 +592,7 @@ Annotation File.  This default can be overridden by values supplied in the <code
 column in the <code>Sequences</code> sheet, so if the dropdowns are empty, add rows to the <code>Sequences</code> sheet.</p>
 </li>
 </ul>
-<h3 id="peak-annotation-details-sheet">Peak Annotation Details Sheet</h3>
+<h3 id="peak-annotation-details-sheet"><a name="details"></a>Peak Annotation Details Sheet</h3>
 <ul>
 <li>
 <p>Sample Name</p>
