@@ -1,9 +1,11 @@
 from django.conf import settings
+from django.core.management import call_command
 from django.db import IntegrityError
 from django.test import override_settings
 
 from DataRepo.models import Compound, CompoundSynonym
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
+from DataRepo.utils.exceptions import ProhibitedStringValue
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
@@ -46,6 +48,45 @@ class CompoundTests(TracebaseTestCase):
             "(OR: ('name__iexact', 'alanine'), ('synonyms__name__iexact', 'alanine'))",
             str(q_exp),
         )
+
+    def test_validate_compound_name(self):
+        with self.assertRaises(ProhibitedStringValue):
+            Compound.validate_compound_name("bad;name")
+        self.assertEqual(
+            "bad:name", Compound.validate_compound_name("bad;name", fix=True)
+        )
+
+    def test_prohibited_delimiters(self):
+        with self.assertRaises(ProhibitedStringValue) as ar1:
+            c = Compound.objects.create(
+                name="hexadecanoic/acid", formula="C16H32O2", hmdb_id="HMDB0000220"
+            )
+            c.full_clean()
+        self.assertIn("Prohibited character(s) ['/'] encountered", str(ar1.exception))
+        self.assertIn("(in 'hexadecanoic/acid')", str(ar1.exception))
+        self.assertIn(
+            "None of the following reserved substrings are allowed: [';', '/'].",
+            str(ar1.exception),
+        )
+        with self.assertRaises(ProhibitedStringValue) as ar2:
+            c = Compound.objects.create(
+                name="hexadecanoic;acid", formula="C16H32O2", hmdb_id="HMDB0000221"
+            )
+            c.full_clean()
+        self.assertIn("Prohibited character(s) [';'] encountered", str(ar2.exception))
+        self.assertIn("(in 'hexadecanoic;acid')", str(ar2.exception))
+        self.assertIn(
+            "None of the following reserved substrings are allowed: [';', '/'].",
+            str(ar2.exception),
+        )
+
+    def test__animals_by_tracer(self):
+        call_command(
+            "load_study",
+            infile="DataRepo/data/tests/compounds/animals_by_tracer_compound.xlsx",
+        )
+        lysine = Compound.objects.get(name="lysine")
+        self.assertEqual(2, lysine._animals_by_tracer())
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
@@ -130,3 +171,38 @@ class CompoundSynonymTests(TracebaseTestCase):
         cs = CompoundSynonym.objects.create(name=alias, compound=c)
         cs.delete()
         self.assertTrue(Compound.objects.filter(name="1-Methylhistidine").exists())
+
+    def test_prohibited_delimiters(self):
+        with self.assertRaises(ProhibitedStringValue) as ar1:
+            c = CompoundSynonym.objects.create(
+                name="hexadecanoic/acid", compound=self.PRIMARY_COMPOUND
+            )
+            c.full_clean()
+        self.assertIn("(in 'hexadecanoic/acid')", str(ar1.exception))
+        self.assertIn("Prohibited character(s) ['/'] encountered", str(ar1.exception))
+        self.assertIn(
+            "None of the following reserved substrings are allowed: [';', '/'].",
+            str(ar1.exception),
+        )
+        with self.assertRaises(ProhibitedStringValue) as ar2:
+            c = CompoundSynonym.objects.create(
+                name="hexadecanoic;acid", compound=self.PRIMARY_COMPOUND
+            )
+            c.full_clean()
+        self.assertIn("Prohibited character(s) [';'] encountered", str(ar2.exception))
+        self.assertIn("(in 'hexadecanoic;acid')", str(ar2.exception))
+        self.assertIn(
+            "None of the following reserved substrings are allowed: [';', '/'].",
+            str(ar2.exception),
+        )
+
+    def test_pubchem_url(self):
+        c = Compound.objects.create(
+            name="1-Methylhistidine", formula="C7H11N3O2", hmdb_id="HMDB0000001"
+        )
+
+        s1 = CompoundSynonym.objects.create(name="PubChem 1111111", compound=c)
+        s2 = CompoundSynonym.objects.create(name="1 methylhistidine", compound=c)
+
+        self.assertEqual(f"{CompoundSynonym.PUBCHEM_CID_URL}/1111111", s1.pubchem_url)
+        self.assertIsNone(s2.pubchem_url)

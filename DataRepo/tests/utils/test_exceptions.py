@@ -24,6 +24,8 @@ from DataRepo.utils.exceptions import (
     MissingColumnGroup,
     MissingCompounds,
     MissingDataAdded,
+    MissingFCircCalculationValue,
+    MissingFCircCalculationValues,
     MissingRecords,
     MissingSamples,
     MultiLoadStatus,
@@ -42,6 +44,9 @@ from DataRepo.utils.exceptions import (
     OptionsNotAvailable,
     PossibleDuplicateSample,
     PossibleDuplicateSamples,
+    ProhibitedCompoundName,
+    ProhibitedCompoundNames,
+    ProhibitedStringValue,
     RecordDoesNotExist,
     RequiredArgument,
     RequiredColumnValue,
@@ -60,6 +65,7 @@ from DataRepo.utils.exceptions import (
     UnskippedBlanks,
     generate_file_location_string,
     summarize_int_list,
+    trace,
 )
 
 
@@ -1347,3 +1353,117 @@ class ExceptionTests(TracebaseTestCase):
         self.assertIn("header 's1' maps to samples: ['s1_pos', 's1_neg']", str(pdse))
         # Check suggestion exists
         self.assertIn("associated with the same tracebase sample", str(pdse))
+
+    def test_MissingFCircCalculationValues(self):
+        mfcv = MissingFCircCalculationValues(
+            [
+                MissingFCircCalculationValue(
+                    file="myfile",
+                    sheet="Animals",
+                    column="Infusion Rate",
+                    rownum=5,
+                ),
+                MissingFCircCalculationValue(
+                    file="myfile",
+                    sheet="Animals",
+                    column="Weight",
+                    rownum=5,
+                ),
+                MissingFCircCalculationValue(
+                    file="myfile",
+                    sheet="Samples",
+                    column="Collection Time",
+                    rownum=20,
+                ),
+            ]
+        )
+        self.assertIn("FCirc calculations on TraceBase are done using", str(mfcv))
+        self.assertIn("tracer peak group(s) from the last serum sample", str(mfcv))
+        self.assertIn("infusion rate, and the animal weight", str(mfcv))
+        self.assertIn("values are missing", str(mfcv))
+        self.assertIn("sheet [Animals] in myfile", str(mfcv))
+        self.assertIn("'Infusion Rate' on row(s): ['5']", str(mfcv))
+        self.assertIn("'Weight' on row(s): ['5']", str(mfcv))
+        self.assertIn("sheet [Samples] in myfile", str(mfcv))
+        self.assertIn("'Collection Time' on row(s): ['20']", str(mfcv))
+
+    def test_MissingFCircCalculationValue(self):
+        mfcv = MissingFCircCalculationValue(
+            file="myfile",
+            sheet="mysheet",
+            column="Infusion Rate",
+            rownum=5,
+        )
+        self.assertIn("FCirc calculations on TraceBase are done using", str(mfcv))
+        self.assertIn("tracer peak group(s) from the last serum sample", str(mfcv))
+        self.assertIn("infusion rate, and the animal weight", str(mfcv))
+        self.assertIn("This value is missing", str(mfcv))
+        self.assertIn(
+            "column [Infusion Rate] on row [5] of sheet [mysheet] in myfile", str(mfcv)
+        )
+        self.assertIn(
+            "You can load data into tracebase without these values", str(mfcv)
+        )
+        self.assertIn(
+            "FCirc values will either be missing (when there is no animal weight or infusion rate",
+            str(mfcv),
+        )
+        self.assertIn("inaccurate (if the sample collection time is missing", str(mfcv))
+
+    def test_ProhibitedCompoundNames(self):
+        pcn1 = ProhibitedCompoundName(
+            [";", "/"], file="file.txt", column="Compound", rownum=2
+        )
+        pcn2 = ProhibitedCompoundName(
+            [";"], file="file.txt", column="Compound", rownum=5
+        )
+        pcn3 = ProhibitedCompoundName(
+            ["/"], file="file.txt", column="Compound", rownum=16
+        )
+        e = ProhibitedCompoundNames(exceptions=[pcn1, pcn2, pcn3])
+        self.assertIn("Prohibited substrings encountered", str(e))
+        self.assertIn("column [Compound] in file.txt", str(e))
+        self.assertIn("'/' on row(s): ['2', '16']", str(e))
+        self.assertIn("';' on row(s): ['2', '5']", str(e))
+
+    def test_ProhibitedStringValue(self):
+        e = ProhibitedStringValue([";"], disallowed=[";", "/"], value="test;1")
+        self.assertIn("Prohibited character(s) [';'] encountered", str(e))
+        self.assertIn("(in 'test;1')", str(e))
+        self.assertIn(
+            "None of the following reserved substrings are allowed: [';', '/']", str(e)
+        )
+
+    def test_ProhibitedCompoundName(self):
+        with self.assertRaises(RequiredArgument):
+            ProhibitedCompoundName(
+                [";", "/"], value="compound;test/name;/", fixed="compound_test_name__"
+            )
+        e = ProhibitedCompoundName(
+            [";", "/"],
+            value="compound;test/name;/",
+            fixed="compound_test_name__",
+            column="Compound",
+            sheet="Compounds",
+        )
+        self.assertIn(
+            "Prohibited compound name substring(s) [';', '/'] encountered", str(e)
+        )
+        self.assertIn("(in compound name 'compound;test/name;/')", str(e))
+        self.assertIn(
+            "in column [Compound] of sheet [Compounds] in the load file data", str(e)
+        )
+        self.assertIn(
+            "Column 'Compound' values may not have any of the following reserved substrings: [';', '/'].",
+            str(e),
+        )
+        self.assertIn(
+            "The compound name was automatically repaired to be 'compound_test_name__'",
+            str(e),
+        )
+
+    def test_trace(self):
+        trc = trace()
+        self.assertIn("trc = trace()", trc, msg=f"trace() output:\n{trc}")
+        self.assertIn("test_exceptions.py", trc, msg=f"trace() output:\n{trc}")
+        self.assertNotIn("site-packages", trc, msg=f"trace() output:\n{trc}")

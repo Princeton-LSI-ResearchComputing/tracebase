@@ -1,0 +1,86 @@
+{% extends "base/base.html" %}
+{% load customtags %}
+{% load static %}
+
+{% block title %}{{ table_name }}{% endblock %}
+
+{% block head_extras %}
+    <link href="{% static 'css/bst.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+
+    {% include "models/bst/scripts.html" %}
+
+    <h4>{{ table_name }}</h4>
+    {% if subtitles %}
+        <h5>
+            <i>
+                for
+                {% for field, term in subtitles.items %}
+                    {{ field }} &quot;{{ term }}&quot;{% if not forloop.last %},{% endif %}
+                {% endfor %}
+            </i>
+            <small><a href="{{ request.path }}">clear</a></small><br>
+        </h5>
+    {% endif %}
+    <br>
+
+    {% if above_template %}
+        {% include above_template %}
+    {% endif %}
+
+    <div>
+        <table class="table table-sm table-hover table-bordered table-responsive-xl table-striped"
+            id="{{ table_id }}"
+            data-toggle="table"
+            data-buttons-align="left"
+            data-buttons-class="primary"
+            data-buttons="customButtonsFunction"
+            data-export-types="['csv', 'txt', 'excel']"
+            data-export-data-type="all"
+            data-filter-control="true"
+            data-search="true"
+            data-search-align="left"
+            data-search-on-enter-key="true"
+            {# TODO: Make djangoSearcher (defined in static/js/bst/filterer.js) configurable #}
+            data-custom-search="djangoSearcher"
+            {% if search %}
+                data-search-text="{{ search }}"
+            {% endif %}
+            data-show-search-clear-button="true"
+            {% if sortcol %}
+                data-sort-name="{{ sortcol }}"
+                data-sort-order="{% if asc %}asc{% else %}desc{% endif %}"
+            {% endif %}
+            data-show-multi-sort="true"
+            data-show-columns="true"
+            data-show-columns-toggle-all="true"
+            data-show-fullscreen="true"
+            data-show-export="false">
+            <thead>
+                <tr>
+                    {% for column in columns.values %}
+                        {% include column.th_template %}
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for object in object_list %}
+                    <tr>
+                        {% for column in columns.values %}
+                            {% include column.td_template %}
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% include page_obj.paginator.template_name %}
+
+    {% if below_template %}
+        {% include below_template %}
+    {% endif %}
+
+{% endblock %}

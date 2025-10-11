@@ -64,6 +64,12 @@ class TracerQuerySet(models.QuerySet):
         return matching_tracer
 
 
+@MaintainedModel.relation(
+    generation=1,
+    parent_field_name="compound",
+    child_field_names=["infusates"],
+    update_label="tracer_stat",
+)
 class Tracer(MaintainedModel, ElementLabel):
     objects: TracerQuerySet = TracerQuerySet().as_manager()
 
@@ -72,6 +78,8 @@ class Tracer(MaintainedModel, ElementLabel):
     LABELS_LEFT_BRACKET = "["
     LABELS_RIGHT_BRACKET = "]"
     LABELS_COMBO_DELIMITER = "+"
+
+    detail_name = "tracer_detail"
 
     id = models.AutoField(primary_key=True)
     name = models.CharField(
@@ -86,6 +94,7 @@ class Tracer(MaintainedModel, ElementLabel):
         on_delete=models.RESTRICT,
         null=False,
         related_name="tracers",
+        help_text="A compound used as a tracer, containing some elements replaced with isotopes.",
     )
     label_combo = models.CharField(
         max_length=16,  # Max of 8, 2-letter elements
@@ -174,3 +183,11 @@ class Tracer(MaintainedModel, ElementLabel):
             f"{tracer_data['compound_name']}{cls.COMPOUND_DELIMITER}"
             f"{cls.LABELS_LEFT_BRACKET}{labels_string}{cls.LABELS_RIGHT_BRACKET}"
         )
+
+    def get_absolute_url(self):
+        """Get the URL to the detail page.
+        See: https://docs.djangoproject.com/en/5.1/ref/models/instances/#get-absolute-url
+        """
+        from django.urls import reverse
+
+        return reverse(self.detail_name, kwargs={"pk": self.pk})

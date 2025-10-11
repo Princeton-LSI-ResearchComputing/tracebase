@@ -1,4 +1,4 @@
-from collections import namedtuple
+from collections import defaultdict, namedtuple
 from datetime import date, timedelta
 from typing import Dict
 
@@ -11,8 +11,10 @@ from DataRepo.loaders.tissues_loader import TissuesLoader
 from DataRepo.models import Animal, MaintainedModel, Researcher, Sample, Tissue
 from DataRepo.models.fcirc import FCirc
 from DataRepo.utils.exceptions import (
+    AnimalWithoutSerumSamples,
     DateParseError,
     DurationError,
+    MissingFCircCalculationValue,
     MissingTissues,
     NewResearcher,
     NoTracers,
@@ -74,7 +76,6 @@ class SamplesLoader(TableLoader):
         DATE_KEY,
         HANDLER_KEY,
         TISSUE_KEY,
-        # DAYS_INFUSED_KEY,  # Not required in model
         ANIMAL_KEY,
     ]
 
@@ -134,6 +135,13 @@ class SamplesLoader(TableLoader):
             name=DataHeaders.DAYS_INFUSED,
             field=Sample.time_collected,
             format="Units: minutes.",
+            guidance=(
+                f"While '{DataHeaders.DAYS_INFUSED}' is an optional column, it is necessary for serum samples, in "
+                "order to know which tracer peak groups should be used for TraceBase's standardized FCirc "
+                "calculations.  Without it, TraceBase will be unable to accurately select the 'last' serum sample, and "
+                "as a result, FCirc calculations are likely to be inaccurate and warnings/errors will be associated "
+                "with the serum sample(s), tracer(s), and labeled element(s) on the advanced search FCirc page."
+            ),
         ),
         TISSUE=TableColumn.init_flat(
             name=DataHeaders.TISSUE,
@@ -189,7 +197,12 @@ class SamplesLoader(TableLoader):
         Returns:
             None
         """
+        # These instance members will help us assure that every animal (with an infusate) has at least 1 serum sample
+        self.animals = []
+        self.failed_samples = defaultdict(list)
+
         self.known_researchers = Researcher.get_researchers()
+
         super().__init__(*args, **kwargs)
 
     @MaintainedModel.defer_autoupdates()
@@ -207,6 +220,7 @@ class SamplesLoader(TableLoader):
             # Get the existing animal and tissue
             animal = self.get_animal(row)
             tissue = self.get_tissue(row)
+
             sample = None
 
             # Get or create the animal record
@@ -218,7 +232,7 @@ class SamplesLoader(TableLoader):
                 pass
 
             if (
-                sample is not None
+                isinstance(sample, Sample)
                 and sample._is_serum_sample()
                 and sample.animal.infusate is not None
             ):
@@ -248,6 +262,25 @@ class SamplesLoader(TableLoader):
                         )
                     )
 
+        # Look for any animal (with an infusate) in the samples sheet that does not have a serum sample
+        for animal_without_serum_samples in Animal.get_animals_without_serum_samples(
+            self.animals
+        ):
+            # If there is not a failed serum sample belonging to this animal
+            if animal_without_serum_samples not in self.failed_samples.keys() or any(
+                Tissue.name_is_serum(s)
+                for s in self.failed_samples[animal_without_serum_samples]
+            ):
+                # Buffering each individually makes it easier to summarize the same errors from multiple sheets
+                self.aggregated_errors_object.buffer_warning(
+                    AnimalWithoutSerumSamples(
+                        animal_without_serum_samples,
+                        file=self.friendly_file,
+                        sheet=self.sheet,
+                    ),
+                    is_fatal=self.validate,
+                )
+
         self.repackage_exceptions()
 
     @transaction.atomic
@@ -264,7 +297,7 @@ class SamplesLoader(TableLoader):
             Buffers:
                 None
         Returns:
-            rec (Sample)
+            rec (Optional[Sample])
             created (boolean)
         """
         created = False
@@ -348,9 +381,44 @@ class SamplesLoader(TableLoader):
                 ),
             )
 
+        # Before we skip the row (likely because *required* data is missing), let's also check some optional, but
+        # strongly encouraged columns:
+        if (
+            animal is not None
+            and animal.infusate is not None
+            and time_collected_str is None
+            and tissue is not None
+            and tissue.is_serum()
+        ):
+            self.aggregated_errors_object.buffer_warning(
+                MissingFCircCalculationValue(
+                    file=self.friendly_file,
+                    sheet=self.sheet,
+                    column=self.headers.DAYS_INFUSED,
+                    rownum=self.rownum,
+                    suggestion=(
+                        f"You can load data into tracebase without a '{self.headers.DAYS_INFUSED}' value, but the "
+                        f"FCirc calculations may be inaccurate as a result, and they will be labeled with a warning on "
+                        f"the advanced search's FCirc page.  '{self.headers.DAYS_INFUSED}' is necessary to select the "
+                        "'last' serum sample to base FCirc on."
+                    ),
+                ),
+                is_fatal=self.validate,
+            )
+
         if animal is None or tissue is None or self.is_skip_row():
             # An animal or tissue being None would have already buffered a required value error
             self.skipped(Sample.__name__)
+
+            # Add this sample name to the failed samples for this animal.  This is so we can later check for animals
+            # that have no serum samples, and if so, issue a warning (unless the sample is present, but just had an
+            # error upon attempting to load).
+            if name is not None:
+                if isinstance(animal, Animal):
+                    self.failed_samples[animal.name].append(name)
+                elif len(self.animals) > 0:
+                    self.failed_samples[self.animals[-1]].append(name)
+
             return rec, created
 
         # Required fields
@@ -371,6 +439,11 @@ class SamplesLoader(TableLoader):
             else:
                 self.existed(Sample.__name__)
         except Exception as e:
+            # Add this sample name to the failed samples for this animal.  This is so we can later check for animals
+            # that have no serum samples, and if so, issue a warning (unless the sample is present, but just had an
+            # error upon attempting to load).
+            if name is not None:
+                self.failed_samples[animal.name].append(name)
             # Package errors (like IntegrityError and ValidationError) with relevant details
             # This also updates the skip row indexes
             self.handle_load_db_errors(e, Sample, rec_dict)
@@ -401,6 +474,8 @@ class SamplesLoader(TableLoader):
 
         try:
             rec = Animal.objects.get(**query_dict)
+            if rec is not None and rec.name not in self.animals:
+                self.animals.append(rec.name)
         except Exception as e:
             # Package errors (like IntegrityError and ValidationError) with relevant details
             # This also updates the skip row indexes

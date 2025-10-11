@@ -29,7 +29,7 @@
         </tr>
         <tr>
             <td>Peak Groups</td>
-            <td><a href="{% url 'peakgroup_list' %}?msrun_sample_id={{ msrun_sample.id }}">{{ msrun_sample.peak_groups.count }}</a></td>
+            <td><a href="{% url 'peakgroup_list' %}?msrun_sample={{ msrun_sample.id }}">{{ msrun_sample.peak_groups.count }}</a></td>
         </tr>
     </table>
 </div>

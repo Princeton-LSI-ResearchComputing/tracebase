@@ -365,8 +365,14 @@ class RecordToMzxmlZIPTests(BaseAdvancedSearchDownloadViewTests):
 
     def test_PeakGroupsToMzxmlZIP_queryset_to_files_iterator(self):
         pgtmt = PeakGroupsToMzxmlZIP()
-        # Slicing the queryset to make the expected test data more manageable
-        file_tuples = list(pgtmt.queryset_to_files_iterator(self.res[0:1]))
+        # Filtering the queryset to make the expected test data more manageable
+        file_tuples = list(
+            pgtmt.queryset_to_files_iterator(
+                self.res.filter(
+                    msrun_sample__sample__msrun_samples__ms_data_file__filename="xzl1_brain.mzXML"
+                )
+            )
+        )
         self.assertIn(
             "2021-06-08/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl1_brain",
             file_tuples[0][0],
@@ -393,8 +399,14 @@ class RecordToMzxmlZIPTests(BaseAdvancedSearchDownloadViewTests):
         pdqry["selectedtemplate"] = "pdtemplate"
         pdtmt = PeakDataToMzxmlZIP()
         res, _, _ = self.asdv.get_query_results(pdqry)
-        # Slicing the queryset to make the expected test data more manageable
-        file_tuples = list(pdtmt.queryset_to_files_iterator(res[0:1]))
+        # Filtering the queryset to make the expected test data more manageable
+        file_tuples = list(
+            pdtmt.queryset_to_files_iterator(
+                res.filter(
+                    peak_group__msrun_sample__sample__msrun_samples__ms_data_file__filename="xzl5_panc.mzXML"
+                )
+            )
+        )
         self.assertEqual(
             "2020-07-22/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl5_panc.mzXML",
             file_tuples[0][0],

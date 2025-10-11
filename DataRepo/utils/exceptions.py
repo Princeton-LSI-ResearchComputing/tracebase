@@ -834,7 +834,7 @@ class RecordDoesNotExist(InfileError, ObjectDoesNotExist, SummarizableError):
         """General use DoesNotExist exception constructor for errors retrieving Model records.
 
         Args:
-            model: (Model)
+            model: (Type[Model])
             query_obj (dict or Q): A representation of the query parameters, to provide context for the user.
             message (Optional[str])
             suggestion (str): An addendum as to how to possibly fix this issue.
@@ -2355,7 +2355,9 @@ class AggregatedErrors(Exception):
             and (is_error is None or exception.is_error == is_error)
         )
 
-    def exception_exists(self, cls, attr_name, attr_val):
+    def exception_exists(
+        self, cls, attr_name, attr_val, is_error: Optional[bool] = None
+    ):
         """Returns True if an exception of type cls, containing an attribute with the supplied value has been buffered.
 
         Args:
@@ -2363,13 +2365,16 @@ class AggregatedErrors(Exception):
             attr_name (str): An attribute the buffered exception class has.
             attr_val (object): The value of the attribute the buffered exception class has.  If this is a function, it
                 must take a single argument (the value of the attribute) and return a boolean.
+            is_error (Optional[bool])
         Exceptions:
             None
         Returns:
             bool
         """
         for exc in self.exceptions:
-            if self.exception_matches(exc, cls, attr_name, attr_val):
+            if self.exception_matches(exc, cls, attr_name, attr_val) and (
+                is_error is None or is_error == exc.is_error
+            ):
                 return True
         return False
 
@@ -4001,6 +4006,8 @@ class PossibleDuplicateSamples(SummarizedInfileError, Exception):
             for exc in exc_list:
                 if include_loc:
                     headers_str += "\t"
+                if exc.rownum is not None and not isinstance(exc.rownum, list):
+                    raise ProgrammingError("rownum is expected to be a list here.")
                 rowlist = summarize_int_list(exc.rownum)
                 rowstr = "" if len(rowlist) == 0 else f" on rows: {rowlist}"
                 headers_str += f"\theader '{exc.sample_header}' maps to samples: {exc.sample_names}{rowstr}\n"
@@ -4134,6 +4141,10 @@ class MutuallyExclusiveOptions(CommandError):
 
 
 class MutuallyExclusiveArgs(InfileError):
+    pass
+
+
+class MutuallyExclusiveMethodArgs(Exception):
     pass
 
 
@@ -4585,6 +4596,215 @@ class MultipleStudyDocVersions(StudyDocVersionException):
         self.matching_version_numbers = matching_version_numbers
 
 
+class MissingFCircCalculationValues(Exception):
+    def __init__(
+        self,
+        exceptions: List[MissingFCircCalculationValue],
+    ):
+        message = (
+            "FCirc calculations on TraceBase are done using the tracer peak group(s) from the last serum sample, "
+            "the infusion rate, and the animal weight.  The following values are missing:\n"
+        )
+        err_dict: dict = defaultdict(lambda: defaultdict(list))
+        for exc in exceptions:
+            loc = generate_file_location_string(file=exc.file, sheet=exc.sheet)
+            err_dict[loc][exc.column].append(exc.rownum)
+
+        for loc, data in sorted(err_dict.items(), key=lambda tpl: tpl[0]):
+            message += f"\t{loc}\n"
+            for col, rownums in sorted(data.items(), key=lambda tpl: tpl[0]):
+                message += (
+                    f"\t\t'{col}' on row(s): " + str(summarize_int_list(rownums)) + "\n"
+                )
+
+        super().__init__(message)
+
+
+class MissingFCircCalculationValue(SummarizableError, InfileError):
+    SummarizerExceptionClass = MissingFCircCalculationValues
+
+    def __init__(self, message: Optional[str] = None, **kwargs):
+        if (
+            ("file" not in kwargs.keys() and "sheet" not in kwargs.keys())
+            or "column" not in kwargs.keys()
+            or "rownum" not in kwargs.keys()
+        ):
+            # Needed for the summary class.  Left off the outer single quotes on purpose to hack in multiple args.
+            raise RequiredArgument(
+                "rownum', 'column', and 'file' or 'sheet",
+                methodname=MissingFCircCalculationValue.__name__,
+            )
+        if message is None:
+            message = (
+                "FCirc calculations on TraceBase are done using the tracer peak group(s) from the last serum sample, "
+                "the infusion rate, and the animal weight.  This value is missing:\n\t%s"
+            )
+        if "suggestion" not in kwargs.keys() or kwargs["suggestion"] is None:
+            kwargs["suggestion"] = (
+                "You can load data into tracebase without these values, but the FCirc values will either be missing "
+                "(when there is no animal weight or infusion rate) or potentially inaccurate (if the sample collection "
+                "time is missing and the arbitrarily selected 'last' serum sample is not the actual last sample)."
+            )
+        super().__init__(message, **kwargs)
+
+
+class ProhibitedCompoundNames(SummarizedInfileError, Exception):
+    def __init__(
+        self,
+        exceptions: List[ProhibitedCompoundName],
+    ):
+        SummarizedInfileError.__init__(self, exceptions)
+        exc: ProhibitedCompoundName
+        data: dict = defaultdict(lambda: defaultdict(list))
+        for loc, exc_list in self.file_dict.items():
+            for exc in exc_list:
+                for found in exc.found:
+                    data[loc][found].append(exc.rownum)
+        message = "Prohibited substrings encountered:\n"
+        for loc in sorted(data.keys()):
+            message += f"\t{loc}:\n"
+            for substr in sorted(data[loc].keys()):
+                rowlist = summarize_int_list(data[loc][substr])
+                message += f"\t\t'{substr}' on row(s): {rowlist}\n"
+        message += (
+            "You may manually edit the compound names to address this issue with whatever replacement characters you "
+            "wish, but be sure to do so in both the study doc's Compounds sheet AND in all peak annotation files."
+        )
+        Exception.__init__(self, message)
+        self.exceptions = exceptions
+
+
+class ProhibitedStringValue(Exception):
+    def __init__(
+        self,
+        found: List[str],
+        disallowed: Optional[List[str]] = None,
+        value: Optional[str] = None,
+        message: Optional[str] = None,
+        **kwargs,
+    ):
+        if disallowed is None or len(disallowed) == 0:
+            disallowed = found
+        if message is None:
+            valstr = f" (in '{value}')" if value is not None else ""
+            message = (
+                f"Prohibited character(s) {found} encountered{valstr}.\n"
+                f"None of the following reserved substrings are allowed: {disallowed}."
+            )
+        super().__init__(message, **kwargs)
+        self.found = found
+        self.value = value
+        self.disallowed = disallowed
+
+
+class ProhibitedCompoundName(ProhibitedStringValue, InfileError, SummarizableError):
+    SummarizerExceptionClass = ProhibitedCompoundNames
+
+    def __init__(
+        self,
+        found: List[str],
+        value: Optional[str] = None,
+        fixed: Optional[str] = None,
+        disallowed: Optional[List[str]] = None,
+        message: Optional[str] = None,
+        **kwargs,
+    ):
+        try:
+            column = kwargs.pop("column")
+        except KeyError:
+            raise RequiredArgument("column", ProhibitedCompoundName.__name__)
+        if disallowed is None or len(disallowed) == 0:
+            disallowed = found
+        if message is None:
+            valstr = f" (in compound name '{value}')" if value is not None else ""
+            message = (
+                f"Prohibited compound name substring(s) {found} encountered{valstr} in %s.\n"
+                f"Column '{column}' values may not have any of the following reserved substrings: {disallowed}."
+            )
+        suggestion = kwargs.get("suggestion")
+        if fixed is not None:
+            message += (
+                f"\n\nThe compound name was automatically repaired to be '{fixed}'."
+            )
+        elif suggestion is None:
+            kwargs["suggestion"] = "Please remove or replace the prohibited substrings."
+        ProhibitedStringValue.__init__(
+            self, found, disallowed=disallowed, value=value, message=message
+        )
+        InfileError.__init__(self, message, column=column, **kwargs)
+        self.fixed = fixed
+
+
+class AnimalsWithoutSamples(Exception):
+
+    def __init__(
+        self, exceptions: List[AnimalWithoutSamples], message: Optional[str] = None
+    ):
+        if message is None:
+            nlt = "\n\t"
+            message = (
+                "The following animals do not have any samples:\n\t"
+                f"{nlt.join(sorted([e.animal for e in exceptions]))}"
+            )
+        super().__init__(message)
+        self.exceptions = exceptions
+        self.animals = [e.animal for e in exceptions]
+
+
+class AnimalWithoutSamples(InfileError, SummarizableError):
+    SummarizerExceptionClass = AnimalsWithoutSamples
+
+    def __init__(self, animal: str, message: Optional[str] = None, **kwargs):
+        if message is None:
+            message = f"Animal '{animal}' does not have any samples in %s."
+        super().__init__(message, **kwargs)
+        self.animal = animal
+
+
+class AnimalsWithoutSerumSamples(Exception):
+
+    def __init__(
+        self, exceptions: List[AnimalWithoutSerumSamples], message: Optional[str] = None
+    ):
+        if message is None:
+            nlt = "\n\t"
+            message = (
+                "The following animals do not have the necessary serum samples to perform FCirc calculations:\n"
+                f"\t{nlt.join(sorted([e.animal for e in exceptions]))}\n"
+            )
+        message += (
+            "FCirc calculations on TraceBase are done using the tracer peak group(s) from the last serum sample, the "
+            "infusion rate, and the animal weight.  You can load data into TraceBase without serum samples, but the "
+            "FCirc values will be missing."
+        )
+        super().__init__(message)
+        self.exceptions = exceptions
+        self.animals = [e.animal for e in exceptions]
+
+
+class AnimalWithoutSerumSamples(InfileError, SummarizableError):
+    SummarizerExceptionClass = AnimalsWithoutSerumSamples
+
+    def __init__(self, animal: str, message: Optional[str] = None, **kwargs):
+        if message is None:
+            message = (
+                f"Animal '{animal}' does not have the necessary serum samples to perform FCirc calculations in "
+                "%s."
+            )
+        if "suggestion" not in kwargs.keys() or kwargs["suggestion"] is None:
+            kwargs["suggestion"] = (
+                "FCirc calculations on TraceBase are done using the tracer peak group(s) from the last serum sample, "
+                "the infusion rate, and the animal weight.  You can load data into TraceBase without serum samples, "
+                "but the FCirc values will be missing."
+            )
+        super().__init__(message, **kwargs)
+        self.animal = animal
+
+
+class DeveloperWarning(Warning):
+    pass
+
+
 def generate_file_location_string(column=None, rownum=None, sheet=None, file=None):
     loc_str = ""
     if column is not None:
@@ -4643,3 +4863,34 @@ def summarize_int_list(intlist):
         else:
             sum_list.append(f"{str(waiting_num)}-{str(last_num)}")
     return sum_list
+
+
+def trace(exc: Optional[Exception] = None):
+    """
+    Creates a pseudo-traceback for debugging.  Tracebacks are only built as the raised exception travels the stack to
+    where it's caught.  traceback.format_stack yields the entire stack, but that's overkill, so this loop filters out
+    anything that contains "site-packages" so that we only see our own code's steps.  This should effectively show us
+    only the bottom of the stack, though there's a chance that intermediate steps could be excluded.  I don't think
+    that's likely to happen, but we should be aware that it's a possibility.
+
+    The string is intended to only be used to debug a problem.  Print it inside an except block if you want to find the
+    cause of any particular buffered exception.
+
+    Args:
+        exc (Optional[Exception]): An optional caught exception to include a partial traceback with the returned trace.
+    Exceptions:
+        None
+    Returns:
+        trace (str): A string formatted stack trace (not including the optional exception's message)
+    """
+    trace = "".join(
+        [str(step) for step in traceback.format_stack() if "site-packages" not in step]
+    )
+    if (
+        isinstance(exc, Exception)
+        and hasattr(exc, "__traceback__")
+        and exc.__traceback__ is not None
+    ):
+        trace += "\nThe exception that triggered the above catch's trace has a partial traceback:\n\n"
+        trace += "".join(traceback.format_tb(exc.__traceback__))
+    return trace

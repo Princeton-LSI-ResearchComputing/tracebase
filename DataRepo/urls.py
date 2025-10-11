@@ -1,5 +1,7 @@
 from django.urls import path
 
+from DataRepo.views.models.peakdata import PeakDataDetailView
+
 from .views import (
     AdvancedSearchDownloadMzxmlZIPView,
     AdvancedSearchDownloadView,
@@ -30,6 +32,8 @@ from .views import (
     StudyListView,
     TissueDetailView,
     TissueListView,
+    TracerDetailView,
+    TracerListView,
     home,
     search_basic,
     study_summary,
@@ -148,10 +152,21 @@ urlpatterns = [
         name=PeakGroupDetailView.model.detail_name,
     ),
     path("peakdata/", PeakDataListView.as_view(), name="peakdata_list"),
+    path(
+        "peakdata/<int:pk>/",
+        PeakDataDetailView.as_view(),
+        name=PeakDataDetailView.model.detail_name,
+    ),
     path("infusates/", InfusateListView.as_view(), name="infusate_list"),
     path(
         "infusates/<int:pk>/",
         InfusateDetailView.as_view(),
         name=InfusateDetailView.model.detail_name,
+    ),
+    path("tracers/", TracerListView.as_view(), name="tracer_list"),
+    path(
+        "tracers/<int:pk>/",
+        TracerDetailView.as_view(),
+        name=TracerDetailView.model.detail_name,
     ),
 ]
