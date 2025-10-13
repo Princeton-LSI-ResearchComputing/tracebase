@@ -2,7 +2,7 @@ import os
 import re
 from collections import defaultdict, namedtuple
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import xmltodict
 from django.db import ProgrammingError, transaction
@@ -773,13 +773,18 @@ class MSRunsLoader(TableLoader):
                     # We going to guess the sample name based on the mzXML filename (without the extension)
                     sample_name = self.guess_sample_name(exact_sample_header_from_mzxml)
 
-                # We only need one of the paths.  All the filenames are the same and the path is only used in an error
-                # when the sample was not found, to indicate that this isn't coming from the peak annotation details
-                # sheet
-                mzxml_filepath = self.mzxml_dict[mzxml_name_no_ext][arbitrary_key][0][
-                    "mzxml_filepath"
+                # We need all of the paths of each mzXML file with the same name.  All the files with the same name used
+                # in an error when the sample was not found, to indicate that this isn't coming from the peak annotation
+                # details sheet and that each file must be added to that sheet with a 'skip' value so that it does not
+                # attempt to create an 'MSRunSample' record, for which a corresponding sample is required.
+                mzxml_filepaths = [
+                    fldct["mzxml_filepath"]
+                    for pathkey in self.mzxml_dict[mzxml_name_no_ext].keys()
+                    for fldct in self.mzxml_dict[mzxml_name_no_ext][pathkey]
                 ]
-                sample = self.get_sample_by_name(sample_name, from_mzxml=mzxml_filepath)
+                sample = self.get_sample_by_name(
+                    sample_name, from_mzxmls=mzxml_filepaths
+                )
 
                 # NOTE: The directory content of self.mzxml_dict is based on the actual supplied mzXML files, not on the
                 # content of the mzxml filename column in the infile.
@@ -837,7 +842,7 @@ class MSRunsLoader(TableLoader):
 
         expected_mzxmls = defaultdict(lambda: defaultdict(dict))
         expected_samples = []
-        unexpected_sample_headers = {}
+        unexpected_sample_headers = defaultdict(list)
 
         # Take an accounting of all expected samples and mzXML files.  Note that in the absence of an explicitly entered
         # mzXML file, the sample header is used as a stand-in for the mzXML file's name (minus extension).
@@ -905,27 +910,25 @@ class MSRunsLoader(TableLoader):
                     actual_rel_dir not in expected_mzxmls[modded_sh].keys()
                     and "" not in expected_mzxmls[modded_sh].keys()
                 ):
-                    # Neither the explicit path was expected nor an unspecified path was expected
-                    if (
-                        sn not in expected_samples
-                        and modded_sh not in unexpected_sample_headers.keys()
-                    ):
-                        # NOTE: We only need one such example (for the error) among multiple files with the same name
-                        unexpected_sample_headers[modded_sh] = actual_rel_file
+                    # If the sample derived from the mzXML file name was not expected (i.e. no sample record exists)
+                    if sn not in expected_samples:
+                        # NOTE: We want an error for each file with the same name, so that the user can add the complete
+                        # file list to the Peak Annotation Details sheet in order to skip them.  If we only reported one
+                        # error for each sample, this error would pop up in each load attempt until all same-named files
+                        # were accounted for.
+                        unexpected_sample_headers[modded_sh].append(actual_rel_file)
             else:
-                if (
-                    sn not in expected_samples
-                    and modded_sh not in unexpected_sample_headers.keys()
-                ):
-                    # NOTE: We only need one such example (for the error) among multiple files with the same name
-                    unexpected_sample_headers[modded_sh] = actual_rel_file
+                # If the sample derived from the mzXML file name was not expected (i.e. no sample record exists)
+                if sn not in expected_samples:
+                    # NOTE: We want an error for each file with the same name.  See above.
+                    unexpected_sample_headers[modded_sh].append(actual_rel_file)
 
         unmapped_samples = []
         for unexpected_sample_header in unexpected_sample_headers.keys():
             guessed_name = self.guess_sample_name(unexpected_sample_header)
             rec = self.get_sample_by_name(
                 guessed_name,
-                from_mzxml=unexpected_sample_headers[unexpected_sample_header],
+                from_mzxmls=unexpected_sample_headers[unexpected_sample_header],
             )
             # We're going to ignore unmapped samples that appear to be blanks.  Warnings would have already been
             # buffered about these.
@@ -1661,16 +1664,20 @@ class MSRunsLoader(TableLoader):
                     pg_rec.save()
                     self.updated(PeakGroup.__name__)
 
-    def get_sample_by_name(self, sample_name, from_mzxml=None):
+    def get_sample_by_name(
+        self, sample_name: str, from_mzxmls: Optional[List[str]] = None
+    ):
         """Get a Sample record by name.
 
+        Assumptions:
+            1. All of the files supplied in from_mzxmls have the same name.
         Args:
-            sample_name (string)
-            from_mzxml (str): A^ file path from which the sample header was assumed to have been derived.
-                ^ The selected path may be arbitrary.  There can be multiple files by the same name.  The only purpose
-                of this argument is to decide how to display where the sample name search originated from, based on it
-                being None, which tells a RecordDoesNotExist exception whether to use the peak annotation details sheet
-                location or the mzXML filepath as a reference as to what we were searching for.
+            sample_name (str)
+            from_mzxmls (Optional[List[str]]): A list of file paths from which the sample header was assumed to have
+                been derived.  This tells the RecordDoesNotExist exception whether to use the Peak Annotation Details
+                sheet location or the mzXML filepaths as a reference to what we were searching for.  (Only one of these
+                searches was performed, but we report every file of the same name so that the researcher can append them
+                to the sheet to be skipped, or provide the missing peak annotation file to cover the unanalyzed data).
         Exceptions:
             Raises:
                 None
@@ -1684,10 +1691,11 @@ class MSRunsLoader(TableLoader):
         try:
             rec = Sample.objects.get(name=sample_name)
         except Sample.DoesNotExist as dne:
-            if from_mzxml is not None:
-                orig_mzxml_sample_name = os.path.splitext(os.path.basename(from_mzxml))[
-                    0
-                ]
+            # If this sample was derived from an mzXML filename
+            if from_mzxmls:
+                orig_mzxml_sample_name = os.path.splitext(
+                    os.path.basename(from_mzxmls[0])
+                )[0]
 
                 # Let's see if this is a "dash" issue
                 sample_name_nodash = self.get_sample_header_from_mzxml_name(sample_name)
@@ -1746,7 +1754,7 @@ class MSRunsLoader(TableLoader):
                                             "number, which means that the peak annotation software would have "
                                             "required the name to be prepended with a letter.  There are multiple "
                                             f"samples that end with this name: {matching_samples}.  Please "
-                                            f"identify the associated sample(s) and add a the file '{from_mzxml}' to "
+                                            f"identify the associated sample(s) and add the files {from_mzxmls} to "
                                             "%s.  If no such row exists and this is an unanalyzed mzXML file, add a "
                                             f"row and fill in the '{self.headers.SKIP}' column."
                                         ),
@@ -1776,8 +1784,8 @@ class MSRunsLoader(TableLoader):
                                     f"[{sample_name}] does not exist, but the filename starts with a number, which "
                                     "means that the peak annotation software would have required the name to be "
                                     "prepended with a letter.  There are multiple samples that end with this name: "
-                                    f"{matching_samples}.  Please identify the associated sample(s) and add a the "
-                                    f"file '{from_mzxml}' to %s.  If no such row exists and this is an unanalyzed "
+                                    f"{matching_samples}.  Please identify the associated sample(s) and add the "
+                                    f"files {from_mzxmls} to %s.  If no such row exists and this is an unanalyzed "
                                     f"mzXML file, add a row and fill in the '{self.headers.SKIP}' column."
                                 ),
                             ),
@@ -1795,7 +1803,7 @@ class MSRunsLoader(TableLoader):
                             self.aggregated_errors_object.buffer_warning(
                                 AssumedMzxmlSampleMatch(
                                     sample_name=rec.name,
-                                    mzxml_file=from_mzxml,
+                                    mzxml_file=from_mzxmls[0],  # 1 Example
                                     file=self.friendly_file,
                                     sheet=self.sheet,
                                     column=self.headers.MZXMLNAME,
@@ -1807,14 +1815,33 @@ class MSRunsLoader(TableLoader):
 
                             return rec
 
-                if Sample.is_a_blank(sample_name):
-                    # This warning may already exist from the check_mzxml_files method.  This is different from the
-                    # errors buffered below.  (Errors stop the load so that they are not encountered twice.)
-                    if not self.aggregated_errors_object.exception_exists(
-                        UnmatchedBlankMzXML, "mzxml_file", from_mzxml
-                    ):
-                        self.aggregated_errors_object.buffer_warning(
-                            UnmatchedBlankMzXML(
+                # The mzXMLs need to be iterated to create or `UnmatchedMzXML` or `UnmatchedBlankMzXML` exceptions for
+                # each file so that this script doesn't need to be run multiple times to add files to the 'Peak
+                # Annotation Details' sheet
+                for from_mzxml in from_mzxmls:
+                    if Sample.is_a_blank(sample_name):
+                        # This warning may already exist from the check_mzxml_files method.  This is different from the
+                        # errors buffered below.  (Errors stop the load so that they are not encountered twice.)
+                        if not self.aggregated_errors_object.exception_exists(
+                            UnmatchedBlankMzXML, "mzxml_file", from_mzxml
+                        ):
+                            self.aggregated_errors_object.buffer_warning(
+                                UnmatchedBlankMzXML(
+                                    from_mzxml,
+                                    self.headers.SAMPLEHEADER,
+                                    self.headers.SKIP,
+                                    file=self.friendly_file,
+                                    sheet=self.sheet,
+                                    column=self.headers.MZXMLNAME,
+                                    rownum="no row - sample name was derived from an mzXML filename",
+                                    suggestion="This file will not be linked to any sample.",
+                                ),
+                                is_fatal=self.validate,
+                                orig_exception=dne,
+                            )
+                    else:
+                        self.aggregated_errors_object.buffer_error(
+                            UnmatchedMzXML(
                                 from_mzxml,
                                 self.headers.SAMPLEHEADER,
                                 self.headers.SKIP,
@@ -1822,24 +1849,9 @@ class MSRunsLoader(TableLoader):
                                 sheet=self.sheet,
                                 column=self.headers.MZXMLNAME,
                                 rownum="no row - sample name was derived from an mzXML filename",
-                                suggestion="This file will not be linked to any sample.",
                             ),
-                            is_fatal=self.validate,
                             orig_exception=dne,
                         )
-                else:
-                    self.aggregated_errors_object.buffer_error(
-                        UnmatchedMzXML(
-                            from_mzxml,
-                            self.headers.SAMPLEHEADER,
-                            self.headers.SKIP,
-                            file=self.friendly_file,
-                            sheet=self.sheet,
-                            column=self.headers.MZXMLNAME,
-                            rownum="no row - sample name was derived from an mzXML filename",
-                        ),
-                        orig_exception=dne,
-                    )
             else:
                 self.aggregated_errors_object.buffer_exception(
                     RecordDoesNotExist(
