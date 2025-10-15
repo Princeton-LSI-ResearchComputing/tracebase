@@ -455,11 +455,12 @@ class BootstrapTableListView(ListView):
                             subrecs[-1] = "..."
                     else:
                         subrecs = []
+                    print(
+                        f"SETTING REC related_objects.{rec.pk}.{column.name} to FWD?: {column.related_sort_fwd} "
+                        f"MM List: {column.mm_list}"
+                        # f"ORDERING OF: {context['related_objects'][rec.pk][column.name]}"
+                    )
                     setattr(rec, column.mm_list, subrecs)
-                    # print(
-                    #     f"SETTING REC related_objects.{rec.pk}.{column.name} to FWD?: {column.related_sort_fwd} "
-                    #     f"ORDERING OF: {context['related_objects'][rec.pk][column.name]}"
-                    # )
         return paginator, page, object_list, is_paginated
 
     def get_manipulated_queryset(self, qs: QuerySet):

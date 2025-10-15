@@ -32,13 +32,20 @@ class SampleListView(BSTListView):
             BSTColumn("name", header="Sample"),
             BSTColumn("animal__name", header="Animal"),
             BSTColumn("tissue__name", header="Tissue"),
-            BSTColumn("first_study", many_related=True, field="animal__studies__name", header="Studies"),
+            BSTColumn(
+                "first_study",
+                many_related=True,
+                field="animal__studies__name",
+                header="Studies",
+                mm_list_name="study_names",
+            ),
             BSTColumn(
                 "first_study_id",
                 many_related=True,
                 searchable=False,
                 field="animal__studies__id",
                 exported=False,
+                mm_list_name="study_ids"
             ),
             BSTColumn(
                 "animal__genotype",
@@ -65,6 +72,7 @@ class SampleListView(BSTListView):
                         then="animal__infusate__name",
                     ),
                 ),
+                mm_list_name="infusate_names"
             ),
 
             # Tracer column group
@@ -78,6 +86,7 @@ class SampleListView(BSTListView):
                     related_model_path="animal__infusate__tracer_links",
                     related_sort_fld="animal__infusate__tracer_links__tracer__name",
                     header="Tracer(s)",
+                    mm_list_name="tracer_names",
                 ),
                 BSTColumn(
                     "first_tracer_compound_id",
@@ -86,6 +95,7 @@ class SampleListView(BSTListView):
                     related_model_path="animal__infusate__tracer_links",
                     related_sort_fld="animal__infusate__tracer_links__tracer__compound__name",
                     exported=False,
+                    mm_list_name="tracer_compound_ids",
                 ),
                 BSTColumn(
                     "first_tracer_conc",
@@ -94,6 +104,7 @@ class SampleListView(BSTListView):
                     related_model_path="animal__infusate__tracer_links",
                     related_sort_fld="animal__infusate__tracer_links__concentration",
                     header="Tracer Concentration(s) (mM)",
+                    mm_list_name="tracer_concentrations",
                 ),
             ),
 
@@ -103,6 +114,7 @@ class SampleListView(BSTListView):
                 field="animal__labels__element",
                 select_options=[e[0] for e in ElementLabel.LABELED_ELEMENT_CHOICES],
                 header="Tracer Elements",
+                mm_list_name="label_names",
             ),
             BSTColumn("animal__infusion_rate", header="Infusion Rate (ul/min/g)"),
             BSTColumn("animal__treatment__name", header="Treatment"),
@@ -161,6 +173,7 @@ class SampleListView(BSTListView):
                     related_model_path="msrun_samples",
                     select_options=researchers,
                     header="MSRun Owner",
+                    mm_list_name="operator_names",
                 ),
                 BSTColumn(
                     "first_ms_date",
@@ -175,6 +188,7 @@ class SampleListView(BSTListView):
                     related_model_path="msrun_samples",
                     related_sort_fld="msrun_samples__msrun_sequence__date",
                     header="MSRun Date",
+                    mm_list_name="ms_dates",
                 ),
                 BSTColumn(
                     "first_ms_sample",
@@ -189,6 +203,7 @@ class SampleListView(BSTListView):
                     filter_control="",
                     header="MSRun Samples",
                     exported=False,
+                    mm_list_name="ms_samples",
                 ),
             ),
             **kwargs,
