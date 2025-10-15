@@ -116,7 +116,7 @@ class BSTBaseColumn(ABC):
                 expected when sorted.
             hidable (bool) [True]: Controls whether a column's visible state can be made False.
             visible (bool) [True]: Controls whether a column is initially visible.
-            exported (bool) [True]: Adds to BST's exportOptions' ignoreColumn attribute if False.
+            exported (bool) [True]: Controls whether a column is included in an exported download or not.
             linked (bool) [False]: Whether or not the value in the column should link to a detail page for the model
                 record the row represents.
                 NOTE: The model must have a "get_absolute_url" method.  Checked in the template.
