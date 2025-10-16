@@ -1491,7 +1491,7 @@ class BootstrapTableListView(ListView):
             (Optional[Union[List[Any], Any]]): A list if passing through a populated many-related model or a field
                 value.
         """
-        print(f"_get_rec_val_helper CALLED WITH FIELD '{field_path}' ON A {type(rec).__name__} REC {rec.pk} AND SORT FIELD '{sort_field_path}' RELATED LIMIT {related_limit}")
+        # print(f"_get_rec_val_helper CALLED WITH FIELD '{field_path}' ON A {type(rec).__name__} REC {rec.pk} AND SORT FIELD '{sort_field_path}' RELATED LIMIT {related_limit}")
         if len(field_path) == 0 or rec is None:
             # print(f"field_path {field_path} cannot be an empty list and rec '{rec}' cannot be None.")
             return None, None, None
