@@ -9,12 +9,16 @@ import _csv
 from django.db.models import Model
 from django.template import loader
 
+from DataRepo.views.models.bst.column.annotation import BSTAnnotColumn
 from DataRepo.views.models.bst.column.base import BSTBaseColumn
 from DataRepo.views.models.bst.column.many_related_field import BSTManyRelatedColumn
+from DataRepo.views.models.bst.column.related_field import BSTRelatedColumn
 from DataRepo.views.models.bst.query import BSTListView, QueryMode
 
 
 class BSTExportedListView(BSTListView):
+    export_script_names = ["js/browser_download.js", "js/bst/exporter.js"]
+
     download_header_template_name = "models/bst/download_metadata_header.txt"
     download_header_template = (
         loader.get_template(download_header_template_name)
@@ -25,95 +29,145 @@ class BSTExportedListView(BSTListView):
     header_time_format = "%Y-%m-%d %H:%M:%S"
     filename_time_format = "%Y.%m.%d.%H.%M.%S"
 
-    excel_format = "Excel"
-    tsv_format = "TSV"
-    csv_format = "CSV"
-    export_formats = {
-        tsv_format: {"type": "text", "extension": "tsv"},
-        csv_format: {"type": "text", "extension": "csv"},
-        excel_format: {"type": "excel", "extension": "xlsx"},
+    excel_filetype_name = "Excel"
+    tsv_filetype_name = "TSV"
+    csv_filetype_name = "CSV"
+    export_types = {
+        tsv_filetype_name: {"stream_type": "text", "extension": "tsv", "file_type": "text"},
+        csv_filetype_name: {"stream_type": "text", "extension": "csv", "file_type": "text"},
+        excel_filetype_name: {"stream_type": "binary", "extension": "xlsx", "file_type": "excel"},
     }
 
     # URL Parameter names
     export_param_name = "export"
 
     # Context variable names
-    export_formats_var_name = "export_formats"
+    export_enabled_var_name = "export_enabled"
     timestamp_var_name = "timestamp"
-    export_format_var_name = "export_format"
     export_type_var_name = "export_type"
-    export_data_var_name = "export_data"
     export_filename_var_name = "export_filename"
+    export_data_var_name = "export_data"
+    export_types_var_name = "export_types"
+    not_exported_var_name = "not_exported"
+    export_filetype_var_name = "file_type"
 
-    def __init__(self, **kwargs):
+    def __init__(self, export_enabled = True, **kwargs):
         super().__init__(**kwargs)
         now = datetime.now()
         self.fileheader_timestamp = now.strftime(self.header_time_format)
         self.filename_timestamp = now.strftime(self.filename_time_format)
+        self.export_enabled = export_enabled
+
+        # A derived class could set the export script name to None, so check it before adding it to the client interface
+        if self.export_script_names:
+            for script in reversed(self.export_script_names):
+                self.javascripts.insert(0, script)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data()
 
-        export_data, export_filename = self.get_export_data()
+        export_data = None
+        export_filename = None
+        file_type = None
+        export_filters = [
+            column.name
+            for column in self.columns.values()
+            if column.filterable and column.filterer.initial
+        ]
+        if self.export_type:
+            export_data, export_filename, file_type = self.get_export_data()
+
+        export_types = list(self.export_types.keys())
+
+        # not_exported is for BST builtin export functionality.  It is data for a fallback method when the javascript
+        # customButtonsFunction's btnExportAll is not defined.
+        not_exported = [column.name for column in self.columns.values() if not column.exported]
+
         context.update(
             {
+                self.export_enabled_var_name: self.export_enabled,
+                self.export_types_var_name: export_types,
+                self.export_type_var_name: self.export_type,
                 self.export_data_var_name: export_data,
+                "export_data_var_name": self.export_data_var_name,
                 self.export_filename_var_name: export_filename,
-                self.export_format_var_name: self.export_format,
+                self.export_type_var_name: self.export_type,
+                "export_param_name": self.export_param_name,
+                self.not_exported_var_name: not_exported,
+                self.export_filetype_var_name: file_type,
+                "export_filetype_var_name": self.export_filetype_var_name,
+                "export_filters": export_filters,
             }
         )
         return context
 
+    def get(self, request, *args, **kwargs):
+        self.init_interface()
+        return super().get(request, *args, **kwargs)
+
     def init_interface(self):
         super().init_interface()
 
-        export_format = self.get_param(self.export_param_name)
-        if export_format is not None:
-            if export_format not in self.export_formats.keys():
+        self.export_type = self.get_param(self.export_param_name)
+        if self.export_type is not None:
+            if self.export_type not in self.export_types.keys():
                 warning = (
-                    f"Invalid export type encountered: '{export_format}'.  "
-                    f"Must be one of {list(self.export_formats.keys())}.  "
+                    f"Invalid export type encountered: '{self.export_type}'.  "
+                    f"Must be one of {list(self.export_types.keys())}.  "
                     "Aborting download."
                 )
                 self.warnings.append(warning)
-            else:
-                self.export_format = export_format
 
     def get_export_data(self):
         """Turns the queryset into a base64 encoded string and a filename.
 
         Args:
-            format (str) {excel, csv, tsv}
+            type (str) {excel, csv, tsv}
         Exceptions:
-            NotImplementedError when the format is unrecognized.
+            NotImplementedError when the type is unrecognized.
         Returns:
             export_data (str): Base64 encoded string.
             (str): The filename
+            data_type (str) {text, excel}: This is the value used by the browserDownloadBase64 javascript method to set
+                the data attribute that instructs the browser how to create the file.
         """
-        file_extension = self.export_formats[self.export_format]["extension"]
-        file_type = self.export_formats[self.export_format]["type"]
-        if self.export_format == self.excel_format:
+        if self.export_type not in self.export_types.keys():
+            raise NotImplementedError(
+                f"Export type {self.export_type} not supported.  "
+                f"Must be one of {list(self.export_types.keys())}."
+            )
+
+        file_extension = self.export_types[self.export_type]["extension"]
+        stream_type = self.export_types[self.export_type]["stream_type"]
+        data_type = self.export_types[self.export_type]["file_type"]
+
+        if stream_type == "binary":
             byte_stream = BytesIO()
-            self.get_excel_streamer(byte_stream)
-            export_data = base64.b64encode(byte_stream.read()).decode("utf-8")
-        else:
+            if self.export_type == self.excel_filetype_name:
+                self.get_excel_streamer(byte_stream)
+                export_data = base64.b64encode(byte_stream.read()).decode("utf-8")
+        elif stream_type == "text":
             buffer = StringIO()
-            if self.export_format == self.csv_format:
+            if self.export_type == self.csv_filetype_name:
                 # This fills the buffer
                 self.get_text_streamer(buffer, delim=",")
                 # This consumes the buffer
                 export_data = base64.b64encode(buffer.getvalue().encode('utf-8')).decode("utf-8")
                 # export_data = base64.b64encode(buffer.getvalue().encode('utf-8')).decode("utf-8")
-            elif self.export_format == self.tsv_format:
+            elif self.export_type == self.tsv_filetype_name:
                 # This fills the buffer
                 self.get_text_streamer(buffer, delim="\t")
                 # This consumes the buffer
                 export_data = base64.b64encode(buffer.getvalue().encode('utf-8')).decode("utf-8")
                 # export_data = base64.b64encode(buffer.getvalue().encode('utf-8')).decode("utf-8")
-            else:
-                raise NotImplementedError(f"Export format {self.export_format} not supported.")
+        else:
+            supported_types = []
+            for typ_dct in self.export_types.values():
+                if typ_dct["stream_type"] not in supported_types:
+                    supported_types.append(typ_dct["stream_type"])
+            raise NotImplementedError(f"File type {stream_type} not supported.  Must be one of {supported_types}.")
 
-        return export_data, f"{type(self.model).__name__}.{self.filename_timestamp}.{file_extension}"
+        return export_data, f"{self.model.__name__}.{self.filename_timestamp}.{file_extension}", data_type
 
     def get_excel_streamer(self, byte_stream: BytesIO):
         """Returns an xlsxwriter for an excel file created from the self.dfs_dict.
@@ -262,14 +316,55 @@ class BSTExportedListView(BSTListView):
         Returns:
             (str): Column value or values (if many-related).
         """
-        if isinstance(col, BSTManyRelatedColumn) and self.query_mode == QueryMode.subquery:
+        # Determine the method that will be used to retrieve the column value
+        if self.query_mode == QueryMode.subquery:
+            method = self.get_many_related_column_val_by_subquery
+        elif self.query_mode == QueryMode.iterate:
+            method = self.get_column_val_by_iteration
+        else:
+            raise NotImplementedError(f"QueryMode {self.query_mode} not implemented.")
+
+        # Many-related columns are handled a bit differently.  Their values must be joined using the column's delimiter.
+        if isinstance(col, BSTManyRelatedColumn):
             return col.delim.join(
-                [str(val) for val in self.get_many_related_column_val_by_subquery(rec, col)]
+                [
+                    # If the value is a foreign key/model object, get the display field defined in the column object.
+                    getattr(val, col.display_field_name)
+                    if (
+                        isinstance(val, Model)
+                        and col.display_field_name
+                        and col.display_field_path != col.display_field_name
+                    )
+                    # Else just return the stringified value
+                    else str(val)
+                    for val in method(rec, col)
+                ]
             )
         else:
-            if self.query_mode == QueryMode.iterate:
-                return str(self.get_column_val_by_iteration(rec, col))
-            elif self.query_mode != QueryMode.subquery:
-                raise NotImplementedError(f"QueryMode {self.query_mode} not implemented.")
+            # NOTE: QueryMode.subquery is only for BSTManyRelatedColumn objects, so here, we only call
+            # get_column_val_by_iteration
+            val = self.get_column_val_by_iteration(rec, col)
+            if (
+                isinstance(val, Model)
+                and isinstance(col, BSTRelatedColumn)
+                and col.display_field_name
+                and col.display_field_path != col.display_field_name
+            ):
+                # If the value is a foreign key/model object (managed by a BSTRelatedColumn), get the display field
+                # defined in the column object.
+                return getattr(val, col.display_field_name)
+            elif (
+                isinstance(val, Model)
+                and isinstance(col, BSTAnnotColumn)
+                and col.is_fk
+            ):
+                # If the value is a foreign key/model object (managed by a BSTAnnotColumn), convert the ID the
+                # annotation generates to a model object.  We will stringify the object so that it makes some sense
+                # to the user, since the integer value of the foreign key is meaningless to the user.  NOTE: There
+                # does not yet exist a display field name for annotations that return foreign keys.
+                # TODO: Add a display_field_name to BSTAnnotColumn for annotations that return foreign keys
+                # TODO: Handle the case where an annotation returns a many-related list of values (not yet
+                # supported: so add a raise/exception until it **is** supported)
+                return str(col.get_model_object(val))
             else:
-                raise NotImplementedError(f"QueryMode {self.query_mode} not implemented for {type(col).__name__}.")
+                return str(val)

@@ -1,10 +1,10 @@
 from django.views.generic import DetailView
 
 from DataRepo.models import Tissue
-from DataRepo.views.models.bst.query import BSTListView
+from DataRepo.views.models.bst.export import BSTExportedListView
 
 
-class TissueListView(BSTListView):
+class TissueListView(BSTExportedListView):
     model = Tissue
     exclude = ["id", "samples"]
     column_ordering = ["name", "description", "samples_mm_count"]

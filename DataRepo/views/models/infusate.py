@@ -2,7 +2,7 @@ from django.views.generic import DetailView
 
 from DataRepo.models import Infusate
 from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
-from DataRepo.views.models.bst.query import BSTListView
+from DataRepo.views.models.bst.export import BSTExportedListView
 
 
 class InfusateDetailView(DetailView):
@@ -26,7 +26,7 @@ class InfusateDetailView(DetailView):
         return context
 
 
-class InfusateListView(BSTListView):
+class InfusateListView(BSTExportedListView):
     model = Infusate
     exclude = ["id", "animals", "tracers", "tracer_links"]
     column_ordering = [

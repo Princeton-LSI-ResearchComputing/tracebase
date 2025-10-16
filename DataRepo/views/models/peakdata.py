@@ -1,8 +1,9 @@
 from DataRepo.models import PeakData
-from DataRepo.views.models.bst.query import BSTDetailView, BSTListView
+from DataRepo.views.models.bst.query import BSTDetailView
+from DataRepo.views.models.bst.export import BSTExportedListView
 
 
-class PeakDataListView(BSTListView):
+class PeakDataListView(BSTExportedListView):
     model = PeakData
     paginate_by = 200
     column_settings = {

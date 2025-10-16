@@ -2,7 +2,7 @@
 # Time: {{ timestamp }}
 # Rows: {{ total }}
 # Global Search Term: {% if search %}'{{ search }}'{% else %}None{% endif %}
-# Column Filters: {% for column in columns %}{% if column.filterable and column.filterer.initial %}
-#   {{ column }}: '{{ column.filterer.initial }}'{% empty %}None{% endfor %}
+# Column Filters: {% for column, filter in export_filters.items %}
+#   {{ column }}: '{{ filter }}'{% empty %}None{% endfor %}
 # Sort: {{ sortcol }}, {% if asc %}ascending{% else %}descending{% endif %}
 

@@ -37,8 +37,8 @@
             data-buttons-align="left"
             data-buttons-class="primary"
             data-buttons="customButtonsFunction"
-            data-export-types="['csv', 'txt', 'excel']"
-            data-export-data-type="all"
+            {% comment %} {% if export_types %}data-export-types="{{ export_types }}"
+            data-export-data-type="all"{% endif %} {% endcomment %}
             data-filter-control="true"
             data-search="true"
             data-search-align="left"

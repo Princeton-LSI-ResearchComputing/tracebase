@@ -12,6 +12,12 @@ var djangoPerPage = djangoLimitDefault // eslint-disable-line no-var
 var djangoRawTotal = 0 // eslint-disable-line no-var
 var djangoTotal = djangoRawTotal // eslint-disable-line no-var, no-unused-vars
 var columnNames = [] // eslint-disable-line no-var
+var exportEnabled = false // eslint-disable-line no-var
+var exportObject = {
+  exportSelectHtml: '',
+  exportFallbackFunc: (page, limit, total) => alert(`exportFallbackFunc(page, limit, totla) is undefined!`),
+  notExported: []
+}
 
 var sortCookieName = 'sort' // eslint-disable-line no-var, no-unused-vars
 var ascCookieName = 'asc' // eslint-disable-line no-var, no-unused-vars
@@ -20,6 +26,7 @@ var filterCookieName = 'filter' // eslint-disable-line no-var, no-unused-vars
 var visibleCookieName = 'visible' // eslint-disable-line no-var
 var limitCookieName = 'limit' // eslint-disable-line no-var
 var pageCookieName = 'page' // eslint-disable-line no-var
+var exportParamName = 'export' // eslint-disable-line no-var
 
 // NOTE: The following global variables (doingNonTableSearch and searchLength) are necessary to work around this issue:
 // https://github.com/wenzhixin/bootstrap-table/issues/7897
@@ -102,7 +109,14 @@ function initBST ( // eslint-disable-line no-unused-vars
   filterCookieName,
   visibleCookieName,
   limitCookieName,
-  pageCookieName
+  pageCookieName,
+  exportEnabled,
+  exportDataElemName,
+  exportFileName,
+  exportFileType,
+  exportTypesElemName,
+  exportParamName,
+  notExportedElemName
 ) {
   globalThis.djangoCurrentURL = currentURL
   globalThis.djangoTableID = tableID
@@ -120,6 +134,8 @@ function initBST ( // eslint-disable-line no-unused-vars
   globalThis.visibleCookieName = visibleCookieName
   globalThis.limitCookieName = limitCookieName
   globalThis.pageCookieName = pageCookieName
+  globalThis.exportEnabled = parseBool(exportEnabled)
+  globalThis.exportParamName = exportParamName
 
   // Clear whatever might already be in the global columnNames array
   globalThis.columnNames = []
@@ -153,6 +169,17 @@ function initBST ( // eslint-disable-line no-unused-vars
   }
   setViewCookie(pageCookieName, djangoPageNumber) // eslint-disable-line no-undef
 
+  if (exportEnabled) {
+    globalThis.exportObject = initExporter(
+      exportTypesElemName,
+      exportDataElemName,
+      exportFileName,
+      exportFileType,
+      djangoTableID,
+      "exportAllPages",
+      notExportedElemName
+    )
+  }
   // Set a variable to be able to forgo events from BST during init
   let loading = true
   $(jqTableID).bootstrapTable({ // eslint-disable-line no-undef
@@ -212,7 +239,13 @@ function initBST ( // eslint-disable-line no-unused-vars
       globalThis.doingNonTableSearch = true
       console.error("BootstrapTable Error.  Status: '" + status + "' Data:", jqXHR)
       setTimeout(function () { globalThis.doingNonTableSearch = false }, 1000)
-    }
+    },
+    onExportStarted: function (event) {
+      exportObject.exportFallbackFunc(djangoPageNumber, djangoLimit, djangoTotal);
+    },
+    exportOptions: {
+        ignoreColumn: notExported,  // This is for the fallback BST-builtin one-page download functionality
+    },
   })
 
   // This works around this issue with the 'x' cancel button inside the table search box:
@@ -293,10 +326,18 @@ function displayWarnings (warningsArray) {
  * Requests a new page from the server based on the values passed in (or the cookies as defaults).
  * @param {*} page Page number.
  * @param {*} limit Rows per page.
- * @param {*} exportType Whether to export to a file and the file type.
+ * @param {*} exportType Export file type.  Used to infer whether to export.
  */
 function updatePage (page, limit, exportType) { // eslint-disable-line no-unused-vars
   window.location.href = getPageURL(page, limit, exportType)
+}
+
+/**
+ * Triggers a page load and data download.
+ * @param {*} format Export format/type.
+ */
+function exportAllPages(format) {
+  updatePage(undefined, undefined, format); // eslint-disable-line no-undef
 }
 
 /**
@@ -310,8 +351,8 @@ function updatePage (page, limit, exportType) { // eslint-disable-line no-unused
 function getPageURL (page, limit, exportType) { // eslint-disable-line no-unused-vars
   // Get or set the page and limit cookies
   [page, limit] = updatePageCookies(page, limit)
+
   // Create the URL, stating with the page
-  // TODO: Add global variable for export URL parameter name, which is stored in a variable in BSTClientInterface
   let url = djangoCurrentURL + '?' + pageCookieName + '=' + page
 
   // Add the limit
@@ -321,12 +362,12 @@ function getPageURL (page, limit, exportType) { // eslint-disable-line no-unused
 
   // Add the export param, if supplied
   if (typeof exportType !== 'undefined' && exportType) {
-    url += '&export=' + exportType
+    url += '&' + exportParamName + '=' + exportType
   }
 
   // Add any other active URL parameters, like those for the subquery
   for (const [key, value] of urlParams.entries()) {
-    if (![pageCookieName, limitCookieName, 'export'].includes(key)) {
+    if (![pageCookieName, limitCookieName, exportParamName].includes(key)) {
       url += '&' + key + '=' + value
     }
   }
@@ -550,11 +591,11 @@ function setCollapseIcon (collapse) {
 
 /**
  * Initializes settings for custom buttons in the BST toolbar, including a clear button to clear out cookies and a
- * custom export dropdown button..
+ * custom export dropdown button.
  * @returns Settings object for BST.
  */
 function customButtonsFunction () { // eslint-disable-line no-unused-vars
-  return {
+  buttonConfig = {
     btnClear: {
       text: 'Reset Page to default settings',
       icon: 'bi-house',
@@ -576,4 +617,11 @@ function customButtonsFunction () { // eslint-disable-line no-unused-vars
       }
     }
   }
+  if (exportEnabled) {
+    buttonConfig.btnExportAll = {
+      html: exportObject.exportSelectHtml
+    }
+  }
+  console.log(buttonConfig)
+  return buttonConfig
 }

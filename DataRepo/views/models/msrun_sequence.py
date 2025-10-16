@@ -3,7 +3,7 @@ from django.views.generic import DetailView
 
 from DataRepo.models import DATE_FORMAT, DBSTRING_FUNCTION, MSRunSequence
 from DataRepo.models.researcher import Researcher
-from DataRepo.views.models.bst.query import BSTListView
+from DataRepo.views.models.bst.export import BSTExportedListView
 
 
 class MSRunSequenceDetailView(DetailView):
@@ -12,7 +12,7 @@ class MSRunSequenceDetailView(DetailView):
     context_object_name = "sequence"
 
 
-class MSRunSequenceListView(BSTListView):
+class MSRunSequenceListView(BSTExportedListView):
     model = MSRunSequence
     exclude = ["id", "date", "msrun_samples"]
     column_ordering = [

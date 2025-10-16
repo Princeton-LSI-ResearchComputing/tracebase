@@ -3,10 +3,10 @@ from django.db.models.functions import Extract
 from django.views.generic import DetailView
 
 from DataRepo.models import DURATION_SECONDS_ATTRIBUTE, LCMethod
-from DataRepo.views.models.bst.query import BSTListView
+from DataRepo.views.models.bst.export import BSTExportedListView
 
 
-class LCMethodListView(BSTListView):
+class LCMethodListView(BSTExportedListView):
     model = LCMethod
     exclude = ["id", "msrunsequence", "run_length"]
     column_ordering = [

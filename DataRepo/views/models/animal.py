@@ -5,10 +5,10 @@ from django.views.generic import DetailView
 
 from DataRepo.models import DURATION_SECONDS_ATTRIBUTE, Animal, Researcher
 from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
-from DataRepo.views.models.bst.query import BSTListView
+from DataRepo.views.models.bst.export import BSTExportedListView
 
 
-class AnimalListView(BSTListView):
+class AnimalListView(BSTExportedListView):
     model = Animal
     column_ordering = [
         "name",

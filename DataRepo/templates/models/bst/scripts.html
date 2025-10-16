@@ -5,6 +5,15 @@
 {{ columns|keys|json_script:"orderedColumnNames" }}
 {{ warnings|json_script:"warnings" }}
 {{ cookie_resets|json_script:"cookieResets" }}
+{% if export_enabled %}
+    {{ export_types|json_script:"exportTypes" }}
+    {{ not_exported|json_script:"notExported" }}
+    {% if export_data %}
+        <span class="d-none" id="export_filename">{{ export_filename }}</span>
+        <span class="d-none" id="{{ export_filetype_var_name }}">{{ file_type }}</span>
+        <pre class="d-none" id="{{ export_data_var_name }}">{{ export_data }}</pre>
+    {% endif %}
+{% endif %}
 
 {# The script imports #}
 {% for script in scripts %}<script src="{% static script %}"></script>
@@ -52,6 +61,13 @@
             '{{ visible_cookie_name }}',
             '{{ limit_cookie_name }}',
             '{{ page_cookie_name }}',
+            '{{ export_enabled }}',
+            '{{ export_data_var_name }}',
+            '{{ export_filename }}',
+            '{{ file_type }}',
+            'exportTypes',
+            '{{ export_param_name }}',
+            'notExported',
         )
     });
 </script>
