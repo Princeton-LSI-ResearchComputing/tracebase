@@ -1,5 +1,6 @@
 from DataRepo.models import Tracer
-from DataRepo.views.models.bst.query import BSTDetailView, BSTListView
+from DataRepo.views.models.bst.query import BSTDetailView
+from DataRepo.views.models.bst.export import BSTExportedListView
 
 
 class TracerDetailView(BSTDetailView):
@@ -16,7 +17,7 @@ class TracerDetailView(BSTDetailView):
     }
 
 
-class TracerListView(BSTListView):
+class TracerListView(BSTExportedListView):
     model = Tracer
     exclude = ["id", "fcircs", "infusate_links"]
     column_settings = {

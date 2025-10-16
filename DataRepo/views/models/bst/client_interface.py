@@ -32,7 +32,7 @@ class BSTClientInterface:
         warnings_var_name (str) ["warnings"]
         above_var_name (str) ["above_template"]
         below_var_name (str) ["below_template"]
-        title (Optional[str]): The page title
+        title (Optional[str]) [self.model_title_plural]: The page title. For overriding in the derived class.
         above_template (Optional[str]): Path to a template to include above the table.
         below_template (Optional[str]): Path to a template to include below the table.
     Instance Attributes:

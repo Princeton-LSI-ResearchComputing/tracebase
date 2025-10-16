@@ -2,10 +2,10 @@ from django.views.generic import DetailView
 
 from DataRepo.models import Compound, PeakGroup
 from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
-from DataRepo.views.models.bst.query import BSTListView
+from DataRepo.views.models.bst.export import BSTExportedListView
 
 
-class CompoundListView(BSTListView):
+class CompoundListView(BSTExportedListView):
     model = Compound
     exclude = ["id", "peak_groups", "tracers"]
     column_ordering = [

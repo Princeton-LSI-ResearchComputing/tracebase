@@ -1,7 +1,7 @@
 from django.views.generic import DetailView
 
 from DataRepo.models import MSRunSample
-from DataRepo.views.models.bst.query import BSTListView
+from DataRepo.views.models.bst.export import BSTExportedListView
 
 
 class MSRunSampleDetailView(DetailView):
@@ -10,7 +10,7 @@ class MSRunSampleDetailView(DetailView):
     context_object_name = "msrun_sample"
 
 
-class MSRunSampleListView(BSTListView):
+class MSRunSampleListView(BSTExportedListView):
     model = MSRunSample
     exclude = ["id", "peak_groups"]
     column_ordering = [
