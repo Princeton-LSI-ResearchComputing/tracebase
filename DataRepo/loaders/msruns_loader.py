@@ -305,9 +305,15 @@ class MSRunsLoader(TableLoader):
                     interface and seen by researchers, among other behaviors specific to non-privileged users).
             Derived (this) class Args:
                 mzxml_files (Optional[List[str]]): Paths to mzXML files.
-                mzxml_dir (Optional[str]): Path to mzXML directory.  (The common parent directory.)  NOT USED TO FIND
-                    MZXML FILES.  USE mzxml_files FOR THAT.  ONLY USED TO DETERMINE THE SEQUENCE AN MZXML BELONGS TO DUE
-                    TO COMMON DIRECTORY WITH A PEAK ANNOT FILE.
+                mzxml_dir (Optional[str]): Path to mzXML directory.  Used to find mzxml files when mzxml_files is not
+                    supplied.  This is used to determine the sequence an mzXML comes from, inferred via sharing a
+                    directory with a peak annot file that has a default sequence assigned in the Peak Annotation Files
+                    sheet.  NOTE: If mzxml_files is empty or not set, this argument defaults to the directory that
+                    self.file is in, or if that's None: the current working directory.
+                skip_mzxmls (bool) [False]: Skips the loading of mzXML file records into the ArchiveFile table.
+                    Mutually exclusive with mzxml_files and mzxml_dir, which will be ignored if this argument is True.
+                    Note, this also skips the creation of raw file record (but also note that raw files are never
+                    actually loaded - what is skipped is the creation of the record representing the raw file).
                 operator (Optional[str]): The researcher who ran the mass spec.  Mutually exclusive with defaults_df
                     (when it has a default for the operator column for the Sequences sheet).
                 lc_protocol_name (Optional[str]): Name of the liquid chromatography method.  Mutually exclusive with
@@ -342,13 +348,51 @@ class MSRunsLoader(TableLoader):
         lc_protocol_name_default = kwargs.pop("lc_protocol_name", None)
         instrument_default = kwargs.pop("instrument", None)
         exact_mode = kwargs.pop("exact_mode", False)
+        skip_mzxmls = kwargs.pop("skip_mzxmls", False)
 
         super().__init__(*args, **kwargs)
+
+        # Check mutually exclusive options
+        if skip_mzxmls:
+            if len(self.mzxml_files) > 0:
+                self.aggregated_errors_object.buffer_warning(
+                    MutuallyExclusiveArgs(
+                        f"skip_mzxmls is True, but {len(self.mzxml_files)} mzxml_files were provided.  "
+                        "Note that the load of these files will be skipped."
+                    )
+                )
+            if self.mzxml_dir is not None:
+                self.aggregated_errors_object.buffer_warning(
+                    MutuallyExclusiveArgs(
+                        "skip_mzxmls is True, but mzxml_dir was provided.  "
+                        "Note that the load of the files it may contain will be skipped."
+                    )
+                )
+            self.mzxml_dir = None
+            self.mzxml_files = []
+
+        # If no specific mzXML files were provided
+        if not skip_mzxmls and len(self.mzxml_files) == 0:
+            # If the infile was provided and no mzxml_dir was provided
+            if self.file is not None and self.mzxml_dir is None:
+                study_file = os.path.abspath(self.file)
+                study_dir = os.path.dirname(study_file)
+                self.mzxml_dir = study_dir
+            elif self.mzxml_dir is None:
+                # Fall back to the current working directory
+                self.mzxml_dir = os.getcwd()
+            # Look up all the mzXML files by walking to mzxml_dir
+            self.mzxml_files = self.get_mzxml_files(dir=self.mzxml_dir)
 
         self.annotdir_to_seq_dict = None
         # If we have mzxml files to load, we need to retrieve the paths of the peak annotation files mapped to their
         # sequences so that we can associate those sequences with the mzXML files that are on the same path
-        if len(self.mzxml_files) > 0 and self.file is not None and is_excel(self.file):
+        if (
+            not skip_mzxmls
+            and len(self.mzxml_files) > 0
+            and self.file is not None
+            and is_excel(self.file)
+        ):
             # If no file is provided, we will not error, but note that if there are multiple mzXML files with the same
             # name, and no default sequence is provided, we will not be able to know what sequence an mzXML belongs to,
             # so we won't be able to create an MSRunSample record for those files.  (Note: mzXML files are co-located

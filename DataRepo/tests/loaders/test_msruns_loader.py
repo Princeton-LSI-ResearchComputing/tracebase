@@ -2084,6 +2084,32 @@ class MSRunsLoaderTests(TracebaseTestCase):
         # Ensure the correct record was obtained
         self.assertEqual(defseq, seq)
 
+    def test_init_mzxml_files_default(self):
+        """This test ensures that mzXML files are found and loaded by default"""
+        msruns_loader = MSRunsLoader(
+            file="DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx"
+        )
+        self.assertEqual(
+            "DataRepo/data/tests/same_name_mzxmls",
+            os.path.relpath(msruns_loader.mzxml_dir, os.getcwd()),
+        )
+        self.assertEqual(
+            [
+                "DataRepo/data/tests/same_name_mzxmls/mzxmls/BAT-xz971.mzXML",
+                "DataRepo/data/tests/same_name_mzxmls/mzxmls/pos/BAT-xz971.mzXML",
+            ],
+            [os.path.relpath(p, os.getcwd()) for p in msruns_loader.mzxml_files],
+        )
+
+    def test_init_skip_mzxml_files(self):
+        """This test ensures that mzXML file loads can be skipped"""
+        msruns_loader = MSRunsLoader(
+            file="DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",
+            skip_mzxmls=True,
+        )
+        self.assertIsNone(msruns_loader.mzxml_dir)
+        self.assertEqual([], msruns_loader.mzxml_files)
+
 
 class MSRunsLoaderArchiveTests(TracebaseArchiveTestCase):
     fixtures = ["lc_methods.yaml", "data_types.yaml", "data_formats.yaml"]
@@ -2179,7 +2205,7 @@ class MSRunsLoaderArchiveTests(TracebaseArchiveTestCase):
                 "Sequence": [f"Dick, polar-HILIC-25-min, {inst}, 1991-5-7"],
             },
         )
-        msrl = MSRunsLoader(df=df)
+        msrl = MSRunsLoader(df=df, skip_mzxmls=True)
         msrl.load_data()
         # No exception = successful test
         MSRunSample.objects.get(
