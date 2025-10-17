@@ -58,6 +58,7 @@ from DataRepo.utils.exceptions import (
     UnmatchedBlankMzXML,
     UnmatchedMzXML,
     UnskippedBlanks,
+    summarize_int_list,
 )
 from DataRepo.utils.file_utils import is_excel, read_from_file, string_to_date
 
@@ -258,6 +259,23 @@ class MSRunsLoader(TableLoader):
 
     # List of model classes that the loader enters records into.  Used for summarized results & some exception handling.
     Models = [MSRunSample, PeakGroup, ArchiveFile]
+
+    # This error is used in 2 places, so it is saved here.
+    seq_defaults_error = ConditionallyRequiredArgs(
+        (
+            "Enough of the following arguments to accurately and uniquely identify an MSRunSequence "
+            "record are required:\n\t{0}"
+        ).format(
+            "\n\t".join(
+                [
+                    "operator_default",
+                    "instrument_default",
+                    "date_default",
+                    "lc_protocol_name_default",
+                ]
+            )
+        )
+    )
 
     def __init__(self, *args, **kwargs):
         """Constructor.
@@ -527,6 +545,8 @@ class MSRunsLoader(TableLoader):
                     ),
                     orig_exception=mrr,
                 )
+        elif default_sequence is None and self.df is not None:
+            self.check_seqname_column()
 
         # This will contain the created ArchiveFile records for mzXML files
         self.created_mzxml_archive_file_recs = []
@@ -640,22 +660,20 @@ class MSRunsLoader(TableLoader):
                     or self.date_default is None
                     or self.lc_protocol_name_default is None
                 )
+                and not self.aggregated_errors_object.exception_type_exists(
+                    ConditionallyRequiredArgs
+                )
             ):
                 self.aggregated_errors_object.buffer_error(
-                    ConditionallyRequiredArgs(
-                        (
-                            "Enough of the following arguments to accurately and uniquely identify an MSRunSequence "
-                            "record are required:\n\t{0}"
-                        ).format(
-                            "\n\t".join(
-                                [
-                                    "operator_default",
-                                    "instrument_default",
-                                    "date_default",
-                                    "lc_protocol_name_default",
-                                ]
-                            )
-                        )
+                    self.seq_defaults_error.set_formatted_message(
+                        suggestion=(
+                            "This is necessary because there is at least 1 mzXML file that could not be paired with a "
+                            f"row in the '{self.DataSheetName}' sheet, thus cannot be loaded with an association to a "
+                            "sequence unless enough defaults described above are provided to uniquely identify a "
+                            "sequence.  Alternatively, you can supply a default sequence in the "
+                            f"'{SequencesLoader.DataHeaders.SEQNAME}' column of the '{SequencesLoader.DataSheetName}' "
+                            "sheet."
+                        ),
                     )
                 )
                 # Otherwise, we errored about it not being found already
@@ -812,6 +830,66 @@ class MSRunsLoader(TableLoader):
             enable_caching_updates()
             if not self.dry_run and not self.validate:
                 delete_all_caches()
+
+    def check_seqname_column(self):
+        """This method checks the sequence name column.  If any values are missing (and not skipped) and there is no
+        default sequence defined, it stops execution, but only when there are mzXML files (because that's the
+        bottleneck).
+
+        Args:
+            None
+        Exceptions:
+            Buffers:
+                ConditionallyRequiredArgs: Saved in self.SeqDefaultsRequiredErr
+            Raises:
+                AggregatedErrors
+        Returns:
+            None
+        """
+
+        # Quickly extract the skip and sequence name data from the infile using pandas' methodology
+        if self.DataHeaders.SKIP in self.df.columns:
+            no_sequence = self.df[[self.DataHeaders.SKIP, self.DataHeaders.SEQNAME]]
+        else:
+            no_sequence = self.df[self.DataHeaders.SEQNAME].to_frame()
+            no_sequence[self.DataHeaders.SKIP] = ""
+
+        # Find any unskipped sequence names that have no value
+        missing_seqnames = []
+        for _, row in no_sequence.iterrows():
+
+            # Determine if the row is skipped
+            skip_str = row[self.DataHeaders.SKIP]
+            if str(skip_str).strip() in self.none_vals:
+                skip = False
+            else:
+                skip = str(skip_str).strip().lower() in self.SKIP_STRINGS
+
+            # If not skipped, buffer a conditionally required argument exception if there is not sequence name value
+            # and raise so that a user running the load doesn't have to wait a long time before realizing they
+            # didn't provide a sequence default.
+            if skip is False:
+                seq = row[self.DataHeaders.SEQNAME]
+                if str(seq).strip() in self.none_vals:
+                    missing_seqnames.append(row.name + 2)
+
+        if len(missing_seqnames) > 0:
+            self.aggregated_errors_object.buffer_error(
+                self.seq_defaults_error.set_formatted_message(
+                    suggestion=(
+                        f"This is necessary because there exists {len(missing_seqnames)} rows that do not have a "
+                        f"value in the '{self.DataHeaders.SEQNAME}' column.  You can either enter a "
+                        f"{self.DataHeaders.SEQNAME} for all such rows or provide the default arguments "
+                        "described above to use for all rows.\n"
+                        f"Rows missing {self.DataHeaders.SEQNAME} values: {summarize_int_list(missing_seqnames)}"
+                    ),
+                ),
+            )
+
+            # If there are mzXML files, we want to exit early so the user can correct the problem now instead of after a
+            # complete load attempt
+            if len(self.mzxml_files) > 0:
+                raise self.aggregated_errors_object
 
     def check_mzxml_files(self):
         """Reviews all of the mzXML files against the Peak Annotation Details sheet (if provided).  If any mzXML files
