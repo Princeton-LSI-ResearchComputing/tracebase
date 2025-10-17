@@ -22,6 +22,7 @@ from DataRepo.utils.exceptions import (
     AggregatedErrors,
     AggregatedErrorsSet,
     ConflictingValueError,
+    DBFieldVsFileColDeveloperWarning,
     DryRun,
     DuplicateHeaders,
     DuplicateValues,
@@ -2664,6 +2665,7 @@ class TableLoader(ABC):
                 None
             Buffers:
                 ConflictingValueError
+                DBFieldVsFileColDeveloperWarning
         Returns:
             found_errors (bool)
         """
@@ -2719,32 +2721,21 @@ class TableLoader(ABC):
                 ):
                     differs = True
                 elif expected_type is None:
-                    if str(orig_value) != str(new_value):
-                        differs = True
-                        # In case the researcher sees this difference and it doesn't make sense, provide this warning to
-                        # potentially explain it.
+                    # Fall back to a str-cast comparison
+                    differs = str(orig_value) != str(new_value)
+
+                    # Only buffer a DBFieldVsFileColDeveloperWarning when both compared values are not None
+                    if orig_value is not None and new_value is not None:
                         self.aggregated_errors_object.buffer_warning(
-                            ProgrammingError(
-                                f"Could not map model field '{type(rec).__name__}.{field}' to a column type to "
-                                f"accurately compare values that differ by type '{orig_value}' (a "
-                                f"'{type(orig_value).__name__}' from the database) and '{new_value}' (a "
-                                f"'{type(new_value).__name__}' from the file), so both were cast to a string to "
-                                "compare and found to differ.  If they should not differ, make sure to include the "
-                                "model field in 'FieldToDataHeaderKey' and the type in 'DataColumnTypes'."
-                            ),
-                            is_fatal=self.validate,
-                        )
-                    elif orig_value != new_value:
-                        # The string-cast versions were found to be equal, but their actual values (that differ by type)
-                        # would be considered differing.  Let the curators know.
-                        self.aggregated_errors_object.buffer_warning(
-                            ProgrammingError(
-                                f"Could not map model field '{type(rec).__name__}.{field}' to a column type to "
-                                f"accurately compare values that differ by type '{orig_value}' (a "
-                                f"'{type(orig_value).__name__}' from the database) and '{new_value}' (a "
-                                f"'{type(new_value).__name__}' from the file), so both were cast to a string to "
-                                "compare and found to be equal.  If they should differ, make sure to include the model "
-                                "field in 'FieldToDataHeaderKey' and the type in 'DataColumnTypes'."
+                            DBFieldVsFileColDeveloperWarning(
+                                rec,
+                                field,
+                                orig_value,
+                                new_value,
+                                type(self).__name__,
+                                rownum=self.rownum,
+                                sheet=self.sheet,
+                                file=self.friendly_file,
                             ),
                         )
 

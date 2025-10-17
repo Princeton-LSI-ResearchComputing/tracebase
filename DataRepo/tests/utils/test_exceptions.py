@@ -7,7 +7,10 @@ from DataRepo.utils.exceptions import (
     AggregatedErrors,
     CompoundDoesNotExist,
     DateParseError,
+    DBFieldVsFileColDeveloperWarning,
+    DBFieldVsFileColDeveloperWarnings,
     DefaultSequenceNotFound,
+    DeveloperWarning,
     DuplicateCompoundIsotopes,
     DuplicateValueErrors,
     DuplicateValues,
@@ -1441,3 +1444,137 @@ class ExceptionTests(TracebaseTestCase):
         self.assertIn("header 's1' maps to samples: ['s1_pos', 's1_neg']", str(pdse))
         # Check suggestion exists
         self.assertIn("associated with the same tracebase sample", str(pdse))
+
+    def test_DBFieldVsFileColDeveloperWarning(self):
+        """Tests developer warnings about database/file value type issues.
+
+        Requirements tested (from GitHub issue #1662):
+            2. Repeated warnings must be summarized.
+            3. The warning about comparing a value from the DB with with a value from a file when their types differ
+               must be clear as to what the problem with it is and whether it needs to be addressed (and how)
+            4. The warning must mention whether ConflictingValueError exceptions will be created, in the context of it's
+               correctness being a determinant as to whether the type for the field should be added to the loader.
+            6. Customized ProgrammerErrors' names must be clearly applicable to only programmers.
+        """
+        tissue_class = get_model_by_name("Tissue")
+        rec = tissue_class.objects.create(name="elbow", description="knobby")
+        exc = DBFieldVsFileColDeveloperWarning(
+            rec,
+            "description",
+            "knobby",
+            5,
+            "TissuesLoader",
+            rownum=22,
+            sheet="Tissues",
+            file="mystudy.xlsx",
+        )
+        # Test general requirement: All relevant data included to identify the problem
+        self.assertIn("Tissue.description", str(exc))
+        self.assertIn(
+            "unmapped column in row [22] of sheet [Tissues] in mystudy.xlsx", str(exc)
+        )
+        self.assertIn("'knobby', a 'str'", str(exc))
+        self.assertIn("'5', a 'int'", str(exc))
+        # Test general requirement: Message includes suggestion
+        self.assertIn(
+            "If that conclusion is wrong, the loader (TissuesLoader) must be updated",
+            str(exc),
+        )
+        self.assertIn(
+            "Consult the docstring of the DBFieldVsFileColDeveloperWarning class for details.",
+            str(exc),
+        )
+        # Test general requirement: Message includes explanation
+        self.assertIn(
+            "intended to help debug the case where that ConflictingValueError appears wrong",
+            str(exc),
+        )
+        # Test Req 2. See docstring
+        self.assertIsInstance(exc, SummarizableError)
+        # Test Req 3. See docstring
+        self.assertIn("type of the value", str(exc))
+        self.assertIn("differs", str(exc))
+        # Test Req 4. See docstring
+        self.assertIn(
+            "this exception will be followed by a ConflictingValueError", str(exc)
+        )
+        # Test Req 6. See docstring
+        self.assertIsInstance(exc, DeveloperWarning)
+        self.assertIn("DeveloperWarning", type(exc).__name__)
+
+    def test_DBFieldVsFileColDeveloperWarnings(self):
+        """Tests summary developer warnings about database/file value type issues.
+
+        Requirements tested (from GitHub issue #1662):
+            3. The warning about comparing a value from the DB with with a value from a file when their types differ
+               must be clear as to what the problem with it is and whether it needs to be addressed (and how)
+            4. The warning must mention whether ConflictingValueError exceptions will be created, in the context of it's
+               correctness being a determinant as to whether the type for the field should be added to the loader.
+            6. Customized ProgrammerErrors' names must be clearly applicable to only programmers.
+        """
+        tissue_class = get_model_by_name("Tissue")
+        rec1 = tissue_class.objects.create(name="elbow", description="knobby")
+        exc1 = DBFieldVsFileColDeveloperWarning(
+            rec1,
+            "description",
+            "knobby",
+            5,
+            "TissuesLoader",
+            rownum=22,
+            sheet="Tissues",
+            file="mystudy.xlsx",
+        )
+        rec2 = tissue_class.objects.create(name="knee", description="gnarly")
+        exc2 = DBFieldVsFileColDeveloperWarning(
+            rec2,
+            "description",
+            "gnarly",
+            66,
+            "TissuesLoader",
+            rownum=55,
+            sheet="Tissues",
+            file="mystudy.xlsx",
+        )
+        exc = DBFieldVsFileColDeveloperWarnings([exc1, exc2])
+
+        # Test general requirement: Message includes explanation
+        self.assertIn(
+            (
+                "Model field values from existing records in the database were compared to values from the input file, "
+                "but the types differed"
+            ),
+            str(exc),
+        )
+        self.assertIn(
+            (
+                "This warning is intended to help debug the case where any of those ConflictingValueError exceptions "
+                "appear wrong"
+            ),
+            str(exc),
+        )
+        # Test general requirement: Message includes suggestion
+        self.assertIn(
+            "If any conclusions are wrong, the corresponding loader class must be updated",
+            str(exc),
+        )
+        self.assertIn(
+            "Consult the docstring of the DBFieldVsFileColDeveloperWarning class for details",
+            str(exc),
+        )
+        # Test general requirement: All relevant data included to identify the problem
+        self.assertIn("Loader: TissuesLoader, Field: Tissue.description", str(exc))
+        self.assertIn("row [22] of sheet [Tissues] in mystudy.xlsx", str(exc))
+        self.assertIn("'knobby' (type: str)", str(exc))
+        self.assertIn("'5' (type: int)", str(exc))
+        self.assertIn("row [55] of sheet [Tissues] in mystudy.xlsx", str(exc))
+        self.assertIn("'gnarly' (type: str)", str(exc))
+        self.assertIn("'66' (type: int)", str(exc))
+        # Test Req 3. See docstring
+        self.assertIn("types differed", str(exc))
+        # Test Req 4. See docstring
+        self.assertIn(
+            "exceptions will be followed by ConflictingValueError exceptions", str(exc)
+        )
+        # Test Req 6. See docstring
+        self.assertIsInstance(exc, DeveloperWarning)
+        self.assertIn("DeveloperWarning", type(exc).__name__)
