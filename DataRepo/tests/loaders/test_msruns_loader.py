@@ -1971,7 +1971,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         msr_loader.check_dataframe_values()
         self.assertEqual(0, len(msr_loader.aggregated_errors_object.exceptions))
 
-    def test_check_mzxml_files(self):
+    def test_check_mzxml_files_buffers_exc_for_every_unmatched_file(self):
         """This test ensures that every unmatched mzXML gets its own exception."""
         mrl = MSRunsLoader(
             df=pd.DataFrame.from_dict({}),
@@ -1998,6 +1998,56 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertEqual("unknown_blank.mzXML", aes.exceptions[2].mzxml_file)
         self.assertIsInstance(aes.exceptions[3], UnmatchedBlankMzXML)
         self.assertEqual("scan2/unknown_blank.mzXML", aes.exceptions[3].mzxml_file)
+
+    def test_check_mzxml_files_does_not_error_when_skipped(self):
+        """Test that there is no error about sample 'some_unknown_sample' not existing."""
+        # Create an MSRunsLoader object named mrl
+        # Set its mrl.df to a dataframe with skipped lines and an mzXML file whose name (some_unknown_sample.mzXML) does
+        # not match any sample
+        # Set mrl.mzxml_files to ["some_unknown_sample.mzXML"]
+        msruns_loader_instance = MSRunsLoader(
+            df=pd.DataFrame.from_dict(
+                {
+                    MSRunsLoader.DataHeaders.SAMPLENAME: [
+                        "s1",
+                        "s2",
+                        "some_unknown_sample",
+                    ],
+                    MSRunsLoader.DataHeaders.SAMPLEHEADER: [
+                        "s1_pos",
+                        None,
+                        "some_unknown_sample",
+                    ],
+                    MSRunsLoader.DataHeaders.MZXMLNAME: [
+                        None,
+                        "s2_pos.mzXML",
+                        "some_unknown_sample.mzXML",
+                    ],
+                    MSRunsLoader.DataHeaders.ANNOTNAME: [
+                        None,
+                        None,
+                        None,
+                    ],
+                    MSRunsLoader.DataHeaders.SEQNAME: [
+                        None,
+                        None,
+                        None,
+                    ],
+                    MSRunsLoader.DataHeaders.SKIP: [
+                        "skip",
+                        "skip",
+                        "skip",
+                    ],
+                }
+            ),
+            file="DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",  # Peak Annotation Dtls not used
+            mzxml_files=["some_unknown_sample.mzXML"],
+            debug=True,
+        )
+        msruns_loader_instance.check_mzxml_files()
+        self.assertEqual(
+            0, len(msruns_loader_instance.aggregated_errors_object.exceptions)
+        )
 
 
 class MSRunsLoaderArchiveTests(TracebaseArchiveTestCase):
