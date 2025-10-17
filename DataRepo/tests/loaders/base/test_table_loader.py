@@ -363,8 +363,7 @@ class TableLoaderTests(TracebaseTestCase):
         erec2.full_clean()
 
         # Send a simulated IntegrityError to handle_load_db_errors
-        # TODO: I added `"opt_val": None` to work around a minor bug I will fix in a separate PR.
-        newrecdict = {"name": "a", "file": 1, "opt_val": None}
+        newrecdict = {"name": "a", "file": 1}
         tl.handle_load_db_errors(
             IntegrityError("duplicate key value violates unique constraint"),
             self.test_ucc_model_class,
@@ -382,7 +381,12 @@ class TableLoaderTests(TracebaseTestCase):
             ),
         )
         self.assertIsInstance(
-            tl.aggregated_errors_object.exceptions[0], ConflictingValueError
+            tl.aggregated_errors_object.exceptions[0],
+            ConflictingValueError,
+            msg=(
+                "Expected 1 ConflictingValueError, got: "
+                f"{[type(e).__name__ for e in tl.aggregated_errors_object.exceptions]}"
+            ),
         )
 
         # Ensure that the record that handle_load_db_errors identified is the correct one (it had to have used the
@@ -461,7 +465,13 @@ class TableLoaderTests(TracebaseTestCase):
         # where Excel or pandas autodetected a type (inaccurately)
         recdict["uf1"] = 2
         errfound = tl.check_for_inconsistencies(rec, recdict)
-        self.assertFalse(errfound)
+        self.assertFalse(
+            errfound,
+            msg=(
+                "Expected 0 exceptions, got: "
+                f"{[type(e).__name__ + ': ' + str(e) for e in tl.aggregated_errors_object.exceptions]}"
+            ),
+        )
         # No error when the field is mapped to a column and the column's type is recorded
         self.assertEqual(0, len(tl.aggregated_errors_object.exceptions))
 
