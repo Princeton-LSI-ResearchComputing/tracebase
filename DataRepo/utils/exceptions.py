@@ -3213,7 +3213,7 @@ class MzxmlColocatedWithMultipleAnnots(Exception):
                 "Suggestion: Either provide values in the 'Sequence' column in the 'Peak Annotation Files' sheet or re-"
                 "arrange the multiple colocated peak annotation files to ensure that they are in the directory "
                 "containing the mzXML files that were used to generate them.  (If a peak annotation file was generated "
-                "using a mix of mzXML files from different sequences, the 'Sequence' column in the 'Oeak Annotation "
+                "using a mix of mzXML files from different sequences, the 'Sequence' column in the 'Peak Annotation "
                 "Details' sheet must be filled in and it is recommended that mzXML files are grouped into directories "
                 "defined by the sequence that generated them.)"
             )
