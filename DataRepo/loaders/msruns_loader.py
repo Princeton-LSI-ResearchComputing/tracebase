@@ -2095,6 +2095,8 @@ class MSRunsLoader(TableLoader):
 
         msrun_sequence = None
         msrun_sequence_names = []
+        nearest_annot_dir: str
+        nearest_annot_dir_assigned = False
 
         if mzxml_filename is None:
             mzxml_filename = mzxml_name
@@ -2103,16 +2105,30 @@ class MSRunsLoader(TableLoader):
         if os.path.isabs(mzxml_dir):
             mzxml_dir = os.path.relpath(mzxml_dir, start=self.mzxml_dir)
 
-        # Build the msrun_sequence_names list containing unique sequence names of peak annotation files found along the
-        # path to the mzXML
-        for annot_dir in self.annotdir_to_seq_dict.keys():
+        # Build the msrun_sequence_names list containing unique sequence names of peak annotation files found nearest to
+        # the mzXML file (along its path) (by iterating over the paths of the peak annotation files from longest to
+        # shortest)
+        for annot_dir in sorted(
+            self.annotdir_to_seq_dict.keys(),
+            key=lambda p: len(str(p).split(os.sep)),
+            reverse=True,
+        ):
             common_dir = os.path.commonpath([mzxml_dir, annot_dir])
             norm_common_dir = os.path.normpath(common_dir)
             norm_annot_dir = os.path.normpath(annot_dir)
             if norm_annot_dir == norm_common_dir:
-                for seqname in self.annotdir_to_seq_dict[annot_dir]:
-                    if seqname not in msrun_sequence_names:
-                        msrun_sequence_names.append(seqname)
+                # We want the sequence associated with the peak annotation file that is the closest to the mzXML.
+                if nearest_annot_dir_assigned is False:
+                    nearest_annot_dir = annot_dir
+                    nearest_annot_dir_assigned = True
+                if nearest_annot_dir == annot_dir:
+                    for seqname in self.annotdir_to_seq_dict[annot_dir]:
+                        # If the current annot_dir (which corresponds to a peak annotation file with a default sequence)
+                        # matches the nearest_annot_dir (which is the closest dir to the mzXML in question), and its
+                        # assigned default sequence hasn't already been added to the list of sequence names associated
+                        # with this directory
+                        if seqname not in msrun_sequence_names:
+                            msrun_sequence_names.append(seqname)
 
         # If none are found
         if len(msrun_sequence_names) == 0:
@@ -2163,6 +2179,7 @@ class MSRunsLoader(TableLoader):
             self.aggregated_errors_object.buffer_exception(
                 MzxmlColocatedWithMultipleAnnot(
                     msrun_sequence_names,
+                    nearest_annot_dir,
                     file=os.path.join(mzxml_dir, mzxml_filename),
                     suggestion=suggestion,
                 ),
