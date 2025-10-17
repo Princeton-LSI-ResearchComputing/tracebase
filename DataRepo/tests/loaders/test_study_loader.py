@@ -404,6 +404,9 @@ class StudyLoaderTests(TracebaseTestCase):
         # fact that it is under the study doc load key
         self.assertEqual(1, len(study_doc_aes.exceptions))
         self.assertIsInstance(study_doc_aes.exceptions[0], AnimalsWithoutSerumSamples)
+        # The exception should be a warning
+        self.assertFalse(study_doc_aes.exceptions[0].is_error)
+        # And it should contain all of the animals' names
         self.assertEqual(["xz971"], study_doc_aes.exceptions[0].animals)
 
         self.assertIn("Animals Check", ar.exception.statuses.keys())
@@ -414,6 +417,9 @@ class StudyLoaderTests(TracebaseTestCase):
         # be filtered by the presence of the samples sheet exception.
         self.assertEqual(1, len(animal_check_aes.exceptions))
         self.assertIsInstance(animal_check_aes.exceptions[0], AnimalsWithoutSamples)
+        # The exception should be a warning
+        self.assertFalse(animal_check_aes.exceptions[0].is_error)
+        # And it should contain all of the animals' names
         self.assertEqual(["xz972"], animal_check_aes.exceptions[0].animals)
 
 

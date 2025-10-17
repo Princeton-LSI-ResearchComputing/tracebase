@@ -5,6 +5,10 @@ from DataRepo.models.utilities import get_model_by_name
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
+    AnimalsWithoutSamples,
+    AnimalsWithoutSerumSamples,
+    AnimalWithoutSamples,
+    AnimalWithoutSerumSamples,
     CompoundDoesNotExist,
     DateParseError,
     DBFieldVsFileColDeveloperWarning,
@@ -1692,6 +1696,107 @@ class ExceptionTests(TracebaseTestCase):
             "The compound name was automatically repaired to be 'compound_test_name__'",
             str(e),
         )
+
+    def test_AnimalWithoutSamples(self):
+        e = AnimalWithoutSamples(
+            "George", file="doc.xlsx", sheet="Animals", column="Name", rownum=5
+        )
+        # Contains all pertinent data to solve the problem
+        self.assertIn("George", str(e))
+        self.assertIn("column [Name] on row [5] of sheet [Animals] in doc.xlsx", str(e))
+        # Explanation
+        self.assertIn("Animal ", str(e))
+        self.assertIn("does not have any samples", str(e))
+        # Suggestion
+        self.assertIn(
+            "You can ignore this for now and submit samples for this animal in the future",
+            str(e),
+        )
+        self.assertIn(
+            "you can address the issue now by adding overlooked samples", str(e)
+        )
+        self.assertIn("or remove the animal from the Animals sheet", str(e))
+
+    def test_AnimalsWithoutSamples(self):
+        e1 = AnimalWithoutSamples(
+            "George", file="doc.xlsx", sheet="Animals", column="Name", rownum=5
+        )
+        e2 = AnimalWithoutSamples(
+            "Henrietta", file="doc.xlsx", sheet="Animals", column="Name", rownum=19
+        )
+        e = AnimalsWithoutSamples([e1, e2])
+        # Contains all pertinent data to solve the problem
+        self.assertIn("column [Name] of sheet [Animals] in doc.xlsx", str(e))
+        self.assertIn("'George' on row 5", str(e))
+        self.assertIn("'Henrietta' on row 19", str(e))
+        # Explanation
+        self.assertIn("Animals ", str(e))
+        self.assertIn("do not have any samples", str(e))
+        # Suggestion
+        self.assertIn(
+            "You can ignore this for now and submit samples for these animals in the future",
+            str(e),
+        )
+        self.assertIn(
+            "you can address the issue now by adding overlooked samples", str(e)
+        )
+        self.assertIn("or remove the animals from the Animals sheet", str(e))
+
+    def test_AnimalWithoutSerumSamples(self):
+        e = AnimalWithoutSerumSamples(
+            "Kramer", file="doc.xlsx", sheet="Animals", column="Name", rownum=10
+        )
+        # Contains all pertinent data to solve the problem
+        self.assertIn("Kramer", str(e))
+        self.assertIn(
+            "column [Name] on row [10] of sheet [Animals] in doc.xlsx", str(e)
+        )
+        # Explanation
+        self.assertIn("Animal ", str(e))
+        self.assertIn(
+            "does not have the necessary serum samples to perform FCirc calc", str(e)
+        )
+        self.assertIn("FCirc calculations on TraceBase are done using", str(e))
+        self.assertIn("the last serum sample", str(e))
+        # Suggestion
+        self.assertIn(
+            "You can ignore this for now and submit serum samples for this animal in the future",
+            str(e),
+        )
+        self.assertIn(
+            "you can address the issue now by adding overlooked serum samples", str(e)
+        )
+        self.assertIn("or remove the animal from the Animals sheet", str(e))
+
+    def test_AnimalsWithoutSerumSamples(self):
+        e1 = AnimalWithoutSerumSamples(
+            "Kramer", file="doc.xlsx", sheet="Animals", column="Name", rownum=10
+        )
+        e2 = AnimalWithoutSerumSamples(
+            "Molly", file="doc.xlsx", sheet="Animals", column="Name", rownum=11
+        )
+        e = AnimalsWithoutSerumSamples([e1, e2])
+        # Contains all pertinent data to solve the problem
+        self.assertIn("column [Name] of sheet [Animals] in doc.xlsx", str(e))
+        self.assertIn("'Kramer' on row 10", str(e))
+        self.assertIn("'Molly' on row 11", str(e))
+        # Explanation
+        self.assertIn("animals ", str(e))
+        self.assertIn(
+            "do not have the necessary serum samples to perform FCirc calculations",
+            str(e),
+        )
+        self.assertIn("FCirc calculations on TraceBase are done using", str(e))
+        self.assertIn("the last serum sample", str(e))
+        # Suggestion
+        self.assertIn(
+            "You can ignore this for now and submit serum samples for these animals in the future",
+            str(e),
+        )
+        self.assertIn(
+            "you can address the issue now by adding overlooked serum samples", str(e)
+        )
+        self.assertIn("or remove the animals from the Animals sheet", str(e))
 
     def test_trace(self):
         trc = trace()
