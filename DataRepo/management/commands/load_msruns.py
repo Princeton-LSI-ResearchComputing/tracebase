@@ -36,7 +36,8 @@ class Command(LoadTableCommand):
             type=str,
             help=(
                 "The root directory of all mzXML files (containing instrument run data) associated with the "
-                f"{MSRunsLoader.DataSheetName} sheet."
+                f"{MSRunsLoader.DataSheetName} sheet.  If --mzxml-files is not supplied, this defaults to the "
+                "directory that the --infile is in (if supplied), otherwise the current working directory."
             ),
             default=None,
             required=False,
@@ -101,6 +102,15 @@ class Command(LoadTableCommand):
                 f"When the {MSRunsLoader.DataHeaders.MZXMLNAME} column is empty, consider underscores and dashes to be "
                 "equivalent when matching mzXML files with peak annotation file sample headers.  When true, only allow "
                 "exact matches."
+            ),
+        )
+        parser.add_argument(
+            "--skip-mzxmls",
+            action="store_true",
+            default=False,
+            help=(
+                "Skip the loading of mzXML files, even if --mzxml-dir or --mzxml-files is provided.  Note that a "
+                "warning about these options being mutually exclusive will be printed."
             ),
         )
 
@@ -186,5 +196,6 @@ class Command(LoadTableCommand):
             lc_protocol_name=options.get("lc_protocol_name"),
             instrument=options.get("instrument"),
             exact_mode=options.get("exact_mode"),
+            skip_mzxmls=options.get("skip_mzxmls"),
         )
         self.load_data()

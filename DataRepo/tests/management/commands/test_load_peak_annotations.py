@@ -264,7 +264,7 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
             len(aes.exceptions),
             msg=(
                 f"Should be 1 error (NoSamples), but there were {len(aes.exceptions)} "
-                f"errors:{nl}{nl.join(list(map(lambda s: str(s), aes.exceptions)))}"
+                f"errors:{nl}{nl.join(list(map(lambda s: str(type(s).__name__) + ': ' + str(s), aes.exceptions)))}"
             ),
         )
         self.assertTrue(isinstance(aes.exceptions[0], NoSamples))

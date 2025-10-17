@@ -12,7 +12,6 @@
 
 from __future__ import annotations
 
-import os
 import warnings
 from abc import ABC, abstractmethod
 from collections import defaultdict, namedtuple
@@ -301,9 +300,9 @@ class StudyLoader(ConvertedTableLoader, ABC):
                     purpose of web forms, where the name of the actual file is a randomized hash string at the end of a
                     temporary path.  This dict associates the user's readable filename parsed from the infile (the key)
                     with the actual file (the value).
-                mzxml_dir (Optional[str]): A directory under which files containing the case-insensitive suffix '.mzxml'
-                    reside.  The directory is walked and all mzXML files are supplied to the MSRunsLoader.  Defaults to
-                    the directory in which `file` resides.
+                skip_mzxmls (bool) [False]: Skips the loading of mzXML file records into the ArchiveFile table.  Note,
+                    this also skips the creation of raw file record (but also note that raw files are never actually
+                    loaded - what is skipped is the creation of the record representing the raw file).
                 exclude_sheets (Optional[List[str]]): A list of default DataSheetNames (i.e. the values in the list must
                     match the value of the in each of the cls.Loaders' DataSheetName class attribute - not any custom
                     sheet name, so that it can be scripted on the data repo).
@@ -326,22 +325,14 @@ class StudyLoader(ConvertedTableLoader, ABC):
         # advantage of the TableLoader checks on the sheets as if they were columns.
         self.df_dict = None
 
+        # Custom options specific to individual loaders
         self.annot_files_dict = kwargs.pop("annot_files_dict", {})
-
-        # Before the superclass constructor is called, we want to use the file path to get its enclosing directory as a
-        # default for the (custom derived class argument:) mzxml_dir
-        mzxml_dir = kwargs.pop("mzxml_dir", None)
-        if mzxml_dir is None:
-            study_file = kwargs.get("file")
-            study_dir = None if study_file is None else os.path.dirname(study_file)
-            mzxml_dir = study_dir
-
-        self.mzxml_files = MSRunsLoader.get_mzxml_files(dir=mzxml_dir)
+        self.skip_mzxmls = kwargs.pop("skip_mzxmls", False)
         self.exclude_sheets = kwargs.pop("exclude_sheets", []) or []
 
         clkwa = self.CustomLoaderKwargs._asdict()
         clkwa["FILES"]["annot_files_dict"] = self.annot_files_dict
-        clkwa["HEADERS"]["mzxml_files"] = self.mzxml_files
+        clkwa["HEADERS"]["skip_mzxmls"] = self.skip_mzxmls
         # This occludes the CustomLoaderKwargs class attribute (which we copied and are leaving unchanged)
         # Just note that only the instance has annot_files_dict
         self.CustomLoaderKwargs = self.DataTableHeaders(**clkwa)
