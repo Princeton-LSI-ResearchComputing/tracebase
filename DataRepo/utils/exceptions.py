@@ -1295,7 +1295,7 @@ class MultiLoadStatus(Exception):
             new_aes = exception
         else:
             # Wrap the exception in an AggregatedErrors class
-            new_aes = AggregatedErrors()
+            new_aes = AggregatedErrors(debug=self.debug)
             is_error = (
                 exception.is_error
                 if hasattr(exception, "is_error")
@@ -4737,15 +4737,26 @@ class ProhibitedCompoundName(ProhibitedStringValue, InfileError, SummarizableErr
 
 class AnimalsWithoutSamples(Exception):
 
-    def __init__(
-        self, exceptions: List[AnimalWithoutSamples], message: Optional[str] = None
-    ):
-        if message is None:
-            nlt = "\n\t"
-            message = (
-                "The following animals do not have any samples:\n\t"
-                f"{nlt.join(sorted([e.animal for e in exceptions]))}"
-            )
+    def __init__(self, exceptions: List[AnimalWithoutSamples]):
+        # Assumes all exceptions are from the same 1 file's Animals sheet, and gets the file, sheet, and column from the
+        # first exception
+        first_exc: AnimalWithoutSamples = exceptions[0]
+        loc = generate_file_location_string(
+            file=first_exc.file, sheet=first_exc.sheet, column=first_exc.column
+        )
+
+        message = f"The following animals in {loc} do not have any samples in the Samples sheet:"
+
+        for exc in sorted(exceptions, key=lambda e: e.animal):
+            message += f"\n\t'{exc.animal}' on row {exc.rownum}"
+
+        message += (
+            "\n\nThe animals will be loaded if you do nothing.  You can ignore this for now and submit samples for "
+            "these animals in the future either by resubmitting this amended study doc or by submitting a new study "
+            "doc that supplements this existing study.  Or you can address the issue now by adding overlooked samples "
+            "to the Samples sheet (or remove the animals from the Animals sheet)."
+        )
+
         super().__init__(message)
         self.exceptions = exceptions
         self.animals = [e.animal for e in exceptions]
@@ -4757,26 +4768,47 @@ class AnimalWithoutSamples(InfileError, SummarizableError):
     def __init__(self, animal: str, message: Optional[str] = None, **kwargs):
         if message is None:
             message = f"Animal '{animal}' does not have any samples in %s."
+
+        if "suggestion" not in kwargs.keys() or kwargs["suggestion"] is None:
+            message += (
+                "\n\nThe animal will be loaded if you do nothing.  You can ignore this for now and submit samples for "
+                "this animal in the future either by resubmitting this amended study doc or by submitting a new study "
+                "doc that supplements this existing study.  Or you can address the issue now by adding overlooked "
+                "samples to the Samples sheet (or remove the animal from the Animals sheet)."
+            )
+
         super().__init__(message, **kwargs)
         self.animal = animal
 
 
 class AnimalsWithoutSerumSamples(Exception):
 
-    def __init__(
-        self, exceptions: List[AnimalWithoutSerumSamples], message: Optional[str] = None
-    ):
-        if message is None:
-            nlt = "\n\t"
-            message = (
-                "The following animals do not have the necessary serum samples to perform FCirc calculations:\n"
-                f"\t{nlt.join(sorted([e.animal for e in exceptions]))}\n"
-            )
-        message += (
-            "FCirc calculations on TraceBase are done using the tracer peak group(s) from the last serum sample, the "
-            "infusion rate, and the animal weight.  You can load data into TraceBase without serum samples, but the "
-            "FCirc values will be missing."
+    def __init__(self, exceptions: List[AnimalWithoutSerumSamples]):
+        # Assumes all exceptions are from the same 1 file's Animals sheet, and gets the file, sheet, and column from the
+        # first exception
+        first_exc: AnimalWithoutSerumSamples = exceptions[0]
+        loc = generate_file_location_string(
+            file=first_exc.file, sheet=first_exc.sheet, column=first_exc.column
         )
+
+        message = (
+            f"The following animals in {loc} do not have the necessary serum samples to perform FCirc "
+            "calculations:"
+        )
+
+        for exc in sorted(exceptions, key=lambda e: e.animal):
+            message += f"\n\t'{exc.animal}' on row {exc.rownum}"
+
+        message += (
+            "\nFCirc calculations on TraceBase are done using the tracer peak group(s) from the last serum sample, the "
+            "infusion rate, and the animal weight.  You can load data into TraceBase without serum samples, but the "
+            "FCirc values will be missing.\n\n"
+            "Everything will be loaded if you do nothing.  You can ignore this for now and submit serum samples for "
+            "these animals in the future either by resubmitting this amended study doc or by submitting a new study "
+            "doc that supplements this existing study.  Or you can address the issue now by adding overlooked serum "
+            "samples to the Samples sheet (or remove the animals from the Animals sheet)."
+        )
+
         super().__init__(message)
         self.exceptions = exceptions
         self.animals = [e.animal for e in exceptions]
@@ -4795,7 +4827,11 @@ class AnimalWithoutSerumSamples(InfileError, SummarizableError):
             kwargs["suggestion"] = (
                 "FCirc calculations on TraceBase are done using the tracer peak group(s) from the last serum sample, "
                 "the infusion rate, and the animal weight.  You can load data into TraceBase without serum samples, "
-                "but the FCirc values will be missing."
+                "but the FCirc values will be missing.\n\n"
+                "Everything will be loaded if you do nothing.  You can ignore this for now and submit serum samples "
+                "for this animal in the future either by resubmitting this ammended study doc or by submitting a new "
+                "study doc that supplements this existing study.  Or you can address the issue now by adding "
+                "overlooked serum samples to the Samples sheet (or remove the animal from the Animals sheet)."
             )
         super().__init__(message, **kwargs)
         self.animal = animal

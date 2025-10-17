@@ -273,6 +273,8 @@ class InfusatesLoader(TableLoader):
             Superclass Args:
                 df (Optional[pandas dataframe]): Data, e.g. as parsed from a table-like file.
                 dry_run (Optional[boolean]) [False]: Dry run mode.
+                debug (bool) [False]: Debug mode causes all buffered exception traces to be printed.  Normally, if an
+                    exception is a subclass of SummarizableError, the printing of its trace is suppressed.
                 defer_rollback (Optional[boolean]) [False]: Defer rollback mode.  DO NOT USE MANUALLY - A PARENT SCRIPT
                     MUST HANDLE THE ROLLBACK.
                 data_sheet (Optional[str]): Sheet name (for error reporting).
