@@ -896,6 +896,14 @@ class MSRunsLoader(TableLoader):
             None
         """
 
+        # NOTE: Required headers are handled upon load via the load_data wrapper (self._loader), but this method is
+        # called from the constructor for an early check before doing the time-consuming taks of loading mzXML files.
+        # Its purpose solely relates to the dataframe.  If there is no sequence column, there is nothing to check.  The
+        # user can load mzXML files without any metadata.  Missing sequences for those unpaired files are handled using
+        # default sequence data supplied on the command line.
+        if self.DataHeaders.SEQNAME not in self.df.columns:
+            return
+
         # Quickly extract the skip and sequence name data from the infile using pandas' methodology
         if self.DataHeaders.SKIP in self.df.columns:
             no_sequence = self.df[[self.DataHeaders.SKIP, self.DataHeaders.SEQNAME]]
@@ -926,11 +934,10 @@ class MSRunsLoader(TableLoader):
             self.aggregated_errors_object.buffer_error(
                 self.seq_defaults_error.set_formatted_message(
                     suggestion=(
-                        f"This is necessary because there exists {len(missing_seqnames)} rows that do not have a "
-                        f"value in the '{self.DataHeaders.SEQNAME}' column.  You can either enter a "
-                        f"{self.DataHeaders.SEQNAME} for all such rows or provide the default arguments "
-                        "described above to use for all rows.\n"
-                        f"Rows missing {self.DataHeaders.SEQNAME} values: {summarize_int_list(missing_seqnames)}"
+                        f"This is necessary because there exists {len(missing_seqnames)} rows "
+                        f"{summarize_int_list(missing_seqnames)} that do not have a value in the "
+                        f"'{self.DataHeaders.SEQNAME}' column.  You can either enter a {self.DataHeaders.SEQNAME} for "
+                        "all such rows or provide the default arguments described above to use for all rows."
                     ),
                 ),
             )

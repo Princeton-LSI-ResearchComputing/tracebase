@@ -612,15 +612,10 @@ class MSRunsLoaderTests(TracebaseTestCase):
 
         self.assertEqual(1, len(agg_errs.exceptions))
         self.assertIsInstance(agg_errs.exceptions[0], ConditionallyRequiredArgs)
-        self.assertIn(
-            f"1 rows that do not have a value in the '{MSRunsLoader.DataHeaders.SEQNAME}' column",
-            str(agg_errs.exceptions[0]),
-        )
-
         # NOTE: This essentially asserts that the skipped row is not among the reported missing sequence name rows (by
         # the fact it matches ['2'] and not ['2-3'])
         self.assertIn(
-            f"Rows missing {MSRunsLoader.DataHeaders.SEQNAME} values: ['2']",
+            f"1 rows ['2'] that do not have a value in the '{MSRunsLoader.DataHeaders.SEQNAME}' column",
             str(agg_errs.exceptions[0]),
         )
 
@@ -1932,6 +1927,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         msr_loader = MSRunsLoader(
             df=pd.DataFrame.from_dict(df_dict),
             file="DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",
+            skip_mzxmls=True,
         )
         msr_loader.check_dataframe_values()
         self.assertEqual(5, len(msr_loader.aggregated_errors_object.exceptions))
