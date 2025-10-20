@@ -283,6 +283,8 @@ class StudyLoader(ConvertedTableLoader, ABC):
                 df (Optional[Dict[str, pandas dataframe]]): Data, e.g. as parsed from an excel file.  *See
                     ConvertedTableLoader.*
                 dry_run (Optional[boolean]) [False]: Dry run mode.
+                debug (bool) [False]: Debug mode causes all buffered exception traces to be printed.  Normally, if an
+                    exception is a subclass of SummarizableError, the printing of its trace is suppressed.
                 defer_rollback (Optional[boolean]) [False]: Defer rollback mode.  DO NOT USE MANUALLY - A PARENT SCRIPT
                     MUST HANDLE THE ROLLBACK.
                 data_sheet (Optional[str]): Sheet name (for error reporting).
@@ -359,7 +361,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
         self.unexpected_labels_exceptions = []
         self.missing_compound_record_exceptions = []
         self.multiple_pg_reps_exceptions = []
-        self.load_statuses = MultiLoadStatus()
+        self.load_statuses = MultiLoadStatus(debug=kwargs.get("debug", False))
 
         self.derived_loaders = {}
         for derived_class in StudyLoader.__subclasses__():
@@ -832,12 +834,30 @@ class StudyLoader(ConvertedTableLoader, ABC):
                 # We are not going to buffer these individually.  Can't think of a reason to do so.
                 animals_without_samples_exceptions: List[AnimalWithoutSamples] = []
                 for animal in animals_without_samples:
+                    rownum = animals_from_animalssheet.index(animal) + 2
                     aws = AnimalWithoutSamples(
                         animal,
                         file=animals_loader.friendly_file,
                         sheet=animals_loader.sheet,
-                        message=f"Previously loaded animal '{animal}' still has no samples.",
+                        rownum=rownum,
+                        column=animals_loader.DataHeaders.NAME,
                     )
+
+                    # TODO: Figure out a more uniform and consistent way to handle the summarization exceptions that
+                    # takes advantage of self._loader instead of using setattr to set the error type and manually
+                    # creating them calling set_load_exception.  I had played around with buffering the exception in
+                    # StudyLoader, with the thinking that SummarizableErrors would be automatically taken care of, but
+                    # that happens after load_data ends and we will be raising a MultiLoadStatus exception from here
+                    # that has to already have had the summarizations done.
+
+                    # Buffer the warning in the StudyLoader object so that the individual exceptions can be seen when we
+                    # are in debug mode.  NOTE: We do not want to buffer it in the AnimalsLoader object because that
+                    # load has completed and its exceptions post-processed.
+                    if self.debug:
+                        self.aggregated_errors_object.buffer_warning(
+                            aws, is_fatal=self.validate
+                        )
+
                     # Superficially set it as a warning, as if it came from an AggregatedErrors object buffer_warning
                     # method
                     setattr(aws, "is_error", False)
@@ -847,6 +867,8 @@ class StudyLoader(ConvertedTableLoader, ABC):
                 self.load_statuses.set_load_exception(
                     AnimalsWithoutSamples(animals_without_samples_exceptions),
                     "Animals Check",
+                    default_is_error=False,
+                    default_is_fatal=self.validate,
                 )
 
             # Only check for additional missing serum samples if samples are being loaded or if samples already have
@@ -873,14 +895,13 @@ class StudyLoader(ConvertedTableLoader, ABC):
                 ] = []
                 for animal in animals_without_serum_samples:
                     # Create an individual exception, so we can add it to the summary exception
+                    rownum = animals_from_animalssheet.index(animal) + 2
                     awss = AnimalWithoutSerumSamples(
                         animal,
                         file=animals_loader.friendly_file,
                         sheet=animals_loader.sheet,
-                        message=(
-                            f"Previously loaded animal '{animal}' still has no serum samples necessary to "
-                            "perform FCirc calculations."
-                        ),
+                        rownum=rownum,
+                        column=animals_loader.DataHeaders.NAME,
                     )
                     # Superficially set it as a warning, as if it came from an AggregatedErrors object buffer_warning
                     # method
@@ -921,18 +942,23 @@ class StudyLoader(ConvertedTableLoader, ABC):
                     else:
                         more_animals_without_serum_exceptions.append(awss)
 
+                for awss in more_animals_without_serum_exceptions:
+                    # Buffer the warning in the StudyLoader object.  We do not want to buffer it in the SamplesLoader
+                    # object because that load has completed and its exceptions post-processed.  If we were to buffer
+                    # exceptions in it after-the-fact, summary exceptions would not be taken care of.  Buffering it in
+                    # this class means that it will get post-processed by this method's _loader wrapper.  The mean
+                    # reason for this is to summarize SummarizableError exceptions.
+                    if self.debug:
+                        self.aggregated_errors_object.buffer_warning(
+                            awss, is_fatal=self.validate
+                        )
+
                 # If there are any previously loaded animals, that are still in the animals sheet that still have no
                 # serum samples, buffer a warning that they still have no serum samples.
                 if len(more_animals_without_serum_exceptions) > 0:
-                    nlt = "\n\t"
                     self.load_statuses.set_load_exception(
                         AnimalsWithoutSerumSamples(
-                            more_animals_without_serum_exceptions,
-                            message=(
-                                "The following previously loaded animals still do not have the necessary serum samples "
-                                "to perform FCirc calculations:\n"
-                                f"\t{nlt.join(sorted([e.animal for e in more_animals_without_serum_exceptions]))}\n"
-                            ),
+                            more_animals_without_serum_exceptions
                         ),
                         "Animals Check",
                         default_is_error=False,
@@ -1741,7 +1767,7 @@ class StudyV2Loader(StudyLoader):
 
                     # TODO: Right now, this error doesn't get in front of the user on the validation page.  I'm using
                     # load_statuses.set_load_exception below to do that and I'm buffering here to be able to see the
-                    # trace in the console.  I should fix this so that buffered errors from the comnversion get their
+                    # trace in the console.  I should fix this so that buffered errors from the conversion get their
                     # own load_key and get in front of the user.
                     self.aggregated_errors_object.buffer_error(ie, orig_exception=e)
 
