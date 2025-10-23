@@ -1031,7 +1031,8 @@ class MSRunsLoader(TableLoader):
             # NOTE: The file does not have to exist.  The supplied paths just have to be the same.  I.e. don't cause a
             # file system error based on a row that is skipped.
             if any(
-                os.path.normpath(actual_mzxml_file) == os.path.normpath(skipped_file)
+                os.path.normpath(os.path.relpath(actual_mzxml_file, self.mzxml_dir))
+                == os.path.normpath(os.path.relpath(skipped_file, self.mzxml_dir))
                 for skipped_file in explicitly_skipped_mzxmls
             ):
                 continue
@@ -1267,9 +1268,16 @@ class MSRunsLoader(TableLoader):
                 else False
             )
 
+            # An MSRunSample record is not created when there is no peak annotation file
             if tmp_annot_name is None:
                 continue
 
+            # No need to document a skipped row when it does not contain a sample_header, since the row is invalid
+            # (which is allowed when skipped)
+            if skip and sample_header is None:
+                continue
+
+            # If the sample header happens to match a header in another peak annot file, skip it
             _, annot_name = os.path.split(tmp_annot_name)
             if target_annot_name != annot_name:
                 continue
@@ -1591,7 +1599,12 @@ class MSRunsLoader(TableLoader):
                 self.skipped(MSRunSample.__name__)
                 return rec, created
 
-            self.header_to_sample_name[sample_header][sample_name].append(self.rownum)
+            # This assumes that either sample header or mzXML name is required (otherwise self.is_skip_row() or skip
+            # would be True)
+            if sample_header is not None:
+                self.header_to_sample_name[sample_header][sample_name].append(
+                    self.rownum
+                )
 
             sample = self.get_sample_by_name(sample_name)
             msrun_sequence = self.get_msrun_sequence(name=sequence_name)
@@ -1601,7 +1614,9 @@ class MSRunsLoader(TableLoader):
                     os.path.basename(mzxml_path)
                 )
 
-                if mzxml_name[0].isdigit() and sample_header != mzxml_name:
+                if mzxml_name[0].isdigit() and (
+                    sample_header is None or sample_header != mzxml_name
+                ):
                     # The leftover mzXMLs code uses self.header_to_sample_name to lookup the DB sample name.  The peak
                     # correction software does not allow sample names to start with a number, and we don't want that
                     # lookup to fail and raise an error, so we're going to throw it in there.  It doesn't matter that

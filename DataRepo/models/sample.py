@@ -129,7 +129,7 @@ class Sample(MaintainedModel, HierCachedModel):
 
     @classmethod
     def is_a_blank(cls, sample_name):
-        return "blank" in sample_name.lower()
+        return sample_name is not None and "blank" in sample_name.lower()
 
     def get_absolute_url(self):
         """Get the URL to the detail page.
