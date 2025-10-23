@@ -85,7 +85,6 @@ class BaseAdvancedSearchDownloadViewTests(TracebaseTestCase):
             df=read_from_file(
                 "DataRepo/data/tests/full_tiny_study/study.xlsx", sheet=None
             ),
-            mzxml_dir="DataRepo/data/tests/full_tiny_study",
         )
         sl.load_data()
         cls.asdv = AdvancedSearchDownloadView()

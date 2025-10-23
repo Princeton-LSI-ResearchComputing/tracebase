@@ -12,8 +12,9 @@ from django.core.exceptions import (
     ValidationError,
 )
 from django.db import IntegrityError, transaction
-from django.db.models import Model, Q
+from django.db.models import Model, Q, UniqueConstraint
 from django.db.utils import ProgrammingError
+from django.forms import model_to_dict
 
 from DataRepo.models.maintained_model import AutoUpdateFailed
 from DataRepo.models.utilities import get_model_fields
@@ -21,6 +22,7 @@ from DataRepo.utils.exceptions import (
     AggregatedErrors,
     AggregatedErrorsSet,
     ConflictingValueError,
+    DBFieldVsFileColDeveloperWarning,
     DryRun,
     DuplicateHeaders,
     DuplicateValues,
@@ -2623,9 +2625,9 @@ class TableLoader(ABC):
 
     def check_for_inconsistencies(
         self,
-        rec,
-        rec_dict,
-        orig_exception=None,
+        rec: Model,
+        rec_dict: dict,
+        orig_exception: Optional[Exception] = None,
         is_error=True,
         is_fatal=True,
     ):
@@ -2653,8 +2655,8 @@ class TableLoader(ABC):
         It buffers any issues it encounters as a ConflictingValueError inside self.aggregated_errors_object.
 
         Args:
-            rec (Model object)
-            rec_dict (dict of objects): A dict (e.g., as supplied to get_or_create() or create())
+            rec (Model)
+            rec_dict (dict): A dict (e.g., as supplied to get_or_create() or create())
             orig_exception (Optional[Exception]): The exception that preceded the call to this method, if any
             is_error (bool)
             is_fatal (bool)
@@ -2663,12 +2665,39 @@ class TableLoader(ABC):
                 None
             Buffers:
                 ConflictingValueError
+                DBFieldVsFileColDeveloperWarning
         Returns:
             found_errors (bool)
         """
+        # Make sure that all relevant values are compared, i.e. the rec_dict may exclude fields that have values in the
+        # DB record.  So we should populate the rec_dict with `None` for fields it doesn't have that the DB record has
+        # non-null values for.
+        # Shallow-copy the rec_dict so that we're not changing the caller's dict.
+        tmp_rec_dict = rec_dict.copy()
+        # NOTE: Be aware that model_to_dict does not get all potentially populated fields
+        for fld, val in model_to_dict(rec).items():
+            # If the rec_dict passed in does not have a field and its value in the DB is populated
+            # 1. Do not add fields that do not map to infile columns 1:1 (this includes fields like 'id' and maintained
+            # fields whose values are updated after insertion) [first 2 lines of the conditional]
+            # 2. The field from the database is not in the new record's dict [third line of the conditional]
+            # 3. The value in the DB is not a None value [last 2 lines of the conditional]
+            if (
+                type(rec).__name__ in self.FieldToDataHeaderKey.keys()
+                and fld in self.FieldToDataHeaderKey[type(rec).__name__].keys()
+                and fld not in tmp_rec_dict.keys()
+                and val is not None
+                and str(val) not in self.none_vals
+            ):
+                # Set the new field value to None so we can include that difference as a cause for the IntegrityError
+                tmp_rec_dict[fld] = None
+
+        # TODO: Take field default values into account in the above loop.  I.e. The DB will fill in a default for
+        # missing fields in the dict instead of the None values we populate here.
+
+        # Now look for differences between the rec and the rec_dict
         found_errors = False
         differences = {}
-        for field, new_value in rec_dict.items():
+        for field, new_value in tmp_rec_dict.items():
             orig_value = getattr(rec, field)
             differs = False
             if type(orig_value) is type(new_value) and orig_value != new_value:
@@ -2692,32 +2721,21 @@ class TableLoader(ABC):
                 ):
                     differs = True
                 elif expected_type is None:
-                    if str(orig_value) != str(new_value):
-                        differs = True
-                        # In case the researcher sees this difference and it doesn't make sense, provide this warning to
-                        # potentially explain it.
+                    # Fall back to a str-cast comparison
+                    differs = str(orig_value) != str(new_value)
+
+                    # Only buffer a DBFieldVsFileColDeveloperWarning when both compared values are not None
+                    if orig_value is not None and new_value is not None:
                         self.aggregated_errors_object.buffer_warning(
-                            ProgrammingError(
-                                f"Could not map model field '{type(rec).__name__}.{field}' to a column type to "
-                                f"accurately compare values that differ by type '{orig_value}' (a "
-                                f"'{type(orig_value).__name__}' from the database) and '{new_value}' (a "
-                                f"'{type(new_value).__name__}' from the file), so both were cast to a string to "
-                                "compare and found to differ.  If they should not differ, make sure to include the "
-                                "model field in 'FieldToDataHeaderKey' and the type in 'DataColumnTypes'."
-                            ),
-                            is_fatal=self.validate,
-                        )
-                    elif orig_value != new_value:
-                        # The string-cast versions were found to be equal, but their actual values (that differ by type)
-                        # would be considered differing.  Let the curators know.
-                        self.aggregated_errors_object.buffer_warning(
-                            ProgrammingError(
-                                f"Could not map model field '{type(rec).__name__}.{field}' to a column type to "
-                                f"accurately compare values that differ by type '{orig_value}' (a "
-                                f"'{type(orig_value).__name__}' from the database) and '{new_value}' (a "
-                                f"'{type(new_value).__name__}' from the file), so both were cast to a string to "
-                                "compare and found to be equal.  If they should differ, make sure to include the model "
-                                "field in 'FieldToDataHeaderKey' and the type in 'DataColumnTypes'."
+                            DBFieldVsFileColDeveloperWarning(
+                                rec,
+                                field,
+                                orig_value,
+                                new_value,
+                                type(self).__name__,
+                                rownum=self.rownum,
+                                sheet=self.sheet,
+                                file=self.friendly_file,
                             ),
                         )
 
@@ -2732,7 +2750,7 @@ class TableLoader(ABC):
                 ConflictingValueError(
                     rec,
                     differences,
-                    rec_dict=rec_dict,
+                    rec_dict=tmp_rec_dict,
                     rownum=self.rownum,
                     sheet=self.sheet,
                     file=self.friendly_file,
@@ -2867,9 +2885,9 @@ class TableLoader(ABC):
 
     def handle_load_db_errors(
         self,
-        exception,
-        model,
-        rec_dict,
+        exception: Exception,
+        model: Type[Model],
+        rec_dict: dict,
         columns=None,
         handle_all=True,
         is_error=True,
@@ -2887,9 +2905,9 @@ class TableLoader(ABC):
 
         Args:
             exception (Exception): Exception, e.g. obtained from `except` block
-            model (Model): Model being loaded when the exception occurred
+            model (Type[Model]): Model being loaded when the exception occurred
             rec_dict (dict): Fields and their values that were passed to either `create` or `get_or_create`
-            columns (object): Column or columns that were being processed when the exception occurred.
+            columns (Any): Column or columns that were being processed when the exception occurred.
             handle_all (bool) [True]: Whether to handle exceptions unrelated to specifically supported db exceptions.
             is_error (bool)
             is_fatal (bool)
@@ -2917,30 +2935,48 @@ class TableLoader(ABC):
 
         if isinstance(exception, IntegrityError):
             if "duplicate key value violates unique constraint" in estr:
-                # Create a list of lists of unique fields and unique combos of fields
-                # First, get unique fields and force them into a list of lists (so that we only need to loop once)
-                unique_combos = [
-                    [f] for f in self.get_unique_fields(model, fields=rec_dict.keys())
-                ]
-                # Now add in the unique field combos from the model's unique constraints
-                unique_combos.extend(self.get_unique_constraint_fields(model))
 
-                # Create a set of the fields in the dict causing the error so that we can only check unique its fields
-                field_set = set(rec_dict.keys())
-
-                # We're going to loop over unique records until we find one that conflicts with the dict
-                for combo_fields in unique_combos:
+                # Iterate through the unique fields to find a conflicting record
+                for ufield in self.get_unique_fields(model, fields=rec_dict.keys()):
                     # Only proceed if we have all the values
-                    combo_set = set(combo_fields)
+                    # NOTE: If we don't find the conflict, that's OK.  The original exception will be buffered.
+                    if ufield not in rec_dict.keys():
+                        continue
+
+                    qs = model.objects.filter(
+                        Q(**{f"{ufield}__exact": rec_dict[ufield]})
+                    )
+
+                    # If there was a record found using a unique field
+                    if qs.count() == 1:
+                        rec = qs.first()
+                        errs_found = self.check_for_inconsistencies(
+                            rec,
+                            rec_dict,
+                            orig_exception=exception,
+                            is_error=is_error,
+                            is_fatal=is_fatal,
+                        )
+                        if errs_found:
+                            return True
+
+                # If there was no conflict found using unique fields, iterate through the custom unique constraints
+                constraint: UniqueConstraint
+                # Create a set of the fields in the dict that caused the error
+                field_set = set(rec_dict.keys())
+                for constraint in self.get_unique_constraints(model):
+                    # Only proceed if we have all the values
+                    # NOTE: If we don't find the conflict, that's OK.  The original exception will be buffered.
+                    combo_set = set(constraint.fields)
                     if not combo_set.issubset(field_set):
                         continue
 
-                    # Retrieve the record with the conflicting value(s) that caused the unique constraint error using
-                    # the unique fields
                     q = Q()
-                    for uf in combo_fields:
+                    for uf in constraint.fields:
                         q &= Q(**{f"{uf}__exact": rec_dict[uf]})
                     qs = model.objects.filter(q)
+                    if constraint.condition:
+                        qs = qs.filter(constraint.condition)
 
                     # If there was a record found using a unique field (combo)
                     if qs.count() == 1:
@@ -3202,20 +3238,20 @@ class TableLoader(ABC):
         return dupe_dict, all_row_idxs_with_dupes
 
     @classmethod
-    def get_unique_constraint_fields(cls, model):
-        """Returns a list of lists of names of fields involved in UniqueConstraints in a given model.
+    def get_unique_constraints(cls, model: Type[Model]):
+        """Returns a list of UniqueConstraint objects from the supplied model.
         Args:
-            model (Model)
+            model (Type[Model])
         Exceptions:
             None
         Returns:
-            uflds (List of model fields)
+            uflds (List[UniqueConstraint])
         """
         uflds = []
         if hasattr(model._meta, "constraints"):
             for constraint in model._meta.constraints:
-                if type(constraint).__name__ == "UniqueConstraint":
-                    uflds.append(constraint.fields)
+                if isinstance(constraint, UniqueConstraint):
+                    uflds.append(constraint)
         return uflds
 
     @classmethod

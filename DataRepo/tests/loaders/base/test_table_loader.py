@@ -1,9 +1,17 @@
 from collections import namedtuple
+from typing import List
 
 import pandas as pd
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, ProgrammingError
-from django.db.models import AutoField, CharField, Model, UniqueConstraint
+from django.db.models import (
+    AutoField,
+    CharField,
+    IntegerField,
+    Model,
+    Q,
+    UniqueConstraint,
+)
 from django.test.utils import isolate_apps
 
 from DataRepo.loaders.base.table_column import ColumnValue, TableColumn
@@ -13,6 +21,7 @@ from DataRepo.utils.exceptions import (
     AggregatedErrors,
     ConflictingValueError,
     ConflictingValueErrors,
+    DBFieldVsFileColDeveloperWarning,
     DryRun,
     DuplicateHeaders,
     DuplicateValueErrors,
@@ -51,6 +60,7 @@ class TableLoaderTests(TracebaseTestCase):
             name = CharField(unique=True)
             uf1 = CharField()
             uf2 = CharField()
+            opt_str = CharField()
 
             class Meta:
                 app_label = "loader"
@@ -111,25 +121,91 @@ class TableLoaderTests(TracebaseTestCase):
 
         return TestUCLoader
 
+    @classmethod
+    def generate_test_model_with_unique_constraint_condition(cls):
+        # Model used for testing
+        class TestUCConditionModel(Model):
+            id = AutoField(primary_key=True)
+            name = CharField()
+            file = IntegerField(null=True, blank=True)
+            opt_val = CharField(null=True, blank=True)
+
+            class Meta:
+                app_label = "loader"
+                constraints = [
+                    UniqueConstraint(
+                        # Name must be unique when file is null (and not unique when file is not null)
+                        fields=["name"],
+                        name="unique_name_when_file_null",
+                        condition=Q(file__isnull=True),
+                    ),
+                    UniqueConstraint(
+                        # "file" unique whether name is null or not
+                        fields=["file"],
+                        name="unique_file",
+                    ),
+                ]
+
+        return TestUCConditionModel
+
+    @classmethod
+    def generate_uccondition_test_loader(cls, mdl):
+        class TestUCConditionLoader(TableLoader):
+            DataSheetName = "test"
+            DataTableHeaders = namedtuple(
+                "DataTableHeaders", ["NAME", "FILE", "OPTVAL"]
+            )
+            DataHeaders = DataTableHeaders(NAME="Name", FILE="File", OPTVAL="Optval")
+            DataRequiredHeaders = ["NAME"]
+            DataRequiredValues = DataRequiredHeaders
+            DataUniqueColumnConstraints = [["NAME", "FILE"]]
+            DataColumnTypes = {"NAME": str, "FILE": int, "OPTVAL": str}
+            FieldToDataHeaderKey = {
+                "TestUCConditionModel": {
+                    "name": "NAME",
+                    "file": "FILE",
+                    "opt_val": "OPTVAL",
+                }
+            }
+            Models = [mdl]
+            DataColumnMetadata = DataTableHeaders(
+                NAME=TableColumn.init_flat(name="Name Header"),
+                FILE=TableColumn.init_flat(name="File Header"),
+                OPTVAL=TableColumn.init_flat(name="OptVal Header"),
+            )
+
+            def load_data(self):
+                return None
+
+        return TestUCConditionLoader
+
     def __init__(self, *args, **kwargs):
         # The test model and loader must be created for the entire class or instance.  I chose "instance" so that I
         # didn't need to put the generators in a separate class or at __main__ level.  If you try and generate them in
         # each test, the model will get destroyed after the test and generating it again silently fails.
-        self.TestModel = self.generate_test_model()
-        self.TestLoader = self.generate_test_loader(self.TestModel)
-        self.TestUCModel = self.generate_test_model_with_unique_constraints()
-        self.TestUCLoader = self.generate_uc_test_loader(self.TestUCModel)
+        self.test_model_class = self.generate_test_model()
+        self.test_loader_class = self.generate_test_loader(self.test_model_class)
+        self.test_uc_model_class = self.generate_test_model_with_unique_constraints()
+        self.test_uc_loader_class = self.generate_uc_test_loader(
+            self.test_uc_model_class
+        )
+        self.test_ucc_model_class = (
+            self.generate_test_model_with_unique_constraint_condition()
+        )
+        self.test_ucc_loader_class = self.generate_uccondition_test_loader(
+            self.test_uc_model_class
+        )
         super().__init__(*args, **kwargs)
 
     # handle_load_db_errors Tests
     def test_handle_load_db_errors_ve_choice(self):
         """Ensures handle_load_db_errors packages ValidationError about invalid choices"""
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
         # Circumventing the need to call load_data, set what is needed to call handle_load_db_errors...
         tl.set_row_index(0)  # Converted to row 2 (header line is 1)
         tl.handle_load_db_errors(
             ValidationError("3 is not a valid choice"),
-            self.TestModel,
+            self.test_model_class,
             {"name": "test", "choice": "3"},
         )
         self.assertEqual(1, len(tl.aggregated_errors_object.exceptions))
@@ -148,18 +224,18 @@ class TableLoaderTests(TracebaseTestCase):
 
     def test_handle_load_db_errors_ie_unique(self):
         """Ensures handle_load_db_errors packages ValidationError about invalid choices"""
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
         # Circumventing the need to call load_data, set what is needed to call handle_load_db_errors...
         tl.set_row_index(0)  # Converted to row 2 (header line is 1)
         # handle_load_db_errors queries for the existing record that caused the IntegrityError exception, so we need to
         # create one:
         recdict = {"name": "test2", "choice": "2"}
-        self.TestModel.objects.create(**recdict)
+        self.test_model_class.objects.create(**recdict)
         # An integrity error requires a conflict, so:
         recdict["choice"] = "1"
         tl.handle_load_db_errors(
             IntegrityError("duplicate key value violates unique constraint"),
-            self.TestModel,
+            self.test_model_class,
             recdict,
         )
         self.assertEqual(1, len(tl.aggregated_errors_object.exceptions))
@@ -179,7 +255,7 @@ class TableLoaderTests(TracebaseTestCase):
 
     def test_handle_load_db_errors_catches_ie_with_not_null_constraint(self):
         """Ensures that handle_load_db_errors packages IntegrityErrors as RequiredValueError"""
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
         # Circumventing the need to call load_data, set what is needed to call handle_load_db_errors...
         tl.set_row_index(0)  # Converted to row 2 (header line is 1)
         # handle_load_db_errors queries for the existing record that caused the IntegrityError exception, so we need to
@@ -188,7 +264,7 @@ class TableLoaderTests(TracebaseTestCase):
         # An integrity error requires a conflict, so:
         tl.handle_load_db_errors(
             IntegrityError('null value in column "name" violates not-null constraint'),
-            self.TestModel,
+            self.test_model_class,
             recdict,
         )
         self.assertEqual(1, len(tl.aggregated_errors_object.exceptions))
@@ -210,14 +286,16 @@ class TableLoaderTests(TracebaseTestCase):
 
     def test_handle_load_db_errors_catches_RequiredColumnValue(self):
         """Ensures that handle_load_db_errors catches RequiredColumnValue errors."""
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
         # Circumventing the need to call load_data, set what is needed to call handle_load_db_errors...
         tl.set_row_index(0)  # Converted to row 2 (header line is 1)
         # handle_load_db_errors queries for the existing record that caused the IntegrityError exception, so we need to
         # create one:
         recdict = {"name": "test", "choice": "2"}
         # An integrity error requires a conflict, so:
-        tl.handle_load_db_errors(RequiredColumnValue("NAME"), self.TestModel, recdict)
+        tl.handle_load_db_errors(
+            RequiredColumnValue("NAME"), self.test_model_class, recdict
+        )
         self.assertEqual(1, len(tl.aggregated_errors_object.exceptions))
         self.assertEqual(
             RequiredColumnValue, type(tl.aggregated_errors_object.exceptions[0])
@@ -225,18 +303,18 @@ class TableLoaderTests(TracebaseTestCase):
 
     def test_handle_load_db_errors_raises_1_ve_with_same_dict(self):
         """Ensures that multiple ValidationErrors about the same dict are only buffered by handle_load_db_errors once"""
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
         # Circumventing the need to call load_data, set what is needed to call handle_load_db_errors...
         tl.set_row_index(0)  # Converted to row 2 (header line is 1)
         tl.handle_load_db_errors(
             ValidationError("3 is not a valid choice"),
-            self.TestModel,
+            self.test_model_class,
             {"name": "test", "choice": "3"},
         )
         tl.set_row_index(1)
         tl.handle_load_db_errors(
             ValidationError("3 is not a valid choice"),
-            self.TestModel,
+            self.test_model_class,
             {"name": "test", "choice": "3"},
         )
         self.assertEqual(1, len(tl.aggregated_errors_object.exceptions))
@@ -257,29 +335,77 @@ class TableLoaderTests(TracebaseTestCase):
         """Ensures that the exception is not packaged by handle_load_db_errors inside an InfileDatabaseError if rec_dict
         is None
         """
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
         # Circumventing the need to call load_data, set what is needed to call handle_load_db_errors...
         tl.set_row_index(0)  # Converted to row 2 (header line is 1)
         # handle_load_db_errors queries for the existing record that caused the IntegrityError exception, so we need to
         # create one:
         recdict = None
         # An integrity error requires a conflict, so:
-        tl.handle_load_db_errors(AttributeError("Error"), self.TestModel, recdict)
+        tl.handle_load_db_errors(
+            AttributeError("Error"), self.test_model_class, recdict
+        )
         self.assertEqual(1, len(tl.aggregated_errors_object.exceptions))
         self.assertEqual(
             AttributeError, type(tl.aggregated_errors_object.exceptions[0])
         )
 
+    def test_handle_load_db_errors_unique_constraint_condition(self):
+        """Ensures that a unique constraint's condition is used when looking for conflicts"""
+        tl = self.test_ucc_loader_class()
+        # Circumventing the need to call load_data, set what is needed to call handle_load_db_errors...
+        tl.set_row_index(0)  # Converted to row 2 (header line is 1)
+
+        # Create 2 existing records
+        erec1 = self.test_ucc_model_class.objects.create(**{"name": "a"})
+        erec1.full_clean()
+        erec2 = self.test_ucc_model_class.objects.create(
+            **{"name": "a", "file": 1, "opt_val": "b"}
+        )
+        erec2.full_clean()
+
+        # Send a simulated IntegrityError to handle_load_db_errors
+        newrecdict = {"name": "a", "file": 1}
+        tl.handle_load_db_errors(
+            IntegrityError("duplicate key value violates unique constraint"),
+            self.test_ucc_model_class,
+            newrecdict,
+        )
+
+        print(tl.aggregated_errors_object.exceptions[0])
+        # Ensure a ConflictingValueError was buffered
+        self.assertEqual(
+            1,
+            len(tl.aggregated_errors_object.exceptions),
+            msg=(
+                "Expected 1 ConflictingValueError, got: "
+                f"{[type(e).__name__ for e in tl.aggregated_errors_object.exceptions]}"
+            ),
+        )
+        self.assertIsInstance(
+            tl.aggregated_errors_object.exceptions[0],
+            ConflictingValueError,
+            msg=(
+                "Expected 1 ConflictingValueError, got: "
+                f"{[type(e).__name__ for e in tl.aggregated_errors_object.exceptions]}"
+            ),
+        )
+
+        # Ensure that the record that handle_load_db_errors identified is the correct one (it had to have used the
+        # condition or else it would have found erec1 using the first constraint)
+        cve: ConflictingValueError = tl.aggregated_errors_object.exceptions[0]
+        self.assertEqual(erec2, cve.rec)
+
     def test_check_for_inconsistencies_case1(self):
         """Ensures that check_for_inconsistencies correctly packages conflicts"""
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
         # Circumventing the need to call load_data, set what is needed to call handle_load_db_errors...
         tl.set_row_index(0)  # Converted to row 2 (header line is 1)
         # handle_load_db_errors queries for the existing record that caused the IntegrityError exception, so we need to
         # create one:
         recdict = {"name": "test2", "choice": "2"}
-        self.TestModel.objects.create(**recdict)
-        rec = self.TestModel.objects.get(**recdict)
+        self.test_model_class.objects.create(**recdict)
+        rec = self.test_model_class.objects.get(**recdict)
         # An integrity error requires a conflict, so:
         recdict["choice"] = "1"
         errfound = tl.check_for_inconsistencies(rec, recdict)
@@ -301,12 +427,12 @@ class TableLoaderTests(TracebaseTestCase):
     def test_check_for_inconsistencies_case2(self):
         """Ensures that check_for_inconsistencies correctly packages conflicts despite type differences, even if the
         field is not mapped or the type is not recorded."""
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
         # Circumventing the need to call load_data, set what is needed to call handle_load_db_errors...
         tl.set_row_index(0)  # Converted to row 2 (header line is 1)
         recdict = {"name": "test2", "choice": "2"}
-        self.TestModel.objects.create(**recdict)
-        rec = self.TestModel.objects.get(**recdict)
+        self.test_model_class.objects.create(**recdict)
+        rec = self.test_model_class.objects.get(**recdict)
         # The loading code automatically casts, but when check_for_inconsistencies runs, it gets the uncast value,
         # where Excel or pandas autodetected a type (inaccurately)
         recdict["choice"] = 2
@@ -317,10 +443,10 @@ class TableLoaderTests(TracebaseTestCase):
         self.assertFalse(tl.aggregated_errors_object.is_fatal)
         self.assertFalse(tl.aggregated_errors_object.exceptions[0].is_fatal)
         self.assertIsInstance(
-            tl.aggregated_errors_object.exceptions[0], ProgrammingError
+            tl.aggregated_errors_object.exceptions[0], DBFieldVsFileColDeveloperWarning
         )
         self.assertIn(
-            "'2' (a 'str' from the database) and '2' (a 'int' from the file)",
+            "database ('2', a 'str') and the type of the value from the file ('2', a 'int')",
             str(tl.aggregated_errors_object.exceptions[0]),
         )
         self.assertIn(
@@ -331,38 +457,168 @@ class TableLoaderTests(TracebaseTestCase):
     def test_check_for_inconsistencies_case3(self):
         """Ensures that check_for_inconsistencies correctly packages conflicts despite type differences without warning
         if the field is mapped and the type is recorded."""
-        tl = self.TestUCLoader()
+        tl = self.test_uc_loader_class()
         # Circumventing the need to call load_data, set what is needed to call handle_load_db_errors...
         tl.set_row_index(0)  # Converted to row 2 (header line is 1)
         recdict = {"name": "test2", "uf1": "2"}
-        self.TestUCModel.objects.create(**recdict)
-        rec = self.TestUCModel.objects.get(**recdict)
+        self.test_uc_model_class.objects.create(**recdict)
+        rec = self.test_uc_model_class.objects.get(**recdict)
         # The loading code automatically casts, but when check_for_inconsistencies runs, it gets the uncast value,
         # where Excel or pandas autodetected a type (inaccurately)
         recdict["uf1"] = 2
         errfound = tl.check_for_inconsistencies(rec, recdict)
-        self.assertFalse(errfound)
+        self.assertFalse(
+            errfound,
+            msg=(
+                "Expected 0 exceptions, got: "
+                f"{[type(e).__name__ + ': ' + str(e) for e in tl.aggregated_errors_object.exceptions]}"
+            ),
+        )
         # No error when the field is mapped to a column and the column's type is recorded
         self.assertEqual(0, len(tl.aggregated_errors_object.exceptions))
 
+    def test_check_for_inconsistencies_case4(self):
+        """Tests developer warnings about database/file value type arise when searching for inconsistencies.
+
+        Requirements tested (from GitHub issue #1662):
+            1. Programmer warnings must not be user-facing.
+            8. A warning is buffered when the compared database field and file column value differ by type (other than
+               NoneType)
+
+        This test creates a model record with a str value in a field and calls check_for_inconsistencies, supplying it a
+        rec_dict that has an int for that field.
+        """
+        table_loader = self.test_uc_loader_class()
+        # Circumventing the need to call load_data, set what is needed to call handle_load_db_errors...
+        table_loader.set_row_index(0)  # Converted to row 2 (header line is 1)
+        recdict = {
+            "name": "test4",
+            "uf1": "1",
+            "uf2": "2",
+            "opt_str": "letters",  # This is the value we are testing
+        }
+        self.test_uc_model_class.objects.create(**recdict)
+        rec = self.test_uc_model_class.objects.get(**recdict)
+
+        # NOTE: The loading code automatically casts when it knows the column type, but when when that's not set in the
+        # loader class, when check_for_inconsistencies runs, it gets the uncast value, where Excel or pandas
+        # autodetected a type (inaccurately), e.g. the user enters a number for a string value in the DB.
+        recdict["opt_str"] = 2
+        errfound = table_loader.check_for_inconsistencies(rec, recdict)
+
+        # Test Req 8. See docstring
+        self.assertTrue(errfound)
+        self.assertEqual(2, len(table_loader.aggregated_errors_object.exceptions))
+        self.assertTrue(
+            table_loader.aggregated_errors_object.exception_type_exists(
+                DBFieldVsFileColDeveloperWarning
+            )
+        )
+        # This error is also expected
+        self.assertTrue(
+            table_loader.aggregated_errors_object.exception_type_exists(
+                ConflictingValueError
+            )
+        )
+
+        self.assertIsInstance(
+            table_loader.aggregated_errors_object.exceptions[0],
+            DBFieldVsFileColDeveloperWarning,
+        )
+        dev_warning: DBFieldVsFileColDeveloperWarning = (
+            table_loader.aggregated_errors_object.exceptions[0]
+        )
+
+        # Test Req 1. See docstring
+        self.assertFalse(dev_warning.is_error)
+        self.assertFalse(dev_warning.is_fatal)
+
+    def test_check_for_inconsistencies_case5(self):
+        """Tests developer warnings about database/file value type do not arise when one of the values is 'None'.
+
+        Requirements tested (from GitHub issue #1662):
+            7. This warning must no be risen when one of the compared values is None
+
+        This test creates a model record with a str value in a field and calls check_for_inconsistencies, supplying it a
+        rec_dict that has a NoneType for that field.
+        """
+        table_loader1 = self.test_uc_loader_class()
+        # Circumventing the need to call load_data, set what is needed to call handle_load_db_errors...
+        table_loader1.set_row_index(0)  # Converted to row 2 (header line is 1)
+
+        # Case 1: DB value is null
+        recdict = {
+            "name": "test4",
+            "uf1": "1",
+            "uf2": "2",
+            # Omitting opt_str makes it null in the DB
+        }
+        self.test_uc_model_class.objects.create(**recdict)
+        rec = self.test_uc_model_class.objects.get(**recdict)
+
+        # NOTE: The loading code automatically casts when it knows the column type, but when when that's not set in the
+        # loader class, when check_for_inconsistencies runs, it gets the uncast value, where Excel or pandas
+        # autodetected a type (inaccurately), e.g. the user enters a number for a string value in the DB.
+        recdict["opt_str"] = "2"
+        errfound = table_loader1.check_for_inconsistencies(rec, recdict)
+
+        # We still expect a ConflictingValueError
+        self.assertTrue(errfound)
+        self.assertEqual(1, len(table_loader1.aggregated_errors_object.exceptions))
+        self.assertTrue(
+            table_loader1.aggregated_errors_object.exception_type_exists(
+                ConflictingValueError
+            )
+        )
+        self.assertFalse(
+            table_loader1.aggregated_errors_object.exception_type_exists(
+                DBFieldVsFileColDeveloperWarning
+            )
+        )
+
+        # Case 2: File value is None
+        table_loader2 = self.test_uc_loader_class()
+        # Circumventing the need to call load_data, set what is needed to call handle_load_db_errors...
+        table_loader2.set_row_index(0)  # Converted to row 2 (header line is 1)
+
+        rec.opt_str = "2"
+        rec.full_clean()
+        rec.save()
+        recdict["opt_str"] = None
+        errfound = table_loader2.check_for_inconsistencies(rec, recdict)
+
+        self.assertTrue(errfound)
+        print(table_loader2.aggregated_errors_object.exceptions)
+        self.assertEqual(1, len(table_loader2.aggregated_errors_object.exceptions))
+        self.assertTrue(
+            table_loader2.aggregated_errors_object.exception_type_exists(
+                ConflictingValueError
+            )
+        )
+        self.assertFalse(
+            table_loader2.aggregated_errors_object.exception_type_exists(
+                DBFieldVsFileColDeveloperWarning
+            )
+        )
+
     def test_model_field_to_column_type(self):
-        tucl = self.TestUCLoader()
+        tucl = self.test_uc_loader_class()
         type_returned = tucl.model_field_to_column_type(
-            self.TestUCModel.__name__, "name"
+            self.test_uc_model_class.__name__, "name"
         )
         self.assertEqual(str, type_returned)
         type_returned2 = tucl.model_field_to_column_type(
-            self.TestUCModel.__name__, "unrecorded_field"
+            self.test_uc_model_class.__name__, "unrecorded_field"
         )
         self.assertIsNone(type_returned2)
 
     # Method tests
     def test_get_load_stats(self):
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
         ls = tl.get_load_stats()
         self.assertDictEqual(
             {
-                self.TestModel.__name__: {
+                self.test_model_class.__name__: {
                     "created": 0,
                     "existed": 0,
                     "deleted": 0,
@@ -376,15 +632,15 @@ class TableLoaderTests(TracebaseTestCase):
         )
 
     def test_get_models(self):
-        tl = self.TestLoader()
-        self.assertEqual([self.TestModel], tl.get_models())
+        tl = self.test_loader_class()
+        self.assertEqual([self.test_model_class], tl.get_models())
 
     def test_created(self):
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
         tl.created()
         self.assertDictEqual(
             {
-                self.TestModel.__name__: {
+                self.test_model_class.__name__: {
                     "created": 1,
                     "existed": 0,
                     "deleted": 0,
@@ -398,11 +654,11 @@ class TableLoaderTests(TracebaseTestCase):
         )
 
     def test_existed(self):
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
         tl.existed()
         self.assertDictEqual(
             {
-                self.TestModel.__name__: {
+                self.test_model_class.__name__: {
                     "created": 0,
                     "existed": 1,
                     "deleted": 0,
@@ -416,11 +672,11 @@ class TableLoaderTests(TracebaseTestCase):
         )
 
     def test_deleted(self):
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
         tl.deleted()
         self.assertDictEqual(
             {
-                self.TestModel.__name__: {
+                self.test_model_class.__name__: {
                     "created": 0,
                     "existed": 0,
                     "deleted": 1,
@@ -434,11 +690,11 @@ class TableLoaderTests(TracebaseTestCase):
         )
 
     def test_skipped(self):
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
         tl.skipped()
         self.assertDictEqual(
             {
-                self.TestModel.__name__: {
+                self.test_model_class.__name__: {
                     "created": 0,
                     "existed": 0,
                     "deleted": 0,
@@ -452,11 +708,11 @@ class TableLoaderTests(TracebaseTestCase):
         )
 
     def test_errored(self):
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
         tl.errored()
         self.assertDictEqual(
             {
-                self.TestModel.__name__: {
+                self.test_model_class.__name__: {
                     "created": 0,
                     "existed": 0,
                     "deleted": 0,
@@ -470,11 +726,11 @@ class TableLoaderTests(TracebaseTestCase):
         )
 
     def test_warned(self):
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
         tl.warned()
         self.assertDictEqual(
             {
-                self.TestModel.__name__: {
+                self.test_model_class.__name__: {
                     "created": 0,
                     "existed": 0,
                     "deleted": 0,
@@ -488,13 +744,13 @@ class TableLoaderTests(TracebaseTestCase):
         )
 
     def test__get_model_name(self):
-        tl = self.TestLoader()
-        self.assertEqual(self.TestModel.__name__, tl._get_model_name())
+        tl = self.test_loader_class()
+        self.assertEqual(self.test_model_class.__name__, tl._get_model_name())
 
         # Check exception when models > 1
-        class TestMultiModelLoader(self.TestLoader):
+        class TestMultiModelLoader(self.test_loader_class):
             # Note, this does not define all columns. Just need any values to prevent errors.
-            Models = [self.TestModel, self.TestUCModel]
+            Models = [self.test_model_class, self.test_uc_model_class]
 
             def load_data(self):
                 return None
@@ -515,7 +771,7 @@ class TableLoaderTests(TracebaseTestCase):
             DataDefaultValues = DataTableHeaders(NAME="test", CHOICE="1")
             DataUniqueColumnConstraints = [["NAME"]]
             FieldToDataHeaderKey = {"TestModel": {"name": "NAME", "choice": "CHOICE"}}
-            Models = [self.TestModel]
+            Models = [self.test_model_class]
             DataColumnMetadata = DataTableHeaders(
                 NAME=TableColumn.init_flat(name="Name Header"),
                 CHOICE=TableColumn.init_flat(name="Choice Header"),
@@ -536,7 +792,7 @@ class TableLoaderTests(TracebaseTestCase):
                 "Choice": ["1", "2", "2"],
             },
         )
-        tl = self.TestLoader(df=pddata)
+        tl = self.test_loader_class(df=pddata)
         n = None
         c = None
         for _, row in tl.df.iterrows():
@@ -549,12 +805,12 @@ class TableLoaderTests(TracebaseTestCase):
         self.assertEqual("1", c)
 
     def test_get_skip_row_indexes(self):
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
         tl.skip_row_indexes = [1, 9, 22]
         self.assertEqual([1, 9, 22], tl.get_skip_row_indexes())
 
     def test_add_skip_row_index(self):
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
         # one
         tl.add_skip_row_index(index=1)
         self.assertEqual([1], tl.skip_row_indexes)
@@ -574,7 +830,7 @@ class TableLoaderTests(TracebaseTestCase):
             DataRequiredValues = DataRequiredHeaders
             DataUniqueColumnConstraints = [["NAME"]]
             FieldToDataHeaderKey = {"TestModel": {"name": "NAME", "choice": "CHOICE"}}
-            Models = [self.TestModel]
+            Models = [self.test_model_class]
             DataColumnMetadata = DataTableHeaders(
                 NAME=TableColumn.init_flat(name="Name Header"),
                 CHOICE=TableColumn.init_flat(name="Choice Header"),
@@ -611,10 +867,10 @@ class TableLoaderTests(TracebaseTestCase):
             },
         )
         if with_arg:
-            tucl = self.TestUCLoader()
+            tucl = self.test_uc_loader_class()
             tucl.check_unique_constraints(pddata)
         else:
-            tucl = self.TestUCLoader(df=pddata)
+            tucl = self.test_uc_loader_class(df=pddata)
             tucl.check_unique_constraints()
         self.assertEqual(2, len(tucl.aggregated_errors_object.exceptions))
         self.assertEqual(
@@ -642,7 +898,7 @@ class TableLoaderTests(TracebaseTestCase):
         self.test_check_unique_constraints(True)
 
     def test_header_key_to_name(self):
-        tucl = self.TestUCLoader()
+        tucl = self.test_uc_loader_class()
         kd = {
             "NAME": 1,
             "UFONE": 2,
@@ -657,7 +913,7 @@ class TableLoaderTests(TracebaseTestCase):
         self.assertEqual(expected, nd)
 
     def test_get_column_types_default(self):
-        tucl = self.TestUCLoader()
+        tucl = self.test_uc_loader_class()
         td = tucl.get_column_types()
         expected = {
             "Name": str,
@@ -667,14 +923,14 @@ class TableLoaderTests(TracebaseTestCase):
         self.assertEqual(expected, td)
 
     def test_isnamedtuple(self):
-        nt = self.TestLoader.DataTableHeaders(
+        nt = self.test_loader_class.DataTableHeaders(
             NAME=True,
             CHOICE=True,
         )
-        self.assertTrue(self.TestLoader.isnamedtuple(nt))
+        self.assertTrue(self.test_loader_class.isnamedtuple(nt))
 
     def test_initialize_metadata(self):
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
         # initialize_metadata is called in the constructor
 
         # Initialized via initialize_metadata, directly
@@ -793,24 +1049,24 @@ class TableLoaderTests(TracebaseTestCase):
         )
 
     def test_get_defaults(self):
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
         # initialize_metadata is called in the constructor
         self.assertEqual(tl.DataDefaultValues, tl.get_defaults())
 
     def test_get_header_keys(self):
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
         self.assertEqual(list(tl.DataHeaders._asdict().keys()), tl.get_header_keys())
 
     def test_get_pretty_headers_defaults(self):
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
         self.assertEqual("Name*, Choice (* = Required)", tl.get_pretty_headers())
 
     def test_get_headers(self):
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
         self.assertEqual(tl.DataHeaders, tl.get_headers())
 
     def test_set_row_index(self):
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
         tl.set_row_index(3)
         self.assertEqual(3, tl.row_index)
         self.assertEqual(5, tl.rownum)
@@ -824,23 +1080,23 @@ class TableLoaderTests(TracebaseTestCase):
                 "col3": ["1", "2", "3"],
             },
         )
-        outdict, outlist = self.TestLoader.get_one_column_dupes(
+        outdict, outlist = self.test_loader_class.get_one_column_dupes(
             pddata, "col2", ignore_row_idxs=[2]
         )
         self.assertEqual({"x": [0, 1]}, outdict)
         self.assertEqual([0, 1], outlist)
 
-    def test_get_unique_constraint_fields(self):
-        unique_field_sets = self.TestLoader.get_unique_constraint_fields(
-            self.TestUCModel
+    def test_get_unique_constraints(self):
+        unique_constraints: List[UniqueConstraint] = (
+            self.test_loader_class.get_unique_constraints(self.test_uc_model_class)
         )
-        self.assertEqual(1, len(unique_field_sets))
+        self.assertEqual(1, len(unique_constraints))
         self.assertEqual(
             (
                 "uf1",
                 "uf2",
             ),
-            unique_field_sets[0],
+            unique_constraints[0].fields,
         )
 
     def test_get_non_auto_model_fields(self):
@@ -848,19 +1104,24 @@ class TableLoaderTests(TracebaseTestCase):
             "name",
             "uf1",
             "uf2",
+            "opt_str",
         ]
         field_names = [
             f.name if hasattr(f, "name") else f.field_name
-            for f in self.TestLoader.get_non_auto_model_fields(self.TestUCModel)
+            for f in self.test_loader_class.get_non_auto_model_fields(
+                self.test_uc_model_class
+            )
         ]
         self.assertEqual(expected, field_names)
 
     def test_get_enumerated_fields(self):
-        field_names = self.TestLoader.get_enumerated_fields(self.TestModel)
+        field_names = self.test_loader_class.get_enumerated_fields(
+            self.test_model_class
+        )
         self.assertEqual(["choice"], field_names)
 
     def test_get_unique_fields(self):
-        field_names = self.TestLoader.get_unique_fields(self.TestUCModel)
+        field_names = self.test_loader_class.get_unique_fields(self.test_uc_model_class)
         self.assertEqual(["name"], field_names)
 
     # apply_loader_wrapper tests
@@ -883,17 +1144,17 @@ class TableLoaderTests(TracebaseTestCase):
         )
 
     def test_is_skip_row(self):
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
         tl.skip_row_indexes = [3]
         self.assertTrue(tl.is_skip_row(3))
         self.assertFalse(tl.is_skip_row(0))
 
     def test_tableheaders_to_dict_by_header_name(self):
-        nt = self.TestLoader.DataTableHeaders(
+        nt = self.test_loader_class.DataTableHeaders(
             NAME=True,
             CHOICE=True,
         )
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
         self.assertTrue(
             {
                 "Name": True,
@@ -904,7 +1165,7 @@ class TableLoaderTests(TracebaseTestCase):
 
     # Test that load_wrapper
     def test_load_wrapper_does_not_nest_AggregatedErrors(self):
-        class TestNestedAesLoader(self.TestLoader):
+        class TestNestedAesLoader(self.test_loader_class):
             def load_data(self):
                 # Buffer an exception correctly
                 self.aggregated_errors_object.buffer_warning(ValueError("WARNING"))
@@ -929,7 +1190,7 @@ class TableLoaderTests(TracebaseTestCase):
         self.assertEqual("Nested", str(aes.exceptions[1]))
 
     def test_load_wrapper_summarizes_ConflictingValueErrors(self):
-        class TestMultiCVELoader(self.TestLoader):
+        class TestMultiCVELoader(self.test_loader_class):
             def load_data(self):
                 # Buffer 2 ConflictingValueError exceptions
                 self.aggregated_errors_object.buffer_error(
@@ -965,7 +1226,7 @@ class TableLoaderTests(TracebaseTestCase):
         )
 
     def test_load_wrapper_summarizes_RequiredValueErrors(self):
-        class TestMultiRVELoader(self.TestLoader):
+        class TestMultiRVELoader(self.test_loader_class):
             def load_data(self):
                 # Buffer 2 RequiredValueError exceptions
                 self.aggregated_errors_object.buffer_error(
@@ -1017,7 +1278,7 @@ class TableLoaderTests(TracebaseTestCase):
         )
 
     def test_load_wrapper_summarizes_DuplicateValueErrors(self):
-        class TestMultiDVELoader(self.TestLoader):
+        class TestMultiDVELoader(self.test_loader_class):
             def load_data(self):
                 # Buffer 2 RequiredValueError exceptions
                 self.aggregated_errors_object.buffer_error(
@@ -1054,7 +1315,7 @@ class TableLoaderTests(TracebaseTestCase):
         )
 
     def test_load_wrapper_summarizes_RequiredColumnValues(self):
-        class TestMultiRCVLoader(self.TestLoader):
+        class TestMultiRCVLoader(self.test_loader_class):
             def load_data(self):
                 # Buffer 2 RequiredValueError exceptions
                 self.aggregated_errors_object.buffer_error(
@@ -1088,7 +1349,7 @@ class TableLoaderTests(TracebaseTestCase):
         )
 
     def test_load_wrapper_handles_defer_rollback(self):
-        class TestDeferedLoader(self.TestLoader):
+        class TestDeferedLoader(self.test_loader_class):
             def load_data(self):
                 self.Models[0].objects.create(name="A", choice=1)
                 self.aggregated_errors_object.buffer_error(ValueError("Test"))
@@ -1104,7 +1365,9 @@ class TableLoaderTests(TracebaseTestCase):
         tdl = TestDeferedLoader(df=pddata, defer_rollback=True)
 
         # There should be no record found initially
-        self.assertEqual(0, self.TestModel.objects.filter(name="A", choice=1).count())
+        self.assertEqual(
+            0, self.test_model_class.objects.filter(name="A", choice=1).count()
+        )
 
         # Expect an AggregatedErrors exception
         with self.assertRaises(AggregatedErrors) as ar:
@@ -1117,10 +1380,10 @@ class TableLoaderTests(TracebaseTestCase):
         self.assertEqual("Test", str(aes.exceptions[0]))
 
         # This get should not cause an exception because the record should have been created and kept
-        self.TestModel.objects.get(name="A", choice=1)
+        self.test_model_class.objects.get(name="A", choice=1)
 
     def test_load_wrapper_handles_DryRun(self):
-        class TestDryRunLoader(self.TestLoader):
+        class TestDryRunLoader(self.test_loader_class):
             def load_data(self):
                 self.Models[0].objects.create(name="A", choice=1)
 
@@ -1135,17 +1398,21 @@ class TableLoaderTests(TracebaseTestCase):
         tdl = TestDryRunLoader(df=pddata, dry_run=True)
 
         # There should be no record found initially
-        self.assertEqual(0, self.TestModel.objects.filter(name="A", choice=1).count())
+        self.assertEqual(
+            0, self.test_model_class.objects.filter(name="A", choice=1).count()
+        )
 
         # Expect a DryRun exception
         with self.assertRaises(DryRun):
             tdl.load_data()
 
         # Nothing should load in a dry run
-        self.assertEqual(0, self.TestModel.objects.filter(name="A", choice=1).count())
+        self.assertEqual(
+            0, self.test_model_class.objects.filter(name="A", choice=1).count()
+        )
 
     def test_load_wrapper_preserves_return(self):
-        class TestStatsLoader(self.TestLoader):
+        class TestStatsLoader(self.test_loader_class):
             def load_data(self):
                 return 42
 
@@ -1164,26 +1431,26 @@ class TableLoaderTests(TracebaseTestCase):
         self.assertEqual(42, retval)
 
     def test_set_headers(self):
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
         tl.set_headers({"NAME": "X", "CHOICE": "Selection"})
-        expected = self.TestLoader.DataTableHeaders(NAME="X", CHOICE="Selection")
+        expected = self.test_loader_class.DataTableHeaders(NAME="X", CHOICE="Selection")
         self.assertEqual(expected, tl.headers)
 
     def test__merge_headers(self):
         # User-supplied headers (i.e. from the command line) trump derived class custom headers
-        tl = self.TestLoader(
+        tl = self.test_loader_class(
             user_headers={"NAME": "UsersDumbNameHeader", "CHOICE": "UsersChoice"}
         )
         tl._merge_headers({"NAME": "X", "CHOICE": "Selection"})
-        expected = self.TestLoader.DataTableHeaders(
+        expected = self.test_loader_class.DataTableHeaders(
             NAME="UsersDumbNameHeader", CHOICE="UsersChoice"
         )
         self.assertEqual(expected, tl.headers)
 
     def test_set_defaults(self):
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
         tl.set_defaults({"NAME": "one", "CHOICE": "two"})
-        expected = self.TestLoader.DataTableHeaders(NAME="one", CHOICE="two")
+        expected = self.test_loader_class.DataTableHeaders(NAME="one", CHOICE="two")
         self.assertEqual(expected, tl.defaults)
 
     def test__merge_defaults(self):
@@ -1201,20 +1468,26 @@ class TableLoaderTests(TracebaseTestCase):
                 "Default Value": ["G"],
             },
         )
-        tl = self.TestLoader(df=df, data_sheet="Test", defaults_df=def_df)
+        tl = self.test_loader_class(df=df, data_sheet="Test", defaults_df=def_df)
         tl._merge_defaults({"NAME": "D"})
-        expected = self.TestLoader.DataTableHeaders(NAME="G", CHOICE=None)
+        expected = self.test_loader_class.DataTableHeaders(NAME="G", CHOICE=None)
         self.assertEqual(expected, tl.defaults)
 
     def test_isnamedtupletype(self):
         self.assertTrue(
-            self.TestLoader.isnamedtupletype(self.TestLoader.DataTableHeaders)
+            self.test_loader_class.isnamedtupletype(
+                self.test_loader_class.DataTableHeaders
+            )
         )
-        self.assertFalse(self.TestLoader.isnamedtupletype(self.TestLoader.DataHeaders))
+        self.assertFalse(
+            self.test_loader_class.isnamedtupletype(self.test_loader_class.DataHeaders)
+        )
         self.assertTrue(
-            self.TestLoader.isnamedtupletype(self.TestLoader.DefaultsTableHeaders)
+            self.test_loader_class.isnamedtupletype(
+                self.test_loader_class.DefaultsTableHeaders
+            )
         )
-        self.assertFalse(self.TestLoader.isnamedtupletype(1))
+        self.assertFalse(self.test_loader_class.isnamedtupletype(1))
 
     def test_check_dataframe_headers(self):
         df = pd.DataFrame.from_dict(
@@ -1223,7 +1496,7 @@ class TableLoaderTests(TracebaseTestCase):
                 "Choice": ["1", "2", "2"],
             },
         )
-        tl = self.TestLoader(df=df)
+        tl = self.test_loader_class(df=df)
         with self.assertRaises(AggregatedErrors) as ar:
             tl.check_dataframe_headers()
         aes = ar.exception
@@ -1233,14 +1506,14 @@ class TableLoaderTests(TracebaseTestCase):
         self.assertEqual(UnknownHeaders, type(aes.exceptions[1]))
         self.assertIn("Wrong", str(aes.exceptions[1]))
 
-        tl2 = self.TestLoader()
+        tl2 = self.test_loader_class()
         tl2.check_dataframe_headers()
         aes2 = tl2.aggregated_errors_object
         self.assertEqual(1, len(aes2.exceptions))
         self.assertEqual(NoLoadData, type(aes2.exceptions[0]))
 
     def test_check_dataframe_headers_defaults(self):
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
         # Setting tl.defaults_df manually so that it's not automatically checked via the constructor
         tl.defaults_df = pd.DataFrame.from_dict(
             {
@@ -1273,22 +1546,22 @@ class TableLoaderTests(TracebaseTestCase):
                 "Default Value": ["G"],
             },
         )
-        tl = self.TestLoader(df=df, data_sheet="Test", defaults_df=def_df)
+        tl = self.test_loader_class(df=df, data_sheet="Test", defaults_df=def_df)
         # Derived class defaults (just to ensure these aren't included)
         tl.set_defaults({"NAME": "one", "CHOICE": "two"})
         expected = {"Name": "G"}
         self.assertEqual(expected, tl.get_user_defaults())
 
     def test_header_name_to_key(self):
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
         self.assertEqual({"NAME": 2}, tl.header_name_to_key({"Name": 2}))
 
     def test_get_pretty_headers_headers(self):
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
         self.assertEqual(
             "MyName*, MyChoice (* = Required)",
             tl.get_pretty_headers(
-                headers=self.TestLoader.DataTableHeaders(
+                headers=self.test_loader_class.DataTableHeaders(
                     NAME="MyName",
                     CHOICE="MyChoice",
                 )
@@ -1296,25 +1569,25 @@ class TableLoaderTests(TracebaseTestCase):
         )
 
     def test_get_pretty_headers_markers(self):
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
         self.assertEqual("Name, Choice", tl.get_pretty_headers(markers=False))
 
     def test_get_pretty_headers_legend(self):
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
         self.assertEqual("Name*, Choice", tl.get_pretty_headers(legend=False))
 
     def test_get_pretty_headers_reqd_only(self):
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
         self.assertEqual("Name* (* = Required)", tl.get_pretty_headers(reqd_only=True))
 
     def test_get_pretty_headers_reqd_spec(self):
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
         self.assertEqual(
             "Choice*, Name (* = Required)", tl.get_pretty_headers(reqd_spec=["Choice"])
         )
 
     def test_get_pretty_headers_all_reqd(self):
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
         self.assertEqual(
             "(Name, Choice)^ (^ = Any Required)",
             tl.get_pretty_headers(reqd_spec=["Name", "Choice"], all_reqd=False),
@@ -1323,7 +1596,7 @@ class TableLoaderTests(TracebaseTestCase):
     def test__get_pretty_headers_helper(self):
         """Test that _get_pretty_headers_helper returns a decorated string of headers."""
 
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
 
         # a required
         self.assertEqual(
@@ -1376,7 +1649,7 @@ class TableLoaderTests(TracebaseTestCase):
     def test_get_missing_headers(self):
         """Test that get_missing_headers returns missing required headers (if any)."""
 
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
 
         # c and ((a and (d or c)) or (a and e)) are required
         # a and c supplied
@@ -1454,7 +1727,7 @@ class TableLoaderTests(TracebaseTestCase):
         listed.  I changed the code to only add a header if it wasn't already in the current group being added-to.  This
         test checks that the output is consolidated.  This test failed before the fix was implemented.
         """
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
         self.assertEqual(
             (["a"], True),
             tl.get_missing_headers(
@@ -1467,12 +1740,12 @@ class TableLoaderTests(TracebaseTestCase):
         """Test that header_keys_to_names converts an N-dimensional list of header keys to an N-dimensional list of
         header names.
         """
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
 
         # One of the builtin N-dimensional headers keys list
         self.assertEqual(
             ["Name"],
-            tl.header_keys_to_names(self.TestLoader.DataRequiredHeaders),
+            tl.header_keys_to_names(self.test_loader_class.DataRequiredHeaders),
         )
 
         # Custom N-dimensional headers keys list
@@ -1486,7 +1759,7 @@ class TableLoaderTests(TracebaseTestCase):
             ["MyName"],
             tl.header_keys_to_names(
                 ["NAME"],
-                headers=self.TestLoader.DataTableHeaders(
+                headers=self.test_loader_class.DataTableHeaders(
                     NAME="MyName",
                     CHOICE="MyChoice",
                 ),
@@ -1499,7 +1772,7 @@ class TableLoaderTests(TracebaseTestCase):
         """
         self.assertEqual(
             ["int", "bool", "float", "dict"],
-            self.TestLoader.get_invalid_types_from_ndim_strings(
+            self.test_loader_class.get_invalid_types_from_ndim_strings(
                 [1, [False, 1.2, "ok", 5.6], "ok", {"a": "b"}]
             ),
         )
@@ -1507,7 +1780,7 @@ class TableLoaderTests(TracebaseTestCase):
     def test_flatten_ndim_strings(self):
         self.assertEqual(
             ["a", "b", "c", "d", "e", "f"],
-            self.TestLoader.flatten_ndim_strings(
+            self.test_loader_class.flatten_ndim_strings(
                 ["a", ["b", "c"], [["d", "e"], "f", "a"]]
             ),
         )
@@ -1521,7 +1794,7 @@ class TableLoaderTests(TracebaseTestCase):
                 "Choice": ["1", "2", "2"],
             },
         )
-        tl = self.TestLoader(df=df)
+        tl = self.test_loader_class(df=df)
         tl.check_dataframe_values()
         self.assertEqual(1, len(tl.aggregated_errors_object.exceptions))
         self.assertEqual(
@@ -1545,7 +1818,7 @@ class TableLoaderTests(TracebaseTestCase):
                 "Choice": ["1", "2", "2"],
             },
         )
-        tl = self.TestLoader(df=df)
+        tl = self.test_loader_class(df=df)
         tl.set_defaults({"NAME": "A"})
         tl.check_dataframe_values()
         self.assertEqual(0, len(tl.aggregated_errors_object.exceptions))
@@ -1564,7 +1837,7 @@ class TableLoaderTests(TracebaseTestCase):
                 "Default Value": ["A"],
             },
         )
-        tl = self.TestLoader(defaults_df=defaults_df)
+        tl = self.test_loader_class(defaults_df=defaults_df)
         tl.check_dataframe_values(reading_defaults=True)
         self.assertEqual(0, len(tl.aggregated_errors_object.exceptions))
         # check_dataframe_values must not change the current row
@@ -1575,7 +1848,7 @@ class TableLoaderTests(TracebaseTestCase):
         """Test that check_dataframe_values buffers exceptions for all rows with missing required values from the
         defaults sheet."""
 
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
         # Setting tl.defaults_df manually so that it's not automatically checked via the constructor
         tl.defaults_df = pd.DataFrame.from_dict(
             {
@@ -1602,7 +1875,7 @@ class TableLoaderTests(TracebaseTestCase):
     def test_get_missing_values(self):
         """Test that get_missing_values returns a list headers when given a row with missing required values."""
 
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
 
         df = pd.DataFrame.from_dict(
             {
@@ -1633,23 +1906,27 @@ class TableLoaderTests(TracebaseTestCase):
         )
 
     def test_get_ordered_display_headers(self):
-        class TestOneDefLoader(self.TestLoader):
-            DataDefaultValues = self.TestLoader.DataTableHeaders(NAME=None, CHOICE="1")
+        class TestOneDefLoader(self.test_loader_class):
+            DataDefaultValues = self.test_loader_class.DataTableHeaders(
+                NAME=None, CHOICE="1"
+            )
 
         todl = TestOneDefLoader()
         self.assertEqual(["Name"], todl.get_ordered_display_headers())
         self.assertEqual(["Name", "Choice"], todl.get_ordered_display_headers(all=True))
 
         # Now reverse the order and define no defaults
-        class TestRevOneDefLoader(self.TestLoader):
+        class TestRevOneDefLoader(self.test_loader_class):
             DataTableHeaders = namedtuple("DataTableHeaders", ["CHOICE", "NAME"])
 
         trodl = TestRevOneDefLoader()
         self.assertEqual(["Choice", "Name"], trodl.get_ordered_display_headers())
 
     def test_get_dataframe_template_empty(self):
-        class TestOneDefLoader(self.TestLoader):
-            DataDefaultValues = self.TestLoader.DataTableHeaders(NAME=None, CHOICE="1")
+        class TestOneDefLoader(self.test_loader_class):
+            DataDefaultValues = self.test_loader_class.DataTableHeaders(
+                NAME=None, CHOICE="1"
+            )
 
         expected = {"Name": {}}
 
@@ -1657,11 +1934,13 @@ class TableLoaderTests(TracebaseTestCase):
         self.assertDictEqual(expected, todl.get_dataframe_template())
 
     def test_get_dataframe_template_populated(self):
-        class TestOneDefLoader(self.TestLoader):
-            DataDefaultValues = self.TestLoader.DataTableHeaders(NAME=None, CHOICE="1")
+        class TestOneDefLoader(self.test_loader_class):
+            DataDefaultValues = self.test_loader_class.DataTableHeaders(
+                NAME=None, CHOICE="1"
+            )
 
-        self.TestModel.objects.create(name="A", choice=1)
-        self.TestModel.objects.create(name="B", choice=2)
+        self.test_model_class.objects.create(name="A", choice=1)
+        self.test_model_class.objects.create(name="B", choice=2)
 
         expected = {"Name": {0: "A", 1: "B"}}
 
@@ -1669,11 +1948,13 @@ class TableLoaderTests(TracebaseTestCase):
         self.assertEqual(str(expected), str(todl.get_dataframe_template(populate=True)))
 
     def test_get_dataframe_template_all_populated(self):
-        class TestOneDefLoader(self.TestLoader):
-            DataDefaultValues = self.TestLoader.DataTableHeaders(NAME=None, CHOICE="1")
+        class TestOneDefLoader(self.test_loader_class):
+            DataDefaultValues = self.test_loader_class.DataTableHeaders(
+                NAME=None, CHOICE="1"
+            )
 
-        self.TestModel.objects.create(name="A", choice=1)
-        self.TestModel.objects.create(name="B", choice=2)
+        self.test_model_class.objects.create(name="A", choice=1)
+        self.test_model_class.objects.create(name="B", choice=2)
 
         expected = {
             "Name": {0: "A", 1: "B"},
@@ -1686,7 +1967,7 @@ class TableLoaderTests(TracebaseTestCase):
         )
 
     def test_get_header_metadata(self):
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
         self.assertListEqual(
             ["Choice", "Name"], sorted(tl.get_header_metadata().keys())
         )
@@ -1695,7 +1976,7 @@ class TableLoaderTests(TracebaseTestCase):
 
     def test_constructor_no_positional_args(self):
         with self.assertRaises(AggregatedErrors) as ar:
-            self.TestLoader("bad")
+            self.test_loader_class("bad")
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
         self.assertTrue(isinstance(aes.exceptions[0], ProgrammingError))
@@ -1704,7 +1985,7 @@ class TableLoaderTests(TracebaseTestCase):
         )
 
     def test_get_value_metadata(self):
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
         self.assertEqual(["Name", "Choice"], list(tl.get_value_metadata().keys()))
         self.assertEqual(
             2,
@@ -1718,7 +1999,7 @@ class TableLoaderTests(TracebaseTestCase):
         )
 
     def test_get_column_metadata(self):
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
         self.assertEqual(["Name", "Choice"], list(tl.get_column_metadata().keys()))
         self.assertEqual(
             2,
@@ -1732,7 +2013,7 @@ class TableLoaderTests(TracebaseTestCase):
         )
 
     def test_update_load_stats(self):
-        tl = self.TestLoader()
+        tl = self.test_loader_class()
         counts = {
             "UndocumentedModel": {  # Adding a model that's not in tl.Models (to support child loaders)
                 "created": 10,
@@ -1808,17 +2089,17 @@ class TableLoaderTests(TracebaseTestCase):
         self.assertDictEqual(expected, tl.record_counts)
 
     def test_get_friendly_filename(self):
-        tl1 = self.TestLoader(file="/ugly/path/ugly.tsv")
+        tl1 = self.test_loader_class(file="/ugly/path/ugly.tsv")
         self.assertEqual("ugly.tsv", tl1.get_friendly_filename())
-        tl2 = self.TestLoader(file="/ugly/path/ugly.tsv", filename="pretty.tsv")
+        tl2 = self.test_loader_class(file="/ugly/path/ugly.tsv", filename="pretty.tsv")
         self.assertEqual("pretty.tsv", tl2.get_friendly_filename())
-        tl3 = self.TestLoader(
+        tl3 = self.test_loader_class(
             file="/ugly/path/ugly.tsv", filename="relative/path/pretty.tsv"
         )
         self.assertEqual("pretty.tsv", tl3.get_friendly_filename())
 
     def test__get_column_types(self):
-        cts, _ = self.TestUCLoader._get_column_types()
+        cts, _ = self.test_uc_loader_class._get_column_types()
         self.assertDictEqual({"Name": str, "uf1": str, "uf2": str}, cts)
 
     def test_get_column_types_custom(self):
@@ -1828,7 +2109,7 @@ class TableLoaderTests(TracebaseTestCase):
                 "UsersDumbFieldOneHeader": str,
                 "UsersDumbFieldTwoHeader": str,
             },
-            self.TestUCLoader(
+            self.test_uc_loader_class(
                 user_headers={
                     "NAME": "UsersDumbNameHeader",
                     "UFONE": "UsersDumbFieldOneHeader",

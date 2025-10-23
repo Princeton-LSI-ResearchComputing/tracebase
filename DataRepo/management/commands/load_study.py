@@ -16,13 +16,13 @@ from DataRepo.utils.file_utils import get_sheet_names, read_from_file
 
 
 class Command(LoadTableCommand):
-    """Command to load all sheets of an entire study doc.
+    """Command to load an entire study (or all studies in a study doc).
 
     NOTE: loader_class takes a derived class of TableLoader named StudyLoader, but anywhere it refers to columns and
     headers, in this context, it's referring to sheets and tabs.
     """
 
-    help = "Loads all data from a study doc (e.g. Animals, Samples, Compounds, etc) into the database."
+    help = "Loads all data from a study doc (e.g. Animals, Samples, Compounds, etc) & related files into the database."
 
     # This is the default loader_class version
     loader_class: Type[TableLoader] = StudyV3Loader
@@ -43,11 +43,14 @@ class Command(LoadTableCommand):
         super().add_arguments(parser)
 
         parser.add_argument(
-            "--mzxml-dir",
-            type=str,
-            help="The root directory of all mzXML files (containing instrument run data) associated with the study.",
-            default=None,
-            required=False,
+            "--skip-mzxmls",
+            action="store_true",
+            default=False,
+            help=(
+                "mzXML files are loaded by default by walking the directory that the --infile is in.  This option "
+                "skips the loading of mzXML files.  Specific mzXML files or a different mzXML directory can be loaded "
+                "separately using load_msruns."
+            ),
         )
 
         # This option overrides dynamic format determination.
@@ -154,7 +157,7 @@ class Command(LoadTableCommand):
 
         Args:
             options (dict of strings): String values provided on the command line by option name.
-        Raises:
+        Exceptions:
             None
         Returns:
             None
@@ -207,7 +210,7 @@ class Command(LoadTableCommand):
 
         # We can now instantiate the StudyV{number}Loader, since we know the study doc version
         self.init_loader(
-            mzxml_dir=options.get("mzxml_dir"),
+            skip_mzxmls=options.get("skip_mzxmls"),
             exclude_sheets=exclude_sheets,
         )
 
