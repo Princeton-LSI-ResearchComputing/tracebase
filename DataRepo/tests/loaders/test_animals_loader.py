@@ -30,7 +30,7 @@ class AnimalsLoaderTests(TracebaseTestCase):
     def test_animals_loader_get_or_create_animal_reqd_only_nones_ok(self):
         """Successful minimum animal create/get"""
         al = AnimalsLoader()
-        row = pd.Series(
+        row = AnimalsLoader.dict_to_row(
             {
                 AnimalsLoader.DataHeaders.NAME: "anml1",
                 AnimalsLoader.DataHeaders.GENOTYPE: "WT",
@@ -50,7 +50,7 @@ class AnimalsLoaderTests(TracebaseTestCase):
     def test_animals_loader_get_or_create_animal_full(self):
         """Successful full animal create/get"""
         al = AnimalsLoader()
-        row = pd.Series(
+        row = AnimalsLoader.dict_to_row(
             {
                 AnimalsLoader.DataHeaders.NAME: "anml1",
                 AnimalsLoader.DataHeaders.GENOTYPE: "WT",
@@ -268,7 +268,7 @@ class AnimalsLoaderTests(TracebaseTestCase):
 
     def test_animals_loader_get_treatment(self):
         al = AnimalsLoader()
-        row = pd.Series({AnimalsLoader.DataHeaders.TREATMENT: "trt"})
+        row = AnimalsLoader.dict_to_row({AnimalsLoader.DataHeaders.TREATMENT: "trt"})
         Protocol.objects.create(name="trt", category=Protocol.ANIMAL_TREATMENT)
         rec = al.get_treatment(row)
         self.assertIsNotNone(rec)
@@ -277,13 +277,15 @@ class AnimalsLoaderTests(TracebaseTestCase):
     def test_animals_loader_get_studies(self):
         al = AnimalsLoader()
 
-        row = pd.Series({AnimalsLoader.DataHeaders.STUDY: None})
+        row = AnimalsLoader.dict_to_row({AnimalsLoader.DataHeaders.STUDY: None})
         recs = al.get_studies(row)
         # None is OK - Results in an included None, just so the skipped count gets incremented once.
         self.assertEqual([None], recs)
         self.assertEqual(0, len(al.aggregated_errors_object.exceptions))
 
-        row = pd.Series({AnimalsLoader.DataHeaders.STUDY: "stud1; stud2"})
+        row = AnimalsLoader.dict_to_row(
+            {AnimalsLoader.DataHeaders.STUDY: "stud1; stud2"}
+        )
         recs = al.get_studies(row)
         # Results include None for each not-found record, just so the skipped count gets incremented.
         self.assertEqual([None, None], recs)

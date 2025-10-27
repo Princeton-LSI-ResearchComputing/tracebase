@@ -40,7 +40,7 @@ class SequencesLoaderTests(TracebaseTestCase):
         self.assertEqual("polar-HILIC-25-min", rec.name)
 
     def test_get_or_create_sequence(self):
-        _, row = next(self.TEST_DF.iterrows())
+        row = next(self.TEST_DF.itertuples())
         sl = SequencesLoader()
         lcrec = LCMethod.objects.get(name="polar-HILIC-25-min")
         rec, created = sl.get_or_create_sequence(row, lcrec, "Xianfeng Zeng", "")

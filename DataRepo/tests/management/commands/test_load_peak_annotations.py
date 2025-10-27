@@ -1,6 +1,5 @@
 from datetime import timedelta
 
-import pandas as pd
 from django.conf import settings
 from django.core.management import CommandError, call_command
 from django.test import override_settings
@@ -352,7 +351,7 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
         # Get the first PeakGroup, and collect attributes
         peak_group = PeakGroup.objects.first()
 
-        row = pd.Series(
+        row = AccucorLoader.dict_to_row(
             {
                 adl.headers.SAMPLEHEADER: peak_group.msrun_sample.sample.name,
                 adl.headers.FORMULA: peak_group.formula,
@@ -390,7 +389,7 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
         # Get the first PeakGroup, and collect attributes
         peak_group = PeakGroup.objects.first()
 
-        row = pd.Series(
+        row = AccucorLoader.dict_to_row(
             {
                 adl.headers.SAMPLEHEADER: peak_group.msrun_sample.sample.name,
                 adl.headers.FORMULA: peak_group.formula + "S",

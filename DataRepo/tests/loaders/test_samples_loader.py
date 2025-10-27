@@ -41,7 +41,7 @@ class SamplesLoaderTests(TracebaseTestCase):
         cls.tiss1nm = "serum"
         cls.tiss1 = Tissue.objects.create(name=cls.tiss1nm)
 
-        cls.row = pd.Series(
+        cls.row = SamplesLoader.dict_to_row(
             {
                 SamplesLoader.DataHeaders.SAMPLE: "s1",
                 SamplesLoader.DataHeaders.HANDLER: "Ralph",
@@ -134,7 +134,7 @@ class SamplesLoaderTests(TracebaseTestCase):
         # Need an existing researcher to make a name variant warning possible
         self.create_test_sample()
         sl = SamplesLoader(_validate=True)
-        row = pd.Series(
+        row = SamplesLoader.dict_to_row(
             {
                 SamplesLoader.DataHeaders.SAMPLE: "s2",
                 SamplesLoader.DataHeaders.HANDLER: "Ralpholemule",
@@ -159,7 +159,7 @@ class SamplesLoaderTests(TracebaseTestCase):
         # Need an existing researcher to make a name variant warning possible
         self.create_test_sample()
         sl = SamplesLoader()
-        row = pd.Series(
+        row = SamplesLoader.dict_to_row(
             {
                 SamplesLoader.DataHeaders.SAMPLE: "s1",  # ConflictingValueError (due to researcher or fallbacks)
                 SamplesLoader.DataHeaders.HANDLER: "Jim",
@@ -233,20 +233,22 @@ class SamplesLoaderTests(TracebaseTestCase):
         sl = SamplesLoader()
 
         # Test expected behavior when none
-        row1 = pd.Series({SamplesLoader.DataHeaders.ANIMAL: None})
+        row1 = SamplesLoader.dict_to_row({SamplesLoader.DataHeaders.ANIMAL: None})
         rec1 = sl.get_animal(row1)
         self.assertIsNone(rec1)
         self.assertEqual(0, len(sl.aggregated_errors_object.exceptions))
 
         # Test when record exists
-        row2 = pd.Series({SamplesLoader.DataHeaders.ANIMAL: self.anml1nm})
+        row2 = SamplesLoader.dict_to_row(
+            {SamplesLoader.DataHeaders.ANIMAL: self.anml1nm}
+        )
         rec2 = sl.get_animal(row2)
         self.assertEqual(self.anml1, rec2)
         self.assertEqual(0, len(sl.aggregated_errors_object.exceptions))
 
         # Test when record does not exist
         nen = "nonexistentname"
-        row3 = pd.Series({SamplesLoader.DataHeaders.ANIMAL: nen})
+        row3 = SamplesLoader.dict_to_row({SamplesLoader.DataHeaders.ANIMAL: nen})
         rec3 = sl.get_animal(row3)
         self.assertIsNone(rec3)
         self.assert_dne(sl)
@@ -256,20 +258,22 @@ class SamplesLoaderTests(TracebaseTestCase):
         sl = SamplesLoader()
 
         # Test expected behavior when none
-        row1 = pd.Series({SamplesLoader.DataHeaders.TISSUE: None})
+        row1 = SamplesLoader.dict_to_row({SamplesLoader.DataHeaders.TISSUE: None})
         rec1 = sl.get_tissue(row1)
         self.assertIsNone(rec1)
         self.assertEqual(0, len(sl.aggregated_errors_object.exceptions))
 
         # Test when record exists
-        row2 = pd.Series({SamplesLoader.DataHeaders.TISSUE: self.tiss1nm})
+        row2 = SamplesLoader.dict_to_row(
+            {SamplesLoader.DataHeaders.TISSUE: self.tiss1nm}
+        )
         rec2 = sl.get_tissue(row2)
         self.assertEqual(self.tiss1, rec2)
         self.assertEqual(0, len(sl.aggregated_errors_object.exceptions))
 
         # Test when record does not exist
         nen = "nonexistentname"
-        row3 = pd.Series({SamplesLoader.DataHeaders.TISSUE: nen})
+        row3 = SamplesLoader.dict_to_row({SamplesLoader.DataHeaders.TISSUE: nen})
         rec3 = sl.get_tissue(row3)
         self.assertIsNone(rec3)
         self.assert_dne(sl)

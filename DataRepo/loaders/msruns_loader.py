@@ -598,7 +598,7 @@ class MSRunsLoader(TableLoader):
         #    - associate them with the mzXML ArchiveFile records and Sample and MSRunSequence records, (keeping track of
         #      which mzXMLs have been added to MSRunSample records)
         if self.df is not None:
-            for _, row in self.df.iterrows():
+            for _, row in self.iterate_table_rows():
                 try:
                     self.get_or_create_msrun_sample_from_row(row)
                 except RollbackException:
@@ -841,7 +841,7 @@ class MSRunsLoader(TableLoader):
 
         # Take an accounting of all expected samples and mzXML files.  Note that in the absence of an explicitly entered
         # mzXML file, the sample header is used as a stand-in for the mzXML file's name (minus extension).
-        for _, row in self.df.iterrows():
+        for _, row in self.iterate_table_rows():
             sample_name = self.get_row_val(row, self.headers.SAMPLENAME)
             sample_header = self.get_row_val(row, self.headers.SAMPLEHEADER)
             mzxml_name_with_opt_path = self.get_row_val(row, self.headers.MZXMLNAME)
@@ -1108,7 +1108,7 @@ class MSRunsLoader(TableLoader):
         # Initialize the row index
         self.set_row_index(None)
 
-        for _, row in self.df.iterrows():
+        for _, row in self.iterate_table_rows():
             sample_name = self.get_row_val(row, self.headers.SAMPLENAME)
             sample_header = self.get_row_val(row, self.headers.SAMPLEHEADER)
             mzxml_path = self.get_row_val(row, self.headers.MZXMLNAME)

@@ -400,7 +400,9 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         iso = Compound.objects.create(
             name="isocitrate", formula="C6H8O7", hmdb_id="HMDB0000193"
         )
-        row = pd.Series({AccucorLoader.DataHeaders.COMPOUND: "isocitrate/citrate"})
+        row = AccucorLoader.dict_to_row(
+            {AccucorLoader.DataHeaders.COMPOUND: "isocitrate/citrate"}
+        )
         al = AccucorLoader()
         recs = al.get_peak_group_compounds_dict(row=row)
         self.assertDictEqual({"citrate": cit, "isocitrate": iso}, recs)
@@ -410,7 +412,7 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         stereoisomer, which could be significant and we have no way of knowing if it's just a true synonym or a name
         that connotes an actual structural difference)."""
         CompoundSynonym.objects.create(name="ser", compound=self.SERINE)
-        row = pd.Series({AccucorLoader.DataHeaders.COMPOUND: "ser"})
+        row = AccucorLoader.dict_to_row({AccucorLoader.DataHeaders.COMPOUND: "ser"})
         al = AccucorLoader()
         recs = al.get_peak_group_compounds_dict(row=row)
         self.assertDictEqual({"ser": self.SERINE}, recs)
@@ -425,7 +427,7 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         explanation.
         """
         CompoundSynonym.objects.create(name="ser:2", compound=self.SERINE)
-        row = pd.Series({AccucorLoader.DataHeaders.COMPOUND: "ser;2"})
+        row = AccucorLoader.dict_to_row({AccucorLoader.DataHeaders.COMPOUND: "ser;2"})
         al = AccucorLoader()
         recs = al.get_peak_group_compounds_dict(row=row)
         self.assertDictEqual({"ser:2": self.SERINE}, recs)
@@ -459,7 +461,7 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         )
 
     def test_get_or_create_peak_group_rec(self):
-        row = pd.Series(
+        row = AccucorLoader.dict_to_row(
             {
                 AccucorLoader.DataHeaders.FORMULA: "C3H7NO3",
                 AccucorLoader.DataHeaders.SAMPLEHEADER: "072920_XXX1_1_TS1",
@@ -613,7 +615,7 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
 
     def test_get_or_create_peak_data_rec(self):
         al = AccucorLoader()
-        row = pd.Series(
+        row = AccucorLoader.dict_to_row(
             {
                 AccucorLoader.DataHeaders.MEDMZ: 5,
                 AccucorLoader.DataHeaders.MEDRT: 3,
@@ -643,7 +645,9 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
 
     def test_get_label_observations(self):
         al = AccucorLoader()
-        row = pd.Series({AccucorLoader.DataHeaders.ISOTOPELABEL: "C13-label-1"})
+        row = AccucorLoader.dict_to_row(
+            {AccucorLoader.DataHeaders.ISOTOPELABEL: "C13-label-1"}
+        )
         pgrec = self.create_peak_group()
 
         # This will work, but it will buffer an error because the peak group has no linked compounds
@@ -1489,21 +1493,25 @@ class IsocorrLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
 
     def test_isocorr_elmaven_fix(self):
         il = IsocorrLoader()
-        row1 = pd.Series({IsocorrLoader.DataHeaders.COMPOUND: "Serine (1)"})
+        row1 = IsocorrLoader.dict_to_row(
+            {IsocorrLoader.DataHeaders.COMPOUND: "Serine (1)"}
+        )
         self.assertDictEqual(
             {"Serine": None}, il.get_peak_group_compounds_dict(row=row1)
         )
         self.assertDictEqual(
             {"Serine": None}, il.get_peak_group_compounds_dict(names_str="Serine (1)")
         )
-        row2 = pd.Series({IsocorrLoader.DataHeaders.COMPOUND: "Serine"})
+        row2 = IsocorrLoader.dict_to_row({IsocorrLoader.DataHeaders.COMPOUND: "Serine"})
         self.assertDictEqual(
             {"Serine": None}, il.get_peak_group_compounds_dict(row=row2)
         )
         self.assertDictEqual(
             {"Serine": None}, il.get_peak_group_compounds_dict(names_str="Serine")
         )
-        row3 = pd.Series({IsocorrLoader.DataHeaders.COMPOUND: "citrate/isocitrate"})
+        row3 = IsocorrLoader.dict_to_row(
+            {IsocorrLoader.DataHeaders.COMPOUND: "citrate/isocitrate"}
+        )
         self.assertDictEqual(
             {"citrate": None, "isocitrate": None},
             il.get_peak_group_compounds_dict(row=row3),
@@ -1512,7 +1520,9 @@ class IsocorrLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
             {"citrate": None, "isocitrate": None},
             il.get_peak_group_compounds_dict(names_str="citrate/isocitrate"),
         )
-        row4 = pd.Series({IsocorrLoader.DataHeaders.COMPOUND: "citrate/isocitrate (2)"})
+        row4 = IsocorrLoader.dict_to_row(
+            {IsocorrLoader.DataHeaders.COMPOUND: "citrate/isocitrate (2)"}
+        )
         self.assertDictEqual(
             {"citrate": None, "isocitrate": None},
             il.get_peak_group_compounds_dict(row=row4),
@@ -1647,21 +1657,25 @@ class AccucorLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
 
     def test_accucor_elmaven_fix(self):
         al = AccucorLoader()
-        row1 = pd.Series({AccucorLoader.DataHeaders.COMPOUND: "Serine (1)"})
+        row1 = AccucorLoader.dict_to_row(
+            {AccucorLoader.DataHeaders.COMPOUND: "Serine (1)"}
+        )
         self.assertDictEqual(
             {"Serine": None}, al.get_peak_group_compounds_dict(row=row1)
         )
         self.assertDictEqual(
             {"Serine": None}, al.get_peak_group_compounds_dict(names_str="Serine (1)")
         )
-        row2 = pd.Series({AccucorLoader.DataHeaders.COMPOUND: "Serine"})
+        row2 = AccucorLoader.dict_to_row({AccucorLoader.DataHeaders.COMPOUND: "Serine"})
         self.assertDictEqual(
             {"Serine": None}, al.get_peak_group_compounds_dict(row=row2)
         )
         self.assertDictEqual(
             {"Serine": None}, al.get_peak_group_compounds_dict(names_str="Serine")
         )
-        row3 = pd.Series({AccucorLoader.DataHeaders.COMPOUND: "citrate/isocitrate"})
+        row3 = AccucorLoader.dict_to_row(
+            {AccucorLoader.DataHeaders.COMPOUND: "citrate/isocitrate"}
+        )
         self.assertDictEqual(
             {"citrate": None, "isocitrate": None},
             al.get_peak_group_compounds_dict(row=row3),
@@ -1670,7 +1684,9 @@ class AccucorLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
             {"citrate": None, "isocitrate": None},
             al.get_peak_group_compounds_dict(names_str="citrate/isocitrate"),
         )
-        row4 = pd.Series({AccucorLoader.DataHeaders.COMPOUND: "citrate/isocitrate (2)"})
+        row4 = AccucorLoader.dict_to_row(
+            {AccucorLoader.DataHeaders.COMPOUND: "citrate/isocitrate (2)"}
+        )
         self.assertDictEqual(
             {"citrate": None, "isocitrate": None},
             al.get_peak_group_compounds_dict(row=row4),
@@ -1703,21 +1719,27 @@ class IsoautocorrLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
 
     def test_accucor_elmaven_fix(self):
         ial = IsoautocorrLoader()
-        row1 = pd.Series({IsoautocorrLoader.DataHeaders.COMPOUND: "Serine (1)"})
+        row1 = IsoautocorrLoader.dict_to_row(
+            {IsoautocorrLoader.DataHeaders.COMPOUND: "Serine (1)"}
+        )
         self.assertDictEqual(
             {"Serine": None}, ial.get_peak_group_compounds_dict(row=row1)
         )
         self.assertDictEqual(
             {"Serine": None}, ial.get_peak_group_compounds_dict(names_str="Serine (1)")
         )
-        row2 = pd.Series({IsoautocorrLoader.DataHeaders.COMPOUND: "Serine"})
+        row2 = IsoautocorrLoader.dict_to_row(
+            {IsoautocorrLoader.DataHeaders.COMPOUND: "Serine"}
+        )
         self.assertDictEqual(
             {"Serine": None}, ial.get_peak_group_compounds_dict(row=row2)
         )
         self.assertDictEqual(
             {"Serine": None}, ial.get_peak_group_compounds_dict(names_str="Serine")
         )
-        row3 = pd.Series({IsoautocorrLoader.DataHeaders.COMPOUND: "citrate/isocitrate"})
+        row3 = IsoautocorrLoader.dict_to_row(
+            {IsoautocorrLoader.DataHeaders.COMPOUND: "citrate/isocitrate"}
+        )
         self.assertDictEqual(
             {"citrate": None, "isocitrate": None},
             ial.get_peak_group_compounds_dict(row=row3),
@@ -1726,7 +1748,7 @@ class IsoautocorrLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
             {"citrate": None, "isocitrate": None},
             ial.get_peak_group_compounds_dict(names_str="citrate/isocitrate"),
         )
-        row4 = pd.Series(
+        row4 = IsoautocorrLoader.dict_to_row(
             {IsoautocorrLoader.DataHeaders.COMPOUND: "citrate/isocitrate (2)"}
         )
         self.assertDictEqual(

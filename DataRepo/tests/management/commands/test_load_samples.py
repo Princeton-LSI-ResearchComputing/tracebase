@@ -269,7 +269,10 @@ class LoadSamplesSmallObobTests(TracebaseTestCase):
         self.assertEqual(
             1,
             len(aes.exceptions[0].required_column_values),
-            msg="1 row (with animal name only) with missing required values (completely empty row ignored)",
+            msg=(
+                "Expecting 1 row (with animal name only) with missing required values (completely empty row ignored).  "
+                f"Exception: {str(aes.exceptions[0])}"
+            ),
         )
         self.assertIn(
             "[Sample, Date Collected, Researcher Name, Tissue] on rows: ['17']",

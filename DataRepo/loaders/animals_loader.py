@@ -274,7 +274,7 @@ class AnimalsLoader(TableLoader):
         Returns:
             None
         """
-        for _, row in self.df.iterrows():
+        for _, row in self.iterate_table_rows():
             animal = None
 
             # Get the existing infusate and treatment
@@ -327,7 +327,7 @@ class AnimalsLoader(TableLoader):
         """Get or create an Animal record.
 
         Args:
-            row (pd.Series)
+            row (namedtuple)
             infusate (Optional[Infusate])
             treatment (Optional[Protocol])
             infusate_name (Optional[str]): Only needed for error reporting.  If this value is None, and infusion_rate is
@@ -487,7 +487,6 @@ class AnimalsLoader(TableLoader):
                 self.existed(Animal.__name__)
         except Exception as e:
             # Package errors (like IntegrityError and ValidationError) with relevant details
-            # This also updates the skip row indexes
             self.handle_load_db_errors(e, Animal, rec_dict)
             self.errored(Animal.__name__)
             # Now that the exception has been handled, trigger a rollback of this record load attempt
@@ -546,7 +545,7 @@ class AnimalsLoader(TableLoader):
         """Get a Protocol (treatment) record.
 
         Args:
-            row (pd.Series)
+            row (namedtuple)
         Exceptions:
             None
         Returns:
@@ -565,7 +564,6 @@ class AnimalsLoader(TableLoader):
             rec = Protocol.objects.get(**query_dict)
         except Exception as e:
             # Package errors (like IntegrityError and ValidationError) with relevant details
-            # This also updates the skip row indexes
             self.handle_load_db_errors(e, Protocol, query_dict)
             # Treatment is not a required field, so no need to add to skip rows
 
@@ -575,7 +573,7 @@ class AnimalsLoader(TableLoader):
         """Get Study records by name.
 
         Args:
-            row (pd.Series)
+            row (namedtuple)
         Exceptions:
             None
         Returns:
@@ -597,7 +595,6 @@ class AnimalsLoader(TableLoader):
                 recs.append(rec)
             except Exception as e:
                 # Package errors (like IntegrityError and ValidationError) with relevant details
-                # This also updates the skip row indexes
                 self.handle_load_db_errors(e, Study, query_dict)
                 # Append None so the stats will get updated
                 recs.append(None)
@@ -701,7 +698,6 @@ class AnimalsLoader(TableLoader):
                 self.existed(AnimalLabel.__name__)
         except Exception as e:
             # Package errors (like IntegrityError and ValidationError) with relevant details
-            # This also updates the skip row indexes
             self.handle_load_db_errors(e, AnimalLabel, rec_dict)
             self.errored(AnimalLabel.__name__)
             # Now that the exception has been handled, trigger a rollback of this record load attempt

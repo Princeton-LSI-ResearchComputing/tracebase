@@ -369,11 +369,11 @@ class TracersLoader(TableLoader):
         if not hasattr(self, "tracers_dict"):
             self.init_load()
 
-        for _, row in self.df.iterrows():
+        for _, row in self.iterate_table_rows():
             try:
                 # missing required values update the skip_row_indexes before load_data is even called, and get_row_val
                 # sets the current row index
-                if self.is_skip_row(row.name):
+                if self.is_skip_row():
                     self.errored(Tracer.__name__)
                     self.errored(TracerLabel.__name__)
                     continue
@@ -427,7 +427,7 @@ class TracersLoader(TableLoader):
                     sheet=self.sheet,
                     file=self.friendly_file,
                 )
-                self.add_skip_row_index(row.name)
+                self.add_skip_row_index()
                 self.aggregated_errors_object.buffer_error(exc)
                 if tracer_number is not None:
                     self.valid_tracers[tracer_number] = False

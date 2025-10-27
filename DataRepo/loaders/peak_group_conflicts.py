@@ -245,7 +245,7 @@ class PeakGroupConflicts(TableLoader):
         if not self.df_checked:
             self.check_dataframe()
 
-        for _, row in self.df.iterrows():
+        for _, row in self.iterate_table_rows():
             # Grab the values from each column
             pgname_str = self.get_row_val(row, self.headers.PEAKGROUP)
             samples_str = self.get_row_val(row, self.headers.SAMPLES)

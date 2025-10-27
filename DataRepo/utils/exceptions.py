@@ -44,10 +44,10 @@ class InfileError(Exception):
             super().__init__(message, **kwargs)
 
     def some_load_method(dataframe, file, sheet):
-        for rownum, row in dataframe.iterrows():
+        for _, row in loader_instance.iterate_table_rows():
             value = row["my data column"]
             if value_is_bad(value):
-                raise MyException(value, rownum=rownum, column="my data column", sheet=sheet, file=file)
+                raise MyException(value, rownum=self.rownum, column="my data column", sheet=sheet, file=file)
             else:
                 load_value(value)
     ```

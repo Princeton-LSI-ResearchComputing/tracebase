@@ -539,7 +539,7 @@ class TableLoaderTests(TracebaseTestCase):
         tl = self.TestLoader(df=pddata)
         n = None
         c = None
-        for _, row in tl.df.iterrows():
+        for _, row in tl.iterate_table_rows():
             n = tl.get_row_val(row, "Name")
             c = tl.get_row_val(row, "Choice")
             break
@@ -1187,6 +1187,8 @@ class TableLoaderTests(TracebaseTestCase):
         self.assertEqual(expected, tl.defaults)
 
     def test__merge_defaults(self):
+        """Asserts that user defaults (supplied in the costructor as defaults_df) trump defaults supplied in the
+        arguments to self._merge_defaults"""
         df = pd.DataFrame.from_dict(
             {
                 "Name": ["A", "B", "C"],
@@ -1610,7 +1612,7 @@ class TableLoaderTests(TracebaseTestCase):
                 "Choice": ["1"],
             },
         )
-        for _, row in df.iterrows():
+        for row in df.itertuples():
             pass
 
         self.assertEqual(
@@ -1624,7 +1626,7 @@ class TableLoaderTests(TracebaseTestCase):
                 "Choice": ["1"],
             },
         )
-        for _, row in df.iterrows():
+        for row in df.itertuples():
             pass
 
         self.assertEqual(

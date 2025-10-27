@@ -165,10 +165,9 @@ class CompoundsLoader(TableLoader):
         # it explicitly in this derived class.
         self.check_for_cross_column_name_duplicates()
 
-        for _, row in self.df.iterrows():
+        for _, row in self.iterate_table_rows():
             # check_for_cross_column_name_duplicates can add to the skip row indexes
-            # We didn't call get_row_val, so in order to know to skip, we must supply the row index (in row.name)
-            if self.is_skip_row(row.name):
+            if self.is_skip_row():
                 self.errored(Compound.__name__)
                 # The synonym errored count will be inaccurate.  If there was an error reading or parsing, we don't
                 # know how many there are
@@ -237,6 +236,7 @@ class CompoundsLoader(TableLoader):
                     is_fatal=self.validate,
                     orig_exception=pc,
                 )
+                self.warned(Compound.__name__)
 
             rec_dict = {
                 "name": name,
@@ -373,17 +373,17 @@ class CompoundsLoader(TableLoader):
         # Create a dict to track what names/synonyms occur on which rows
         namesyn_dict = defaultdict(lambda: defaultdict(list))
         syn_dict = defaultdict(list)
-        for index, row in self.df.iterrows():
+        for _, row in self.iterate_table_rows():
             # Explicitly not skipping rows with duplicates
             name = self.get_row_val(row, self.headers.NAME)
-            namesyn_dict[name]["name"].append(index)
+            namesyn_dict[name]["name"].append(self.row_index)
 
             synonyms = self.parse_synonyms(self.get_row_val(row, self.headers.SYNONYMS))
             for synonym in synonyms:
                 # A synonym that is exactly the same as its compound name is skipped in the load
                 if synonym != name:
-                    namesyn_dict[synonym]["synonym"].append(index)
-                syn_dict[synonym].append(index)
+                    namesyn_dict[synonym]["synonym"].append(self.row_index)
+                syn_dict[synonym].append(self.row_index)
 
         # We need to check the synonyms column individually, because the standard unique constraints check of
         # TableLoader only looks at the entire column value, not the delimited/parsed values

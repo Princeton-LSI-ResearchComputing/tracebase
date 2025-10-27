@@ -105,7 +105,7 @@ class TracersLoaderTests(TracebaseTestCase):
     def test_get_row_data(self):
         tl = TracersLoader(df=self.LYSINE_TRACER_DATAFRAME)
         tl.init_load()
-        for _, row in self.LYSINE_TRACER_DATAFRAME.iterrows():
+        for _, row in tl.iterate_table_rows():
             break
 
         (

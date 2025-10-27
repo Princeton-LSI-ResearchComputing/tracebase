@@ -36,7 +36,7 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
         pafl = PeakAnnotationFilesLoader()
         exp_file = "DataRepo/data/tests/small_multitracer/6eaafasted1_cor.xlsx"
         exp_fmt = "isocorr"
-        row = pd.Series(
+        row = PeakAnnotationFilesLoader.dict_to_row(
             {
                 PeakAnnotationFilesLoader.DataHeaders.FILE: exp_file,
                 PeakAnnotationFilesLoader.DataHeaders.FORMAT: exp_fmt,
@@ -52,7 +52,7 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
         pafl = PeakAnnotationFilesLoader()
         exp_file = "DataRepo/data/tests/small_multitracer/6eaafasted1_cor.xlsx"
         exp_fmt = "accucor"
-        row = pd.Series(
+        row = PeakAnnotationFilesLoader.dict_to_row(
             {
                 PeakAnnotationFilesLoader.DataHeaders.FILE: exp_file,
                 PeakAnnotationFilesLoader.DataHeaders.FORMAT: exp_fmt,
@@ -69,7 +69,7 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
         pafl = PeakAnnotationFilesLoader()
         exp_file = "DataRepo/data/tests/small_multitracer/6eaafasted1_cor.xlsx"
         exp_fmt = "isocorr"
-        row = pd.Series(
+        row = PeakAnnotationFilesLoader.dict_to_row(
             {
                 PeakAnnotationFilesLoader.DataHeaders.FILE: exp_file,
                 PeakAnnotationFilesLoader.DataHeaders.FORMAT: None,
@@ -84,7 +84,7 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
     def test_pafl_get_file_and_format_none(self):
         pafl = PeakAnnotationFilesLoader()
         exp_file = "DataRepo/data/tests/small_multitracer/study_partial_file.xlsx"
-        row = pd.Series(
+        row = PeakAnnotationFilesLoader.dict_to_row(
             {
                 PeakAnnotationFilesLoader.DataHeaders.FILE: exp_file,
                 PeakAnnotationFilesLoader.DataHeaders.FORMAT: None,
@@ -103,7 +103,7 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
     def test_pafl_get_file_and_format_multiple(self):
         pafl = PeakAnnotationFilesLoader()
         exp_file = "DataRepo/data/tests/singly_labeled_isocorr/small_cor.csv"
-        row = pd.Series(
+        row = PeakAnnotationFilesLoader.dict_to_row(
             {
                 PeakAnnotationFilesLoader.DataHeaders.FILE: exp_file,
                 PeakAnnotationFilesLoader.DataHeaders.FORMAT: None,
@@ -407,7 +407,7 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
 
     def test_get_default_sequence_details(self):
         pafl = PeakAnnotationFilesLoader()
-        row = pd.Series(
+        row = PeakAnnotationFilesLoader.dict_to_row(
             {pafl.DataHeaders.SEQNAME: "Rob, polar-HILIC-25-min, QE, 1972-11-24"}
         )
         (

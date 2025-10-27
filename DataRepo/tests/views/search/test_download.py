@@ -135,12 +135,23 @@ class AdvancedSearchDownloadViewTests(BaseAdvancedSearchDownloadViewTests):
             "Feeding Status\tTreatment\tInfusate\tTracer(s)\tTracer Compound(s)\tTracer Concentration(s) (mM)\t"
             "Infusion Rate (ul/min/g)\tStudies\n"
         ).encode()
-        expected_content = (
+        expected_content1 = (
             "xzl1_brain\tbrain\t150.0\tglutamine\tglutamine\tglutamine/gln\tC5H10N2O3\tC\txzl1_brain.mzXML\t"
-            "66443429.298358865\t0.020587090360701568\t1367876.8828401999\tNone\tglnfasted1_cor.xlsx\txzl1\tWT\t26.4\t"
+            # There is a precision issue where this value may or may not have an extra digit after it when retrieving
+            # data using pd.DataFrame.itertuples, so this match has been broken up.
+            "66443429.29835886"
+        ).encode()
+        expected_content2 = (
+            "\t0.020587090360701568\t1367876.8828401999\tNone\tglnfasted1_cor.xlsx\txzl1\tWT\t26.4\t"
             "14.0\tM\tPicoLab Rodent 20 5053\tfasted\tno treatment\tglutamine-[13C5,15N2][200]\tglutamine-[13C5,15N2]\t"
             "glutamine\t200.0\t0.1\ttest v3 study\nxzl1_brain\tbrain\t150.0\tglutamine\tglutamine\tglutamine/gln\t"
-            "C5H10N2O3\tN\txzl1_brain.mzXML\t66443429.298358865\t0.033253605355009624\t2209483.5763211097\tNone\t"
+            "C5H10N2O3\tN\txzl1_brain.mzXML\t"
+            # There is a precision issue where this value may or may not have an extra digit after it when retrieving
+            # data using pd.DataFrame.itertuples, so this match has been broken up.
+            "66443429.29835886"
+        ).encode()
+        expected_content3 = (
+            "\t0.033253605355009624\t2209483.5763211097\tNone\t"
             "glnfasted1_cor.xlsx\txzl1\tWT\t26.4\t14.0\tM\tPicoLab Rodent 20 5053\tfasted\tno treatment\t"
             "glutamine-[13C5,15N2][200]\tglutamine-[13C5,15N2]\tglutamine\t200.0\t0.1\ttest v3 study\nxzl1_brain\tbrain"
             "\t150.0\tserine\tserine\tserine/ser\tC3H7NO3\tC\txzl1_brain.mzXML\t3683190.721911725\t"
@@ -157,10 +168,12 @@ class AdvancedSearchDownloadViewTests(BaseAdvancedSearchDownloadViewTests):
             # A portion of the file
         ).encode()
         content = str(response.getvalue())
-        # `[2:-1]` removes the "b'" and last "'" from the beginning and end of the converted bytes to string
+        # `[2:-1]` removes the "b'" & "'" from the beginning & end of the expected values on which .encode() was called
         self.assertIn(str(expected_header2)[2:-1], content)
         self.assertIn(str(expected_header1)[2:-1], content)
-        self.assertIn(str(expected_content)[2:-1], content)
+        self.assertIn(str(expected_content1)[2:-1], content)
+        self.assertIn(str(expected_content2)[2:-1], content)
+        self.assertIn(str(expected_content3)[2:-1], content)
 
 
 class RecordToMzxmlTSVTests(BaseAdvancedSearchDownloadViewTests):

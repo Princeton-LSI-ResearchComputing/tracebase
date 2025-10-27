@@ -456,7 +456,7 @@ class BuildSubmissionView(FormView):
                 )
                 pafl.aggregated_errors_object.merge_aggregated_errors_object(aes)
 
-                for _, row in pafl.df.iterrows():
+                for _, row in pafl.iterate_table_rows():
                     if pafl.is_row_empty(row):
                         continue
 
@@ -481,7 +481,7 @@ class BuildSubmissionView(FormView):
                                 file=self.study_file,
                                 sheet=PeakAnnotationFilesLoader.DataSheetName,
                                 column=PeakAnnotationFilesLoader.DataHeaders.FORMAT,
-                                rownum=row.name + 2,
+                                rownum=pafl.rownum,
                                 suggestion=(
                                     f"Please enter the correct '{PeakAnnotationFilesLoader.DataHeaders.FORMAT}' for "
                                     f"'{PeakAnnotationFilesLoader.DataHeaders.FILE}' '{user_filename_only}' in the "
@@ -1389,6 +1389,7 @@ class BuildSubmissionView(FormView):
         self.extract_autofill_from_tracers_sheet()
         self.extract_autofill_from_sequences_sheet()
 
+    # TODO: Create a unit test for this method
     def extract_autofill_from_animals_sheet(self):
         if AnimalsLoader.DataSheetName not in self.study_file_sheets:
             return
@@ -1425,7 +1426,7 @@ class BuildSubmissionView(FormView):
         # Convenience shortcut
         inf_sheet_cols = self.dfs_dict[InfusatesLoader.DataSheetName]
 
-        for _, row in loader.df.iterrows():
+        for _, row in loader.iterate_table_rows():
             if loader.is_row_empty(row):
                 continue
 
@@ -1580,6 +1581,7 @@ class BuildSubmissionView(FormView):
 
         return compound_str
 
+    # TODO: Create a unit test for this method
     def extract_autofill_from_samples_sheet(self):
         if SamplesLoader.DataSheetName not in self.study_file_sheets:
             return
@@ -1610,7 +1612,7 @@ class BuildSubmissionView(FormView):
             "animals": defaultdict(dict),
         }
 
-        for _, row in loader.df.iterrows():
+        for _, row in loader.iterate_table_rows():
             if loader.is_row_empty(row):
                 continue
 
@@ -1628,6 +1630,7 @@ class BuildSubmissionView(FormView):
                 }
                 seen["animals"][animal_name] = True
 
+    # TODO: Create a unit test for this method
     def extract_autofill_from_peak_annot_files_sheet(self):
         if PeakAnnotationFilesLoader.DataSheetName not in self.study_file_sheets:
             return
@@ -1658,7 +1661,7 @@ class BuildSubmissionView(FormView):
             "lcprotocols": defaultdict(dict),
         }
 
-        for _, row in loader.df.iterrows():
+        for _, row in loader.iterate_table_rows():
             if loader.is_row_empty(row):
                 continue
 
@@ -1709,6 +1712,7 @@ class BuildSubmissionView(FormView):
                 ):
                     self.annot_file_metadata[annot_name]["date"] = date
 
+    # TODO: Create a unit test for this method
     def extract_autofill_from_peak_annot_details_sheet(self):
         if MSRunsLoader.DataSheetName not in self.study_file_sheets:
             return
@@ -1743,7 +1747,7 @@ class BuildSubmissionView(FormView):
             "lcprotocols": defaultdict(dict),
         }
 
-        for _, row in loader.df.iterrows():
+        for _, row in loader.iterate_table_rows():
             if loader.is_row_empty(row):
                 continue
 
@@ -1825,6 +1829,7 @@ class BuildSubmissionView(FormView):
             }
             seen["lcprotocols"][lc_protocol_name] = True
 
+    # TODO: Create a unit test for this method
     def extract_autofill_from_infusates_sheet(self):
         if InfusatesLoader.DataSheetName not in self.study_file_sheets:
             return
@@ -1859,7 +1864,7 @@ class BuildSubmissionView(FormView):
             "compounds": defaultdict(dict),
         }
 
-        for _, row in loader.df.iterrows():
+        for _, row in loader.iterate_table_rows():
             if loader.is_row_empty(row):
                 continue
 
@@ -1874,6 +1879,7 @@ class BuildSubmissionView(FormView):
                 self.extract_autofill_from_tracer_data(trcr_data, seen)
                 self.next_tracer_row_group_num += 1
 
+    # TODO: Create a unit test for this method
     def extract_autofill_from_tracers_sheet(self):
         if TracersLoader.DataSheetName not in self.study_file_sheets:
             return
@@ -1902,13 +1908,14 @@ class BuildSubmissionView(FormView):
 
         seen = {"compounds": defaultdict(dict)}
 
-        for _, row in loader.df.iterrows():
+        for _, row in loader.iterate_table_rows():
             if loader.is_row_empty(row):
                 continue
 
             compound_name = loader.get_row_val(row, loader.headers.COMPOUND)
             self.extract_autofill_from_compound_name(compound_name, seen)
 
+    # TODO: Create a unit test for this method
     def extract_autofill_from_sequences_sheet(self):
         if SequencesLoader.DataSheetName not in self.study_file_sheets:
             return
@@ -1937,7 +1944,7 @@ class BuildSubmissionView(FormView):
 
         seen = {"lcprotocols": defaultdict(dict)}
 
-        for _, row in loader.df.iterrows():
+        for _, row in loader.iterate_table_rows():
             if loader.is_row_empty(row):
                 continue
 

@@ -718,7 +718,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         msrl = MSRunsLoader()
 
         # The row data we will attempt to load
-        row = pd.Series(
+        row = MSRunsLoader.dict_to_row(
             {
                 MSRunsLoader.DataHeaders.SEQNAME: self.seqname,
                 MSRunsLoader.DataHeaders.SAMPLENAME: self.sample_with_no_msr.name,
@@ -753,7 +753,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         msrl = MSRunsLoader()
 
         # The row data we will attempt to load
-        row = pd.Series(
+        row = MSRunsLoader.dict_to_row(
             {
                 MSRunsLoader.DataHeaders.SEQNAME: self.seqname,
                 MSRunsLoader.DataHeaders.SAMPLENAME: self.msr.sample.name,
@@ -789,7 +789,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
 
         # The row data we will attempt to load
-        row = pd.Series(
+        row = MSRunsLoader.dict_to_row(
             {
                 MSRunsLoader.DataHeaders.SEQNAME: self.seqname,
                 MSRunsLoader.DataHeaders.SAMPLENAME: self.msr.sample.name,
@@ -840,7 +840,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         )
 
         # The row data we will attempt to load
-        row = pd.Series(
+        row = MSRunsLoader.dict_to_row(
             {
                 MSRunsLoader.DataHeaders.SEQNAME: self.seqname,
                 MSRunsLoader.DataHeaders.SAMPLENAME: self.sample_with_no_msr.name,
@@ -892,7 +892,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
 
         # The row data we will attempt to load
-        row = pd.Series(
+        row = MSRunsLoader.dict_to_row(
             {
                 MSRunsLoader.DataHeaders.SEQNAME: self.seqname,
                 MSRunsLoader.DataHeaders.SAMPLENAME: self.msr.sample.name,
@@ -964,7 +964,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
 
         # The row data we will attempt to load
-        row = pd.Series(
+        row = MSRunsLoader.dict_to_row(
             {
                 MSRunsLoader.DataHeaders.SEQNAME: self.seqname,
                 MSRunsLoader.DataHeaders.SAMPLENAME: self.msr.sample.name,
@@ -1032,7 +1032,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
 
         # The row data we will attempt to load
-        row = pd.Series(
+        row = MSRunsLoader.dict_to_row(
             {
                 MSRunsLoader.DataHeaders.SEQNAME: self.seqname,
                 MSRunsLoader.DataHeaders.SAMPLENAME: self.msr.sample.name,
@@ -1127,7 +1127,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         ph_id = self.msr.id
 
         # The row data we will attempt to load
-        row = pd.Series(
+        row = MSRunsLoader.dict_to_row(
             {
                 MSRunsLoader.DataHeaders.SEQNAME: self.seqname,
                 MSRunsLoader.DataHeaders.SAMPLENAME: self.msr.sample.name,
@@ -1201,7 +1201,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         ph_id = self.msr.id
 
         # The row data we will attempt to load
-        row = pd.Series(
+        row = MSRunsLoader.dict_to_row(
             {
                 MSRunsLoader.DataHeaders.SEQNAME: self.seqname,
                 MSRunsLoader.DataHeaders.SAMPLENAME: self.msr.sample.name,
@@ -1251,7 +1251,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         ph_id = self.msr.id
 
         # The row data we will attempt to load
-        row = pd.Series(
+        row = MSRunsLoader.dict_to_row(
             {
                 MSRunsLoader.DataHeaders.SEQNAME: self.seqname,
                 MSRunsLoader.DataHeaders.SAMPLENAME: self.msr.sample.name,
@@ -1321,7 +1321,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         ph_id = self.msr.id
 
         # The row data we will attempt to load
-        row = pd.Series(
+        row = MSRunsLoader.dict_to_row(
             {
                 MSRunsLoader.DataHeaders.SEQNAME: self.seqname,
                 MSRunsLoader.DataHeaders.SAMPLENAME: self.msr.sample.name,

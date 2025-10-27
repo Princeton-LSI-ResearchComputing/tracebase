@@ -559,7 +559,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             annot_file_rec = None
             pass
 
-        for _, row in self.df.iterrows():
+        for _, row in self.iterate_table_rows():
             pgrec = None
             pdrec = None
 
@@ -685,7 +685,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         """Retrieve the peak group name and compound records.
 
         Args:
-            row (Optional[pandas.Series])
+            row (Optional[namedtuple])
             names_str (Optional[str]): Delimited compound names and/or synonyms.  Use this if you are calling this
                 method from outside of a load process and do not have a row.
             buffer_errors (bool): Set this to False if you do not need errors to attach to cells of the excel
@@ -1397,7 +1397,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         compound) to record 0 counts.
 
         Args:
-            row (pd.Series)
+            row (namedtuple)
             pgrec (Optional[PeakGroup)
         Exceptions:
             Buffers:

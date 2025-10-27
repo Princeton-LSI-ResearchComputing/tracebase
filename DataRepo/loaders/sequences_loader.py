@@ -199,7 +199,7 @@ class SequencesLoader(TableLoader):
         """
         known_researchers = Researcher.get_researchers()
 
-        for _, row in self.df.iterrows():
+        for _, row in self.iterate_table_rows():
             note = self.get_row_val(row, self.headers.NOTES)
 
             if note == self.V2_PLACEHOLDER_NOTE:

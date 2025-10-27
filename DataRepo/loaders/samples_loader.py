@@ -216,7 +216,7 @@ class SamplesLoader(TableLoader):
         Returns:
             None
         """
-        for _, row in self.df.iterrows():
+        for _, row in self.iterate_table_rows():
             # Get the existing animal and tissue
             animal = self.get_animal(row)
             tissue = self.get_tissue(row)
@@ -288,7 +288,7 @@ class SamplesLoader(TableLoader):
         """Get or create a Sample record.
 
         Args:
-            row (pd.Series)
+            row (namedtuple)
             animal (Animal)
             tissue (Tissue)
         Exceptions:
@@ -457,7 +457,7 @@ class SamplesLoader(TableLoader):
         """Get an Animal record.
 
         Args:
-            row (pd.Series)
+            row (namedtuple)
         Exceptions:
             None
         Returns:
@@ -490,7 +490,7 @@ class SamplesLoader(TableLoader):
         """Get a Tissue record.
 
         Args:
-            row (pd.Series)
+            row (namedtuple)
         Exceptions:
             None
         Returns:

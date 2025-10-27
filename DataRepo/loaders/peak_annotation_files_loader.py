@@ -219,8 +219,8 @@ class PeakAnnotationFilesLoader(TableLoader):
         Returns:
             None
         """
-        for _, row in self.df.iterrows():
-            if self.is_skip_row(row.name):
+        for _, row in self.iterate_table_rows():
+            if self.is_skip_row():
                 continue
 
             # Determine the format
@@ -263,7 +263,7 @@ class PeakAnnotationFilesLoader(TableLoader):
         """Gets the file path and determines the file format.
 
         Args:
-            row (pd.Series)
+            row (namedtuple)
         Exceptions:
             InfileError
         Returns:
@@ -415,7 +415,7 @@ class PeakAnnotationFilesLoader(TableLoader):
         """Retrieves the Sequence Name and parses it into its parts.
 
         Args:
-            row (pd.Series)
+            row (namedtuple)
         Exceptions:
             None
         Returns:
@@ -615,7 +615,7 @@ class PeakAnnotationFilesLoader(TableLoader):
         # Initialize the row index
         self.set_row_index(None)
 
-        for _, row in self.df.iterrows():
+        for _, row in self.iterate_table_rows():
             file = self.get_row_val(row, self.headers.FILE)
             seqname = self.get_row_val(row, self.headers.SEQNAME)
 

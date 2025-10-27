@@ -3,7 +3,7 @@ import re
 from abc import ABC, abstractmethod
 from collections import defaultdict, namedtuple
 from collections.abc import Iterable
-from typing import Dict, List, Optional, Type
+from typing import Dict, List, Optional, Type, Union
 
 import pandas as pd
 from django.core.exceptions import (
@@ -267,8 +267,8 @@ class TableLoader(ABC):
         self.apply_loader_wrapper()
 
         # File data
-        self.df = df
-        self.defaults_df = defaults_df
+        self.df: pd.DataFrame = df
+        self.defaults_df: pd.DataFrame = defaults_df
         self.df_checked = False
 
         # For retrieving data from df
@@ -369,30 +369,55 @@ class TableLoader(ABC):
         # Apply the binding to the handle method in the object
         setattr(self, "load_data", bound)
 
-    def set_row_index(self, index):
-        """Sets row_index and rownum instance attributes.
+    def set_row_index(self, row_or_index: Optional[Union[tuple, int]]):
+        """Sets row_index and rownum instance attributes.  rownum is set with the assumption that there is a header
+        line, it is row 1, and that the first row of data is thus row 2.
 
         Args:
-            index (int)
+            row_or_index (Optional[Union[tuple, int]]): Supports a Pandas' namedtuple or an int.  If a Pandas'
+                namedtuple is supplied and its 'Index' attribute is not an int, the row index will be incremented.
         Exceptions:
             None
         Returns:
             None
         """
-        self.row_index = index
-        if index is None:
+        # Set self.row_index
+        if isinstance(row_or_index, int) or row_or_index is None:
+            self.row_index = row_or_index
+        elif isinstance(row_or_index, tuple) and hasattr(row_or_index, "Index"):
+            if isinstance(row_or_index.Index, int):
+                self.row_index = row_or_index.Index
+            elif self.row_index is None:
+                self.row_index = 0
+            else:
+                self.row_index += 1
+        else:
+            raise TypeError(
+                "row_or_index argument to set_row_index must be None, a namedtuple, or an int.  "
+                f"Got {type(row_or_index).__name__}."
+            )
+
+        # Set self.rownum
+        if self.row_index is None:
             self.rownum = None
         else:
-            self.rownum = index + 2
+            self.rownum = self.row_index + 2
 
     def is_skip_row(self, index=None):
         """Determines if the current row is one that should be skipped.
 
         Various methods will append the current row index to self.skip_row_indexes, such as when errors occur on that
-        row.  The current row is set whenever get_row_val is called.  Call this method after all of the row values have
-        been obtained to see if loading of the data from this row should be skipped (in order to avoid unnecessary
-        errors).  The ultimate goal here is to suppress repeating errors.  You can use add_skip_row_index to manually
-        add row indexes that should be skipped.
+        row.  The current row is set whenever iterate_table_rows is iterated.  That iterator can be used to
+        automatically skip rows that have errors supported by TableLoader, such as required column values being missing,
+        but every individual loader can add to the skipped rows (using add_skip_row_index) either during preprocessing
+        or during row iteration, meaning this method can be checked inside to loop to decide whether to attempt to load
+        any of the 1 or more models that a loader populates (see self.Models).
+
+        The ultimate goal here is to suppress cascading errors.  I.e. In order to load a record in any particular model,
+        there are required fields, e.g. a foreign key whose record must be created, and if that dependent record
+        creation failed, we know that the creation of the linking model record will fail, so having both errors is
+        unnecessary.  Thus, if the dependent record creation failed, we can add the current row to the skip rows and
+        skip the parent record creation attempt.
 
         Args:
             index (Optional[int]): A manually supplied row index
@@ -773,11 +798,15 @@ class TableLoader(ABC):
             defaults (Optional[namedtuple of DataTableHeaders])
         """
         if hasattr(self, "defaults") and self.defaults is not None:
+            # Fill in derived class instance defaults into the final_defaults (overriding all class defaults)
             final_defaults = self.defaults
         else:
+            # Fill in class defaults into the final_defaults
             final_defaults = self.DataDefaultValues
 
         extras = []
+
+        # Fill in supplied custom_defaults into the final_defaults (overriding instance and class defaults individually)
         if custom_defaults is not None:
             if not isinstance(custom_defaults, dict):
                 # We create an aggregated errors object in class methods because we may not have an instance with one
@@ -787,7 +816,7 @@ class TableLoader(ABC):
                     )
                 )
 
-            new_dv_dict = final_defaults._asdict()
+            new_dv_dict: dict = final_defaults._asdict()
             for hk in custom_defaults.keys():
                 if hk in new_dv_dict.keys():
                     new_dv_dict[hk] = custom_defaults[hk]
@@ -805,7 +834,7 @@ class TableLoader(ABC):
 
             final_defaults = final_defaults._replace(**new_dv_dict)
 
-        # If user defaults are defined, overwrite anything previously set with them
+        # Fill in user defaults individually (highest priority, so overriding all others)
         tmp_user_defaults = self.get_user_defaults()
         if tmp_user_defaults is not None:
             new_ud_dict = final_defaults._asdict()
@@ -1057,8 +1086,7 @@ class TableLoader(ABC):
         - Note, other attributes are initialized in set_headers and set_defaults
 
         Args:
-            headers (DataTableHeaders namedtuple of strings): Customized header names by header key.
-            defaults (DataTableHeaders namedtuple of objects): Customized default values by header key.
+            None
         Exceptions:
             Raises:
                 AggregatedErrors
@@ -1779,11 +1807,14 @@ class TableLoader(ABC):
         save_row_index = self.row_index
         self.set_row_index(None)
 
-        for _, row in df.iterrows():
+        # This handles either self.df or self.defaults_df, which doesn't increment self.rownum or self.row_index, so
+        # that is handled here explicitly with rowindex
+        for rowindex, row in self.iterate_table_rows(_defaults=reading_defaults):
+            rownum = rowindex + 2
 
             # Check if the row is empty
             if self.is_row_empty(row):
-                self.add_skip_row_index(row.name)
+                self.add_skip_row_index(rowindex)
                 continue
 
             # Do we need to do anything else?
@@ -1791,7 +1822,10 @@ class TableLoader(ABC):
                 continue
 
             missing_reqd_vals, all_reqd = self.get_missing_values(
-                row, reqd_values=reqd_values, headers=headers
+                row,
+                reqd_values=reqd_values,
+                headers=headers,
+                reading_defaults=reading_defaults,
             )
 
             if missing_reqd_vals is not None:
@@ -1809,11 +1843,11 @@ class TableLoader(ABC):
                             pretty_missing_reqd_vals,
                             file=file,
                             sheet=sheet,
-                            rownum=row.name + 2,
+                            rownum=rownum,
                         )
                     )
                     if not reading_defaults:
-                        self.add_skip_row_index(row.name)
+                        self.add_skip_row_index(rowindex)
                 passed = False
 
         # Reset the row index (which was altered by get_row_val inside get_missing_values)
@@ -1841,7 +1875,7 @@ class TableLoader(ABC):
         get_missing_headers to do the work.
 
         Args:
-            row (pandas dataframe row)
+            row (namedtuple)
             reqd_values (list of strings and lists): N-dimensional list of required values by header name.
             headers (namedtuple of TableHeaders): Header names by header keys.
             reading_defaults (bool): Whether the defaults sheet is being read.
@@ -1867,7 +1901,7 @@ class TableLoader(ABC):
         # take advantage of self.defaults and the file context reporting metadata, so...
         headers_of_supplied_values = []
         for header in headers._asdict().values():
-            val = self.get_row_val(row, header, reading_defaults=reading_defaults)
+            val = self.get_row_val(row, header, _reading_defaults=reading_defaults)
             if val is not None:
                 headers_of_supplied_values.append(header)
 
@@ -1927,25 +1961,98 @@ class TableLoader(ABC):
     def is_row_empty(cls, row):
         """Use this to test if a row is empty.
 
+        Assumptions:
+            1. The row namedtuple was generated by pd.DataFrame.itertuples with the columns defined in the class.
+            2. pd.DataFrame.itertuples added an 'Index' column.
+        Limitations:
+            1. Does not restrict the value search to the columns defined in the derived class (i.e. user-added columns
+               such as "comment" contribute to the empty determination).
         Args:
-            row (pandas.Series)
+            row (namedtuple): This could be a row from the DataSheetName or DefaultsSheetName, generated by
+                pd.DataFrame.itertupes or TableLoader.dict_to_row.
         Exceptions:
             None
         Returns:
             (bool)
         """
-        return row.apply(lambda cv: str(cv) in cls.none_vals).all()
+        return not any(
+            str(cv) not in cls.none_vals
+            for key, cv in row._asdict().items()
+            # The namedtuple (row) produced by pd.DataFrame.itertuples adds an 'Index' key, so only check supported keys
+            if key != "Index"
+        )
 
-    def get_row_val(self, row, header, strip=True, reading_defaults=False):
+    def iterate_table_rows(self, include_skipped=True, _defaults=False):
+        """Iterates the self.df (or self.defaults_df - based on _defaults) dataframe, row by row, yielding a namedtuple.
+
+        Skips rows that have been marked as skipped (if include_skipped is False).
+
+        # TODO: Refactor everything to make the include_skipped default be False
+
+        NOTE: Empty rows and rows missing required column values are automatically marked as skipped by
+        check_dataframe_values, called via the load_data wrapper).
+
+        # TODO: Add include_empty as a keyword arg and track skipped separately.
+
+        Updates metadata via set_row_index:
+            self.row_index self.rownum
+
+        Assumptions:
+            1. We don't need to report errors about unknown column headers because that's already been done via
+               check_dataframe.
+        Limitations:
+            1. Ignores unknown column headers.
+        Args:
+            include_skipped (bool) [True]: Include rows that were marked as skipped either manually or during pre-
+                processing when checking required column values.
+            _defaults (bool) [False]: Read self.defaults_df instead of self.df and don't increment the row index.
+        Exceptions:
+            None
+        Returns:
+            rowindex (int)
+            row (namedtuple)
+        """
+        if _defaults:
+            if self.defaults_df is None:
+                return
+            # Create a dict mapping human readable column names to the header keys from DefaultsHeaders, in order
+            # to meet Pandas' itertuples column name requirements.
+            renames = dict(
+                (val, key) for key, val in self.DefaultsHeaders._asdict().items()
+            )
+            df = self.defaults_df.rename(columns=renames)
+        else:
+            if self.df is None:
+                return
+            # Create a dict mapping human readable custom column names to the header keys from self.reverse_headers, in
+            # order to meet Pandas' itertuples column name requirements.
+            renames = dict(
+                (colname, self.reverse_headers[colname])
+                for colname in self.df.columns
+                if colname in self.reverse_headers.keys()
+            )
+            df = self.df.rename(columns=renames)
+
+        for rowindex, row in enumerate(df.itertuples()):
+            if _defaults:
+                yield rowindex, row
+            elif include_skipped or self.is_skip_row(rowindex):
+                self.set_row_index(rowindex)
+                yield rowindex, row
+
+    def get_row_val(self, row, header, strip=True, _reading_defaults=False):
         """Returns value from the row (presumably from df) and column (identified by header).
 
         Converts empty strings and "nan"s to None.  Strips leading/trailing spaces.
 
+        Assumptions:
+            1. Header names (in both DataHeaders and DefaultsHeaders - and in the user-customized headers) are unique.
+               This is assured during setup.
         Args:
-            row (row of a dataframe): Row of data.
+            row (namedtuple): Row of data derived from pd.DataFrame.itertuples.
             header (str): Column header name.
             strip (bool) [True]: Whether to strip leading and trailing spaces.
-            reading_defaults (bool) [False]: Whether defaults data is currently being read.  Only 2 different files
+            _reading_defaults (bool) [False]: Whether defaults data is currently being read.  Only 2 different files
                 or sheets are supported, the ones for the data being loaded and the defaults.
         Exceptions:
             Raises:
@@ -1956,21 +2063,55 @@ class TableLoader(ABC):
         Returns:
             val (object): Data from the row at the column (header)
         """
-        if not reading_defaults:
-            # A pandas dataframe row object contains that row's index as an integer in the .name attribute
-            # By setting the current row index in get_row_val, the derived class never needs to explicitly do it
-            self.set_row_index(row.name)
-
         val = None
 
-        if header in row:
-            val = row[header]
+        header_key = header
+        if (
+            not _reading_defaults
+            and header not in row._fields
+            and header in self.reverse_headers.keys()
+            and self.reverse_headers[header] in row._fields
+        ):
+            header_key = self.reverse_headers[header]
+        elif (
+            _reading_defaults
+            and header not in row._fields
+            and header in self.DefaultsHeaders._asdict().values()
+        ):
+            reverse_default_headers = {
+                val: key for key, val in self.DefaultsHeaders._asdict().items()
+            }
+            if reverse_default_headers[header] in row._fields:
+                header_key = reverse_default_headers[header]
+
+        if header_key in row._fields:
+            val = getattr(row, header_key)
             if isinstance(val, str) and strip is True:
                 val = val.strip()
             if str(val) in self.none_vals:
                 val = None
+
+            # NOTE: The switch from Pandas' iterrows to itertuples created type issues.  Types are supplied to
+            # read_from_file and applied to the dataframe, but apparently those types are not preserved when those
+            # values are retrieved using itertuples, so the type is applied here.  This is the way it used to work, but
+            # was removed to not be redundant with pandas' dtype casting.  Here, it has been reintroduced.  The pandas
+            # dtype feature still needs to be used to prevent things like converting random values into dates.
+            if (
+                val is not None
+                and self.DataColumnTypes is not None
+                and header_key in self.DataColumnTypes.keys()
+                and not isinstance(val, self.DataColumnTypes[header_key])
+            ):
+                # If we know what type this column is supposed to be and the value is not that type, try casting it.
+                # This resolves issues with thinks like pandas' types int64.
+                try:
+                    val = self.DataColumnTypes[header_key](val)
+                except Exception:
+                    # Unable to cast, so let the derived loader handle it.  E.g. See test DataRepo.tests.loaders
+                    # .test_animals_loader.AnimalsLoaderTests.test_animals_loader_load_data_invalid
+                    pass
         elif (
-            not reading_defaults
+            not _reading_defaults
             and self.all_headers is not None
             and header not in self.all_headers
         ):
@@ -1986,7 +2127,9 @@ class TableLoader(ABC):
                     "class or the custom header list."
                 ),
             )
-        elif reading_defaults and header not in self.DefaultsHeaders._asdict().values():
+        elif (
+            _reading_defaults and header not in self.DefaultsHeaders._asdict().values()
+        ):
             # Missing headers are addressed way before this. If we get here, it's a programming issue, so raise instead
             # of buffer
             raise UnknownHeader(
@@ -2057,13 +2200,15 @@ class TableLoader(ABC):
         unknown_headers = defaultdict(list)
         invalid_type_errs = []
 
-        for _, row in self.defaults_df.iterrows():
+        # This handles either self.df or self.defaults_df, which doesn't increment self.rownum or self.row_index, so
+        # that is handled here explicitly with rowindex
+        for rowindex, row in self.iterate_table_rows(_defaults=True):
             # Note, self.rownum is only for the infile data sheet, not this defaults sheet
-            rownum = row.name + 2
+            rownum = rowindex + 2
 
             # Get the sheet from the row
             sheet_name = self.get_row_val(
-                row, self.DefaultsHeaders.SHEET_NAME, reading_defaults=True
+                row, self.DefaultsHeaders.SHEET_NAME, _reading_defaults=True
             )
 
             if sheet_name is None:
@@ -2091,7 +2236,7 @@ class TableLoader(ABC):
             # Get the header from the row
             header_name = str(
                 self.get_row_val(
-                    row, self.DefaultsHeaders.COLUMN_NAME, reading_defaults=True
+                    row, self.DefaultsHeaders.COLUMN_NAME, _reading_defaults=True
                 )
             )
 
@@ -2106,7 +2251,7 @@ class TableLoader(ABC):
 
             # Grab the default value
             default_val = self.get_row_val(
-                row, self.DefaultsHeaders.DEFAULT_VALUE, reading_defaults=True
+                row, self.DefaultsHeaders.DEFAULT_VALUE, _reading_defaults=True
             )
 
             if default_val is None:
@@ -3408,6 +3553,51 @@ class TableLoader(ABC):
         ]
 
         return [hn for hn in class_undefaulted_header_names]
+
+    @classmethod
+    def dict_to_row(cls, row_dict: dict):
+        """Converts a row dict (which may contain a subset of the DataTableHeaders columns) containing header names and
+        values to a namedtupe (like pandas' itertuples method) constructed with header keys and the original values.
+
+        Regarding the "type: ignore" statements...
+
+        The keys defined in the returned namedtuple are dynamic, which mypy doesn't support, because it cannot type the
+        contained values.  The column values can be anything.  A user can remove columns, add columns (e.g. "comment"),
+        or enter invalid values that violate the type.  Ideally, the columns are everything defined in
+        self.DataTableHeaders.  Realistically, some columns are optional and we support their removal, so a practical
+        expectation is that the columns returned here represent a subset of self.DataTableHeaders.  The returned tuple
+        however should at least convey any unsupported columns a user has manually added, even if those columns
+        currently raise an UnknownColumn error or warning, as that may eventually be supported.
+
+        NOTE: For now, this is mainly a convenience method used for tests, in order to isolate unit tests.  The actual
+        return type of self.iterate_table_rows is "Pandas" (a namedtuple), but eventually, the namedtuple created here
+        should be used.
+
+        Limitations:
+            1. Does not check the validity of the column content.
+            2. Only converts header names to DataTableHeaders fields (as keys) if they are in the DataTableHeaders class
+               variable (i.e. does not support custom headers).
+        Assumptions:
+            1. The keys of row_dict are the fields of DataTableHeaders.
+        Args:
+            row_dict (Dict[str, Any): A dict with (a subset of) keys as set in DatatableHeaders' namedtuple.
+        Exceptions:
+            TypeError when any row_dict key is not a field of DataTableHeaders and is an invalid naedtuple field.
+        Returns:
+            (namedtuple): A namedtuple that mimmicks the Pandas namedtuple returned by itertuples where the keys match
+            those in DataTableHeaders and the values are whatever was supplied in the row_dict values.
+        """
+        reverse_headers = dict((v, k) for k, v in cls.DataHeaders._asdict().items())  # type: ignore [attr-defined]
+        keyed_row_dict = dict(
+            (
+                (reverse_headers[header_name], val)
+                if header_name in reverse_headers.keys()
+                else (header_name, val)
+            )
+            for header_name, val in row_dict.items()
+        )
+        RowTuple = namedtuple("RowTuple", list(keyed_row_dict.keys()))  # type: ignore [misc]
+        return RowTuple(**keyed_row_dict)
 
 
 def flatten(n_deep_iterable):

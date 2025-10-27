@@ -33,8 +33,8 @@ class LCProtocolsLoaderTests(TracebaseTestCase):
         self.assertEqual("polar-HILIC-25-min", lcr.name)
 
     def test_get_or_create_lc_method(self):
-        _, row = next(self.TEST_DF.iterrows())
-        ll = LCProtocolsLoader()
+        ll = LCProtocolsLoader(df=self.TEST_DF)
+        _, row = next(ll.iterate_table_rows())
         rec, created = ll.get_or_create_lc_method(row)
         self.assertEqual(0, len(ll.aggregated_errors_object.exceptions))
         self.assertTrue(created)

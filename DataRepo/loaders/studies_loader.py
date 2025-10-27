@@ -94,7 +94,7 @@ class StudiesLoader(TableLoader):
         Returns:
             Nothing
         """
-        for _, row in self.df.iterrows():
+        for _, row in self.iterate_table_rows():
             try:
                 self.get_or_create_study(row)
             except RollbackException:
