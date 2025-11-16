@@ -897,7 +897,7 @@ class MSRunsLoader(TableLoader):
         """
 
         # NOTE: Required headers are handled upon load via the load_data wrapper (self._loader), but this method is
-        # called from the constructor for an early check before doing the time-consuming taks of loading mzXML files.
+        # called from the constructor for an early check before doing the time-consuming task of loading mzXML files.
         # Its purpose solely relates to the dataframe.  If there is no sequence column, there is nothing to check.  The
         # user can load mzXML files without any metadata.  Missing sequences for those unpaired files are handled using
         # default sequence data supplied on the command line.
@@ -1273,8 +1273,8 @@ class MSRunsLoader(TableLoader):
                 continue
 
             # No need to document a skipped row when it does not contain a sample_header, since the row is invalid
-            # (which is allowed when skipped)
-            if skip and sample_header is None:
+            # (which is allowed when skipped).  NOTE: Intentionally treating sample_header (an Optional[str]) as a bool.
+            if skip and not sample_header:
                 continue
 
             # If the sample header happens to match a header in another peak annot file, skip it
@@ -1600,8 +1600,8 @@ class MSRunsLoader(TableLoader):
                 return rec, created
 
             # This assumes that either sample header or mzXML name is required (otherwise self.is_skip_row() or skip
-            # would be True)
-            if sample_header is not None:
+            # would be True).  NOTE: Intentionally treating sample_header (an Optional[str]) as a bool.
+            if sample_header:
                 self.header_to_sample_name[sample_header][sample_name].append(
                     self.rownum
                 )
@@ -1614,8 +1614,9 @@ class MSRunsLoader(TableLoader):
                     os.path.basename(mzxml_path)
                 )
 
+                # NOTE: Intentionally treating sample_header (an Optional[str]) as a bool.
                 if mzxml_name[0].isdigit() and (
-                    sample_header is None or sample_header != mzxml_name
+                    not sample_header or sample_header != mzxml_name
                 ):
                     # The leftover mzXMLs code uses self.header_to_sample_name to lookup the DB sample name.  The peak
                     # correction software does not allow sample names to start with a number, and we don't want that

@@ -1,5 +1,6 @@
 import warnings
 from datetime import date, timedelta
+from typing import Optional
 
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
@@ -128,8 +129,8 @@ class Sample(MaintainedModel, HierCachedModel):
         return str(self.name)
 
     @classmethod
-    def is_a_blank(cls, sample_name):
-        return sample_name is not None and "blank" in sample_name.lower()
+    def is_a_blank(cls, sample_name: Optional[str]):
+        return sample_name and "blank" in sample_name.lower()
 
     def get_absolute_url(self):
         """Get the URL to the detail page.
