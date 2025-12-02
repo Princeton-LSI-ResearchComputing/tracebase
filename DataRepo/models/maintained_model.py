@@ -848,7 +848,7 @@ class MaintainedModel(Model):
         propagates the updates to the linked dependent model's save methods (if the parent and/or child field name is
         supplied), the assumption being that a change to "this" record's maintained field necessitates a change to
         another maintained field in the linked parent record.  Parent and child field names should only be supplied if a
-        change to "this" record means that related foields in parent/child records will need to be recomputed.  There is
+        change to "this" record means that related fields in parent/child records will need to be recomputed.  There is
         no need to supply parent/child field names if that is not the case.
 
         The generation input is an integer indicating the hierarchy level.  E.g. if there is no parent, `generation`

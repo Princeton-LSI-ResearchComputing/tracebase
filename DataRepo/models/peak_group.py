@@ -62,6 +62,15 @@ class PeakGroup(HierCachedModel, MaintainedModel):
         related_name="peak_groups",
         help_text="The data file from which this PeakGroup was imported.",
     )
+    total_abundance = models.FloatField(
+        null=True,
+        blank=True,
+        editable=False,
+        help_text=(
+            "Sum of the corrected abundances of all peak data for this compound.  AccuCor provides this in the tab "
+            '"pool size".'
+        ),
+    )
 
     def __init__(self, *args, **kwargs):
         from DataRepo.models.compound import Compound
@@ -73,9 +82,13 @@ class PeakGroup(HierCachedModel, MaintainedModel):
             )
         super().__init__(*args, **kwargs)
 
-    # @cached_function is *slower* than uncached
-    @cached_property
-    def total_abundance(self):
+    @MaintainedModel.setter(
+        generation=0,
+        child_field_names=["labels"],
+        update_field_name="total_abundance",
+        update_label="peakgroup_calcs",
+    )
+    def _total_abundance(self):
         """
         Total ion counts for this compound.
         Accucor provides this in the tab "pool size".

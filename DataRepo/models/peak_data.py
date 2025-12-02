@@ -3,8 +3,15 @@ from django.db import models
 from django.db.models import Q
 from django.utils.functional import cached_property
 
+from DataRepo.models.maintained_model import MaintainedModel
 
-class PeakData(models.Model):
+
+@MaintainedModel.relation(
+    generation=1,
+    parent_field_name="peak_group",
+    update_label="peakgroup_calcs",
+)
+class PeakData(MaintainedModel):
     """
     PeakData is a single observation (at the most atomic level) of a MS-detected molecule.
     For example, this could describe the data for M+2 in glucose from mouse 345 brain tissue.
@@ -63,7 +70,7 @@ class PeakData(models.Model):
             fraction (Optional[float])
         """
         try:
-            fraction = self.corrected_abundance / self.peak_group.total_abundance
+            fraction = self.corrected_abundance / self.peak_group._total_abundance()
         except ZeroDivisionError:
             fraction = None
         return fraction

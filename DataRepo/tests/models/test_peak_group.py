@@ -204,7 +204,7 @@ class PeakGroupTests(TracebaseTestCase):
         self.assertIsNotNone(rec)
 
     def test_total_abundance(self):
-        self.assertAlmostEqual(self.pg.total_abundance, 3000)
+        self.assertAlmostEqual(self.pg._total_abundance(), 3000)
 
     def test_unique_constraint(self):
         self.assertRaises(

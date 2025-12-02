@@ -7,10 +7,11 @@ from pyparsing import ParseException
 
 from DataRepo.models.element_label import ElementLabel
 from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
+from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.models.utilities import atom_count_in_formula
 
 
-class PeakGroupLabel(HierCachedModel):
+class PeakGroupLabel(HierCachedModel, MaintainedModel):
     parent_related_key_name = "peak_group"
     # Leaf
 
@@ -30,6 +31,16 @@ class PeakGroupLabel(HierCachedModel):
         default=ElementLabel.CARBON,
         help_text='The type of element that is labeled in this observation (e.g. "C", "H", "O").',
     )
+    enrichment_fraction = models.FloatField(
+        null=True,
+        blank=True,
+        editable=False,
+        help_text=(
+            "A weighted average of the fraction of labeled atoms for this peak group in this sample with this labeled "
+            "element.  E.g. The fraction of carbons that are labeled in this peak group compound.  "
+            "I.e. Sum (fraction * count) / num_atoms(element)"
+        ),
+    )
 
     class Meta:
         verbose_name = "labeled element"
@@ -48,9 +59,13 @@ class PeakGroupLabel(HierCachedModel):
     def __str__(self):
         return str(f"{self.element}")
 
-    @property  # type: ignore
-    @cached_function
-    def enrichment_fraction(self):
+    @MaintainedModel.setter(
+        generation=1,
+        parent_field_name="peak_group",
+        update_field_name="enrichment_fraction",
+        update_label="peakgroup_calcs",
+    )
+    def _enrichment_fraction(self):
         """
         A weighted average of the fraction of labeled atoms for this PeakGroup
         in this sample with this (labeled) element.
@@ -149,6 +164,7 @@ class PeakGroupLabel(HierCachedModel):
 
         return enrichment_fraction
 
+    # TODO: Convert this to a maintained field
     @property  # type: ignore
     @cached_function
     def enrichment_abundance(self):
@@ -159,12 +175,13 @@ class PeakGroupLabel(HierCachedModel):
         try:
             # If self.enrichment_fraction is None, it will be handled in the except
             enrichment_abundance = (
-                self.peak_group.total_abundance * self.enrichment_fraction
+                self.peak_group._total_abundance() * self._enrichment_fraction()
             )
         except (AttributeError, TypeError):
             enrichment_abundance = None
         return enrichment_abundance
 
+    # TODO: Convert this to a maintained field
     @property  # type: ignore
     @cached_function
     def normalized_labeling(self):
@@ -180,14 +197,17 @@ class PeakGroupLabel(HierCachedModel):
                 element__exact=self.element
             ).serum_tracers_enrichment_fraction
 
+            # Do not use the DB field value, as maintained fields should not be used in any maintained field setter.
+            enrichment_fraction = self._enrichment_fraction()
+
             if (
                 self.animal.infusate is not None
                 and self.animal.infusate.tracers.count() > 0
-                and self.enrichment_fraction is not None
+                and enrichment_fraction is not None
                 and serum_tracers_enrichment_fraction is not None
             ):
                 normalized_labeling = (
-                    self.enrichment_fraction / serum_tracers_enrichment_fraction
+                    enrichment_fraction / serum_tracers_enrichment_fraction
                 )
             else:
                 normalized_labeling = None
@@ -442,7 +462,9 @@ class PeakGroupLabel(HierCachedModel):
             )
             return False
 
-        if self.enrichment_fraction and self.enrichment_fraction > 0:
+        enrichment_fraction = self._enrichment_fraction()
+
+        if enrichment_fraction and enrichment_fraction > 0:
             return True
         else:
             warnings.warn(
@@ -544,7 +566,7 @@ class PeakGroupLabel(HierCachedModel):
             result = (
                 tracer_info["concentration"]
                 * self.animal.infusion_rate
-                / self.enrichment_fraction
+                / self._enrichment_fraction()
             )
         except Exception as e:
             raise e

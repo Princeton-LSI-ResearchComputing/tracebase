@@ -265,7 +265,7 @@ class PeakGroupLabelPropertyTests(TracebaseTestCase):
 
         super().setUpTestData()
 
-    def assert_bat_glucose_calcs(self, pg, total, enrichfrac, enrichabund, normlabel):
+    def assert_bat_glucose_calcs(self, pg: PeakGroup, total, enrichfrac, enrichabund, normlabel):
         self.assertAlmostEqual(total, pg.total_abundance, places=3)
         self.assertAlmostEqual(enrichfrac, pg.labels.first().enrichment_fraction)
         self.assertAlmostEqual(
