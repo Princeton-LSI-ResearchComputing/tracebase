@@ -973,7 +973,7 @@ class MSRunsLoader(TableLoader):
         expected_mzxmls = defaultdict(lambda: defaultdict(dict))
         expected_samples = []
         unexpected_sample_headers = defaultdict(list)
-        explicitly_skipped_mzxmls = []
+        explicitly_skipped_rel_mzxmls = []
 
         # Take an accounting of all expected samples and mzXML files.  Note that in the absence of an explicitly entered
         # mzXML file, the sample header is used as a stand-in for the mzXML file's name (minus extension).
@@ -989,7 +989,11 @@ class MSRunsLoader(TableLoader):
             )
 
             if mzxml_name_with_opt_path is not None and skip:
-                explicitly_skipped_mzxmls.append(mzxml_name_with_opt_path)
+                explicitly_skipped_rel_mzxmls.append(
+                    os.path.normpath(
+                        os.path.relpath(mzxml_name_with_opt_path, self.mzxml_dir)
+                    )
+                )
                 continue
 
             # Keep track of samples that have been accounted for
@@ -1027,13 +1031,15 @@ class MSRunsLoader(TableLoader):
 
         # Now go through the actual supplied mzXML files and see if any are totally unaccounted for.
         for actual_mzxml_file in self.mzxml_files:
-            # If this mzxml_file is in the explicitly_skipped_mzxmls, don't check it.
+            # If this mzxml_file is in the explicitly_skipped_rel_mzxmls, don't check it.
             # NOTE: The file does not have to exist.  The supplied paths just have to be the same.  I.e. don't cause a
             # file system error based on a row that is skipped.
+            actual_rel_file = os.path.normpath(
+                os.path.relpath(actual_mzxml_file, self.mzxml_dir)
+            )
             if any(
-                os.path.normpath(os.path.relpath(actual_mzxml_file, self.mzxml_dir))
-                == os.path.normpath(os.path.relpath(skipped_file, self.mzxml_dir))
-                for skipped_file in explicitly_skipped_mzxmls
+                actual_rel_file == skipped_rel_file
+                for skipped_rel_file in explicitly_skipped_rel_mzxmls
             ):
                 continue
 
@@ -1046,7 +1052,6 @@ class MSRunsLoader(TableLoader):
                 modded_sh = sh.replace("-", "_")
 
             sn = self.guess_sample_name(modded_sh)
-            actual_rel_file = os.path.relpath(actual_mzxml_file, self.mzxml_dir)
 
             if modded_sh in expected_mzxmls.keys():
                 actual_rel_dir = os.path.relpath(dr, self.mzxml_dir)
