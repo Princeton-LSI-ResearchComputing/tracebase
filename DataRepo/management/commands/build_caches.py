@@ -1,7 +1,7 @@
 from django.core.cache import cache
 from django.core.management import BaseCommand
 
-from DataRepo.models import Animal, PeakData, PeakGroup, Sample  # noqa: F401
+from DataRepo.models import *  # noqa: F401, F403
 from DataRepo.models.hier_cached_model import (
     enable_caching_errors,
     enable_caching_retrievals,
@@ -9,7 +9,8 @@ from DataRepo.models.hier_cached_model import (
     get_cached_method_names,
 )
 
-# ^^^ Must import every HierCachedModel (because it's eval'd below)
+# NOTE: Regarding 'noqa: F401, F403' - Must import every HierCachedModel (because they are eval'd below) and would
+# otherwise result in a NameError
 
 
 def build_caches(clear):

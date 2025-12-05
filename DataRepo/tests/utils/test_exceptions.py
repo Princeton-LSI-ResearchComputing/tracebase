@@ -7,7 +7,10 @@ from DataRepo.utils.exceptions import (
     AggregatedErrors,
     CompoundDoesNotExist,
     DateParseError,
+    DBFieldVsFileColDeveloperWarning,
+    DBFieldVsFileColDeveloperWarnings,
     DefaultSequenceNotFound,
+    DeveloperWarning,
     DuplicateCompoundIsotopes,
     DuplicateValueErrors,
     DuplicateValues,
@@ -30,7 +33,9 @@ from DataRepo.utils.exceptions import (
     MultipleDefaultSequencesFound,
     MutuallyExclusiveOptions,
     MzxmlColocatedWithMultipleAnnot,
+    MzxmlColocatedWithMultipleAnnots,
     MzxmlNotColocatedWithAnnot,
+    MzxmlNotColocatedWithAnnots,
     MzxmlSampleHeaderMismatch,
     NewResearcher,
     NewResearchers,
@@ -1280,14 +1285,106 @@ class ExceptionTests(TracebaseTestCase):
         )
         self.assertIn("Move a peak annot file to a point along the path.", str(mncwa))
 
+    def test_MzxmlNotColocatedWithAnnots(self):
+        """Tests that the summary exception includes all the mzXMLs not colocated with a peak annotation file, that the
+        exception describes this, and contains a suggestion of how to fix it."""
+        exc1 = MzxmlNotColocatedWithAnnot(
+            file="/abs/path/to/file.mzXML",
+        )
+        exc2 = MzxmlNotColocatedWithAnnot(
+            file="/second/abs/path/to/otherfile.mzXML",
+        )
+        mncwas = MzxmlNotColocatedWithAnnots([exc1, exc2])
+        self.assertIn(
+            "/abs/path/to/file.mzXML",
+            str(mncwas),
+        )
+        self.assertIn(
+            "/second/abs/path/to/otherfile.mzXML",
+            str(mncwas),
+        )
+        self.assertIn(
+            "do not have a peak annotation file existing along their paths",
+            str(mncwas),
+        )
+        self.assertIn(
+            "add the related peak annotation file to the directory containing the mzXML files",
+            str(mncwas),
+        )
+
     def test_MzxmlColocatedWithMultipleAnnot(self):
         mcwma = MzxmlColocatedWithMultipleAnnot(
             ["name1", "name2"],
+            "/abs/path/",
             file="/abs/path/to/file.mzXML",
         )
         self.assertIn(
             "associated with different sequences:\n\tname1\n\tname2\n", str(mcwma)
         )
+
+    def test_MzxmlColocatedWithMultipleAnnots(self):
+        """Tests that the summary exception includes:
+
+        1. An explanation of the cause of the exception
+        2. All mzXML files
+        3. A suggestion how to fix the data to resolve the exception
+        4. The directory containing the peak annotation files associated with sequence defaults
+        5. The sequence names associated with the directory
+
+        Example:
+            The following directories have multiple peak annotation files (associated with different 'Default
+            Sequence's, assigned in the 'Peak Annotation Files' sheet), meaning that the listed mzXML files cannot be
+            unambiguously assigned an MSRunSequence record.
+
+                Directory '/abs/path/' contains multiple peak annotation files associated with sequences ['seqname1',
+                'seqname2']:
+                    /abs/path/to/file.mzXML
+                Directory '/abs/path2/' contains multiple peak annotation files associated with sequences ['seqnameA',
+                'seqnameB']:
+                    /abs/path/to/file.mzXML
+
+            Explanation: When a sequence is not provided in the 'Peak Annotation Details' sheet for an mzXML file, the
+            association between an mzXML and the MSRunSequence it belongs to is inferred by its colocation with (or its
+            location under a parent directory containing) a peak annotation file, based on the 'Default Sequence'
+            assigned in the 'Peak Annotation Files' sheet.
+
+            Suggestion: Either provide values in the 'Sequence' column in the 'Peak Annotation Files' sheet or
+            re-arrange the multiple colocated peak annotation files to ensure that they are in the directory containing
+            the mzXML files that were used to generate them.  (If a peak annotation file was generated using a mix of
+            mzXML files from different sequences, the 'Sequence' column in the 'Oeak Annotation Details' sheet must be
+            filled in and it is recommended that mzXML files are grouped into directories defined by the sequence that
+            generated them.)
+        """
+        exc1 = MzxmlColocatedWithMultipleAnnot(
+            ["seqname1", "seqname2"],
+            "/abs/path/",
+            file="/abs/path/to/file.mzXML",
+        )
+        exc2 = MzxmlColocatedWithMultipleAnnot(
+            ["seqnameA", "seqnameB"],
+            "/abs/path2/",
+            file="/abs/path/to/file.mzXML",
+        )
+        mcwmas = MzxmlColocatedWithMultipleAnnots([exc1, exc2])
+        # Explanation
+        self.assertIn(
+            "mzXML and the MSRunSequence it belongs to is inferred by its colocation",
+            str(mcwmas),
+        )
+        # mzXML files
+        self.assertIn("/abs/path/to/file.mzXML", str(mcwmas))
+        self.assertIn("/abs/path/to/file.mzXML", str(mcwmas))
+        # Suggestion
+        self.assertIn("provide values in the 'Sequence' column", str(mcwmas))
+        self.assertIn(
+            "re-arrange the multiple colocated peak annotation files", str(mcwmas)
+        )
+        # Directories
+        self.assertIn("'/abs/path/'", str(mcwmas))
+        self.assertIn("'/abs/path2/'", str(mcwmas))
+        # Sequences
+        self.assertIn("['seqname1', 'seqname2']", str(mcwmas))
+        self.assertIn("['seqnameA', 'seqnameB']", str(mcwmas))
 
     def test_NoScans(self):
         ns = NoScans("/abs/path/to/file.mzXML")
@@ -1347,3 +1444,137 @@ class ExceptionTests(TracebaseTestCase):
         self.assertIn("header 's1' maps to samples: ['s1_pos', 's1_neg']", str(pdse))
         # Check suggestion exists
         self.assertIn("associated with the same tracebase sample", str(pdse))
+
+    def test_DBFieldVsFileColDeveloperWarning(self):
+        """Tests developer warnings about database/file value type issues.
+
+        Requirements tested (from GitHub issue #1662):
+            2. Repeated warnings must be summarized.
+            3. The warning about comparing a value from the DB with with a value from a file when their types differ
+               must be clear as to what the problem with it is and whether it needs to be addressed (and how)
+            4. The warning must mention whether ConflictingValueError exceptions will be created, in the context of it's
+               correctness being a determinant as to whether the type for the field should be added to the loader.
+            6. Customized ProgrammerErrors' names must be clearly applicable to only programmers.
+        """
+        tissue_class = get_model_by_name("Tissue")
+        rec = tissue_class.objects.create(name="elbow", description="knobby")
+        exc = DBFieldVsFileColDeveloperWarning(
+            rec,
+            "description",
+            "knobby",
+            5,
+            "TissuesLoader",
+            rownum=22,
+            sheet="Tissues",
+            file="mystudy.xlsx",
+        )
+        # Test general requirement: All relevant data included to identify the problem
+        self.assertIn("Tissue.description", str(exc))
+        self.assertIn(
+            "unmapped column in row [22] of sheet [Tissues] in mystudy.xlsx", str(exc)
+        )
+        self.assertIn("'knobby', a 'str'", str(exc))
+        self.assertIn("'5', a 'int'", str(exc))
+        # Test general requirement: Message includes suggestion
+        self.assertIn(
+            "If that conclusion is wrong, the loader (TissuesLoader) must be updated",
+            str(exc),
+        )
+        self.assertIn(
+            "Consult the docstring of the DBFieldVsFileColDeveloperWarning class for details.",
+            str(exc),
+        )
+        # Test general requirement: Message includes explanation
+        self.assertIn(
+            "intended to help debug the case where that ConflictingValueError appears wrong",
+            str(exc),
+        )
+        # Test Req 2. See docstring
+        self.assertIsInstance(exc, SummarizableError)
+        # Test Req 3. See docstring
+        self.assertIn("type of the value", str(exc))
+        self.assertIn("differs", str(exc))
+        # Test Req 4. See docstring
+        self.assertIn(
+            "this exception will be followed by a ConflictingValueError", str(exc)
+        )
+        # Test Req 6. See docstring
+        self.assertIsInstance(exc, DeveloperWarning)
+        self.assertIn("DeveloperWarning", type(exc).__name__)
+
+    def test_DBFieldVsFileColDeveloperWarnings(self):
+        """Tests summary developer warnings about database/file value type issues.
+
+        Requirements tested (from GitHub issue #1662):
+            3. The warning about comparing a value from the DB with with a value from a file when their types differ
+               must be clear as to what the problem with it is and whether it needs to be addressed (and how)
+            4. The warning must mention whether ConflictingValueError exceptions will be created, in the context of it's
+               correctness being a determinant as to whether the type for the field should be added to the loader.
+            6. Customized ProgrammerErrors' names must be clearly applicable to only programmers.
+        """
+        tissue_class = get_model_by_name("Tissue")
+        rec1 = tissue_class.objects.create(name="elbow", description="knobby")
+        exc1 = DBFieldVsFileColDeveloperWarning(
+            rec1,
+            "description",
+            "knobby",
+            5,
+            "TissuesLoader",
+            rownum=22,
+            sheet="Tissues",
+            file="mystudy.xlsx",
+        )
+        rec2 = tissue_class.objects.create(name="knee", description="gnarly")
+        exc2 = DBFieldVsFileColDeveloperWarning(
+            rec2,
+            "description",
+            "gnarly",
+            66,
+            "TissuesLoader",
+            rownum=55,
+            sheet="Tissues",
+            file="mystudy.xlsx",
+        )
+        exc = DBFieldVsFileColDeveloperWarnings([exc1, exc2])
+
+        # Test general requirement: Message includes explanation
+        self.assertIn(
+            (
+                "Model field values from existing records in the database were compared to values from the input file, "
+                "but the types differed"
+            ),
+            str(exc),
+        )
+        self.assertIn(
+            (
+                "This warning is intended to help debug the case where any of those ConflictingValueError exceptions "
+                "appear wrong"
+            ),
+            str(exc),
+        )
+        # Test general requirement: Message includes suggestion
+        self.assertIn(
+            "If any conclusions are wrong, the corresponding loader class must be updated",
+            str(exc),
+        )
+        self.assertIn(
+            "Consult the docstring of the DBFieldVsFileColDeveloperWarning class for details",
+            str(exc),
+        )
+        # Test general requirement: All relevant data included to identify the problem
+        self.assertIn("Loader: TissuesLoader, Field: Tissue.description", str(exc))
+        self.assertIn("row [22] of sheet [Tissues] in mystudy.xlsx", str(exc))
+        self.assertIn("'knobby' (type: str)", str(exc))
+        self.assertIn("'5' (type: int)", str(exc))
+        self.assertIn("row [55] of sheet [Tissues] in mystudy.xlsx", str(exc))
+        self.assertIn("'gnarly' (type: str)", str(exc))
+        self.assertIn("'66' (type: int)", str(exc))
+        # Test Req 3. See docstring
+        self.assertIn("types differed", str(exc))
+        # Test Req 4. See docstring
+        self.assertIn(
+            "exceptions will be followed by ConflictingValueError exceptions", str(exc)
+        )
+        # Test Req 6. See docstring
+        self.assertIsInstance(exc, DeveloperWarning)
+        self.assertIn("DeveloperWarning", type(exc).__name__)

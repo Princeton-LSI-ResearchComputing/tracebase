@@ -5,7 +5,7 @@ import traceback
 import warnings
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from django.core.exceptions import (
     MultipleObjectsReturned,
@@ -13,7 +13,7 @@ from django.core.exceptions import (
     ValidationError,
 )
 from django.core.management import CommandError
-from django.db.models import Q
+from django.db.models import Model, Q
 from django.db.utils import ProgrammingError
 from django.forms.models import model_to_dict
 
@@ -3125,7 +3125,39 @@ class MzxmlSequenceUnknown(InfileError, SummarizableError):
         self.match_files = match_files
 
 
-class MzxmlNotColocatedWithAnnot(InfileError):
+class MzxmlNotColocatedWithAnnots(Exception):
+    """Takes a list of MzxmlNotColocatedWithAnnot exceptions and summarizes them in a single exception."""
+
+    def __init__(
+        self,
+        exceptions: List[MzxmlNotColocatedWithAnnot],
+        message: Optional[str] = None,
+        **kwargs,
+    ):
+        if not message:
+            files = []
+            exc: MzxmlNotColocatedWithAnnot
+            for exc in exceptions:
+                files.append(exc.file)
+            nlt = "\n\t"
+            message = (
+                f"The following mzXML files do not have a peak annotation file existing along their paths.\n"
+                "When a sequence is not provided in the 'Peak Annotation Details' sheet for an mzXML file, the "
+                "association between an mzXML and the MSRunSequence it belongs to is inferred by its colocation with "
+                "(or its location under a parent directory containing) a peak annotation file, based on the 'Default "
+                "Sequence' column in the 'Peak Annotation Files' sheet.  These files do not have a peak annotation "
+                "file associated with them:\n"
+                f"\t{nlt.join(files)}\n"
+                "Either provide values in the 'Sequence' column in the 'Peak Annotation Files' sheet or add the "
+                "related peak annotation file to the directory containing the mzXML files that were used to generate "
+                "it."
+            )
+        super().__init__(message, **kwargs)
+
+
+class MzxmlNotColocatedWithAnnot(InfileError, SummarizableError):
+    SummarizerExceptionClass = MzxmlNotColocatedWithAnnots
+
     def __init__(self, annot_dirs=None, **kwargs):
         if annot_dirs is None:
             annot_dirs = ["No peak annotation directories supplied."]
@@ -3136,18 +3168,75 @@ class MzxmlNotColocatedWithAnnot(InfileError):
             "MSRunSequence, based on the Default Sequence column in the Peak Annotation Files sheet."
         )
         super().__init__(message, **kwargs)
+        self.annot_dirs = annot_dirs
 
 
-class MzxmlColocatedWithMultipleAnnot(InfileError):
-    def __init__(self, msrun_sequence_names, **kwargs):
+class MzxmlColocatedWithMultipleAnnots(Exception):
+    """Takes a list of MzxmlNotColocatedWithAnnot exceptions and summarizes them in a single exception."""
+
+    def __init__(
+        self,
+        exceptions: List[MzxmlColocatedWithMultipleAnnot],
+        message: Optional[str] = None,
+        **kwargs,
+    ):
+        if not message:
+            dirs: Dict[str, Dict[str, List[str]]] = defaultdict(
+                lambda: {"files": [], "seqs": []}
+            )
+            exc: MzxmlColocatedWithMultipleAnnot
+            for exc in exceptions:
+                # Append the mzXML file to the files list for that directory combo
+                dirs[exc.matching_annot_dir]["files"].append(exc.file)
+                # Append the differing sequences if not already encountered
+                for seqn in exc.msrun_sequence_names:
+                    if seqn not in dirs[exc.matching_annot_dir]["seqs"]:
+                        dirs[exc.matching_annot_dir]["seqs"].append(seqn)
+            # Summarize the nested lists in a string
+            summary = ""
+            for dir in dirs.keys():
+                summary += (
+                    f"\n\tDirectory '{dir}' contains multiple peak annotation files associated with sequences "
+                    f"{dirs[dir]['seqs']}:"
+                )
+                for mzxml in dirs[dir]["files"]:
+                    summary += f"\n\t\t{mzxml}"
+            message = (
+                f"The following directories have multiple peak annotation files (associated with different 'Default "
+                "Sequence's, assigned in the 'Peak Annotation Files' sheet), meaning that the listed mzXML files "
+                "cannot be unambiguously assigned an MSRunSequence record.\n"
+                f"{summary}\n\n"
+                "Explanation: When a sequence is not provided in the 'Peak Annotation Details' sheet for an mzXML "
+                "file, the association between an mzXML and the MSRunSequence it belongs to is inferred by its "
+                "colocation with (or its location under a parent directory containing) a peak annotation file, based "
+                "on the 'Default Sequence' assigned in the 'Peak Annotation Files' sheet.\n\n"
+                "Suggestion: Either provide values in the 'Sequence' column in the 'Peak Annotation Files' sheet or re-"
+                "arrange the multiple colocated peak annotation files to ensure that they are in the directory "
+                "containing the mzXML files that were used to generate them.  (If a peak annotation file was generated "
+                "using a mix of mzXML files from different sequences, the 'Sequence' column in the 'Peak Annotation "
+                "Details' sheet must be filled in and it is recommended that mzXML files are grouped into directories "
+                "defined by the sequence that generated them.)"
+            )
+        super().__init__(message, **kwargs)
+
+
+class MzxmlColocatedWithMultipleAnnot(InfileError, SummarizableError):
+    SummarizerExceptionClass = MzxmlColocatedWithMultipleAnnots
+
+    def __init__(
+        self, msrun_sequence_names: List[str], matching_annot_dir: str, **kwargs
+    ):
         nlt = "\n\t"
         message = (
             "mzXML file '%s' shares a common path with multiple peak annotation files (from the peak annotation files "
-            f"sheet) that are associated with different sequences:\n\t{nlt.join(msrun_sequence_names)}\nCo-location of "
-            "mzXML files with peak annotation files is what allows mzXML files to be linked to an MSRunSequence, based "
-            "on the Default Sequence column in the Peak Annotation Files sheet."
+            f"sheet), located in directory '{matching_annot_dir}' that are associated with different "
+            f"sequences:\n\t{nlt.join(msrun_sequence_names)}\nCo-location of mzXML files with peak annotation files is "
+            "what allows mzXML files to be linked to an MSRunSequence, based on the Default Sequence column in the "
+            "Peak Annotation Files sheet."
         )
         super().__init__(message, **kwargs)
+        self.msrun_sequence_names = msrun_sequence_names
+        self.matching_annot_dir = matching_annot_dir
 
 
 class DefaultSequenceNotFound(Exception):
@@ -4583,6 +4672,160 @@ class MultipleStudyDocVersions(StudyDocVersionException):
             )
         super().__init__(message, match_data, matching_version_numbers)
         self.matching_version_numbers = matching_version_numbers
+
+
+class DeveloperWarning(Warning):
+    # NOTE: Not user facing.
+    pass
+
+
+class DBFieldVsFileColDeveloperWarnings(DeveloperWarning):
+    """Summarization of multiple DBFieldVsFileColDeveloperWarning exceptions.  This exception breaks down the type
+    warnings between database fields and file columns by loader class/field, whether the string versions differed or
+    not, and by file location (so that the column can be mapped).  See DBFieldVsFileColDeveloperWarning's
+    docstring for details on how to address this exception."""
+
+    def __init__(self, exceptions: List[DBFieldVsFileColDeveloperWarning]):
+        differences: Dict[str, Dict[str, Dict[str, List[Dict[str, str]]]]] = (
+            defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+        )
+        different = False
+        exc: DBFieldVsFileColDeveloperWarning
+        for exc in exceptions:
+            loader_field = f"Loader: {exc.loader_name}, Field: {type(exc.rec).__name__}.{exc.field}"
+            if exc.different:
+                different_equal = "Differing string values"
+                different = True
+            else:
+                different_equal = "Equal string values"
+            differences[loader_field][different_equal][exc.loc].append(
+                {
+                    "database": exc.db_value,
+                    "file": exc.file_value,
+                }
+            )
+
+        summary = ""
+        for loader_field in differences.keys():
+            summary += f"\n{loader_field}"
+            for different_equal in differences[loader_field].keys():
+                summary += f"\n\t{different_equal}:"
+                for file_location in differences[loader_field][different_equal].keys():
+                    for diff in differences[loader_field][different_equal][
+                        file_location
+                    ]:
+                        dbval = diff["database"]
+                        dbtype = type(dbval).__name__
+                        fileval = diff["file"]
+                        filetype = type(fileval).__name__
+                        summary += (
+                            f"\n\t\t{file_location}:\n"
+                            f"\t\t\tDatabase Value: '{dbval}' (type: {dbtype})\n"
+                            f"\t\t\tFile Value: '{fileval}' (type: {filetype})"
+                        )
+
+        message = (
+            "Model field values from existing records in the database were compared to values from the input file, "
+            "but the types differed.  Their values were cast to a string to make the comparison.  If the string "
+            "comparison conclusions are correct, you can ignore this warning.  If any conclusions are wrong, the "
+            "corresponding loader class must be updated so that the values can be correctly compared.  Consult the "
+            "docstring of the DBFieldVsFileColDeveloperWarning class for details.  Summary of the type differences "
+            f"encountered:\n{summary}"
+        )
+        if different:
+            message += (
+                "\n\nNote that since in at least 1 case, the database and file string values differed, their "
+                "exceptions will be followed by ConflictingValueError exceptions.  This warning is intended to help "
+                "debug the case where any of those ConflictingValueError exceptions appear wrong (e.g. it says that "
+                "'1' != 1)."
+            )
+        super().__init__(message)
+
+
+class DBFieldVsFileColDeveloperWarning(
+    InfileError, DeveloperWarning, SummarizableError
+):
+    """This warning helps developers find problems in the loader code that helps users to be able to fix unique
+    constraint IntegrityErrors.
+
+    Problems found relate to comparing file-derived values with database-derived values when their types are not
+    recorded in the loader class.  The purpose is to catch automatic type conversion mistakes that Excel/pandas make so
+    that that incorrect type can be explicitly fixed in the loader class (i.e. it can tell pandas what type to use).
+    Only simple types are supported.
+
+    Solving this problem means that whenever the user encounters a unique constraint violation, we will be able to tell
+    the user what sheet, row, and column in their infile need to be corrected to resolve the conflict.  This warning
+    helps us ensure that they are given valid difference information.
+
+    The fix only applies to database fields that map 1:1 with a column in the input file.  If you encounter a type issue
+    relating to more than 1 column, a parsed column, or a delimited column, the problem cannot be fixed in the method
+    described below.  It means that your code is setting the incorrect type in one of the values in the dict supplied
+    to get_or_create.  To determine if the advice below is relevant, you need to identify a column in the file/sheet,
+    using the data provided in the exception, that corresponds exactly to the value from the database.  If the column
+    contains multiple delimited values or if it is a parsed value, or if the DB field is constructed using values from
+    multiple columns, the issue is in the loading code, and the advise below is not applicable.
+
+    If there is a column that corresponds 1:1 with the DB field, there are 2 changes that need to be made to the loader
+    code:
+
+    1. The database field should be mapped to the model/column in the class attribute 'FieldToDataHeaderKey'
+    2. The type of the values in the column should be added to the class attribute 'DataColumnTypes'.
+
+    Example:
+        If the exception is from the SamplesLoader, and the sample name column had the value '1', pandas will by default
+        read in an integer, but the database expects a string.  We have to map the 'Sample.name' field to the column in
+        the variable 'SAMPLE_KEY', and set its type to 'str'.  We do that by adding the values in the class attributes:
+
+        DataColumnTypes: Dict[str, type] = {
+            SAMPLE_KEY: str,
+        }
+
+        FieldToDataHeaderKey = {
+            Sample.__name__: {
+                "name": SAMPLE_KEY,
+            },
+        }
+
+    """
+
+    SummarizerExceptionClass = DBFieldVsFileColDeveloperWarnings
+
+    def __init__(
+        self,
+        rec: Model,
+        field: str,
+        db_value: Any,
+        file_value: Any,
+        loader_name: str,
+        **kwargs,
+    ):
+        different = str(db_value) != str(file_value)
+        different_str = "different" if different else "equal"
+        message = (
+            f"A Model field '{type(rec).__name__}.{field}' value from an existing record in the database was compared "
+            f"to a value from an unmapped column in %s, but the type of the value from the database ('{db_value}', a "
+            f"'{type(db_value).__name__}') and the type of the value from the file ('{file_value}', a "
+            f"'{type(file_value).__name__}') differs.  Both were cast to a string to compare and found to be "
+            f"{different_str}.\n\n"
+            f"If the string comparison conclusion ('{db_value}' vs '{file_value}' -> {different_str}) is correct, you "
+            f"can ignore this warning.  If that conclusion is wrong, the loader ({loader_name}) must be updated so "
+            "that the values can be correctly compared.  Consult the docstring of the "
+            f"{__class__.__name__} class for details."  # type: ignore[name-defined]
+        )
+        if different:
+            message += (
+                "\n\nNote that since the database and file string values differed, this exception will be followed by "
+                "a ConflictingValueError.  This warning is intended to help debug the case where that "
+                "ConflictingValueError appears wrong (e.g. it says that 1 != 1)."
+            )
+        InfileError.__init__(self, message, **kwargs)
+        self.rec = rec
+        self.field = field
+        self.db_value = db_value
+        self.file_value = file_value
+        self.loader_name = loader_name
+        self.different = str(db_value) != str(file_value)
+        self.different_str = different_str
 
 
 def generate_file_location_string(column=None, rownum=None, sheet=None, file=None):

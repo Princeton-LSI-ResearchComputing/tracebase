@@ -1,12 +1,23 @@
+from datetime import datetime, timedelta
+
 import pandas as pd
 from django.conf import settings
 from django.core.management import call_command
 from django.test import override_settings
 
-from DataRepo.models.peak_data import PeakData
-from DataRepo.models.peak_group import PeakGroup
+from DataRepo.models import (
+    Animal,
+    ArchiveFile,
+    Compound,
+    Infusate,
+    PeakData,
+    PeakGroup,
+    Sample,
+    Tissue,
+)
 from DataRepo.models.utilities import get_all_models
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
+from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
@@ -114,3 +125,63 @@ class LoadStudyTests(TracebaseTestCase):
             df_dict["Tracers"],
             check_like=True,
         )
+
+    def create_sample_record_for_mzxml_tests(self):
+        """This creates supporting records for tests test_init_mzxml_files_default and test_init_skip_mzxml_files"""
+
+        call_command("loaddata", "lc_methods")
+        Compound.objects.create(
+            name="gluc",
+            formula="C6H12O6",
+            hmdb_id="HMDB0000122",
+        )
+        infobj = parse_infusate_name_with_concs("gluc-[13C6][10]")
+        inf, _ = Infusate.objects.get_or_create_infusate(infobj)
+        inf.save()
+        anml = Animal.objects.create(
+            name="test_animal",
+            age=timedelta(weeks=int(13)),
+            sex="M",
+            genotype="WT",
+            body_weight=200,
+            diet="normal",
+            feeding_status="fed",
+            infusate=inf,
+        )
+        tsu = Tissue.objects.create(name="Brain")
+        Sample.objects.create(
+            # This is the sample name in DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx
+            name="Sample Name",
+            tissue=tsu,
+            animal=anml,
+            researcher="John Doe",
+            date=datetime.now(),
+        )
+
+    def test_init_mzxml_files_default(self):
+        """This test ensures that mzXML files are found and loaded by default"""
+        # Load data required by the test
+        self.create_sample_record_for_mzxml_tests()
+        # Run the loader
+        call_command(
+            "load_study",
+            infile="DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",
+            # Excluding the peak annot files, since it's expensive and unnecessary for this test
+            exclude_sheets=["Peak Annotation Files"],
+        )
+        # NOTE: This count includes the 1 raw file and 2 mzXMLs.
+        self.assertEqual(3, ArchiveFile.objects.count())
+
+    def test_init_skip_mzxml_files(self):
+        """This test ensures that mzXML file loads can be skipped"""
+        # Load data required by the test
+        self.create_sample_record_for_mzxml_tests()
+        # Run the loader
+        call_command(
+            "load_study",
+            infile="DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",
+            # Excluding the peak annot files, since it's expensive and unnecessary for this test
+            exclude_sheets=["Peak Annotation Files"],
+            skip_mzxmls=True,
+        )
+        self.assertEqual(0, ArchiveFile.objects.count())
