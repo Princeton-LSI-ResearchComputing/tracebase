@@ -4979,7 +4979,23 @@ class ProhibitedCompoundName(ProhibitedStringValue, InfileError, SummarizableErr
 
 
 class AnimalsWithoutSamples(Exception):
-    """Summary of `AnimalWithoutSamples` exceptions."""
+    """Summary of `AnimalWithoutSamples` exceptions.
+
+    Lists the names of animals (and the locations in the study doc in which they can be found) that have no samples and
+    suggests how to resolve the issue.
+
+    DEV_SECTION - Everything above this delimiter is user-facing.  See TraceBaseDocs/README.md
+
+    Args:
+        exceptions (List[AnimalWithoutSamples])
+
+    Attributes:
+        Class:
+            None
+        Instance:
+            exceptions (List[AnimalWithoutSamples])
+            animals (List[str]): List of animal names.
+    """
 
     def __init__(self, exceptions: List[AnimalWithoutSamples]):
         # Assumes all exceptions are from the same 1 file's Animals sheet, and gets the file, sheet, and column from the
@@ -5028,6 +5044,20 @@ class AnimalWithoutSamples(InfileError, SummarizableError):
     include the complete animal record and associated study record.
 
     Summarized in `AnimalsWithoutSamples`.
+
+    DEV_SECTION - Everything above this delimiter is user-facing.  See TraceBaseDocs/README.md
+
+    Args:
+        animal (str): Name of an animal without samples.
+        message (Optional[str])
+
+    Attributes:
+        Class:
+            SummarizerExceptionClass (Exception): Concrete class attribute of SummarizableError's abstract requirement.
+                Exception classes derived from abstract base class `SummarizableError` are collected in
+                `DataRepo.loaders.base.table_loader.TableLoader` and summarized by the class defined here.
+        Instance:
+            animal (str): Name of an animal without samples.
     """
 
     SummarizerExceptionClass = AnimalsWithoutSamples
@@ -5049,7 +5079,23 @@ class AnimalWithoutSamples(InfileError, SummarizableError):
 
 
 class AnimalsWithoutSerumSamples(Exception):
-    """Summary of `AnimalWithoutSerumSamples` exceptions."""
+    """Summary of `AnimalWithoutSerumSamples` exceptions.
+
+    Lists the names of animals (and the locations in the study doc in which they can be found) that have no serum
+    samples, explains why they're important, and suggests how to resolve the issue.
+
+    DEV_SECTION - Everything above this delimiter is user-facing.  See TraceBaseDocs/README.md
+
+    Args:
+        exceptions (List[AnimalWithoutSerumSamples])
+
+    Attributes:
+        Class:
+            None
+        Instance:
+            exceptions (List[AnimalWithoutSerumSamples])
+            animals (List[str]): List of animal names.
+    """
 
     def __init__(self, exceptions: List[AnimalWithoutSerumSamples]):
         # Assumes all exceptions are from the same 1 file's Animals sheet, and gets the file, sheet, and column from the
@@ -5107,6 +5153,20 @@ class AnimalWithoutSerumSamples(InfileError, SummarizableError):
     include the complete animal record and associated study record.
 
     Summarized in `AnimalsWithoutSerumSamples`.
+
+    DEV_SECTION - Everything above this delimiter is user-facing.  See TraceBaseDocs/README.md
+
+    Args:
+        animal (str): Name of an animal without serum samples.
+        message (Optional[str])
+
+    Attributes:
+        Class:
+            SummarizerExceptionClass (Exception): Concrete class attribute of SummarizableError's abstract requirement.
+                Exception classes derived from abstract base class `SummarizableError` are collected in
+                `DataRepo.loaders.base.table_loader.TableLoader` and summarized by the class defined here.
+        Instance:
+            animal (str): Name of an animal without samples.
     """
 
     SummarizerExceptionClass = AnimalsWithoutSerumSamples
