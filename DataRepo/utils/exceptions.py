@@ -4992,6 +4992,23 @@ class ProhibitedCompoundName(ProhibitedStringValue, InfileError, SummarizableErr
 
 
 class AnimalsWithoutSamples(Exception):
+    """Summary of `AnimalWithoutSamples` exceptions.
+
+    Lists the names of animals (and the locations in the study doc in which they can be found) that have no samples and
+    suggests how to resolve the issue.
+
+    DEV_SECTION - Everything above this delimiter is user-facing.  See TraceBaseDocs/README.md
+
+    Args:
+        exceptions (List[AnimalWithoutSamples])
+
+    Attributes:
+        Class:
+            None
+        Instance:
+            exceptions (List[AnimalWithoutSamples])
+            animals (List[str]): List of animal names.
+    """
 
     def __init__(self, exceptions: List[AnimalWithoutSamples]):
         # Assumes all exceptions are from the same 1 file's Animals sheet, and gets the file, sheet, and column from the
@@ -5019,6 +5036,43 @@ class AnimalsWithoutSamples(Exception):
 
 
 class AnimalWithoutSamples(InfileError, SummarizableError):
+    """An animal was detected without any samples associated with it in the `Samples` sheet.
+
+    If the animal has samples in the `Samples` sheet, it is likely that the load of every sample associated with the
+    animal encountered a separate error.  Fixing those errors will resolve this warning.
+
+    If however, there are no samples associated with the animal in the `Samples` sheet, it is likely that one or more
+    peak annotation files associated with the animal was omitted when generating the Study Doc on the Upload **Start**
+    page.  In this case, to address the issue, it is recommended that you generate a new Study Doc from **all** peak
+    annotation files combined and copy over all of your work from the current file, being careful to account for new
+    ordered samples rows and all auto-filled sheets, like `Peak Annotation File`/`Details` and `Compounds`.
+
+    This is recommended for a number of reasons that are covered elsewhere in the TraceBase documentation, but to
+    summarize, the Upload **Start** page performs checks that are not performed elsewhere to find conflicting issues
+    between peak annotation files, and it fills in all inter-sheet references (including hidden sheets and columns and
+    peak group conflicts) that are laborious and error prone to attempt manually.
+
+    You may alternatively elect to add the forgotten peak annotation files in a separate submission after the current
+    data has been loaded.  You may keep the animal records and ignore this warning.  The subsequent submission should
+    include the complete animal record and associated study record.
+
+    Summarized in `AnimalsWithoutSamples`.
+
+    DEV_SECTION - Everything above this delimiter is user-facing.  See TraceBaseDocs/README.md
+
+    Args:
+        animal (str): Name of an animal without samples.
+        message (Optional[str])
+
+    Attributes:
+        Class:
+            SummarizerExceptionClass (Exception): Concrete class attribute of SummarizableError's abstract requirement.
+                Exception classes derived from abstract base class `SummarizableError` are collected in
+                `DataRepo.loaders.base.table_loader.TableLoader` and summarized by the class defined here.
+        Instance:
+            animal (str): Name of an animal without samples.
+    """
+
     SummarizerExceptionClass = AnimalsWithoutSamples
 
     def __init__(self, animal: str, message: Optional[str] = None, **kwargs):
@@ -5038,6 +5092,23 @@ class AnimalWithoutSamples(InfileError, SummarizableError):
 
 
 class AnimalsWithoutSerumSamples(Exception):
+    """Summary of `AnimalWithoutSerumSamples` exceptions.
+
+    Lists the names of animals (and the locations in the study doc in which they can be found) that have no serum
+    samples, explains why they're important, and suggests how to resolve the issue.
+
+    DEV_SECTION - Everything above this delimiter is user-facing.  See TraceBaseDocs/README.md
+
+    Args:
+        exceptions (List[AnimalWithoutSerumSamples])
+
+    Attributes:
+        Class:
+            None
+        Instance:
+            exceptions (List[AnimalWithoutSerumSamples])
+            animals (List[str]): List of animal names.
+    """
 
     def __init__(self, exceptions: List[AnimalWithoutSerumSamples]):
         # Assumes all exceptions are from the same 1 file's Animals sheet, and gets the file, sheet, and column from the
@@ -5071,6 +5142,46 @@ class AnimalsWithoutSerumSamples(Exception):
 
 
 class AnimalWithoutSerumSamples(InfileError, SummarizableError):
+    """An animal with a tracer infusion was detected without any serum samples associated with it in the `Samples`
+    sheet.
+
+    Serum samples are necessary in order for TraceBase to report FCirc calculations.
+
+    If the animal has serum samples in the `Samples` sheet, it is possible that the load of every serum sample
+    associated with the animal encountered a separate error.  Fixing those errors will resolve this warning.
+
+    If however, there are no serum samples associated with the animal in the `Samples` sheet, it is possible that a
+    peak annotation file associated with the animal was omitted when generating the Study Doc on the Upload **Start**
+    page.  In this case, to address the issue, it is recommended that you generate a new Study Doc from **all** peak
+    annotation files combined and copy over all of your work from the current file, being careful to account for new
+    ordered samples rows and all auto-filled sheets, like `Peak Annotation File`/`Details` and `Compounds`.
+
+    This is recommended for a number of reasons that are covered elsewhere in the TraceBase documentation, but to
+    summarize, the Upload **Start** page performs checks that are not performed elsewhere to find conflicting issues
+    between peak annotation files, and it fills in all inter-sheet references (including hidden sheets and columns and
+    peak group conflicts) that are laborious and error prone to attempt manually.
+
+    You may alternatively elect to add the forgotten peak annotation files in a separate submission after the current
+    data has been loaded.  You may keep the animal records and ignore this warning.  The subsequent submission should
+    include the complete animal record and associated study record.
+
+    Summarized in `AnimalsWithoutSerumSamples`.
+
+    DEV_SECTION - Everything above this delimiter is user-facing.  See TraceBaseDocs/README.md
+
+    Args:
+        animal (str): Name of an animal without serum samples.
+        message (Optional[str])
+
+    Attributes:
+        Class:
+            SummarizerExceptionClass (Exception): Concrete class attribute of SummarizableError's abstract requirement.
+                Exception classes derived from abstract base class `SummarizableError` are collected in
+                `DataRepo.loaders.base.table_loader.TableLoader` and summarized by the class defined here.
+        Instance:
+            animal (str): Name of an animal without samples.
+    """
+
     SummarizerExceptionClass = AnimalsWithoutSerumSamples
 
     def __init__(self, animal: str, message: Optional[str] = None, **kwargs):
