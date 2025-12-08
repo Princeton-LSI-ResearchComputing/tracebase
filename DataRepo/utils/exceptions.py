@@ -4691,10 +4691,23 @@ class DeveloperWarning(Warning):
 
 
 class DBFieldVsFileColDeveloperWarnings(DeveloperWarning):
-    """Summarization of multiple DBFieldVsFileColDeveloperWarning exceptions.  This exception breaks down the type
-    warnings between database fields and file columns by loader class/field, whether the string versions differed or
-    not, and by file location (so that the column can be mapped).  See DBFieldVsFileColDeveloperWarning's
-    docstring for details on how to address this exception."""
+    """Summarization of multiple DBFieldVsFileColDeveloperWarning exceptions.
+
+    This exception breaks down the type warnings between database fields and file columns by loader class/field, whether
+    the string versions differed or not, and by file location (so that the column can be mapped).  See
+    DBFieldVsFileColDeveloperWarning's docstring for details on how to address this exception.
+
+    Args:
+        exceptions (List[DBFieldVsFileColDeveloperWarning])
+
+    Attributes:
+        Class:
+            None
+        Instance:
+            None
+    """
+
+    # NOTE: Not user facing.
 
     def __init__(self, exceptions: List[DBFieldVsFileColDeveloperWarning]):
         differences: Dict[str, Dict[str, Dict[str, List[Dict[str, str]]]]] = (
