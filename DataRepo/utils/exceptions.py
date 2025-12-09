@@ -4806,14 +4806,14 @@ class DBFieldVsFileColDeveloperWarnings(DeveloperWarning):
         Exceptions:
             None
         Returns:
-            summary (str)
+            (str)
         """
-        summary = ""
+        summary = []
         for loader_field in self.differences.keys():
-            summary += f"\n{loader_field}"
+            summary.append(f"\n{loader_field}")
 
             for different_equal in self.differences[loader_field].keys():
-                summary += f"\n\t{different_equal}:"
+                summary.append(f"\n\t{different_equal}:")
 
                 for file_location in self.differences[loader_field][
                     different_equal
@@ -4827,13 +4827,13 @@ class DBFieldVsFileColDeveloperWarnings(DeveloperWarning):
                         fileval = diff["file"]
                         filetype = type(fileval).__name__
 
-                        summary += (
+                        summary.append(
                             f"\n\t\t{file_location}:\n"
                             f"\t\t\tDatabase Value: '{dbval}' (type: {dbtype})\n"
                             f"\t\t\tFile Value: '{fileval}' (type: {filetype})"
                         )
 
-        return summary
+        return "".join(summary)
 
     def _build_message(self, summary: str) -> str:
         message = (
