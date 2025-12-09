@@ -5,6 +5,7 @@ import traceback
 import warnings
 from abc import ABC, abstractmethod
 from collections import defaultdict
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from django.core.exceptions import (
@@ -4697,57 +4698,144 @@ class DBFieldVsFileColDeveloperWarnings(DeveloperWarning):
     the string versions differed or not, and by file location (so that the column can be mapped).  See
     DBFieldVsFileColDeveloperWarning's docstring for details on how to address this exception.
 
+    This warning is only issued when the types of database versus file values differ, and is only useful when it is
+    followed by ConflictingValueErrors, in which case those exceptions can be resolved by explicitly setting the column
+    type in the loader class.
+
     Args:
         exceptions (List[DBFieldVsFileColDeveloperWarning])
-
     Attributes:
         Class:
             None
         Instance:
-            None
+            exceptions (List[DBFieldVsFileColDeveloperWarning])
+            differences (Dict[str, Dict[str, Dict[str, List[Dict[str, str]]]]]): A dictionary summarizing differences
+                between an existing database record and the values derived from the input file.
+                See Differences.differences defined in the class attributes.
+            has_mismatches (bool): Whether any values are effectively different, i.e. whether the values will "look"
+                different to the developer (because everything that comes from the file is potentially a str).  This
+                value is key as to how the issue described in the exception message should be resolved.
+                See Differences.has_mismatches defined in the class attributes.
     """
 
-    # NOTE: Not user facing.
+    @dataclass
+    class Differences:
+        """A dataclass to hold information on differences between database records and rows in an input file.
+
+        Args:
+            differences (Dict[str, Dict[str, Dict[str, List[Dict[str, str]]]]]): See Attributes.
+            has_mismatches (bool): See Attributes.
+
+        Attributes:
+            differences (Dict[str, Dict[str, Dict[str, List[Dict[str, str]]]]]): A dictionary summarizing differences
+                between an existing database record and the values derived from the input file.
+                See Differences.differences defined in the class attributes.
+            has_mismatches (bool): Whether any values are effectively different, i.e. whether the values will "look"
+                different to the developer (because everything that comes from the file is potentially a str).  This
+                value is key as to how the issue described in the exception message should be resolved.
+                See Differences.has_mismatches defined in the class attributes.
+        """
+
+        differences: Dict[str, Dict[str, Dict[str, List[Dict[str, str]]]]]
+        has_mismatches: bool
 
     def __init__(self, exceptions: List[DBFieldVsFileColDeveloperWarning]):
-        differences: Dict[str, Dict[str, Dict[str, List[Dict[str, str]]]]] = (
+        self.exceptions = exceptions
+
+        result = self._build_differences()
+        self.differences = result.differences
+        self.has_mismatches = result.has_mismatches
+
+        summary = self._summarize_differences()
+        message = self._build_message(summary)
+
+        super().__init__(message)
+
+    def _build_differences(self) -> Differences:
+        """Generates an organized dictionary of differences between existing database records & input file rows.
+
+        The structure of the dict reflects how the exception's message will display the difference data.
+
+        Requires self.exceptions to have been set.
+
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            (Differences)
+        """
+        differences_dict: Dict[str, Dict[str, Dict[str, List[Dict[str, str]]]]] = (
             defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
         )
-        different = False
+        has_mismatches = False
         exc: DBFieldVsFileColDeveloperWarning
-        for exc in exceptions:
+        for exc in self.exceptions:
             loader_field = f"Loader: {exc.loader_name}, Field: {type(exc.rec).__name__}.{exc.field}"
             if exc.different:
                 different_equal = "Differing string values"
-                different = True
+                has_mismatches = True
             else:
                 different_equal = "Equal string values"
-            differences[loader_field][different_equal][exc.loc].append(
+            differences_dict[loader_field][different_equal][exc.loc].append(
                 {
                     "database": exc.db_value,
                     "file": exc.file_value,
                 }
             )
 
-        summary = ""
-        for loader_field in differences.keys():
-            summary += f"\n{loader_field}"
-            for different_equal in differences[loader_field].keys():
-                summary += f"\n\t{different_equal}:"
-                for file_location in differences[loader_field][different_equal].keys():
-                    for diff in differences[loader_field][different_equal][
+        return self.Differences(differences_dict, has_mismatches)
+
+    def _summarize_differences(self) -> str:
+        """Turns the self.differences dictionary into an indented list of differences.
+
+        The differences are organized by the (loader name and) database field name, whether the string values differ,
+        and the location in the file where the corresponding data with a unique constraint violation was encountered.
+
+        Requires self.differences and self.has_mismatches to have been set.
+
+        Example:
+            # Example return value (string of an indented outline detailing differences)
+            Loader: AnimalLoader, Field: Animal.age
+                Differing string values:
+                    column [Age] on row [5] of sheet [Animals] in [study.xlsx]
+                        Database Value: '2' (type: int)
+                        File Value: '5' (type: str)
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            (str)
+        """
+        summary = []
+        for loader_field in self.differences.keys():
+            summary.append(f"\n{loader_field}")
+
+            for different_equal in self.differences[loader_field].keys():
+                summary.append(f"\n\t{different_equal}:")
+
+                for file_location in self.differences[loader_field][
+                    different_equal
+                ].keys():
+
+                    for diff in self.differences[loader_field][different_equal][
                         file_location
                     ]:
                         dbval = diff["database"]
                         dbtype = type(dbval).__name__
                         fileval = diff["file"]
                         filetype = type(fileval).__name__
-                        summary += (
+
+                        summary.append(
                             f"\n\t\t{file_location}:\n"
                             f"\t\t\tDatabase Value: '{dbval}' (type: {dbtype})\n"
                             f"\t\t\tFile Value: '{fileval}' (type: {filetype})"
                         )
 
+        return "".join(summary)
+
+    def _build_message(self, summary: str) -> str:
         message = (
             "Model field values from existing records in the database were compared to values from the input file, "
             "but the types differed.  Their values were cast to a string to make the comparison.  If the string "
@@ -4756,14 +4844,16 @@ class DBFieldVsFileColDeveloperWarnings(DeveloperWarning):
             "docstring of the DBFieldVsFileColDeveloperWarning class for details.  Summary of the type differences "
             f"encountered:\n{summary}"
         )
-        if different:
+
+        if self.has_mismatches:
             message += (
                 "\n\nNote that since in at least 1 case, the database and file string values differed, their "
                 "exceptions will be followed by ConflictingValueError exceptions.  This warning is intended to help "
                 "debug the case where any of those ConflictingValueError exceptions appear wrong (e.g. it says that "
                 "'1' != 1)."
             )
-        super().__init__(message)
+
+        return message
 
 
 class DBFieldVsFileColDeveloperWarning(
