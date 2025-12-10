@@ -14,6 +14,7 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     InfileDatabaseError,
+    MissingFCircCalculationValues,
     RequiredColumnValues,
 )
 from DataRepo.utils.infusate_name_parser import (
@@ -128,9 +129,14 @@ class LoadAnimalsSmallObobTests(TracebaseTestCase):
                 infile="DataRepo/data/tests/small_obob/study_labeled_elements_invalid.xlsx",
             )
         aes = ar.exception
-        self.assertEqual(1, len(aes.exceptions))
+        self.assertEqual(2, len(aes.exceptions))
         self.assertIsInstance(aes.exceptions[0], InfileDatabaseError)
         self.assertIn("IsotopeParsingError", str(aes.exceptions[0]))
+
+        # Piggy-backed test about FCirc Warning
+        self.assertIsInstance(aes.exceptions[1], MissingFCircCalculationValues)
+        self.assertIn("Weight", str(aes.exceptions[1]))
+        self.assertNotIn("Infusion Rate", str(aes.exceptions[1]))
 
 
 # TODO: Move MaintainedModel-specific tests to its own test file that doesn't use tracebase models

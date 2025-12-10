@@ -48,6 +48,8 @@ from DataRepo.utils.exceptions import (
     NoTracerLabeledElements,
     ObservedIsotopeParsingError,
     ObservedIsotopeUnbalancedError,
+    ProhibitedCompoundName,
+    ProhibitedStringValue,
     RecordDoesNotExist,
     ReplacingPeakGroupRepresentation,
     RollbackException,
@@ -230,6 +232,12 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         PeakGroupCompound,
     ]
 
+    name_fix_suggestion = (
+        f"You may choose to manually edit the automatically fixed compound name in the peak annotation file, but be "
+        f"sure to also fix any occurrences in the '{CompoundsLoader.DataHeaders.NAME}' and/or "
+        f"'{CompoundsLoader.DataHeaders.SYNONYMS}' columns of the '{CompoundsLoader.DataSheetName}' sheet as well."
+    )
+
     def __init__(self, *args, multrep_suggestion=None, **kwargs):
         """Constructor.
 
@@ -243,6 +251,8 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             Superclass Args:
                 df (Optional[pandas dataframe]): Data, e.g. as parsed from a table-like file.
                 dry_run (Optional[boolean]) [False]: Dry run mode.
+                debug (bool) [False]: Debug mode causes all buffered exception traces to be printed.  Normally, if an
+                    exception is a subclass of SummarizableError, the printing of its trace is suppressed.
                 defer_rollback (Optional[boolean]) [False]: Defer rollback mode.  DO NOT USE MANUALLY - A PARENT SCRIPT
                     MUST HANDLE THE ROLLBACK.
                 data_sheet (Optional[str]): Sheet name (for error reporting).
@@ -356,6 +366,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             date=kwargs.pop("date", None),
             lc_protocol_name=kwargs.pop("lc_protocol_name", None),
             instrument=kwargs.pop("instrument", None),
+            skip_mzxmls=True,
         )
 
         # Example: self.peak_group_selections[sample][pgname.lower()]["filename"] = selected_peak_annotation_filename
@@ -709,7 +720,29 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             # avoid an exception from the code below, which assumes non-None
             return recs
 
-        pgnames = [ns.strip() for ns in names_str.split(PeakGroup.NAME_DELIM)]
+        pgnames = []
+        for ns in names_str.split(PeakGroup.NAME_DELIM):
+            name = ns.strip()
+            try:
+                Compound.validate_compound_name(name)
+            except ProhibitedStringValue as pc:
+                name = Compound.validate_compound_name(name, fix=True)
+                self.aggregated_errors_object.buffer_warning(
+                    ProhibitedCompoundName(
+                        pc.found,
+                        value=pc.value,
+                        disallowed=pc.disallowed,
+                        fixed=name,
+                        file=self.friendly_file,
+                        sheet=self.sheet,
+                        column=self.headers.COMPOUND,
+                        rownum=self.rownum,
+                        suggestion=self.name_fix_suggestion,
+                    ),
+                    is_fatal=self.validate,
+                    orig_exception=pc,
+                )
+            pgnames.append(name)
 
         for compound_synonym in pgnames:
             recs[compound_synonym] = self.get_compound(

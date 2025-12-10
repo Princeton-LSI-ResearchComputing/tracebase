@@ -25,7 +25,7 @@ None
     - [ ] `git log [PREVIOUS_TAG]..HEAD` - Review the log to summarize changes since the last release
       - Tip/example: `git log --reverse [PREVIOUS_TAG]..HEAD | grep "^    " | cut -b 5- | grep . | grep -v -E "^Details:|^Merge pull request|^Files checked in|skip ci"`
     - [ ] `markdownlint --config .markdown-lint.yml CHANGELOG.md`
-    - [ ] `npx textlint CHANGELOG.md`
+    - [ ] `npx textlint -c .textlintrc.json CHANGELOG.md`
     - [ ] `git commit`
   - [ ] `git push` - commit and push updated changelog
     - [ ] Ensure all tests pass in GitHub actions
@@ -35,7 +35,7 @@ None
   - [ ] Follow steps to [create a release on GitHub](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository#creating-a-release)
   - [ ] Edit `CHANGELOG.md` to add back the *Unreleased* section
     - [ ] `markdownlint --config .markdown-lint.yml CHANGELOG.md`
-    - [ ] `npx textlint CHANGELOG.md`
+    - [ ] `npx textlint -c .textlintrc.json CHANGELOG.md`
     - [ ] `git commit`
   - [ ] `git push` - commit and push updated changelog
   - [ ] If this is a release branch (not `main`), merge into main

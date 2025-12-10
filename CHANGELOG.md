@@ -41,6 +41,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+<<<<<<< HEAD
+## [v3.1.5-beta] - 2025-05-15
+
+### Fixed
+
+- Fixed 500 server errors
+  - Fixed an internal server error resulting from attempts to access field attributes before checking that the field was not null.
+  - Fixed Mzxml download server errors when there were no mzXML files in the search results.
+  - Fixed a bug that caused ordering advanced search results by some columns to encounter a 500 server error.
+  - Fixed a minor JavaScript bug in the hierarchical formsets that prevented the FCirc comparator select list from having a default selection, which upon submission (if not manually selected), would cause a 500 server error.
+  - Fixed a validation/loading bug where when the Label Positions column in the Tracers sheet contained only a single digit, an exception would be raised due to a type error.
+  - Gracefully handled a tracer name parsing error that was causing a 500 server error when the label count was missing during validation.
+  - Changed 500 error in read-only mode to a 403 forbidden error
+- Fixed loading bugs
+  - MaintainedModel
+    - Fixed a ValueError by adding a try/except block that infers that when there is no existing link from a reverse relation, there is no need to propagate changes through it, so it is skipped.
+    - Fixed an issue in get_all_maintained_field_values where it was supplying too many arguments to values_list by breaking it up into a loop to call one at a time.  This was the first time it had ever received multiple values to retrieve (due to recently added maintained fields).
+  - Fixed a type-checking error when column headers are custom.
+  - Fixed an issue where missing blanks (which should have been ignored) were preventing the MSRunsLoader from proceeding, despite there being no errors.
+- Fixed validation page bugs
+  - Fixed minor MissingSamples bug that caused the originating column to not be identified, due to an inability to map database foreign key fields from IntegrityErrors to the column in the study doc.
+- Added a graceful paginator class to not cause a 500 server error when the requested page number is out of bounds.
+
+### Added
+
+- Added label_combo fields to models: Animal through Tracer.
+- Added a number of convenient database utilities for handling database fields, their paths, their relationship type, and general field type (number, string, and foreign key).
+- Dependencies
+  - Added a package to the dev requirements that allows pylint to be more compatible with django, specifically when running it on the command-line.
+  - Added the django debug toolbar as a dev dependency
+  - Added an init file for pylint.
+    - Upped the pylint dependency due to an exception regarding init files that is gracefully handled in the newer versions and easier to figure out.
+- Added groundwork code for improving list view performance, (unfinished).
+
+### Changed
+
+=======
+>>>>>>> 127a6c0a... 3.1.5-beta point release.
 - Load/validation error handling improvements
   - General Exception improvements
     - Removed the database field name from RequiredColumnValue errors, as it is irrelevant/cryptic to the end user.

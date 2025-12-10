@@ -1,5 +1,6 @@
 import warnings
 from datetime import date, timedelta
+from typing import Optional
 
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
@@ -22,14 +23,14 @@ class Sample(MaintainedModel, HierCachedModel):
         max_length=256,
         unique=True,
         null=False,
-        help_text="The unique name of the biological sample.",
+        help_text="The unique name of a biological sample.",
     )
     date = models.DateField(
-        default=date.today, help_text="The date the sample was collected."
+        default=date.today, help_text="The date a sample was collected."
     )
     researcher = models.CharField(
         max_length=256,
-        help_text='The name of the researcher who prepared the sample (e.g. "Alex Medina").',
+        help_text='The name of the researcher who prepared a sample (e.g. "Alex Medina").',
         verbose_name="Sample Owner",
     )
     animal = models.ForeignKey(
@@ -37,18 +38,18 @@ class Sample(MaintainedModel, HierCachedModel):
         on_delete=models.CASCADE,
         null=False,
         related_name="samples",
-        help_text="The source animal from which the sample was extracted.",
+        help_text="The source animal from which a sample was extracted.",
     )
     tissue = models.ForeignKey(
         to="DataRepo.Tissue",
         on_delete=models.RESTRICT,
         null=False,
         related_name="samples",
-        help_text="The tissue type this sample was taken from.",
+        help_text="The tissue type a sample was taken from.",
     )
     is_serum_sample = models.BooleanField(
         default=False,
-        help_text="This field indicates whether this sample is a serum sample.",
+        help_text="This field indicates whether a sample is a serum sample.",
     )
 
     # researchers have advised that samples might have a time_collected up to a day prior-to and 90 days after infusion
@@ -128,8 +129,8 @@ class Sample(MaintainedModel, HierCachedModel):
         return str(self.name)
 
     @classmethod
-    def is_a_blank(cls, sample_name):
-        return "blank" in sample_name.lower()
+    def is_a_blank(cls, sample_name: Optional[str]):
+        return sample_name and "blank" in sample_name.lower()
 
     def get_absolute_url(self):
         """Get the URL to the detail page.

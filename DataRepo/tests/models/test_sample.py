@@ -62,3 +62,6 @@ class SampleTests(TracebaseTestCase):
         with self.assertRaises(ValidationError):
             sample.time_collected = timedelta(minutes=-2000)
             sample.full_clean()
+
+    def test_is_a_blank_none(self):
+        self.assertFalse(Sample.is_a_blank(None))

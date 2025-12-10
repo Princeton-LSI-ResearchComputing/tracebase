@@ -12,7 +12,6 @@
 
 from __future__ import annotations
 
-import os
 import warnings
 from abc import ABC, abstractmethod
 from collections import defaultdict, namedtuple
@@ -47,6 +46,7 @@ from DataRepo.loaders.sequences_loader import SequencesLoader
 from DataRepo.loaders.studies_loader import StudiesLoader
 from DataRepo.loaders.tissues_loader import TissuesLoader
 from DataRepo.loaders.tracers_loader import TracersLoader
+from DataRepo.models.animal import Animal
 from DataRepo.models.hier_cached_model import (
     delete_all_caches,
     disable_caching_updates,
@@ -66,6 +66,10 @@ from DataRepo.utils.exceptions import (
     AllMissingTreatments,
     AllMultiplePeakGroupRepresentations,
     AllUnexpectedLabels,
+    AnimalsWithoutSamples,
+    AnimalsWithoutSerumSamples,
+    AnimalWithoutSamples,
+    AnimalWithoutSerumSamples,
     BlankRemoved,
     BlanksRemoved,
     ConditionallyRequiredArgs,
@@ -278,6 +282,8 @@ class StudyLoader(ConvertedTableLoader, ABC):
                 df (Optional[Dict[str, pandas dataframe]]): Data, e.g. as parsed from an excel file.  *See
                     ConvertedTableLoader.*
                 dry_run (Optional[boolean]) [False]: Dry run mode.
+                debug (bool) [False]: Debug mode causes all buffered exception traces to be printed.  Normally, if an
+                    exception is a subclass of SummarizableError, the printing of its trace is suppressed.
                 defer_rollback (Optional[boolean]) [False]: Defer rollback mode.  DO NOT USE MANUALLY - A PARENT SCRIPT
                     MUST HANDLE THE ROLLBACK.
                 data_sheet (Optional[str]): Sheet name (for error reporting).
@@ -301,9 +307,9 @@ class StudyLoader(ConvertedTableLoader, ABC):
                     purpose of web forms, where the name of the actual file is a randomized hash string at the end of a
                     temporary path.  This dict associates the user's readable filename parsed from the infile (the key)
                     with the actual file (the value).
-                mzxml_dir (Optional[str]): A directory under which files containing the case-insensitive suffix '.mzxml'
-                    reside.  The directory is walked and all mzXML files are supplied to the MSRunsLoader.  Defaults to
-                    the directory in which `file` resides.
+                skip_mzxmls (bool) [False]: Skips the loading of mzXML file records into the ArchiveFile table.  Note,
+                    this also skips the creation of raw file record (but also note that raw files are never actually
+                    loaded - what is skipped is the creation of the record representing the raw file).
                 exclude_sheets (Optional[List[str]]): A list of default DataSheetNames (i.e. the values in the list must
                     match the value of the in each of the cls.Loaders' DataSheetName class attribute - not any custom
                     sheet name, so that it can be scripted on the data repo).
@@ -326,22 +332,14 @@ class StudyLoader(ConvertedTableLoader, ABC):
         # advantage of the TableLoader checks on the sheets as if they were columns.
         self.df_dict = None
 
+        # Custom options specific to individual loaders
         self.annot_files_dict = kwargs.pop("annot_files_dict", {})
-
-        # Before the superclass constructor is called, we want to use the file path to get its enclosing directory as a
-        # default for the (custom derived class argument:) mzxml_dir
-        mzxml_dir = kwargs.pop("mzxml_dir", None)
-        if mzxml_dir is None:
-            study_file = kwargs.get("file")
-            study_dir = None if study_file is None else os.path.dirname(study_file)
-            mzxml_dir = study_dir
-
-        self.mzxml_files = MSRunsLoader.get_mzxml_files(dir=mzxml_dir)
+        self.skip_mzxmls = kwargs.pop("skip_mzxmls", False)
         self.exclude_sheets = kwargs.pop("exclude_sheets", []) or []
 
         clkwa = self.CustomLoaderKwargs._asdict()
         clkwa["FILES"]["annot_files_dict"] = self.annot_files_dict
-        clkwa["HEADERS"]["mzxml_files"] = self.mzxml_files
+        clkwa["HEADERS"]["skip_mzxmls"] = self.skip_mzxmls
         # This occludes the CustomLoaderKwargs class attribute (which we copied and are leaving unchanged)
         # Just note that only the instance has annot_files_dict
         self.CustomLoaderKwargs = self.DataTableHeaders(**clkwa)
@@ -354,7 +352,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
         self.unexpected_labels_exceptions = []
         self.missing_compound_record_exceptions = []
         self.multiple_pg_reps_exceptions = []
-        self.load_statuses = MultiLoadStatus()
+        self.load_statuses = MultiLoadStatus(debug=kwargs.get("debug", False))
 
         self.derived_loaders = {}
         for derived_class in StudyLoader.__subclasses__():
@@ -496,7 +494,12 @@ class StudyLoader(ConvertedTableLoader, ABC):
         # sheets.  The conversion (e.g. v2 to v3) will add sheets, so we must get the sheets from the df_dict object.
 
         file_sheets = list(self.df_dict.keys())
-        loaders = self.get_loader_instances(sheets_to_make=file_sheets)
+        sheets_to_make = []
+        for file_sheet in file_sheets:
+            # Skip loads that the user has excluded, based on a match of the class attribute DataSheetName
+            if file_sheet not in self.exclude_sheets:
+                sheets_to_make.append(file_sheet)
+        loaders = self.get_loader_instances(sheets_to_make=sheets_to_make)
 
         if (
             len(self.annot_files_dict.keys()) > 0
@@ -523,22 +526,32 @@ class StudyLoader(ConvertedTableLoader, ABC):
         disable_caching_updates()
 
         # This cycles through the loaders in the order in which they were defined in the namedtuple
+        all_aggregated_errors = []
         for loader_key in self.Loaders._fields:
             if loader_key not in loaders.keys():
                 continue
 
             loader: TableLoader = loaders[loader_key]
 
-            # Skip loads that the user has excluded, based on a match of the class attribute DataSheetName
-            if loader.DataSheetName in self.exclude_sheets:
-                continue
-
             try:
                 loader.load_data()
             except Exception as e:
-                self.package_group_exceptions(e)
-            finally:
-                self.update_load_stats(loader.get_load_stats())
+                all_aggregated_errors.append(e)
+
+        # Perform cross-loader checks
+        self.perform_checks(loaders)
+
+        # Package up all of the exceptions.  This changes the error states of the various loaders, to emphasis the
+        # summaries and deemphasize (and/or remove) potentially repeated errors.
+        for aes in all_aggregated_errors:
+            self.package_group_exceptions(aes)
+
+        # Now update the load statuses
+        for loader_key in self.Loaders._fields:
+            if loader_key not in loaders.keys():
+                continue
+            loader: TableLoader = loaders[loader_key]
+            self.update_load_stats(loader.get_load_stats())
 
         enable_caching_updates()
 
@@ -759,6 +772,189 @@ class StudyLoader(ConvertedTableLoader, ABC):
                 )
 
         return display_order_spec
+
+    def perform_checks(self, loaders: dict):
+        self.check_animals(
+            loaders.get(self.ANIMALS_SHEET), loaders.get(self.SAMPLES_SHEET)
+        )
+
+    def check_animals(
+        self,
+        animals_loader: Optional[AnimalsLoader],
+        samples_loader: Optional[SamplesLoader],
+    ):
+        # Grab all the animals from the animals sheet (dataframe), if the animals loader is not None
+        animals_from_animalssheet = (
+            []
+            if animals_loader is None
+            else animals_loader.df[animals_loader.headers.NAME].to_list()
+        )
+
+        # If there were animals in the animals sheet
+        if (
+            isinstance(animals_loader, AnimalsLoader)
+            and len(animals_from_animalssheet) > 0
+        ):
+            # Grab all the animals from the *samples* sheet (dataframe), if the samples loader is not None
+            animals_from_samplessheet = (
+                []
+                if samples_loader is None
+                else samples_loader.df[samples_loader.headers.ANIMAL].to_list()
+            )
+
+            # Now get the difference (animals in the animals sheet that were not in the samples sheet)
+            # (We don't need to check animals that have samples in the samples sheet.  Their load may have failed, and
+            #  we don't need to report them being missing because the reason they are missing will be in an error from
+            #  the samples loader.)
+            animals_to_check = list(
+                set(animals_from_animalssheet) - set(animals_from_samplessheet)
+            )
+
+            # First, see if there are any animals without samples (accounting for previously loaded animals with no
+            # samples).
+            animals_without_samples = Animal.get_animals_without_samples(
+                animals_to_check
+            )
+            # Only report animals without samples if the samples sheet has been loaded.  If the user is only loading
+            # animals, we don't expect them to have any samples.
+            if (
+                len(animals_without_samples) > 0
+                and isinstance(animals_loader, AnimalsLoader)
+                and isinstance(samples_loader, SamplesLoader)
+            ):
+                # We are not going to buffer these individually.  Can't think of a reason to do so.
+                animals_without_samples_exceptions: List[AnimalWithoutSamples] = []
+                for animal in animals_without_samples:
+                    rownum = animals_from_animalssheet.index(animal) + 2
+                    aws = AnimalWithoutSamples(
+                        animal,
+                        file=animals_loader.friendly_file,
+                        sheet=animals_loader.sheet,
+                        rownum=rownum,
+                        column=animals_loader.DataHeaders.NAME,
+                    )
+
+                    # TODO: Figure out a more uniform and consistent way to handle the summarization exceptions that
+                    # takes advantage of self._loader instead of using setattr to set the error type and manually
+                    # creating them calling set_load_exception.  I had played around with buffering the exception in
+                    # StudyLoader, with the thinking that SummarizableErrors would be automatically taken care of, but
+                    # that happens after load_data ends and we will be raising a MultiLoadStatus exception from here
+                    # that has to already have had the summarizations done.
+
+                    # Buffer the warning in the StudyLoader object so that the individual exceptions can be seen when we
+                    # are in debug mode.  NOTE: We do not want to buffer it in the AnimalsLoader object because that
+                    # load has completed and its exceptions post-processed.
+                    if self.debug:
+                        self.aggregated_errors_object.buffer_warning(
+                            aws, is_fatal=self.validate
+                        )
+
+                    # Superficially set it as a warning, as if it came from an AggregatedErrors object buffer_warning
+                    # method
+                    setattr(aws, "is_error", False)
+                    setattr(aws, "is_fatal", self.validate)
+                    animals_without_samples_exceptions.append(aws)
+
+                self.load_statuses.set_load_exception(
+                    AnimalsWithoutSamples(animals_without_samples_exceptions),
+                    "Animals Check",
+                    default_is_error=False,
+                    default_is_fatal=self.validate,
+                )
+
+            # Only check for additional missing serum samples if samples are being loaded or if samples already have
+            # been loaded
+            if (
+                samples_loader is not None
+                or Animal.objects.filter(
+                    name__in=animals_to_check, samples__isnull=False
+                ).exists()
+            ):
+                # It is possible that a previously loaded animal in the current animals sheet, with no samples in the
+                # current samples sheet, had previously loaded without serum samples.  We take this opportunity to
+                # double-check that the user has recitfied this situation.  If they have not, we remind them that an
+                # animal in the animals sheet still has no serum samples.  But we filter out any that were already
+                # reported by the sample loader.
+
+                animals_without_serum_samples = (
+                    Animal.get_animals_without_serum_samples(animals_from_animalssheet)
+                )
+
+                # We are not going to buffer these individually.  Can't think of a reason to do so.
+                more_animals_without_serum_exceptions: List[
+                    AnimalWithoutSerumSamples
+                ] = []
+                for animal in animals_without_serum_samples:
+                    # Create an individual exception, so we can add it to the summary exception
+                    rownum = animals_from_animalssheet.index(animal) + 2
+                    awss = AnimalWithoutSerumSamples(
+                        animal,
+                        file=animals_loader.friendly_file,
+                        sheet=animals_loader.sheet,
+                        rownum=rownum,
+                        column=animals_loader.DataHeaders.NAME,
+                    )
+                    # Superficially set it as a warning, as if it came from an AggregatedErrors object buffer_warning
+                    # method
+                    setattr(awss, "is_error", False)
+                    setattr(awss, "is_fatal", self.validate)
+
+                    # If there was a samples sheet (inferred by the samples loader being in the loaders dict), this
+                    # animal wasn't already reported as not having serum samples, and there are no missing sample errors
+                    if isinstance(samples_loader, SamplesLoader):
+                        # Get the animals without serum samples exception(s) from the samples loader
+                        sl_no_serum_exceptions: List[AnimalsWithoutSerumSamples] = (
+                            samples_loader.aggregated_errors_object.get_exception_type(
+                                AnimalsWithoutSerumSamples,
+                                remove=False,
+                                modify=False,
+                                is_error=False,
+                            )
+                        )
+
+                        if (
+                            # This isn't an animal that has NO samples
+                            animal not in animals_without_samples
+                            and (
+                                # Either the samples sheet had no missing serum sample exceptions
+                                len(sl_no_serum_exceptions) == 0
+                                # Or it did and this animal was not one of them
+                                or (
+                                    len(sl_no_serum_exceptions) > 0
+                                    and animal not in sl_no_serum_exceptions[0].animals
+                                )
+                            )
+                            # Only add the animal if the sample doesn't exist simply potentially because the samples
+                            # load encountered an error.
+                            and not samples_loader.aggregated_errors_object.is_error
+                        ):
+                            # Filter out animals that were already warned about by the sample loader
+                            more_animals_without_serum_exceptions.append(awss)
+                    else:
+                        more_animals_without_serum_exceptions.append(awss)
+
+                for awss in more_animals_without_serum_exceptions:
+                    # Buffer the warning in the StudyLoader object.  We do not want to buffer it in the SamplesLoader
+                    # object because that load has completed and its exceptions post-processed.  If we were to buffer
+                    # exceptions in it after-the-fact, summary exceptions would not be taken care of.  Buffering it in
+                    # this class means that it will get post-processed by this method's _loader wrapper.  The mean
+                    # reason for this is to summarize SummarizableError exceptions.
+                    if self.debug:
+                        self.aggregated_errors_object.buffer_warning(
+                            awss, is_fatal=self.validate
+                        )
+
+                # If there are any previously loaded animals, that are still in the animals sheet that still have no
+                # serum samples, buffer a warning that they still have no serum samples.
+                if len(more_animals_without_serum_exceptions) > 0:
+                    self.load_statuses.set_load_exception(
+                        AnimalsWithoutSerumSamples(
+                            more_animals_without_serum_exceptions
+                        ),
+                        "Animals Check",
+                        default_is_error=False,
+                        default_is_fatal=self.validate,
+                    )
 
     def package_group_exceptions(self, exception):
         """Repackages an exception for consolidated reporting.
@@ -1562,7 +1758,7 @@ class StudyV2Loader(StudyLoader):
 
                     # TODO: Right now, this error doesn't get in front of the user on the validation page.  I'm using
                     # load_statuses.set_load_exception below to do that and I'm buffering here to be able to see the
-                    # trace in the console.  I should fix this so that buffered errors from the comnversion get their
+                    # trace in the console.  I should fix this so that buffered errors from the conversion get their
                     # own load_key and get in front of the user.
                     self.aggregated_errors_object.buffer_error(ie, orig_exception=e)
 

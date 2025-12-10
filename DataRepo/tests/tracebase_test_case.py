@@ -6,11 +6,14 @@ import time
 from collections import defaultdict
 from typing import Dict, Type, TypeVar
 
+from django.apps import apps
 from django.conf import settings
+from django.db import ProgrammingError
 from django.db.models import AutoField, Field, Model
 from django.test import TestCase, TransactionTestCase, override_settings
 
 from DataRepo.models.utilities import get_all_models
+from DataRepo.utils.exceptions import trace
 
 try:
     import importlib
@@ -121,8 +124,94 @@ def test_case_class_factory(base_class: Type[T]) -> Type[T]:
         class Meta:
             abstract = True
 
+        def assertDictEquivalent(
+            self, d1: dict, d2: dict, max_depth=10, _path=None, **kwargs
+        ):
+            """Checks whether dicts are equal when their values can be objects that technically differ, but are
+            essentially the same when you evaluate them using their __dict__ attribute (and check their types).
+            """
+            _path = "" if _path is None else _path
+            if len(_path.split(",")) >= max_depth:
+                return
+            ignores = [
+                "creation_counter",
+                "identity",
+                "_django_version",
+                "fields_cache",
+            ]
+            self.assertEqual(
+                set([k for k in d1.keys() if k not in ignores]),
+                set([k for k in d2.keys() if k not in ignores]),
+                msg=f"Object path: {_path} difference: keys differ",
+            )
+            for key, v1 in d1.items():
+                if key in ignores:
+                    continue
+                self.assertEquivalent(
+                    v1, d2[key], _path=_path + key + ",", max_depth=max_depth, **kwargs
+                )
+
+        def assertEquivalent(
+            self, o1: object, o2: object, max_depth=10, _path=None, **kwargs
+        ):
+            """Checks whether values are equal.  If the values are objects, it essentially checks that their types and
+            __dict__ attributes are equal."""
+            _path = "" if _path is None else _path
+            if len(_path.split(",")) >= max_depth:
+                return
+            primitives = (bool, str, int, float, type(None))
+            if isinstance(o1, primitives):
+                self.assertEqual(o1, o2, **kwargs, msg=f"Object path: {_path}")
+            elif type(o1).__name__ == "function":
+                self.assertEqual(o1, o2, **kwargs, msg=f"Object path: {_path}")
+            else:
+                self.assertIsInstance(
+                    o2,
+                    type(o1),
+                    **kwargs,
+                    msg=f"Type: '{type(o2).__name__}'. Object path: {_path}",
+                )
+                if isinstance(o1, (list, tuple)) and isinstance(o2, (list, tuple)):
+                    self.assertEqual(
+                        len(o1), len(o2), **kwargs, msg=f"Object path: {_path}"
+                    )
+                    for i in range(len(o1)):
+                        self.assertEquivalent(
+                            o1[i],
+                            o2[i],
+                            _path=_path + f"{i},",
+                            max_depth=max_depth,
+                            **kwargs,
+                        )
+                elif (
+                    isinstance(o1, dict)
+                    and all(isinstance(k, str) for k in o1.keys())
+                    and isinstance(o2, dict)
+                    and all(isinstance(k, str) for k in o2.keys())
+                ):
+                    self.assertDictEquivalent(
+                        o1, o2, _path=_path + "dict,", max_depth=max_depth, **kwargs
+                    )
+                elif hasattr(o1, "__dict__"):
+                    self.assertDictEquivalent(
+                        o1.__dict__,
+                        o2.__dict__,
+                        _path=_path + "__dict__,",
+                        max_depth=max_depth,
+                        **kwargs,
+                    )
+                else:
+                    try:
+                        self.assertEqual(o1, o2, **kwargs)
+                    except AssertionError as ae:
+                        if _path is None:
+                            raise ae
+                        raise AssertionError(
+                            f"Object path: {_path} difference: {ae}"
+                        ).with_traceback(ae.__traceback__)
+
         @staticmethod
-        def assertNotWarns(unexpected_warning=UserWarning):
+        def assertNotWarns(unexpected_warning=Warning):
             """This is a decorator.  Apply it to tests that should not raise a warning.
 
             Usage:
@@ -136,22 +225,49 @@ def test_case_class_factory(base_class: Type[T]) -> Type[T]:
             """
 
             def decorator(fn):
+                # This is to be able to be able to include the lines in the test that caused the assertion error about
+                # an unexpected warning
+                traceback = trace().split("\n")
+                tb = ""
+                include = False
+                for tbl in traceback:
+                    if include:
+                        if "tracebase_test_case.py" in tbl:
+                            # Stop including this portion of the trace when it gets back to here
+                            include = False
+                            continue
+                        tb += "\n" + tbl
+                        continue
+                    if "File " in tbl and "/test_" in tbl:
+                        # Start including the portion of the trace when it gets into a test file
+                        tb += "\n" + tbl
+                        include = True
+
                 def wrapper(testcase_obj, *args, **kwargs):
                     aw = None
+                    other_exception = None
                     try:
                         with testcase_obj.assertRaises(AssertionError):
                             with testcase_obj.assertWarns(unexpected_warning) as aw:
-                                return fn(testcase_obj, *args, **kwargs)
+                                try:
+                                    return fn(testcase_obj, *args, **kwargs)
+                                except Exception as e:
+                                    other_exception = e
                     except AssertionError as ae:
                         # The test may raise AssertionErrors unrelated to the above AssertRaises.  We need to allow them
                         # to be raised.
                         if aw is None or len(aw.warnings) == 0:
                             raise ae
 
+                    if other_exception is not None:
+                        raise other_exception.with_traceback(
+                            other_exception.__traceback__
+                        )
+
                     if len(aw.warnings) > 0:
                         uws = "\n\t".join([str(w.message) for w in aw.warnings])
                         raise AssertionError(
-                            f"{len(aw.warnings)} unexpected {unexpected_warning.__name__} triggered:\n\t{uws}"
+                            f"{tb}\n{len(aw.warnings)} unexpected {unexpected_warning.__name__} triggered:\n\t{uws}"
                         )
 
                 return wrapper
@@ -202,6 +318,11 @@ def create_test_model(
     Returns:
         A dynamically created Django model class.
     """
+    app_label = "loader"
+    model_names = [mdl.__name__ for mdl in apps.get_app_config(app_label).get_models()]
+    if model_name in model_names:
+        raise ProgrammingError(f"A model named '{model_name}' already exists.")
+
     if not any(f.primary_key for f in fields.values()):
         if not any(n == "id" for n in fields.keys()):
             fields["id"] = AutoField(primary_key=True)
@@ -215,7 +336,7 @@ def create_test_model(
             "Meta",
             (),
             # TODO: Change "loader" to something disassociated with the loader classes
-            {"app_label": "loader"},
+            {"app_label": app_label},
         ),
     }
     model_attrs.update(attrs)

@@ -5,7 +5,8 @@ import traceback
 import warnings
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from typing import TYPE_CHECKING, Dict, List, Optional
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from django.core.exceptions import (
     MultipleObjectsReturned,
@@ -13,7 +14,7 @@ from django.core.exceptions import (
     ValidationError,
 )
 from django.core.management import CommandError
-from django.db.models import Q
+from django.db.models import Model, Q
 from django.db.utils import ProgrammingError
 from django.forms.models import model_to_dict
 
@@ -37,7 +38,7 @@ class InfileError(Exception):
     erroneous data is located in an input file (as opposed to a database, for example)).
 
     Example usage:
-
+    ```
     class MyException(InfileError):
         def __init__(self, erroneous_value, **kwargs):
             message = f"This is my error about {erroneous_value}, found here: %s. You chould change it to 'good value'."
@@ -50,27 +51,7 @@ class InfileError(Exception):
                 raise MyException(value, rownum=rownum, column="my data column", sheet=sheet, file=file)
             else:
                 load_value(value)
-
-    Args:
-        message (string): An error message containing at least 1 `%s` placeholder for where to put the file location
-            information.  If `%s` isn't in the supplied message, it will be appended.  Optionally, the message may
-            contain up to 4 more occurrences of `%s`.  See the `order` arg for more information.
-        rownum (integer or string): The row number (or name) where the erroneous data was encountered.
-        column (integer or string): The column name (or number) where the erroneous data was encountered.
-        sheet (integer or string): The sheet name (or index) of an excel file where the erroneous data was encountered.
-        file (string): The name of the file where the erroneous data was encountered.
-        order (list of strings) {"rownum", "sheet", "file", "column", "loc"}: By default, the message is assumed to have
-            a single `%s` occurrence where the file location information ("loc"), but if `order` is populated, the
-            number of `%s` occurrences is expected to be the same as the length of order.  However, "loc" must be
-            included.  If it is not, it is appended (and if necessary, a `%s` is appended to the message as well).  The
-            values of the corresponding arguments are inserted into the message at the locations of the `%s` occurrences
-            in the given order.
-
-    Raises:
-        ValueError: If the length of the order list doesn't match the `%s` occurrences in the message.
-
-    Returns:
-        Instance
+    ```
     """
 
     def __init__(
@@ -83,6 +64,28 @@ class InfileError(Exception):
         order=None,
         suggestion=None,
     ):
+        """Constructor.
+
+        Args:
+            message (string): An error message containing at least 1 `%s` placeholder for where to put the file location
+                information.  If `%s` isn't in the supplied message, it will be appended.  Optionally, the message may
+                contain up to 4 more occurrences of `%s`.  See the `order` arg for more information.
+            rownum (integer or string): The row number (or name) where the erroneous data was encountered.
+            column (integer or string): The column name (or number) where the erroneous data was encountered.
+            sheet (integer or string): The sheet name (or index) of an excel file where the erroneous data was
+                encountered.
+            file (string): The name of the file where the erroneous data was encountered.
+            order (list of strings) {"rownum", "sheet", "file", "column", "loc"}: By default, the message is assumed to
+                have a single `%s` occurrence where the file location information ("loc"), but if `order` is populated,
+                the number of `%s` occurrences is expected to be the same as the length of order.  However, "loc" must
+                be included.  If it is not, it is appended (and if necessary, a `%s` is appended to the message as
+                well).  The values of the corresponding arguments are inserted into the message at the locations of the
+                `%s` occurrences in the given order.
+        Raises:
+            ValueError: If the length of the order list doesn't match the `%s` occurrences in the message.
+        Returns:
+            None
+        """
         self.location_args = ["rownum", "column", "file", "sheet"]
         self.loc = generate_file_location_string(
             rownum=rownum, sheet=sheet, file=file, column=column
@@ -232,6 +235,7 @@ class SummarizableError(Exception, ABC):
         required positional argument to its constructor.  All keyword arguments are ignored (if they exist).
 
         Usage example:
+            ```
             # Create a summarizer Exception class - code it however you want
             class MyExceptionSummarier(Exception):
                 def __init__(self, exceptions: List[MyException]):
@@ -251,6 +255,7 @@ class SummarizableError(Exception, ABC):
                         aes.remove_exception_type(type(myexception))
                     )
                 )
+            ```
         """
         pass
 
@@ -261,16 +266,18 @@ class SummarizedInfileError:
     sections grouped by file.  Note, it does not call super.__init__, because it is intended to aid in the construction
     of the exception message, so you must multiply inherit to generate the exception message.  Example usage:
 
-        class MyException(SummarizedInfileError, Exception):
-            def __init__(
-                self,
-                exceptions: list[MySummarizableInfileErrorExceptions],
-            ):
-                SummarizedInfileError.__init__(self, exceptions)
-                exc: InfileError
-                for loc, exc_list in self.file_dict.items():
-                    # Build message
-                Exception.__init__(self, message)
+    ```
+    class MyException(SummarizedInfileError, Exception):
+        def __init__(
+            self,
+            exceptions: list[MySummarizableInfileErrorExceptions],
+        ):
+            SummarizedInfileError.__init__(self, exceptions)
+            exc: InfileError
+            for loc, exc_list in self.file_dict.items():
+                # Build message
+            Exception.__init__(self, message)
+    ```
     """
 
     def __init__(self, exceptions):
@@ -299,10 +306,10 @@ class HeaderError(Exception):
 
 
 class RequiredValueErrors(Exception):
-    """Summary of all missing required value errors
+    """Summary of every `RequiredValueError` exception.
 
-    Attributes:
-        required_value_errors: A list of RequiredValueError exceptions
+    Instance Attributes:
+        required_value_errors (List[RequiredValueError])
     """
 
     def __init__(
@@ -345,6 +352,31 @@ class RequiredValueErrors(Exception):
 
 
 class RequiredValueError(InfileError, SummarizableError):
+    """A value, required to exist in the database, was found to be missing.
+
+    Each sheet in an excel file is loaded independently and the loads proceed in the order of those dependencies.
+
+    Errors like this usually only happen when related dependent data failed to load (due to some other error) and is
+    evidenced by the fact that the indicated columns/rows have values.  Fixing errors that appear above this will fix
+    this error.
+
+    For example, an Animal record must be loaded and exist in the database before a Sample record (which links to an
+    Animal record) can be loaded.  If the loading of the Animal record encountered an error, anytime a Sample record
+    that links to that animal is loaded, this error will occur.
+
+    The loading code tries to avoid these "redundant" errors, but it also tries to gather as many errors as possible to
+    reduce repeated validate/edit iterations.
+
+    Summarized by `RequiredValueErrors`.
+
+    Instance Attributes:
+        column (Any)
+        rownum (Any)
+        model_name (str)
+        field_name (str)
+        rec_dict (dict)
+    """
+
     SummarizerExceptionClass = RequiredValueErrors
 
     def __init__(
@@ -378,6 +410,12 @@ class RequiredValueError(InfileError, SummarizableError):
 
 
 class RequiredColumnValues(Exception):
+    """Summary of every RequiredColumnValue exception.
+
+    Instance Attributes:
+        required_column_values (List[RequiredColumnValue])
+    """
+
     def __init__(self, required_column_values, init_message=None):
         if init_message is None:
             message = "Required column values missing on the indicated rows:\n"
@@ -403,6 +441,11 @@ class RequiredColumnValues(Exception):
 
 
 class RequiredColumnValue(InfileError, SummarizableError):
+    """A value, required to exist in the input table, was not supplied.
+
+    Summarized by `RequiredColumnValues`.
+    """
+
     SummarizerExceptionClass = RequiredColumnValues
 
     def __init__(
@@ -417,6 +460,7 @@ class RequiredColumnValue(InfileError, SummarizableError):
 
 
 class MissingColumnGroup(InfileError):
+    # NOTE: Very rarely user facing
     def __init__(self, group_name, **kwargs):
         message = f"No {group_name} columns found in %s.  At least 1 column of this type is required."
         super().__init__(message, **kwargs)
@@ -424,6 +468,7 @@ class MissingColumnGroup(InfileError):
 
 
 class UnequalColumnGroups(InfileError):
+    # NOTE: Very rarely user facing
     def __init__(self, group_name: str, sheet_dict: Dict[str, list], **kwargs):
         """Constructor
 
@@ -469,6 +514,8 @@ class UnequalColumnGroups(InfileError):
 
 
 class RequiredHeadersError(InfileError, HeaderError):
+    """Supplies a list of missing required column headers in the input file."""
+
     def __init__(self, missing, message=None, **kwargs):
         if not message:
             message = f"Required header(s) missing: {missing} in %s."
@@ -477,7 +524,7 @@ class RequiredHeadersError(InfileError, HeaderError):
 
 
 class FileFromInputNotFound(InfileError):
-    """This is for reporting file names parsed from a file that could not be found."""
+    """A report of file names obtained from an input file that could not be found."""
 
     def __init__(self, filepath: str, message=None, tmpfile=None, **kwargs):
         if message is None:
@@ -490,6 +537,8 @@ class FileFromInputNotFound(InfileError):
 
 
 class UnknownHeader(InfileError, HeaderError):
+    """A column header was encountered that is not a part of the file specification."""
+
     def __init__(self, unknown, known: Optional[list] = None, message=None, **kwargs):
         if not message:
             message = f"Unknown header encountered: [{unknown}] in %s."
@@ -499,6 +548,8 @@ class UnknownHeader(InfileError, HeaderError):
 
 
 class UnknownHeaders(InfileError, HeaderError):
+    """A list of column headers encountered that are not a part of the file specification."""
+
     def __init__(self, unknowns, message=None, **kwargs):
         if not message:
             message = f"Unknown header(s) encountered: [{', '.join(unknowns)}] in %s."
@@ -507,17 +558,7 @@ class UnknownHeaders(InfileError, HeaderError):
 
 
 class NewResearchers(Exception):
-    """Summarization exception of NewResearcher exceptions.
-
-    Example output:
-
-    New researchers encountered.  Please check the existing researchers:
-        George
-        Frank
-    to ensure that the following researchers (parsed from the indicated file locations) are not variants of existing
-    names:
-        Edith (in column [Operator] of sheet [Sequences] in study.xlsx, on rows: '1-10')
-    """
+    """Summary of all `NewResearcher` exceptions."""
 
     def __init__(self, new_researcher_exceptions: List[NewResearcher]):
         nre_dict: Dict[str, dict] = defaultdict(lambda: defaultdict(list))
@@ -555,6 +596,12 @@ class NewResearchers(Exception):
 
 
 class NewResearcher(InfileError, SummarizableError):
+    """When an as-yet unencountered researcher name is encountered, this exception is raised as a warning to ensure it
+    is not a spelling variant of an existing researcher name.
+
+    Summarized per file in `NewResearchers` and across files in `AllNewResearchers`.
+    """
+
     SummarizerExceptionClass = NewResearchers
 
     def __init__(self, researcher: str, known=None, message=None, **kwargs):
@@ -576,6 +623,8 @@ class NewResearcher(InfileError, SummarizableError):
 
 
 class MissingRecords(InfileError):
+    # NOTE: Not directly user facing.
+
     _one_source = True
 
     def __init__(
@@ -661,7 +710,9 @@ class MissingRecords(InfileError):
 
 
 class MissingModelRecords(MissingRecords, ABC):
-    """Keeps tract of missing records for one model for one file"""
+    """Superclass intended to keep track of missing records for one model for one file."""
+
+    # NOTE: Not directly user facing.
 
     _one_source = True
 
@@ -738,7 +789,9 @@ class MissingModelRecords(MissingRecords, ABC):
 
 
 class MissingModelRecordsByFile(MissingRecords, ABC):
-    """Keeps track of missing records for one model across multiple files"""
+    """Superclass intended to keep track of missing records for one model across multiple files."""
+
+    # NOTE: Not directly user facing.
 
     _one_source = False
 
@@ -826,15 +879,17 @@ class MissingModelRecordsByFile(MissingRecords, ABC):
 
 
 class RecordDoesNotExist(InfileError, ObjectDoesNotExist, SummarizableError):
+    """The expected record from the indicated database model was not found."""
+
     SummarizerExceptionClass = MissingRecords
 
     def __init__(
         self, model, query_obj: dict | Q, message=None, suggestion=None, **kwargs
     ):
-        """General use DoesNotExist exception constructor for errors retrieving Model records.
+        """General-use "DoesNotExist" exception constructor for errors retrieving Model records.
 
         Args:
-            model: (Model)
+            model: (Type[Model])
             query_obj (dict or Q): A representation of the query parameters, to provide context for the user.
             message (Optional[str])
             suggestion (str): An addendum as to how to possibly fix this issue.
@@ -1029,26 +1084,43 @@ class RecordDoesNotExist(InfileError, ObjectDoesNotExist, SummarizableError):
 
 
 class MissingSamples(MissingModelRecords):
+    """Summary of samples expected to exist in the database that were not found, while loading a single input file.
+
+    Summarized across all files in `AllMissingSamples`.
+    """
+
     ModelName = "Sample"
     RecordName = ModelName
 
 
 class AllMissingSamples(MissingModelRecordsByFile):
+    """Summary of samples expected to exist in the database that were not found, after having attempted to load all
+    input files."""
+
     ModelName = "Sample"
     RecordName = ModelName
 
 
 class MissingCompounds(MissingModelRecords):
+    """Summary of compounds expected to exist in the database that were not found, while loading a single input file.
+
+    Summarized across all files in `AllMissingCompounds`.
+    """
+
     ModelName = "Compound"
     RecordName = ModelName
 
 
 class AllMissingCompounds(MissingModelRecordsByFile):
+    """Summary of compounds expected to exist in the database that were not found, after having attempted to load all
+    input files."""
+
     ModelName = "Compound"
     RecordName = ModelName
 
 
 class RequiredArgument(Exception):
+    # NOTE: Not user facing
     def __init__(self, argname, methodname=None, message=None):
         if message is None:
             if methodname is None:
@@ -1063,6 +1135,16 @@ class RequiredArgument(Exception):
 
 
 class UnskippedBlanks(MissingSamples):
+    """A sample, slated for loading, appears to be a blank.  Loading of blank samples should be skipped.
+
+    Blank samples should be entirely excluded from the `Samples` sheet, but listed in the `Peak Annotation Details`
+    sheet with a non-empty value in the `Skip` column.  This tells the peak annotations loader that loads the peak
+    annotation file to ignore the sample column with this sample name.
+
+    Blank samples are automatically skipped in the Upload **Start** page's Study Doc download, based on the sample name
+    containing "blank" in its name.
+    """
+
     def __init__(
         self,
         exceptions: List[RecordDoesNotExist],
@@ -1087,6 +1169,22 @@ class UnskippedBlanks(MissingSamples):
 
 
 class NoSamples(MissingSamples):
+    """None of the samples in the indicated file, required to exist in the database, were found.
+
+    Each sheet in an excel file is loaded independently and the loads proceed in the order of those dependencies.
+
+    Errors like this usually only happen when related dependent data failed to load (due to some other error) and is
+    evidenced by the fact that the indicated columns/rows have values.  Fixing errors that appear above this will fix
+    this error.
+
+    For example, an Animal record must be loaded and exist in the database before a Sample record (which links to an
+    Animal record) can be loaded.  If the loading of the Animal record encountered an error, anytime a Sample record
+    that links to that animal is loaded, this error will occur.
+
+    The loading code tries to avoid these "redundant" errors, but it also tries to gather as many errors as possible to
+    reduce repeated validate/edit iterations.
+    """
+
     def __init__(
         self,
         exceptions: List[RecordDoesNotExist],
@@ -1106,6 +1204,17 @@ class NoSamples(MissingSamples):
 
 
 class UnexpectedInput(InfileError):
+    """The value in the indicated column is optional, but is required to be supplied **with** another neighboring
+    column value, that was found to be absent.
+
+    This exception can be resolved either by supplying the neighboring column's value or by removing this column's
+    value.
+
+    Example:
+        If an infusion rate is supplied, but there was no infusate supplied, the infusion rate will cause an
+        UnexpectedInput exception, because an infusion rate without an infusate makes no sense.
+    """
+
     def __init__(
         self,
         value,
@@ -1121,6 +1230,12 @@ class UnexpectedInput(InfileError):
 
 
 class UnexpectedSamples(InfileError):
+    """Sample headers found in a peak annotations file were not in the Study Doc's `Peak Annotation Details` sheet.
+
+    This could either be due to a sample header omission in the `Peak Annotation Details` sheet or due to the wrong peak
+    annotation file being associated with one or more sample headers in the `Peak Annotation Details` sheet.
+    """
+
     def __init__(
         self,
         missing_samples,
@@ -1156,6 +1271,19 @@ class UnexpectedSamples(InfileError):
 
 
 class EmptyColumns(InfileError):
+    """The data import encountered empty columns that were expected to have data.
+
+    If there are sample columns present and all expected samples are accounted for, this will be a warning.  If any of
+    the expected sample columns are missing, this will be an error.
+
+    In the warning case, this issue usually occurs when columns in Excel have been removed (or some unknown file
+    manipulation has occurred).  Whatever the case may be, the excel reader package that the loading code uses treats
+    these empty columns as populated and names them with an arbitrary column header that starts with 'Unnamed: '.
+
+    In the error case, no sample headers were found.  The file either contains no sample data and should be either
+    repaired or excluded from loading, meaning that it will need to be removed from the `Peak Annotation Details` and
+    `Peak Annotation Files` sheets."""
+
     def __init__(
         self,
         group_name: str,
@@ -1183,9 +1311,9 @@ class EmptyColumns(InfileError):
 
 
 class DryRun(Exception):
-    """
-    Exception thrown during dry-run to ensure atomic transaction is not committed
-    """
+    """Exception thrown during dry-run to ensure atomic transaction is not committed"""
+
+    # NOTE: Not user facing
 
     def __init__(self, message=None):
         if message is None:
@@ -1194,8 +1322,7 @@ class DryRun(Exception):
 
 
 class MultiLoadStatus(Exception):
-    """
-    This class holds the load status of multiple files and also can contain multiple file group statuses, e.g. a
+    """This class holds the load status of multiple files and also can contain multiple file group statuses, e.g. a
     discrete list of missing compounds across all files.  It is defined as an Exception class so that it being raised
     from (for example) load_study will convey the load statuses to the validation interface.
     """
@@ -1295,7 +1422,7 @@ class MultiLoadStatus(Exception):
             new_aes = exception
         else:
             # Wrap the exception in an AggregatedErrors class
-            new_aes = AggregatedErrors()
+            new_aes = AggregatedErrors(debug=self.debug)
             is_error = (
                 exception.is_error
                 if hasattr(exception, "is_error")
@@ -1641,6 +1768,10 @@ class MultiLoadStatus(Exception):
 
 
 class AggregatedErrorsSet(Exception):
+    """Contains multiple AggregatedErrors exceptions in a dict keyed on a string.  The string is arbitrary, but is
+    treated usually as either a filename/path or as categorical/organizational, to summarize related/identical errors
+    from multiple input files."""
+
     def __init__(self, aggregated_errors_dict, message=None):
         self.aggregated_errors_dict = aggregated_errors_dict
         self.num_warnings = 0
@@ -1727,8 +1858,7 @@ class AggregatedErrorsSet(Exception):
 
 
 class AggregatedErrors(Exception):
-    """
-    This is not a typical exception class.  You construct it before any errors have occurred and you use it to buffer
+    """This is not a typical exception class.  You construct it before any errors have occurred and you use it to buffer
     exceptions using object.buffer_error(), object.buffer_warning(), and (where the error/warning can change based on a
     boolean) object.buffer_exception(is_error=boolean_variable).  You can also decide whether a warning should be
     raised as an exception or not using the is_fatal parameter.  This is intended to be able to report a warning to the
@@ -1739,8 +1869,9 @@ class AggregatedErrors(Exception):
     try/except block.
 
     Note, this class annotates the exceptions it buffers.  Each exception is available in the object.exceptions array
-    and each exception contains these added data members:
+    and each exception contains the following data members.
 
+    Instance Attributes:
         buffered_tb_str - a string version of a traceback (because a regular traceback will not exist if an
                           exception is not raised).  Note, exceptions with their traces will be printed on
                           standard out unless object.quiet is True.
@@ -2355,7 +2486,9 @@ class AggregatedErrors(Exception):
             and (is_error is None or exception.is_error == is_error)
         )
 
-    def exception_exists(self, cls, attr_name, attr_val):
+    def exception_exists(
+        self, cls, attr_name, attr_val, is_error: Optional[bool] = None
+    ):
         """Returns True if an exception of type cls, containing an attribute with the supplied value has been buffered.
 
         Args:
@@ -2363,13 +2496,16 @@ class AggregatedErrors(Exception):
             attr_name (str): An attribute the buffered exception class has.
             attr_val (object): The value of the attribute the buffered exception class has.  If this is a function, it
                 must take a single argument (the value of the attribute) and return a boolean.
+            is_error (Optional[bool])
         Exceptions:
             None
         Returns:
             bool
         """
         for exc in self.exceptions:
-            if self.exception_matches(exc, cls, attr_name, attr_val):
+            if self.exception_matches(exc, cls, attr_name, attr_val) and (
+                is_error is None or is_error == exc.is_error
+            ):
                 return True
         return False
 
@@ -2429,11 +2565,10 @@ class AggregatedErrors(Exception):
 
 
 class ConflictingValueErrors(Exception):
-    """Conflicting values for a specific model object from a given file
+    """A summarization of `ConflictingValueError` exceptions.
 
-    Attributes:
-        model_name: The name of the model object type (Sample, PeakGroup, etc.)
-        conflicting_value_errors: A list of ConflictingValueError exceptions
+    Instance Attributes:
+        conflicting_value_errors (List[ConflictingValueError])
     """
 
     def __init__(
@@ -2499,6 +2634,30 @@ class ConflictingValueErrors(Exception):
 
 
 class ConflictingValueError(InfileError, SummarizableError):
+    """A conflicting value was encountered between previously loaded data and data being loaded from an input file.
+
+    The loading code does not currently support database model record updates, but it does support **adding** data to an
+    existing (and previously loaded) input file.  Some of those additions can **look** like updates.  Values on a
+    previously loaded row in delimited columns like the `Synonyms` column in the `Compounds` sheet, can receive
+    additional delimited values without error.
+
+    But when values in a column (outside of columns containing delimited values) change in a file that has been
+    previously loaded, you will get a `ConflictingValueError` exception.
+
+    Note that formatted columns (e.g. an infusate name) may use delimiters, but are not treated as delimited columns.
+
+    Summarized in `ConflictingValueErrors`.
+
+    Instance Attributes:
+        rec (Optional[Model]): Model record that conflicts.  Optional if the exception message was provided.
+        rec_dict (Optional[dict]):
+
+            Dict created from file representing what was attempted to be loaded.  Optional if the exception message was
+            provided.
+
+        differences (Optional[dict])
+    """
+
     SummarizerExceptionClass = ConflictingValueErrors
 
     def __init__(
@@ -2523,8 +2682,8 @@ class ConflictingValueError(InfileError, SummarizableError):
                         "new": "the file description",
                 }
             rec_dict (dict obf objects): The dict that was (or would be) supplied to Model.get_or_create()
-            derived (boolean): Whether the database value was a generated value or not.  Certain fields in the database
-                are automatically maintained, and values in the loading file may not actually be loaded, thus
+            derived (boolean) [False]: Whether the database value was a generated value or not.  Certain fields in the
+                database are automatically maintained, and values in the loading file may not actually be loaded, thus
                 differences with generated values should be designated as warnings only.
             message (str): The error message.
             kwargs:
@@ -2536,6 +2695,7 @@ class ConflictingValueError(InfileError, SummarizableError):
             mdl = "No record provided"
             recstr = "No record provided"
             if rec is not None:
+                # TODO: Fix this logic issue. "No record provided" will never be assigned.
                 mdl = type(rec).__name__ if rec is not None else "No record provided"
                 recstr = str(model_to_dict(rec, exclude=["id"]))
             message = (
@@ -2563,9 +2723,9 @@ class ConflictingValueError(InfileError, SummarizableError):
 
 
 class DuplicateValueErrors(Exception):
-    """
-    Summary of DuplicateValues exceptions
-    """
+    """Summary of DuplicateValues exceptions.
+
+    This is set as the `SummarizerExceptionClass` class of `DuplicateValues`."""
 
     def __init__(self, dupe_val_exceptions: list[DuplicateValues], message=None):
         suggestions = []
@@ -2608,12 +2768,18 @@ class DuplicateValueErrors(Exception):
 
 
 class DuplicateValues(InfileError, SummarizableError):
+    """A duplicate value (or value combination) was found in an input file column (or columns) that requires unique
+    values (or a unique combination of values with 1 or more other columns).
+
+    Fixing this issue typically involves either deleting a duplicate row or editing the duplicate to make it unique.
+
+    Summarized in `DuplicateValueErrors`.
+    """
+
     SummarizerExceptionClass = DuplicateValueErrors
 
     def __init__(self, dupe_dict, colnames, message=None, addendum=None, **kwargs):
-        """
-        Takes a dict whose keys are (composite, unique) strings and the values are lists of row indexes
-        """
+        """Takes a dict whose keys are (composite, unique) strings and the values are lists of row indexes"""
         if not message:
             # Each value is displayed as "Colname1: [value1], Colname2: [value2], ... (rows*: 1,2,3)" where 1,2,3 are
             # the rows where the combo values are found
@@ -2649,10 +2815,11 @@ class DuplicateValues(InfileError, SummarizableError):
 
 
 class DuplicateCompoundIsotopes(Exception):
-    """
-    Summary of DuplicateValues exceptions specific to the PeakAnnotationsLoader.  It removes the sample column, because
-    all errors always affect all samples, given the pre-conversion pandas DataFrame, which has a column for each sample
-    and compounds and isotopes defined on rows.
+    """Summary of DuplicateValues exceptions specific to the peak annotation files.  It does not report the affected
+    samples because all such errors always affect all samples, as peak annotation files typically have a column for each
+    sample and a row for each compound's isotopic state.
+
+    This error occurs when a compound's unique isotopic makeup appears in multiple rows.
     """
 
     def __init__(
@@ -2704,6 +2871,7 @@ class DuplicateCompoundIsotopes(Exception):
         self.colnames = colnames
 
 
+# TODO: Remove this SheetMergeError class and its associated tests.  It is no longer used.
 class SheetMergeError(Exception):
     def __init__(self, row_idxs, merge_col_name="Animal Name", message=None):
         if not message:
@@ -2720,6 +2888,8 @@ class SheetMergeError(Exception):
 
 
 class NoTracerLabeledElementsError(Exception):
+    """A summarization of `NoTracerLabeledElements` exceptions."""
+
     def __init__(self, ntle_errors: List[NoTracerLabeledElements]):
         ntle_dict: Dict[str, dict] = defaultdict(
             lambda: defaultdict(lambda: defaultdict(list))
@@ -2755,6 +2925,26 @@ class NoTracerLabeledElementsError(Exception):
 
 
 class NoTracerLabeledElements(InfileError, SummarizableError):
+    """A compound in a peak annotation file was encountered that does not contain any of the labeled elements from any
+    of the tracers.
+
+    The purpose of a peak group (which the loading code populates) is to group a compound's peaks that result from
+    various isotopic states (the incorporation of labeled elements from the tracer compounds).  If the formula of the
+    measured compound does not contain any of the elements that are labeled in the tracers, this suggests a potential
+    problem, such as the animal's infusate from the `Animals` sheet was incorrectly selected or omits a tracer with
+    labels that are in this compound.
+
+    Resolutions to this issue can involve either updating the associated animal's infusate/tracers to include a tracer
+    with the labeled elements it shares with this compound or simply ignoring this warning noting that the compound will
+    not be loaded as a peak group.^
+
+    Summarized in `NoTracerLabeledElementsError`.
+
+    ^ _TraceBase was not designed to support non-isotopic mass spectrometry data.  Adding support for non-isotopic_
+    _data is a planned feature.  See GitHub issue_
+    _[#1192](https://github.com/Princeton-LSI-ResearchComputing/tracebase/issues/1192)._
+    """
+
     SummarizerExceptionClass = NoTracerLabeledElementsError
 
     def __init__(
@@ -2773,6 +2963,12 @@ class NoTracerLabeledElements(InfileError, SummarizableError):
 
 
 class NoTracers(InfileError):
+    """An operation that requires an animal to have been infused with tracers encountered an animal that was not infused
+    with tracers, such as FCirc calculations.
+
+    This error occurs when an animal is associated with an infusate record, but that infusate is not linked to any
+    tracers.  This is likely because an error occurred during infusate/tracer loading and arises when validating a serum
+    sample."""
 
     def __init__(self, animal: Optional[Animal] = None, message=None, **kwargs):
         if message is None:
@@ -2783,9 +2979,17 @@ class NoTracers(InfileError):
 
 
 class IsotopeStringDupe(InfileError):
-    """
-    There are multiple isotope measurements that match the same parent tracer labeled element
-    E.g. C13N15C13-label-2-1-1 would match C13 twice
+    """The formatted isotope string matches the same labeled element more than once.
+
+    Strings defining isotopes are formatted with multiple element symbols paired with mass numbers concatenated
+    together, followed by their dash-delimited counts in the same relative order.  This error occurs when that isotope
+    string matches the same element multiple times.
+
+    Unfortunately, the only way to address this error would be to edit the peak annotation file to eliminate the
+    duplicate.
+
+    Example:
+        `C13N15C13-label-2-1-1` would match `C13` twice, resulting in this error.
     """
 
     def __init__(self, label, parent, **kwargs):
@@ -2799,16 +3003,18 @@ class IsotopeStringDupe(InfileError):
 
 
 class MissingC12ParentPeaks(SummarizedInfileError, Exception):
-    """Summary of all MissingC12ParentPeak errors
-
-    Attributes:
-        exceptions: A list of MissingC12ParentPeak exceptions
-    """
+    """Summary of all `MissingC12ParentPeak` exceptions."""
 
     def __init__(
         self,
         exceptions: list[MissingC12ParentPeak],
     ):
+        """Constructor.
+
+        Args:
+            exceptions (List[MissingC12ParentPeak]): A list of MissingC12ParentPeak exceptions
+        """
+
         SummarizedInfileError.__init__(self, exceptions)
         compounds_str = ""
         include_loc = len(self.file_dict.keys()) > 1
@@ -2832,6 +3038,20 @@ class MissingC12ParentPeaks(SummarizedInfileError, Exception):
 
 
 class MissingC12ParentPeak(InfileError, SummarizableError):
+    """No C12 PARENT row was found for this compound in the peak annotation file.
+
+    This exception occurs (as a warning) in 2 cases:
+
+    - The C12 PARENT peak exists, but was not picked in El-Maven.  In this case, the best solution is to redo the peak\
+      annotation file starting from re-picked peaks from El-Maven that include the parent peak.  Alternatively, the\
+      peak annotation file could be edited to remove all of that compound's peaks and a subsequent file could be loaded\
+      using the complete peak group.
+    - The C12 PARENT peak was below the detection threshold.  In this case, the warning can be ignored and a 0-count\
+      will be assumed.
+
+    Summarized in `MissingC12ParentPeaks`.
+    """
+
     SummarizerExceptionClass = MissingC12ParentPeaks
 
     def __init__(self, compound: str, **kwargs):
@@ -2845,56 +3065,109 @@ class MissingC12ParentPeak(InfileError, SummarizableError):
 
 
 class MissingTissues(MissingModelRecords):
+    """Summary of tissues expected to exist in the database that were not found, while loading a single input file.
+
+    Summarized across all files in `AllMissingTissues`.
+    """
+
     ModelName = "Tissue"
     RecordName = ModelName
 
 
 class AllMissingTissues(MissingModelRecordsByFile):
+    """Summary of tissues expected to exist in the database that were not found, after having attempted to load all
+    input files."""
+
     ModelName = "Tissue"
     RecordName = ModelName
 
 
 class MissingStudies(MissingModelRecords):
+    """Summary of studies expected to exist in the database that were not found, while loading a single input file.
+
+    Summarized across all files in `AllMissingStudies`.
+    """
+
     ModelName = "Study"
     RecordName = ModelName
 
 
 class AllMissingStudies(MissingModelRecordsByFile):
+    """Summary of studies expected to exist in the database that were not found, after having attempted to load all
+    input files."""
+
     ModelName = "Study"
     RecordName = ModelName
 
 
 class MissingTreatments(MissingModelRecords):
+    """Summary of treatments expected to exist in the database that were not found, while loading a single input
+    file.
+
+    Summarized across all files in `AllMissingTreatments`.
+    """
+
     ModelName = "Protocol"
     RecordName = "Treatment"
 
 
 class AllMissingTreatments(MissingModelRecordsByFile):
+    """Summary of treatments expected to exist in the database that were not found, after having attempted to load all
+    input files."""
+
     ModelName = "Protocol"
     RecordName = "Treatment"
 
 
 class ParsingError(Exception):
+    """Superclass of infusate, tracer, and isotope parsing errors."""
+
     pass
 
 
 class InfusateParsingError(ParsingError):
+    """An error was encountered when reading (parsing) your Infusate.  The format or completeness of the infusate name
+    must be manually corrected.  Consult formatting guidelines in the Study Doc Infusate column header's comment.
+    """
+
     pass
 
 
 class TracerParsingError(ParsingError):
+    """A regular expression or other parsing error was encountered when parsing a Tracer string.  The formatting or
+    completeness of the string must be manually fixed.  Consult formatting guidelines (check the file's header
+    comment)."""
+
     pass
 
 
 class IsotopeParsingError(ParsingError):
+    """A regular expression or other parsing error was encountered when parsing an Isotope string.  The formatting or
+    completeness of the string must be manually fixed.  Consult formatting guidelines (check the file's header
+    comment)."""
+
     pass
 
 
 class ObservedIsotopeParsingError(InfileError):
+    """A regular expression or other parsing error was encountered when parsing an Isotope observation string.  The
+    formatting or completeness of the string must be manually fixed.  Consult formatting guidelines (check the file's
+    header comment)."""
+
     pass
 
 
 class ObservedIsotopeUnbalancedError(ObservedIsotopeParsingError):
+    """The number of elements, mass numbers, and counts parsed from the isotope string differ.  A single (fully labeled)
+    isotope must include each value in the order of mass number, element symbol, and count.  E.g. `13C5` means that
+    there are 5 heavy carbons of mass number 13 in a compound.
+
+    Examples:
+        - `13C` would cause this error because there is no count.
+        - `C5` would cause this error because there is no mass number.
+        - `135` would cause this error because there is no element and there's no way to tell where the count begins.
+    """
+
     def __init__(self, elements, mass_numbers, counts, label, **kwargs):
         super().__init__(
             (
@@ -2910,6 +3183,8 @@ class ObservedIsotopeUnbalancedError(ObservedIsotopeParsingError):
 
 
 class AllUnexpectedLabels(Exception):
+    """Summary of `UnexpectedLabels` exceptions arising from multiple input files."""
+
     def __init__(self, exceptions: List[UnexpectedLabel]):
         counts: Dict[str, dict] = defaultdict(lambda: {"files": [], "observations": 0})
         for exc in exceptions:
@@ -2930,6 +3205,11 @@ class AllUnexpectedLabels(Exception):
 
 
 class UnexpectedLabels(Exception):
+    """Summary of `UnexpectedLabel` exceptions in a single input file.
+
+    Summarized across all files in `AllUnexpectedLabels`.
+    """
+
     def __init__(self, exceptions: List[UnexpectedLabel]):
         counts: Dict[str, int] = defaultdict(int)
         for exc in exceptions:
@@ -2945,6 +3225,14 @@ class UnexpectedLabels(Exception):
 
 
 class UnexpectedLabel(InfileError, SummarizableError):
+    """An isotope label, e.g. nitrogen (`N`) was detected in a measured compound, but that labeled element was not in
+    any of the tracers.  This is reported as a warning to suggest that there could be contamination or the wrong
+    infusate was selected for an animal, but this is often the result of naturally occurring isotopes and can be
+    ignored.
+
+    Summarized per file in `UnexpectedLabels` and across all files in `AllUnexpectedLabels`.
+    """
+
     SummarizerExceptionClass = UnexpectedLabels
 
     def __init__(self, unexpected, possible, **kwargs):
@@ -2960,6 +3248,24 @@ class UnexpectedLabel(InfileError, SummarizableError):
 
 
 class NoCommonLabel(Exception):
+    """A compound in a peak group was encountered (e.g. during an FCirc calculation) that does not contain any of the
+    labeled elements from any of the tracers.
+
+    The purpose of a peak group is to group a compound's peaks that result from various isotopic states (the
+    incorporation of labeled elements from the tracer compounds).  If the formula of the peak group compound does not
+    contain any of the elements that are labeled in the tracers, this suggests a potential problem, such as the animal's
+    infusate was incorrectly selected or omits a tracer with labels that are in this compound.
+
+    This exception is reported almost always as a warning and results in an FCirc calculation being recorded as `None`.^
+
+    ^ _TraceBase was not designed to support non-isotopic mass spectrometry data.  Adding support for non-isotopic data_
+    _is a planned feature.  See GitHub issue_
+    _[#1192](https://github.com/Princeton-LSI-ResearchComputing/tracebase/issues/1192)._
+    """
+
+    # NOTE: Not user facing.  This occurs in the site log when in debug mode.  This is essentially the same exception as
+    # NoTracerLabeledElements, but takes different arguments for convenience and is raised in a different context
+    # (during FCirc calculations).
 
     def __init__(self, peakgrouplabel: PeakGroupLabel):
         msg = (
@@ -2972,7 +3278,7 @@ class NoCommonLabel(Exception):
 
 
 class AllNoScans(Exception):
-    """Takes a list of NoScans exceptions and summarizes them in a single exception."""
+    """Summary of NoScans exceptions."""
 
     def __init__(self, no_scans_excs, message=None):
         if not message:
@@ -3024,6 +3330,15 @@ class AllNoScans(Exception):
 
 
 class NoScans(InfileError, SummarizableError):
+    """An mzXML file was encountered that contains no scan data.
+
+    This exception is raised as a warning and can be safely ignored.  Empty mzXML files are produced as a side-effect of
+    the way they are produced.  Such files could be excluded from a study submission, but are hard to distinguish
+    without looking inside the same-named files.  It is recommended that the files be left as-is.
+
+    Summarized across all files in `AllNoScans`.
+    """
+
     SummarizerExceptionClass = AllNoScans
 
     def __init__(self, mzxml_file, **kwargs):
@@ -3041,7 +3356,7 @@ class NoScans(InfileError, SummarizableError):
 
 
 class AllMzxmlSequenceUnknown(Exception):
-    """Takes a list of MzxmlSequenceUnknown exceptions and summarizes them in a single exception."""
+    """Summary of `MzxmlSequenceUnknown` exceptions from multiple input files."""
 
     def __init__(self, exceptions, message=None):
         if not message:
@@ -3110,6 +3425,40 @@ class AllMzxmlSequenceUnknown(Exception):
 
 
 class MzxmlSequenceUnknown(InfileError, SummarizableError):
+    """Unable to reliably match an `mzXML` file with an MSRunSequence.
+
+    This exception is raised as a warning when the number of `mzXML` files with the same name are not all accounted for
+    in the `Peak Annotation Details` sheet of the Study Doc.  I.e. there are more `mzXML` files than peak annotation
+    files with sample headers of this name.
+
+    There are a number of ways this can happen:
+        - The extra files are empty (and are reported in `NoScans` warnings).
+        - A peak annotation file for the extras has not been included in the load.
+        - The sample was re-analyzed in a subsequence MS Run because there was a problem with the first run.
+        - There are 2 different biological samples with the same name and one is not included in the current submission.
+
+    The first case is handled automatically and can be safely ignored.  In fact, if it is any other case, an error would
+    be raised after this warning, so in any case, this can be ignored, but if subsequent error does occur, this warning
+    provides information that can help figure out the problem.
+
+    In all of the other cases, there are 2 ways to resolve the warning:
+
+    - Add rows to the `Peak Annotation Details` sheet that account for all the files (adding 'skip' to the Skip column\
+      for any files that should be ignored).  This is the preferred solution.
+    - Add the relative path from the study folder to the specific mzXML file in the existing 'mzXML File Name' column\
+      (not including the study folder name).
+
+    Despite the 'required columns' highlighted in blue indicating that `Sample Name` and `Sample Data Header` are
+    required, when there is no associated peak annotation file, the `mzXML File Name`, `Sequence`, and `Skip` columns
+    are all that's required.  This is a special case.
+
+    If all of the files are for the same MS Run, nothing further is needed.  But if they are from different MS Runs, the
+    `mzXML File Name` column must contain the relative path from the study folder to the `mzXML` file (not including the
+    study folder name).
+
+    Summarized across all files in `AllMzxmlSequenceUnknown`.
+    """
+
     SummarizerExceptionClass = AllMzxmlSequenceUnknown
 
     def __init__(self, mzxml_basename, match_files, **kwargs):
@@ -3125,7 +3474,62 @@ class MzxmlSequenceUnknown(InfileError, SummarizableError):
         self.match_files = match_files
 
 
-class MzxmlNotColocatedWithAnnot(InfileError):
+class MzxmlNotColocatedWithAnnots(Exception):
+    """mzXML files are not in a directory under an unambiguously associated peak annotation file in which they were
+    used.
+
+    This exception has to do with determining which MS Run `Sequence` produced the mzXML file, which is dynamically
+    determined when there are multiple sequences containing the same sample names.
+
+    mzXML files are assigned an MS Run Sequence based on either the value in the `Sequence` column in the
+    `Peak Annotation Details` sheet or (if that's empty), the `Default Sequence` defined in the `Peak Annotation Files`
+    sheet and the `Peak Annotation File Name` column in the `Peak Annotation Details` sheet.
+
+    If the default is used, this exception is a warning.  However, if there is no default and no `Sequence` in the
+    `Peak Annotation Details` sheet's `Sequence` column, the association is inferred by the directory structure.  By
+    travelling up the path from the mzXML file to the study directory, the first peak annotation file encountered is the
+    one that is associated with the mzXML file.  The simplest case is when the mzXML file is in the same directory as a
+    single peak annotation file.
+
+    The loading code only raises this as an error when the mzXML file name matches headers in multiple peak annotation
+    files from different sequences and the specific one in which it was used was not explicitly assigned and it could
+    not be inferred from the directory structure.
+
+    The easiest fix is to put peak annotation files in a directory along with only the mzXML files that were used in its
+    production.  The more laborious (but more versatile) solution is to add the file path of every mzXML reported in the
+    error to the `Peak Annotation Details` sheet along with the `Sequence`.
+    """
+
+    def __init__(
+        self,
+        exceptions: List[MzxmlNotColocatedWithAnnot],
+        message: Optional[str] = None,
+        **kwargs,
+    ):
+        if not message:
+            files = []
+            exc: MzxmlNotColocatedWithAnnot
+            for exc in exceptions:
+                files.append(exc.file)
+            nlt = "\n\t"
+            message = (
+                f"The following mzXML files do not have a peak annotation file existing along their paths.\n"
+                "When a sequence is not provided in the 'Peak Annotation Details' sheet for an mzXML file, the "
+                "association between an mzXML and the MSRunSequence it belongs to is inferred by its colocation with "
+                "(or its location under a parent directory containing) a peak annotation file, based on the 'Default "
+                "Sequence' column in the 'Peak Annotation Files' sheet.  These files do not have a peak annotation "
+                "file associated with them:\n"
+                f"\t{nlt.join(files)}\n"
+                "Either provide values in the 'Sequence' column in the 'Peak Annotation Files' sheet or add the "
+                "related peak annotation file to the directory containing the mzXML files that were used to generate "
+                "it."
+            )
+        super().__init__(message, **kwargs)
+
+
+class MzxmlNotColocatedWithAnnot(InfileError, SummarizableError):
+    SummarizerExceptionClass = MzxmlNotColocatedWithAnnots
+
     def __init__(self, annot_dirs=None, **kwargs):
         if annot_dirs is None:
             annot_dirs = ["No peak annotation directories supplied."]
@@ -3136,21 +3540,115 @@ class MzxmlNotColocatedWithAnnot(InfileError):
             "MSRunSequence, based on the Default Sequence column in the Peak Annotation Files sheet."
         )
         super().__init__(message, **kwargs)
+        self.annot_dirs = annot_dirs
 
 
-class MzxmlColocatedWithMultipleAnnot(InfileError):
-    def __init__(self, msrun_sequence_names, **kwargs):
-        nlt = "\n\t"
-        message = (
-            "mzXML file '%s' shares a common path with multiple peak annotation files (from the peak annotation files "
-            f"sheet) that are associated with different sequences:\n\t{nlt.join(msrun_sequence_names)}\nCo-location of "
-            "mzXML files with peak annotation files is what allows mzXML files to be linked to an MSRunSequence, based "
-            "on the Default Sequence column in the Peak Annotation Files sheet."
-        )
+class MzxmlColocatedWithMultipleAnnots(Exception):
+    """`mzXML` files are in a directory that has multiple peak annotation files somewhere along its path.
+
+    This exception has to do with determining which MS Run `Sequence` produced the `mzXML` file, which is dynamically
+    determined when there are multiple sequences containing the same sample names.
+
+    `mzXML` files are assigned an MS Run Sequence based on either the value in the `Sequence` column in the
+    `Peak Annotation Details` sheet or (if that's empty), the `Default Sequence` defined in the `Peak Annotation Files`
+    sheet and the `Peak Annotation File Name` column in the `Peak Annotation Details` sheet.
+
+    If the default is used, this exception is a warning.  However, if there is no default and no `Sequence` in the
+    `Peak Annotation Details` sheet's `Sequence` column, the association is inferred by the directory structure.  By
+    travelling up the path from the `mzXML` file to the study directory, the first peak annotation file encountered is
+    the one that is associated with the `mzXML` file.  The simplest case is when the `mzXML` file is in the same
+    directory as a single peak annotation file.
+
+    The loading code only raises this as an error when the `mzXML` file name matches headers in multiple peak annotation
+    files from different sequences and the specific one in which it was used was not explicitly assigned and it could
+    not be inferred from the directory structure.
+
+    The easiest fix is to put peak annotation files in a directory along with only the `mzXML` files that were used in
+    its production.  The more laborious (but more versatile) solution is to add the file path of every `mzXML` reported
+    in the error to the `Peak Annotation Details` sheet along with the `Sequence`.
+    """
+
+    def __init__(
+        self,
+        exceptions: List[MzxmlColocatedWithMultipleAnnot],
+        message: Optional[str] = None,
+        **kwargs,
+    ):
+        if not message:
+            dirs: Dict[str, Dict[str, List[str]]] = defaultdict(
+                lambda: {"files": [], "seqs": []}
+            )
+            exc: MzxmlColocatedWithMultipleAnnot
+            for exc in exceptions:
+                # Append the mzXML file to the files list for that directory combo
+                dirs[exc.matching_annot_dir]["files"].append(exc.file)
+                # Append the differing sequences if not already encountered
+                for seqn in exc.msrun_sequence_names:
+                    if seqn not in dirs[exc.matching_annot_dir]["seqs"]:
+                        dirs[exc.matching_annot_dir]["seqs"].append(seqn)
+            # Summarize the nested lists in a string
+            summary = ""
+            for dir in dirs.keys():
+                summary += (
+                    f"\n\tDirectory '{dir}' contains multiple peak annotation files associated with sequences "
+                    f"{dirs[dir]['seqs']}:"
+                )
+                for mzxml in dirs[dir]["files"]:
+                    summary += f"\n\t\t{mzxml}"
+            message = (
+                f"The following directories have multiple peak annotation files (associated with different 'Default "
+                "Sequence's, assigned in the 'Peak Annotation Files' sheet), meaning that the listed mzXML files "
+                "cannot be unambiguously assigned an MSRunSequence record.\n"
+                f"{summary}\n\n"
+                "Explanation: When a sequence is not provided in the 'Peak Annotation Details' sheet for an mzXML "
+                "file, the association between an mzXML and the MSRunSequence it belongs to is inferred by its "
+                "colocation with (or its location under a parent directory containing) a peak annotation file, based "
+                "on the 'Default Sequence' assigned in the 'Peak Annotation Files' sheet.\n\n"
+                "Suggestion: Either provide values in the 'Sequence' column in the 'Peak Annotation Files' sheet or re-"
+                "arrange the multiple colocated peak annotation files to ensure that they are in the directory "
+                "containing the mzXML files that were used to generate them.  (If a peak annotation file was generated "
+                "using a mix of mzXML files from different sequences, the 'Sequence' column in the 'Peak Annotation "
+                "Details' sheet must be filled in and it is recommended that mzXML files are grouped into directories "
+                "defined by the sequence that generated them.)"
+            )
         super().__init__(message, **kwargs)
 
 
+class MzxmlColocatedWithMultipleAnnot(InfileError, SummarizableError):
+    SummarizerExceptionClass = MzxmlColocatedWithMultipleAnnots
+
+    def __init__(
+        self, msrun_sequence_names: List[str], matching_annot_dir: str, **kwargs
+    ):
+        nlt = "\n\t"
+        message = (
+            "mzXML file '%s' shares a common path with multiple peak annotation files (from the peak annotation files "
+            f"sheet), located in directory '{matching_annot_dir}' that are associated with different "
+            f"sequences:\n\t{nlt.join(msrun_sequence_names)}\nCo-location of mzXML files with peak annotation files is "
+            "what allows mzXML files to be linked to an MSRunSequence, based on the Default Sequence column in the "
+            "Peak Annotation Files sheet."
+        )
+        super().__init__(message, **kwargs)
+        self.msrun_sequence_names = msrun_sequence_names
+        self.matching_annot_dir = matching_annot_dir
+
+
 class DefaultSequenceNotFound(Exception):
+    """An MS Run Sequence record, expected to exist in the database, could not be found.
+
+    Note that each sheet in the study doc is loaded independently, but the order in which they are loaded matters.  For
+    example, the `Sequences` sheet must be loaded before the `Peak Annotation Files` sheet.  If there was an error when
+    loading any rows on the `Sequences` sheet, this error would be encountered when attempting to find that sequence
+    that was just loaded.
+
+    Alternatively, this exception could have arisen because a `Sequences` sheet row was edited and values in the
+    `Default Sequence` column in the `Peak Annotation Files` sheet (or other linking column) was not similarly updated
+    and became unlinked.
+
+    To resolve this exception, either the previous error must be fixed, or the `Default Sequence` column's value in the
+    `Peak Annotation Files` sheet must be updated to match a row in the `Sequence Name` column in the `Sequences` sheet.
+    """
+
     def __init__(self, operator, date, instrument, protocol):
         message = (
             "A search on the MSRunSample table given the following supplied arguments:\n"
@@ -3165,6 +3663,12 @@ class DefaultSequenceNotFound(Exception):
 
 
 class MultipleDefaultSequencesFound(Exception):
+    """Multiple MS Run Sequence record were found, but only one was expected.
+
+    To resolve this exception, supply all 4 search criteria (operator, protocol, instrument, and date).
+    """
+
+    # NOTE: Not user facing.  This arises from the command line when not all default sequence options are used.
     def __init__(self, operator, date, instrument, protocol):
         message = (
             "A search on the MSRunSample table given the following supplied arguments:\n"
@@ -3179,7 +3683,7 @@ class MultipleDefaultSequencesFound(Exception):
 
 
 class AllMzXMLSkipRowErrors(Exception):
-    """Takes a list of MzxmlSequenceUnknown exceptions and summarizes them in a single exception."""
+    """Summary of `MzXMLSkipRowErrors` exceptions from multiple input files."""
 
     def __init__(self, exceptions, message=None):
         if not message:
@@ -3316,6 +3820,21 @@ class AllMzXMLSkipRowErrors(Exception):
 
 
 class MzXMLSkipRowError(InfileError, SummarizableError):
+    """Could not determine which mzXML file loads to skip.
+
+    When the mzXML file paths are not supplied and the number of mzXML files of the same name exceed number of skipped
+    sample data headers in the peak annotation files (i.e. some of the same-named files are to be loaded and others are
+    to be skipped), it may be impossible to tell which ones are which.
+
+    The loading code can infer which are which if the files are divided into directories with their peak annotation
+    files in which they were used, but if that cannot be figured out, this error will be raised.
+
+    This can be resolved either by accounting for all mzXML files in the `Peak Annotation Details` sheet with their
+    paths or by organizing the mzXML files with the peak annotation files they were used to produce.
+
+    Summarized per file in `AllMzXMLSkipRowErrors` and across all files in `AllMzXMLSkipRowErrors`.
+    """
+
     SummarizerExceptionClass = AllMzXMLSkipRowErrors
 
     def __init__(
@@ -3325,10 +3844,10 @@ class MzXMLSkipRowError(InfileError, SummarizableError):
         skip_paths_dict: Dict[str, int],
         **kwargs,
     ):
-        """The situation here is that we may not be able to identify which files to skip and which to
-        load.  dirs could contain files we should skip because the user didn't provide directory paths on the skipped
-        rows from the infile.  We only know to skip them if the number of skips and the number of directories is the
-        same - but they differ.
+        """The situation here is that we may not be able to identify which files to skip and which to load.  dirs could
+        contain files we should skip because the user didn't provide directory paths on the skipped rows from the
+        infile.  We only know to skip them if the number of skips and the number of directories is the same - but they
+        differ.
 
         Args:
             mzxml_name (str): The mzXML filename without the extension
@@ -3361,6 +3880,15 @@ class MzXMLSkipRowError(InfileError, SummarizableError):
 
 
 class MzxmlSampleHeaderMismatch(InfileError):
+    """The mzXML filename does not match the sample header in the peak annotation file.
+
+    This situation can arise either if the filename has been (knowingly) manually modified or when the `mzXML File Name`
+    entered into the `Peak Annotation Details` sheet was mistakenly associated with the wrong `Sample Data Header`.
+
+    This exception is only ever raised as a warning and is not inspected by curators, so confirm the association and
+    either make a correction or ignore, if the association is correct.
+    """
+
     def __init__(self, header, mzxml_file, **kwargs):
         mzxml_basename, _ = os.path.splitext(os.path.basename(mzxml_file))
         message = (
@@ -3375,7 +3903,7 @@ class MzxmlSampleHeaderMismatch(InfileError):
 
 
 class AssumedMzxmlSampleMatches(Exception):
-    """Takes a list of AssumedMzxmlSampleMatch exceptions and summarizes them in a single exception."""
+    """Summary of `AssumedMzxmlSampleMatch` exceptions."""
 
     def __init__(self, exceptions: List[AssumedMzxmlSampleMatch], message=None):
         if message is None:
@@ -3402,6 +3930,28 @@ class AssumedMzxmlSampleMatches(Exception):
 
 
 class AssumedMzxmlSampleMatch(InfileError, SummarizableError):
+    """The sample name embedded in the mzXML filename uniquely but imperfectly matches.
+
+    This exception is only ever raised as a warning.  Some peak abundance correction tools have certain character
+    restrictions applied to sample headers.  Some such restrictions are:
+
+    - Sample names cannot start with a number
+    - No dashes (`-`) allowed
+    - Length limits
+
+    Those restritions are not the same as those of the mass spec instrument software or the tools that generate the
+    mzXML files from RAW files.  To get around those restrictions when they are encountered, the sample headers are
+    often modified, but the mzXML file names remain the original value.
+
+    The loading code accommodates these peculiarities in order to be able to dynamically match the mzXML files with the
+    corresponding peak annotation file sample header.  This warning serves to simply be transparent about the
+    association being automatically made, in order to catch any potential authentic mismatches.
+
+    In every known case, this warning can be safely ignored.
+
+    Summarized in `AssumedMzxmlSampleMatches`.
+    """
+
     SummarizerExceptionClass = AssumedMzxmlSampleMatches
 
     def __init__(self, sample_name, mzxml_file, **kwargs):
@@ -3419,7 +3969,7 @@ class AssumedMzxmlSampleMatch(InfileError, SummarizableError):
 
 
 class UnmatchedMzXMLs(Exception):
-    """Takes a list of UnmatchedMzXML exceptions and summarizes them in a single exception."""
+    """Summary of `UnmatchedMzXML` exceptions."""
 
     def __init__(self, exceptions: List[UnmatchedMzXML]):
         # Assumes that the file/sheet/column are all the same and that there is at least 1 exception
@@ -3442,6 +3992,31 @@ class UnmatchedMzXMLs(Exception):
 
 
 class UnmatchedMzXML(InfileError, SummarizableError):
+    """An `mzXML` file was found under the study directory that does not match any sample names in the
+    `Peak Annotation Details` sheet.
+
+    This can occur if there are `mzXML` files from samples that have not been used to produce a peak annotation file
+    yet, i.e. totally unanalyzed samples.  It can also occur if an existing peak annotation file was overlooked when
+    generating the Study Doc on the Upload Start page.
+
+    The resolution depends on what you want to do.  If you want to ignore these `mzXML` files that are unanalyzed, and
+    put off their load until a subsequent submission or a later addendum to this submission, every unaccounted-for
+    `mzXML File Name`, its `Sequence`, and a `Skip` value must be added to the `Peak Annotation Details` sheet (leaving
+    the "required" columns blank - an alternative set of required columns).  Or you could create a separate study folder
+    and move the extra `mzXML` files there.
+
+    If you want to load these `mzXML` files, the best way to proceed is to generate a new template on the Upload
+    **Start** page and copy your work from the old study doc to the new one, being careful to note differences such as
+    newly inserted ordered sample rows in the `Samples` sheet.
+
+    There are a few reasons for this strategy.  One of the big ones is that only the **Start** page checks for
+    `Peak Group Conflicts`.  The other big one is that multiple linked sheets are consistently populated and all inter-
+    sheet references are maintained, which is laborious and error prone when attempted manually.
+
+    Summarized by `UnmatchedMzXMLs`.
+    """
+
+    # NOTE: Not user facing (currently).
     SummarizerExceptionClass = UnmatchedMzXMLs
 
     def __init__(
@@ -3463,7 +4038,7 @@ class UnmatchedMzXML(InfileError, SummarizableError):
 
 
 class UnmatchedBlankMzXMLs(Exception):
-    """Takes a list of UnmatchedMzXML exceptions and summarizes them in a single exception."""
+    """Summary of `UnmatchedBlankMzXML` exceptions."""
 
     def __init__(self, exceptions: List[UnmatchedBlankMzXML]):
         # Assumes that the file/sheet/column are all the same and that there is at least 1 exception
@@ -3486,6 +4061,12 @@ class UnmatchedBlankMzXMLs(Exception):
 
 
 class UnmatchedBlankMzXML(InfileError, SummarizableError):
+    """This exception is the same as `UnmatchedMzXML`, but is a warning because the files have "blank" in their sample
+    names and are assumed to have been intentionally excluded.
+
+    Summarized by `UnmatchedBlankMzXMLs`.
+    """
+
     SummarizerExceptionClass = UnmatchedBlankMzXMLs
 
     def __init__(
@@ -3507,6 +4088,11 @@ class UnmatchedBlankMzXML(InfileError, SummarizableError):
 
 
 class InvalidHeaders(InfileError, ValidationError):
+    """Unexpected headers encountered in the input file.
+
+    No unexpected headers are allowed.
+    """
+
     def __init__(self, headers, expected_headers=None, fileformat=None, **kwargs):
         if expected_headers is None:
             expected_headers = expected_headers
@@ -3535,6 +4121,11 @@ class InvalidHeaders(InfileError, ValidationError):
 
 
 class DuplicateHeaders(ValidationError):
+    """Duplicate headers encountered in the input file.
+
+    No duplicate headers are allowed.
+    """
+
     def __init__(self, dupes, all):
         message = f"Duplicate column headers: {list(dupes.keys())}.  All: {all}"
         for k in dupes.keys():
@@ -3545,6 +4136,15 @@ class DuplicateHeaders(ValidationError):
 
 
 class DuplicateFileHeaders(ValidationError):
+    """Duplicate headers encountered in the input file.
+
+    Alternative to `DuplicateHeaders`, taking different inputs, depending on the context.
+
+    No duplicate headers are allowed.
+    """
+
+    # NOTE: Not user facing.
+
     def __init__(self, filepath, nall, nuniqs, headers):
         message = (
             f"Column headers are not unique in {filepath}. There are {nall} columns and {nuniqs} unique values: "
@@ -3558,6 +4158,7 @@ class DuplicateFileHeaders(ValidationError):
 
 
 class InvalidDtypeDict(InfileError):
+    # NOTE: Not user facing.
     def __init__(
         self,
         dtype,
@@ -3576,6 +4177,7 @@ class InvalidDtypeDict(InfileError):
 
 
 class InvalidDtypeKeys(InfileError):
+    # NOTE: Not user facing.
     def __init__(
         self,
         missing,
@@ -3594,6 +4196,11 @@ class InvalidDtypeKeys(InfileError):
 
 
 class DateParseError(InfileError):
+    """Unable to parse date string.  Date string not in the expected format.
+
+    To resolve this exception, reformat the date using the format reported in the error.
+    """
+
     def __init__(self, string, ve_exc, format, **kwargs):
         format = format.replace("%", "%%")
         # If the string has any number in it, suggest that the issue could be excel
@@ -3613,6 +4220,10 @@ class DateParseError(InfileError):
 
 
 class DurationError(InfileError):
+    """Invalid time duration value.  Must be a number.
+
+    To resolve this exception, edit the value to only be a number (no units symbol)."""
+
     def __init__(self, string, units, exc, **kwargs):
         message = f"The duration '{string}' found in %s must be a number of {units}.\n"
         super().__init__(message, **kwargs)
@@ -3621,11 +4232,17 @@ class DurationError(InfileError):
         self.units = units
 
 
+# TODO: Move the message construction into a constructor of this class.
 class InvalidMSRunName(InfileError):
+    """Unable to parse Sequence Name.  Must be 4 comma-delimited values of Operator, LC Protocol, Instrument, and
+    Date."""
+
     pass
 
 
 class ExcelSheetNotFound(InfileError):
+    """Expected Excel file sheet not found.  Ensure the correct file was supplied."""
+
     def __init__(self, sheet, file, all_sheets=None):
         avail_msg = "" if all_sheets is None else f"  Available sheets: {all_sheets}."
         message = f"Excel sheet [{sheet}] not found in %s.{avail_msg}"
@@ -3634,6 +4251,16 @@ class ExcelSheetNotFound(InfileError):
 
 
 class ExcelSheetsNotFound(InfileError):
+    """1 or more expected Excel file sheet names parsed from another file were not found in that file.
+
+    Ensure the correct file and sheet was specified in the referencing file.
+
+    The exception is raised when the Study Doc's (currently unused) `Defaults` sheet incorrectly references another
+    sheet.
+    """
+
+    # NOTE: Not user facing (currently in 3.1.5-beta or build 241e47d).
+
     def __init__(
         self,
         unknowns,
@@ -3666,6 +4293,16 @@ class ExcelSheetsNotFound(InfileError):
 
 
 class InvalidHeaderCrossReferenceError(Exception):
+    """Invalid Excel sheet header reference.
+
+    Ensure the correct file and sheet was specified in the referencing file.
+
+    The exception is raised when the Study Doc's (currently unused) `Defaults` sheet incorrectly references a column in
+    another sheet.
+    """
+
+    # NOTE: Not user facing (currently in 3.1.5-beta or build 241e47d).
+
     def __init__(
         self,
         source_file,
@@ -3707,6 +4344,11 @@ class InvalidHeaderCrossReferenceError(Exception):
 
 
 class MixedPolarityErrors(Exception):
+    """A mix of positive and negative polarities were found in an mzXML file.
+
+    TraceBase does not support mixed polarity mzXML files.
+    """
+
     def __init__(self, mixed_polarity_dict):
         deets = []
         for filename in mixed_polarity_dict.keys():
@@ -3724,6 +4366,19 @@ class MixedPolarityErrors(Exception):
 
 
 class InfileDatabaseError(InfileError):
+    """An unexpected internal database error has been encountered when trying to load specific input from an input file.
+
+    Exceptions like these are often hard to interpret, but the error was caught so that metadata about the related input
+    could be provided, such as the file, sheet, row, and column values that were being loaded when the exception
+    occurred.  However, the cause could be hard to determine if it is related to previously loaded data that did not
+    report an error.
+
+    If the cause of the error is not easily discernible, feel free to leave it for a curator to figure out.
+
+    These exceptions, when they occur on a somewhat regular basis, are figured out and the work in figuring out the
+    cause and likely solution is saved in a custom exception class to make them easier to fix when they crop up again.
+    """
+
     def __init__(self, exception, rec_dict, **kwargs):
         if rec_dict is not None:
             nltab = "\n\t"
@@ -3738,14 +4393,26 @@ class InfileDatabaseError(InfileError):
 
 
 class MzxmlParseError(Exception):
+    """The structure of the mzXML file is not as expected.  An expected XML element or element attribute was not found.
+
+    This could be due to an mzXML version change or a malformed or truncated file.
+
+    TraceBase supports mzXML version 3.2.
+    """
+
     pass
 
 
 class AllMultiplePeakGroupRepresentations(Exception):
-    """Summary of MultiplePeakGroupRepresentations errors across multiple loads.
+    """Summary of `MultiplePeakGroupRepresentations` exceptions across multiple input files.
 
-    Attributes:
-        exceptions: A list of MultiplePeakGroupRepresentation exceptions
+    Instance Attributes:
+        exceptions (List[MultiplePeakGroupRepresentation])
+        succinct (bool) [False]
+        suggestion (Optional[str])
+        orig_message (str): The original exception message, used to apply a suggestion after having been caught, based
+            on context.
+        message (str)
     """
 
     def __init__(
@@ -3836,10 +4503,16 @@ class AllMultiplePeakGroupRepresentations(Exception):
 
 
 class MultiplePeakGroupRepresentations(Exception):
-    """Summary of all MultiplePeakGroupRepresentation errors
+    """Summary of `MultiplePeakGroupRepresentation` exceptions from a single input file.
 
-    Attributes:
-        exceptions: A list of MultiplePeakGroupRepresentation exceptions
+    Summarized across all files in `AllMultiplePeakGroupRepresentations`.
+
+    Instance Attributes:
+        exceptions (List[MultiplePeakGroupRepresentation])
+        suggestion (Optional[str])
+        orig_message (str): The original exception message, used to apply a suggestion after having been caught, based
+            on context.
+        message (str)
     """
 
     def __init__(
@@ -3925,6 +4598,40 @@ class MultiplePeakGroupRepresentations(Exception):
 
 
 class MultiplePeakGroupRepresentation(SummarizableError):
+    """A peak group for a measured compound was picked multiple times and abundance corrected for 1 or more samples.
+
+    TraceBase requires that the single best representation of a peak group compound be loaded for any one sample.
+
+    Certain compounds can show up in both positive and negative scans, or in abutting scan ranges of the same polarity.
+    While neither representation may be perfect, this simple requirement prevents inaccuracies or mistakes when using
+    the data from TraceBase.
+
+    Be wary however that your compound names in your peak annotation files are consistently named, because different
+    synonyms are not detected as multiple peak group representations.  This was a design decision to support succinct
+    compound records while also supporting stereo-isomers.  (Note: This distinction may go away in a future version of
+    TraceBase, where synonyms are treated as the same compound in the context of peak groups.)
+
+    Multiple peak group representations are only detected and reported on the Upload **Start** page, when the peak
+    annotation files have their compounds and samples extracted.  The multiple representations are recorded in an
+    otherwise hidden sheet in the Study Doc named `Peak Group Conflicts`.
+
+    For every row in the conflicts sheet, a peak annotation file drop-down is supplied to pick the file from which the
+    peak group should be loaded.  The same peak group compound from the other file(s) will be skipped.
+
+    If you forgot a peak annotation file when generating your study doc template, start over with a complete generated
+    Study Doc in order to catch these issues.  But note, previously loaded Peak Group records are included in the
+    detection of multiple representations, so alternatively, you may choose to add forgotten peak annotation files in a
+    separate submission, keeping in mind that if you select the new peak annotation file as the peak group
+    representation to load, the old previously loaded peak group will be deleted.
+
+    Note that while manual editing of this sheet is discouraged, you can manually edit it as long as you preserve the
+    hidden column.  There is a hidden sample column containing delimited sample names.  This column is required to
+    accurately update all multiple representations.
+
+    Summarized per file in `MultiplePeakGroupRepresentations` and across all files in
+    `AllMultiplePeakGroupRepresentations`.
+    """
+
     SummarizerExceptionClass = MultiplePeakGroupRepresentations
 
     def __init__(
@@ -3980,11 +4687,7 @@ class MultiplePeakGroupRepresentation(SummarizableError):
 
 
 class PossibleDuplicateSamples(SummarizedInfileError, Exception):
-    """Summary of all PossibleDuplicateSamples errors
-
-    Attributes:
-        exceptions: A list of PossibleDuplicateSamples exceptions
-    """
+    """Summary of `PossibleDuplicateSample` exceptions from a single input file."""
 
     def __init__(
         self,
@@ -4001,6 +4704,8 @@ class PossibleDuplicateSamples(SummarizedInfileError, Exception):
             for exc in exc_list:
                 if include_loc:
                     headers_str += "\t"
+                if exc.rownum is not None and not isinstance(exc.rownum, list):
+                    raise ProgrammingError("rownum is expected to be a list here.")
                 rowlist = summarize_int_list(exc.rownum)
                 rowstr = "" if len(rowlist) == 0 else f" on rows: {rowlist}"
                 headers_str += f"\theader '{exc.sample_header}' maps to samples: {exc.sample_names}{rowstr}\n"
@@ -4019,6 +4724,20 @@ class PossibleDuplicateSamples(SummarizedInfileError, Exception):
 
 
 class PossibleDuplicateSample(InfileError, SummarizableError):
+    """Multiple peak annotation files have an identical sample header, but are associated with distinctly different
+    TraceBase biological Sample records.
+
+    This exception is always raised as a warning as a check to ensure that the distinction is intentional, and not just
+    a copy/paste error.
+
+    If there do exist different biological samples that happen to have the exact same name, this warning can be safely
+    ignored.  If they are the same biological sample, the `Sample Name` column in the `Peak Annotation Details` sheet
+    must be updated.  You may also need to delete or update the associated row in the `Samples` sheet, if no other
+    verified rows in the `Peak Annotation Details` sheet refers to it.
+
+    Summarized by `PossibleDuplicateSamples`.
+    """
+
     SummarizerExceptionClass = PossibleDuplicateSamples
 
     def __init__(self, sample_header: str, sample_names: List[str], **kwargs):
@@ -4035,6 +4754,21 @@ class PossibleDuplicateSample(InfileError, SummarizableError):
 
 
 class ReplacingPeakGroupRepresentation(InfileError):
+    """A previously loaded peak group from a previous submission (for a measured compound was picked multiple times and
+    abundance corrected for 1 or more samples) will be replaced with a new representation from a new peak annotation
+    file that includes this compound for the same 1 or more samples.
+
+    Refer to the documentation of the `MultiplePeakGroupRepresentation` exception for an explanation of multiple peak
+    group representations and TraceBase's requirements related to them.
+
+    This exception is always raised as a warning, to be transparent about the replacement of previously loaded Peak
+    Group records.  By selecting the new peak annotation file as the peak group representation to load in the
+    `Peak Group Conflicts` sheet, this warning informs you that an old previously loaded peak group will be deleted.
+
+    This exception is expected when a selection has been made that supercedes a selection made in a previous load
+    relating to the same samples and compound.
+    """
+
     def __init__(self, delete_rec: PeakGroup, selected_file: str, **kwargs):
         message = (
             f"Replacing PeakGroup {delete_rec} (previously loaded from file "
@@ -4047,6 +4781,23 @@ class ReplacingPeakGroupRepresentation(InfileError):
 
 
 class DuplicatePeakGroupResolutions(InfileError):
+    """A row in the `Peak Group Conflicts` sheet is duplicated, and may contain conflicting resolutions.
+
+    A row in the `Peak Group Conflicts` sheet is a duplicate if it contains the same (case insensitive) compound synonym
+    (or `/`-delimited synonyms in any order) and the same^ samples.
+
+    Refer to the documentation of the `MultiplePeakGroupRepresentation` exception for an explanation of multiple peak
+    group representations and the `Peak Group Conflicts` sheet's involvement in resolving them.
+
+    This exception is a warning when the resolution is the same on each row, but an error if the resolution (i.e. the
+    selected representation - the peak annotation file) is different on each row.
+
+    ^ _The **same** samples means **all** samples.  There is assumed to be no partial overlap between sample sets for_
+    _the same compounds because the automated construction of this file separates them programmatically, so be_
+    _careful editing the `Peak Group Conflicts` sheet, to make sure you do not introduce partial sample overlap_
+    _between rows._
+    """
+
     def __init__(
         self, pgname: str, selected_files: List[str], conflicting=True, **kwargs
     ):
@@ -4063,6 +4814,32 @@ class DuplicatePeakGroupResolutions(InfileError):
 
 
 class CompoundExistsAsMismatchedSynonym(Exception):
+    """A compound row was added to the Compounds sheet whose name exists as a synonym of another compound.
+
+    This exception can arise automatically in the downloaded study doc template all on its own.  TraceBase tries to add
+    rows in the Compounds sheet for both compounds that already exist in TraceBase and novel compounds that do not yet
+    exist in TraceBase.  However, the compound name and formula must both match.  When they do not match, a new row for
+    a novel compound is added to the sheet, whether or not it creates a conflict.  Such a conflict can arise due to the
+    formula (derived from the peak annotation file) representing the ionized state of the compound, e.g. with 1 less or
+    1 more proton (H).
+
+    A researcher can also cause this exception if they were to assign an HMDB ID that is already assigned to another
+    compound existing in TraceBase.  This can often happen after fixing the issue described above caused by an ionized
+    formula, because TraceBase did not pre-fill the existing compound due to the formula difference.
+
+    Lastly, this issue can arise if the conflicting compound record simply has a synonym associated with a compound
+    record that is just wrong.
+
+    To resolve this issue, either merge the compound records (editing them to fix the formula) or remove the synonym
+    from the differing compound record so that peak groups (and tracers) are associated with the other compound record.
+
+    If the compound from the peak annotation file(s) differs from the existing TraceBase compound record (e.g. different
+    formula or HMDB ID), and the new record represents a distinctly different compound, reach out to the curators.  The
+    existing compound synonym may already be associated with a different compound in other studies, so either changes
+    would need to be made to those other studies or the new study would need to be edited to distinguish the different
+    compounds.  Either way, a curator will need to coordinate the fix to ensure database-wide consistency.
+    """
+
     def __init__(self, name, compound_dict, conflicting_syn_rec):
         # Don't report the ID - it is arbitrary, so remove it from the record dicts
         excludes = ["id"]
@@ -4091,6 +4868,32 @@ class CompoundExistsAsMismatchedSynonym(Exception):
 
 
 class SynonymExistsAsMismatchedCompound(Exception):
+    """A compound row was added to the Compounds sheet whose synonym exists as a primary name of another compound.
+
+    This exception can arise automatically in the downloaded study doc template all on its own.  TraceBase tries to add
+    rows in the Compounds sheet for both compounds that already exist in TraceBase and novel compounds that do not yet
+    exist in TraceBase.  However, the compound name and formula must both match.  When they do not match, a new row for
+    a novel compound is added to the sheet, whether or not it creates a conflict.  Such a conflict can arise due to the
+    formula (derived from the peak annotation file) representing the ionized state of the compound, e.g. with 1 less or
+    1 more proton (H).
+
+    A researcher can also cause this exception if they were to assign an HMDB ID that is already assigned to another
+    compound existing in TraceBase.  This can often happen after fixing the issue described above caused by an ionized
+    formula, because TraceBase did not pre-fill the existing compound due to the formula difference.
+
+    Lastly, this issue can arise if the conflicting compound record simply has a synonym associated with a compound
+    record that is just wrong.
+
+    To resolve this issue, either merge the compound records (editing them to fix the formula) or remove the synonym
+    from the differing compound record so that peak groups (and tracers) are associated with the other compound record.
+
+    If the compound from the peak annotation file(s) differs from the existing TraceBase compound record (e.g. different
+    formula or HMDB ID), and the new record represents a distinctly different compound, reach out to the curators.  The
+    existing compound name may already be associated with a different compound in other studies, so either changes would
+    need to be made to those other studies or the new study would need to be edited to distinguish the different
+    compounds.  Either way, a curator will need to coordinate the fix to ensure database-wide consistency.
+    """
+
     def __init__(self, name, compound, conflicting_cpd_rec):
         # Don't report the ID - it is arbitrary, so remove it from the record dicts
         excludes = ["id"]
@@ -4119,9 +4922,9 @@ class SynonymExistsAsMismatchedCompound(Exception):
 
 
 class OptionsNotAvailable(ProgrammingError):
-    """
-    An exception class for methods that retrieve command line options, called too early.
-    """
+    """An exception class for methods that retrieve command line options, called too early."""
+
+    # NOTE: Not user facing.
 
     def __init__(self):
         super().__init__(
@@ -4130,14 +4933,26 @@ class OptionsNotAvailable(ProgrammingError):
 
 
 class MutuallyExclusiveOptions(CommandError):
+    # NOTE: Not user facing.
     pass
 
 
 class MutuallyExclusiveArgs(InfileError):
+    # NOTE: Not user facing.
+    pass
+
+
+class MutuallyExclusiveMethodArgs(Exception):
+    # NOTE: Not user facing.
+    pass
+
+
+class MutuallyExclusiveMethodArgs(Exception):
     pass
 
 
 class RequiredOptions(CommandError):
+    # NOTE: Not user facing.
     def __init__(self, missing, **kwargs):
         message = f"Missing required options: {missing}."
         super().__init__(message, **kwargs)
@@ -4145,18 +4960,22 @@ class RequiredOptions(CommandError):
 
 
 class ConditionallyRequiredOptions(CommandError):
+    # NOTE: Not user facing.
     pass
 
 
 class ConditionallyRequiredArgs(InfileError):
+    # NOTE: Not user facing.
     pass
 
 
 class NoLoadData(Exception):
+    # NOTE: Not user facing.
     pass
 
 
 class StudyDocConversionException(InfileError):
+    # NOTE: Rarely user facing.  A user would have to submit an old version of the study doc to see these warnings.
     def __init__(self, from_version: str, to_version: str, message: str, **kwargs):
         message = (
             f"The conversion of the input study doc from version {from_version} to version {to_version} "
@@ -4168,6 +4987,7 @@ class StudyDocConversionException(InfileError):
 
 
 class PlaceholdersAdded(StudyDocConversionException):
+    # NOTE: Rarely user facing.  A user would have to submit an old version of the study doc to see these warnings.
     def __init__(
         self, from_version, to_version, pa_list: list[PlaceholderAdded], **kwargs
     ):
@@ -4205,6 +5025,7 @@ class PlaceholdersAdded(StudyDocConversionException):
 
 
 class PlaceholderAdded(StudyDocConversionException):
+    # NOTE: Rarely user facing.  A user would have to submit an old version of the study doc to see these warnings.
     def __init__(self, from_version, to_version, message=None, **kwargs):
         if message is None:
             message = (
@@ -4216,6 +5037,7 @@ class PlaceholderAdded(StudyDocConversionException):
 
 
 class BlanksRemoved(StudyDocConversionException):
+    # NOTE: Rarely user facing.  A user would have to submit an old version of the study doc to see these warnings.
     def __init__(
         self,
         blanks_exceptions,
@@ -4238,6 +5060,7 @@ class BlanksRemoved(StudyDocConversionException):
 
 
 class BlankRemoved(StudyDocConversionException):
+    # NOTE: Rarely user facing.  A user would have to submit an old version of the study doc to see these warnings.
     def __init__(
         self, sample_name, new_loc, from_version, to_version, message=None, **kwargs
     ):
@@ -4252,6 +5075,7 @@ class BlankRemoved(StudyDocConversionException):
 
 
 class PlaceholderDetected(InfileError):
+    # NOTE: Rarely user facing.  A user would have to submit an old version of the study doc to see these warnings.
     def __init__(self, message=None, suggestion=None, **kwargs):
         if message is None:
             message = "Placeholder values detected on %s.  Skipping load of the corresponding record(s)."
@@ -4261,6 +5085,7 @@ class PlaceholderDetected(InfileError):
 
 
 class NotATableLoader(TypeError):
+    # NOTE: Not user facing.
     def __init__(self, command_inst):
         here = f"{type(command_inst).__module__}.{type(command_inst).__name__}"
         message = f"Invalid attribute [{here}.loader_class] TableLoader required, {type(command_inst).__name__} set"
@@ -4269,6 +5094,24 @@ class NotATableLoader(TypeError):
 
 
 class CompoundDoesNotExist(InfileError, ObjectDoesNotExist):
+    """The compound from the input file does not exist as either a primary compound name or synonym.
+
+    There are 2 possible resolutions to this exception.  Both involve updates to the `Compounds` sheet.
+
+    - Add the name as a synonym to an existing matching compound record.
+    - Add a new row to the `Compounds` sheet.
+
+    In either case, if no matching compound exists in the `Compounds` sheet of the Study Doc, be sure to check
+    TraceBase's Compounds page for a matching compound record (missing the current name as a synonym).  The Upload
+    **Start** page which generates the Study Doc populates the sheet with existing compounds from TraceBase whose
+    formulas exactly match the formula obtained from the peak annotation file(s).  But the formula derived from a peak
+    annotation file may represent an ionized version of the compound record in TraceBase and thus, may not have been
+    auto-added^, which is why the TraceBase site should be consulted.
+
+    ^ _Note that pre-populating the `Compounds` sheet with ionization variants is a proposed feature._
+    _See GitHub issue [#1195](https://github.com/Princeton-LSI-ResearchComputing/tracebase/issues/1195)._
+    """
+
     def __init__(self, name, **kwargs):
         message = f"Compound [{name}] from %s does not exist as either a primary compound name or synonym."
         super().__init__(message, **kwargs)
@@ -4276,6 +5119,25 @@ class CompoundDoesNotExist(InfileError, ObjectDoesNotExist):
 
 
 class MultipleRecordsReturned(InfileError, MultipleObjectsReturned):
+    """The record search was expected to match exactly 1 record, but multiple records were found.
+
+    This issue can arise for various reasons, but usually are related to conflicting sample naming conventions in the MS
+    instrument that produces the RAW (and by implication, the `mzXML`) filenames, the abundance correction software that
+    produces the peak annotation files (e.g. `AccuCor`), and TraceBase's unique biological sample naming constraints
+    related to scan labels.
+
+    TraceBase's attempts to map differing sample names in differing contexts to a single biological Sample record can
+    yield this exception in one case when there exists a biological sample duplicate in the Study Doc's `Samples` sheet.
+    This can happen due to the retention of scan labels in sample names when populating that sheet.  So one possible
+    resolution may be to merge duplicate sample records in the `Samples` sheet that happen to be different scans of the
+    same biological sample.
+
+    Another possibility could be misidentified "scan labels" that for example do not refer to polarity that were
+    manually fixed, but which cause issues when trying to map mzXML file names or peak annotation file sample headers to
+    those Sample records.
+
+    Each issue should be handled on a case-by-case basis."""
+
     def __init__(self, model, query_dict, message=None, **kwargs):
         if message is None:
             message = f"{model.__name__} record matching {query_dict} from %s returned multiple records."
@@ -4285,7 +5147,22 @@ class MultipleRecordsReturned(InfileError, MultipleObjectsReturned):
 
 
 class MissingDataAdded(InfileError):
-    """Use this for warnings only, for when missing data exceptions were dealt with."""
+    """Use this for warnings only, when missing data exceptions are caught, handled to autofill missing data in a
+    related sheet, and repackaged as a warning to transparently let the user know when repairs have occurred.
+
+    Examples:
+        Novel animal treatment:
+            A novel animal treatment is entered into the `Treatment` column of the `Animals` sheet in the Study Doc, but
+            not into the `Treatments` sheet.  The TraceBase Upload **Validate** page will autofill the new treatment
+            name in a new row added to the `Treatments` sheet of the Study Doc.
+
+        Novel tissue:
+            A novel tissue is entered into the `Tissue` column of the `Samples` sheet in the Study Doc, but not into the
+            `Tissues` sheet.  The TraceBase Upload **Validate** page will autofill the new tissue name in a new row
+            added to the `Tissues` sheet of the Study Doc.
+
+    This warning is an indicator that there is new data to potentially fill in in the mentioned sheet.
+    """
 
     def __init__(self, addition_notes=None, **kwargs):
         message = "Missing data "
@@ -4303,10 +5180,31 @@ class RollbackException(Exception):
     proceed and report as many errors as possible to reduce time-consuming re-loads just to get the next error.
     """
 
+    # NOTE: Not user facing.
     pass
 
 
 class TracerGroupsInconsistent(ValidationError):
+    """An infusate is either a duplicate or exists with a conflicting tracer group name.
+
+    A duplicate infusate can trigger this exception due to concentration value precision.  In other words, it's not
+    technically a true duplicate, but is treated as such due to the fact that concentration values may exceed a
+    precision threshold.  Excel and the underlying Postgres database have slightly different levels of precision.
+    TraceBase saves what you enter, but when it is entered into the database, the precision may change and end up
+    matching another record.  It's also important to note that while TraceBase saves the value you enter, it searches
+    for infusates using significant figures, which can also lead to a duplicate exception.  See the tracer column
+    headers in the `Infusates` sheet in the Study Doc for details of what significant figures are used.
+
+    The resolution in the duplicate case is to use existing records whose concentration values insignificantly differ.
+
+    The other reason this exception may be raised could be due to nomenclature control over the `Tracer Group Name`,
+    which must be the same across all infusates that that include the same tracer compounds, regardless of concentration
+    and isotopic inclusion.
+
+    If the tracer group name differs, you must use the pre-existing group name already in TraceBase.  If the group name
+    is problematic, reach out to a TraceBase curator to fix it.
+    """
+
     def __init__(self, new_infusate, dupe_infusates, group_name_mismatches):
         message = (
             f"Validation error(s) adding new infusate: [{new_infusate}] with group name: "
@@ -4357,6 +5255,16 @@ class TracerGroupsInconsistent(ValidationError):
 
 
 class TracerCompoundNameInconsistent(InfileError):
+    """The compound name used in the tracer name is not the primary compound name.
+
+    TraceBase requires that tracer names use the primary compound name so that searches yield complete and consistent
+    results.  It automatically changes the tracer name to use the primary compound and raises this exception as a
+    warning, to be transparent about the modification of the user-entered compound name.
+
+    If the established primary compound name is problematic, reach out to a TraceBase curator to propose a change of a
+    compound's primary name.  Note that such a change will affect all studies that use this tracer (if any).
+    """
+
     def __init__(
         self,
         tracer_name,
@@ -4374,6 +5282,19 @@ class TracerCompoundNameInconsistent(InfileError):
 
 
 class InvalidPeakAnnotationFileFormat(InfileError):
+    """The peak annotation file format code is either unrecognized, or doesn't appear to match the auto-detected format
+    of the supplied file.
+
+    This exception is raised as an error on the Upload **Start** page only.
+
+    To resolve this issue, select the format code using the dropdown menus in the `File Format` column of the
+    `Peak Annotation Files` sheet in the Study Doc that corresponds to the reported file.
+
+    Note that this error is more likely to occur when supplying CSV or TSV versions of peak annotation files.  Automatic
+    format determination is based on the Excel sheet and/or column names, and there is a lot of overlap in the column
+    names of the different formats.
+    """
+
     def __init__(self, format_code, supported, annot_file, **kwargs):
         message = (
             f"Unrecognized format code: {format_code} specified for file '{annot_file}' from %s.  Supported "
@@ -4389,6 +5310,17 @@ class InvalidPeakAnnotationFileFormat(InfileError):
 
 
 class UnknownPeakAnnotationFileFormat(InfileError):
+    """The peak annotation file format is unrecognized.
+
+    This exception is raised as an error on the Upload **Start** page only.
+
+    To resolve this issue, select the format code using the dropdown menus in the `File Format` column of the
+    `Peak Annotation Files` sheet in the Study Doc that corresponds to the reported file.  If none of the supported
+    formats in the dropdown match the file format, reach out to the TraceBase team to request adding support for the new
+    format.  In the meantime, it is recommended that you use one of the supported natural abundance correction tools to
+    regenerate the file in a TraceBase-compatible format.
+    """
+
     # TODO: Implement this class similar to the corresponding StudyDoc exception classes below, once match_data is
     # generated by the PeakAnnotationsLoader.determine_matching_formats method
     def __init__(self, supported, **kwargs):
@@ -4401,6 +5333,18 @@ class UnknownPeakAnnotationFileFormat(InfileError):
 
 
 class MultiplePeakAnnotationFileFormats(InfileError):
+    """The peak annotation file format could not be uniquely determined.
+
+    This exception is raised as an error on the Upload **Start** page only.
+
+    To resolve this issue, select the format code using the dropdown menus in the `File Format` column of the
+    `Peak Annotation Files` sheet in the Study Doc that corresponds to the reported file.
+
+    Note that this error is more likely to occur when supplying CSV or TSV versions of peak annotation files.  Automatic
+    format determination is based on the Excel sheet and/or column names, and there is a lot of overlap in the column
+    names of the different formats.
+    """
+
     # TODO: Implement this class similar to the corresponding StudyDoc exception classes below, once match_data is
     # generated by the PeakAnnotationsLoader.determine_matching_formats method
     def __init__(self, matches, **kwargs):
@@ -4410,6 +5354,17 @@ class MultiplePeakAnnotationFileFormats(InfileError):
 
 
 class DuplicatePeakAnnotationFileName(Exception):
+    """Multiple peak annotation files appear to have the same name.
+
+    This exception is raised as an error on the Upload **Start** page only.
+
+    To resolve this issue, either resubmit the files to exclude a truly duplicate file or rename one or both of the
+    files to make their names unique.
+
+    TraceBase requires that peak annotation filenames be globally unique to avoid ambiguities when sharing or
+    referencing data files.
+    """
+
     def __init__(self, filename):
         message = f"Peak annotation filenames must be unique.  Filename {filename} was encountered multiple times."
         super().__init__(message)
@@ -4417,10 +5372,20 @@ class DuplicatePeakAnnotationFileName(Exception):
 
 
 class InvalidStudyDocVersion(Exception):
+    """The study doc version that was automatically determined is not yet supported by the submission interface.
+
+    TraceBase is backward compatible with older versions of the Study Doc and the Upload **Validate** page automatically
+    detects the version based on sheet and column names.  The submission interface has not yet been updated to load this
+    version.  Reach out to the TraceBase team if you ever see this exception.
+    """
+
+    # NOTE: Effectively not user facing.  The only way to get this is if the **Start** page generated a new version
+    # number but was not updated to validate it.
     pass
 
 
 class StudyDocVersionException(Exception):
+    # NOTE: Rarely user facing.  A user would have to submit an old version of the study doc to see these warnings.
     def __init__(self, message, match_data, matches=None):
         """StudyDocVersionException constructor: appends match details to derived class exception messages.
 
@@ -4448,7 +5413,7 @@ class StudyDocVersionException(Exception):
         Exceptions:
             None
         Returns:
-            instance
+            None
         """
         guess, nheaders, nsheets = self.guess_version(match_data)
         if guess is not None:
@@ -4542,6 +5507,20 @@ class StudyDocVersionException(Exception):
 
 
 class UnknownStudyDocVersion(StudyDocVersionException):
+    """The study doc version could not be automatically determined.
+
+    This exception is accompanied by version determination metadata intended to highlight the supplied versus expected
+    sheet and column names.  Note however, that the only column names that will be reported as missing are required
+    columns.  Missing optional columns may be reported as "unknown".
+
+    TraceBase is backward compatible with older versions of the Study Doc and the Upload **Validate** page automatically
+    detects the version based on sheet and column names.
+
+    This exception could arise if the sheet names and/or column names were modified.  Try generating a new study doc
+    from the Upload **Start** page and compare the sheet and column names to ensure they were not inadvertently altered.
+    If there are differences, fix them so that the version can be identified by the Upload **Validate** interface.
+    """
+
     def __init__(self, supported_versions: list, match_data, message=None):
         """UnknownStudyDocVersion constructor: use when there is no version match.
 
@@ -4552,7 +5531,7 @@ class UnknownStudyDocVersion(StudyDocVersionException):
         Exceptions:
             None
         Returns:
-            instance
+            None
         """
         if message is None:
             message = (
@@ -4564,6 +5543,21 @@ class UnknownStudyDocVersion(StudyDocVersionException):
 
 
 class MultipleStudyDocVersions(StudyDocVersionException):
+    """The study doc version could not be automatically narrowed down to a single matching version.
+
+    This exception is accompanied by version determination metadata intended to highlight the supplied versus expected
+    sheet and column names.  Note however, that the only column names that will be reported as missing are required
+    columns.  Missing optional columns may be reported as "unknown".
+
+    TraceBase is backward compatible with older versions of the Study Doc and the Upload **Validate** page automatically
+    detects the version based on sheet and column names.
+
+    This exception could arise if various sheets have been removed, leaving sheets whose required column names do not
+    differ between versions.  There is currently no fix for this issue on the Upload **Validate** page and validation
+    must happen on the command line where a version number can be supplied.  In this case, it is recommended that you
+    skip validation and if you think the data is complete, move on to the **Submit** step.
+    """
+
     def __init__(self, matching_version_numbers: list, match_data, message=None):
         """MultipleStudyDocVersions constructor: use when there are multiple matches.
 
@@ -4574,7 +5568,7 @@ class MultipleStudyDocVersions(StudyDocVersionException):
         Exceptions:
             None
         Returns:
-            instance
+            None
         """
         if message is None:
             message = (
@@ -4583,6 +5577,649 @@ class MultipleStudyDocVersions(StudyDocVersionException):
             )
         super().__init__(message, match_data, matching_version_numbers)
         self.matching_version_numbers = matching_version_numbers
+
+
+class DeveloperWarning(Warning):
+    # NOTE: Not user facing.
+    pass
+
+
+class DBFieldVsFileColDeveloperWarnings(DeveloperWarning):
+    """Summarization of multiple DBFieldVsFileColDeveloperWarning exceptions.
+
+    This exception breaks down the type warnings between database fields and file columns by loader class/field, whether
+    the string versions differed or not, and by file location (so that the column can be mapped).  See
+    DBFieldVsFileColDeveloperWarning's docstring for details on how to address this exception.
+
+    This warning is only issued when the types of database versus file values differ, and is only useful when it is
+    followed by ConflictingValueErrors, in which case those exceptions can be resolved by explicitly setting the column
+    type in the loader class.
+
+    Args:
+        exceptions (List[DBFieldVsFileColDeveloperWarning])
+    Attributes:
+        Class:
+            None
+        Instance:
+            exceptions (List[DBFieldVsFileColDeveloperWarning])
+            differences (Dict[str, Dict[str, Dict[str, List[Dict[str, str]]]]]): A dictionary summarizing differences
+                between an existing database record and the values derived from the input file.
+                See Differences.differences defined in the class attributes.
+            has_mismatches (bool): Whether any values are effectively different, i.e. whether the values will "look"
+                different to the developer (because everything that comes from the file is potentially a str).  This
+                value is key as to how the issue described in the exception message should be resolved.
+                See Differences.has_mismatches defined in the class attributes.
+    """
+
+    @dataclass
+    class Differences:
+        """A dataclass to hold information on differences between database records and rows in an input file.
+
+        Args:
+            differences (Dict[str, Dict[str, Dict[str, List[Dict[str, str]]]]]): See Attributes.
+            has_mismatches (bool): See Attributes.
+
+        Attributes:
+            differences (Dict[str, Dict[str, Dict[str, List[Dict[str, str]]]]]): A dictionary summarizing differences
+                between an existing database record and the values derived from the input file.
+                See Differences.differences defined in the class attributes.
+            has_mismatches (bool): Whether any values are effectively different, i.e. whether the values will "look"
+                different to the developer (because everything that comes from the file is potentially a str).  This
+                value is key as to how the issue described in the exception message should be resolved.
+                See Differences.has_mismatches defined in the class attributes.
+        """
+
+        differences: Dict[str, Dict[str, Dict[str, List[Dict[str, str]]]]]
+        has_mismatches: bool
+
+    def __init__(self, exceptions: List[DBFieldVsFileColDeveloperWarning]):
+        self.exceptions = exceptions
+
+        result = self._build_differences()
+        self.differences = result.differences
+        self.has_mismatches = result.has_mismatches
+
+        summary = self._summarize_differences()
+        message = self._build_message(summary)
+
+        super().__init__(message)
+
+    def _build_differences(self) -> Differences:
+        """Generates an organized dictionary of differences between existing database records & input file rows.
+
+        The structure of the dict reflects how the exception's message will display the difference data.
+
+        Requires self.exceptions to have been set.
+
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            (Differences)
+        """
+        differences_dict: Dict[str, Dict[str, Dict[str, List[Dict[str, str]]]]] = (
+            defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+        )
+        has_mismatches = False
+        exc: DBFieldVsFileColDeveloperWarning
+        for exc in self.exceptions:
+            loader_field = f"Loader: {exc.loader_name}, Field: {type(exc.rec).__name__}.{exc.field}"
+            if exc.different:
+                different_equal = "Differing string values"
+                has_mismatches = True
+            else:
+                different_equal = "Equal string values"
+            differences_dict[loader_field][different_equal][exc.loc].append(
+                {
+                    "database": exc.db_value,
+                    "file": exc.file_value,
+                }
+            )
+
+        return self.Differences(differences_dict, has_mismatches)
+
+    def _summarize_differences(self) -> str:
+        """Turns the self.differences dictionary into an indented list of differences.
+
+        The differences are organized by the (loader name and) database field name, whether the string values differ,
+        and the location in the file where the corresponding data with a unique constraint violation was encountered.
+
+        Requires self.differences and self.has_mismatches to have been set.
+
+        Example:
+            # Example return value (string of an indented outline detailing differences)
+            Loader: AnimalLoader, Field: Animal.age
+                Differing string values:
+                    column [Age] on row [5] of sheet [Animals] in [study.xlsx]
+                        Database Value: '2' (type: int)
+                        File Value: '5' (type: str)
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            (str)
+        """
+        summary = []
+        for loader_field in self.differences.keys():
+            summary.append(f"\n{loader_field}")
+
+            for different_equal in self.differences[loader_field].keys():
+                summary.append(f"\n\t{different_equal}:")
+
+                for file_location in self.differences[loader_field][
+                    different_equal
+                ].keys():
+
+                    for diff in self.differences[loader_field][different_equal][
+                        file_location
+                    ]:
+                        dbval = diff["database"]
+                        dbtype = type(dbval).__name__
+                        fileval = diff["file"]
+                        filetype = type(fileval).__name__
+
+                        summary.append(
+                            f"\n\t\t{file_location}:\n"
+                            f"\t\t\tDatabase Value: '{dbval}' (type: {dbtype})\n"
+                            f"\t\t\tFile Value: '{fileval}' (type: {filetype})"
+                        )
+
+        return "".join(summary)
+
+    def _build_message(self, summary: str) -> str:
+        message = (
+            "Model field values from existing records in the database were compared to values from the input file, "
+            "but the types differed.  Their values were cast to a string to make the comparison.  If the string "
+            "comparison conclusions are correct, you can ignore this warning.  If any conclusions are wrong, the "
+            "corresponding loader class must be updated so that the values can be correctly compared.  Consult the "
+            "docstring of the DBFieldVsFileColDeveloperWarning class for details.  Summary of the type differences "
+            f"encountered:\n{summary}"
+        )
+
+        if self.has_mismatches:
+            message += (
+                "\n\nNote that since in at least 1 case, the database and file string values differed, their "
+                "exceptions will be followed by ConflictingValueError exceptions.  This warning is intended to help "
+                "debug the case where any of those ConflictingValueError exceptions appear wrong (e.g. it says that "
+                "'1' != 1)."
+            )
+
+        return message
+
+
+class DBFieldVsFileColDeveloperWarning(
+    InfileError, DeveloperWarning, SummarizableError
+):
+    """This warning helps developers find problems in the loader code that helps users to be able to fix unique
+    constraint IntegrityErrors.
+
+    Problems found relate to comparing file-derived values with database-derived values when their types are not
+    recorded in the loader class.  The purpose is to catch automatic type conversion mistakes that Excel/pandas make so
+    that that incorrect type can be explicitly fixed in the loader class (i.e. it can tell pandas what type to use).
+    Only simple types are supported.
+
+    Solving this problem means that whenever the user encounters a unique constraint violation, we will be able to tell
+    the user what sheet, row, and column in their infile need to be corrected to resolve the conflict.  This warning
+    helps us ensure that they are given valid difference information.
+
+    The fix only applies to database fields that map 1:1 with a column in the input file.  If you encounter a type issue
+    relating to more than 1 column, a parsed column, or a delimited column, the problem cannot be fixed in the method
+    described below.  It means that your code is setting the incorrect type in one of the values in the dict supplied
+    to get_or_create.  To determine if the advice below is relevant, you need to identify a column in the file/sheet,
+    using the data provided in the exception, that corresponds exactly to the value from the database.  If the column
+    contains multiple delimited values or if it is a parsed value, or if the DB field is constructed using values from
+    multiple columns, the issue is in the loading code, and the advise below is not applicable.
+
+    If there is a column that corresponds 1:1 with the DB field, there are 2 changes that need to be made to the loader
+    code:
+
+    1. The database field should be mapped to the model/column in the class attribute 'FieldToDataHeaderKey'
+    2. The type of the values in the column should be added to the class attribute 'DataColumnTypes'.
+
+    Example:
+        If the exception is from the SamplesLoader, and the sample name column had the value '1', pandas will by default
+        read in an integer, but the database expects a string.  We have to map the 'Sample.name' field to the column in
+        the variable 'SAMPLE_KEY', and set its type to 'str'.  We do that by adding the values in the class attributes:
+
+        DataColumnTypes: Dict[str, type] = {
+            SAMPLE_KEY: str,
+        }
+
+        FieldToDataHeaderKey = {
+            Sample.__name__: {
+                "name": SAMPLE_KEY,
+            },
+        }
+
+    """
+
+    SummarizerExceptionClass = DBFieldVsFileColDeveloperWarnings
+
+    def __init__(
+        self,
+        rec: Model,
+        field: str,
+        db_value: Any,
+        file_value: Any,
+        loader_name: str,
+        **kwargs,
+    ):
+        different = str(db_value) != str(file_value)
+        different_str = "different" if different else "equal"
+        message = (
+            f"A Model field '{type(rec).__name__}.{field}' value from an existing record in the database was compared "
+            f"to a value from an unmapped column in %s, but the type of the value from the database ('{db_value}', a "
+            f"'{type(db_value).__name__}') and the type of the value from the file ('{file_value}', a "
+            f"'{type(file_value).__name__}') differs.  Both were cast to a string to compare and found to be "
+            f"{different_str}.\n\n"
+            f"If the string comparison conclusion ('{db_value}' vs '{file_value}' -> {different_str}) is correct, you "
+            f"can ignore this warning.  If that conclusion is wrong, the loader ({loader_name}) must be updated so "
+            "that the values can be correctly compared.  Consult the docstring of the "
+            f"{__class__.__name__} class for details."  # type: ignore[name-defined]
+        )
+        if different:
+            message += (
+                "\n\nNote that since the database and file string values differed, this exception will be followed by "
+                "a ConflictingValueError.  This warning is intended to help debug the case where that "
+                "ConflictingValueError appears wrong (e.g. it says that 1 != 1)."
+            )
+        InfileError.__init__(self, message, **kwargs)
+        self.rec = rec
+        self.field = field
+        self.db_value = db_value
+        self.file_value = file_value
+        self.loader_name = loader_name
+        self.different = str(db_value) != str(file_value)
+        self.different_str = different_str
+
+
+class MissingFCircCalculationValues(Exception):
+    """Summary of `MissingFCircCalculationValue` exceptions."""
+
+    def __init__(
+        self,
+        exceptions: List[MissingFCircCalculationValue],
+    ):
+        message = (
+            "FCirc calculations on TraceBase are done using the tracer peak group(s) from the last serum sample, "
+            "the infusion rate, and the animal weight.  The following values are missing:\n"
+        )
+        err_dict: dict = defaultdict(lambda: defaultdict(list))
+        for exc in exceptions:
+            loc = generate_file_location_string(file=exc.file, sheet=exc.sheet)
+            err_dict[loc][exc.column].append(exc.rownum)
+
+        for loc, data in sorted(err_dict.items(), key=lambda tpl: tpl[0]):
+            message += f"\t{loc}\n"
+            for col, rownums in sorted(data.items(), key=lambda tpl: tpl[0]):
+                message += (
+                    f"\t\t'{col}' on row(s): " + str(summarize_int_list(rownums)) + "\n"
+                )
+
+        super().__init__(message)
+
+
+class MissingFCircCalculationValue(SummarizableError, InfileError):
+    """A value, while not required, but necessary for (accurate) FCirc calculations, is missing.
+
+    TraceBase does not require values for some database model fields because it supports animals that have not been
+    infused with tracers, but when an animal does have a tracer infusion, certain values are necessary to accurately
+    compute FCirc.  If any of those values have not been filled in, and the animal has an infusate, you will see this
+    exception as a warning.
+
+    While your data can be loaded without these values, it is highly recommended that all such values be supplied in
+    order to show FCirc records with calculated values and without associated errors or warnings.
+
+    Summarized in `MissingFCircCalculationValues`.
+    """
+
+    SummarizerExceptionClass = MissingFCircCalculationValues
+
+    def __init__(self, message: Optional[str] = None, **kwargs):
+        if (
+            ("file" not in kwargs.keys() and "sheet" not in kwargs.keys())
+            or "column" not in kwargs.keys()
+            or "rownum" not in kwargs.keys()
+        ):
+            # Needed for the summary class.  Left off the outer single quotes on purpose to hack in multiple args.
+            raise RequiredArgument(
+                "rownum', 'column', and 'file' or 'sheet",
+                methodname=MissingFCircCalculationValue.__name__,
+            )
+        if message is None:
+            message = (
+                "FCirc calculations on TraceBase are done using the tracer peak group(s) from the last serum sample, "
+                "the infusion rate, and the animal weight.  This value is missing:\n\t%s"
+            )
+        if "suggestion" not in kwargs.keys() or kwargs["suggestion"] is None:
+            kwargs["suggestion"] = (
+                "You can load data into tracebase without these values, but the FCirc values will either be missing "
+                "(when there is no animal weight or infusion rate) or potentially inaccurate (if the sample collection "
+                "time is missing and the arbitrarily selected 'last' serum sample is not the actual last sample)."
+            )
+        super().__init__(message, **kwargs)
+
+
+class ProhibitedCompoundNames(SummarizedInfileError, Exception):
+    """Summary of `ProhibitedCompoundName` exceptions."""
+
+    def __init__(
+        self,
+        exceptions: List[ProhibitedCompoundName],
+    ):
+        SummarizedInfileError.__init__(self, exceptions)
+        exc: ProhibitedCompoundName
+        data: dict = defaultdict(lambda: defaultdict(list))
+        for loc, exc_list in self.file_dict.items():
+            for exc in exc_list:
+                for found in exc.found:
+                    data[loc][found].append(exc.rownum)
+        message = "Prohibited substrings encountered:\n"
+        for loc in sorted(data.keys()):
+            message += f"\t{loc}:\n"
+            for substr in sorted(data[loc].keys()):
+                rowlist = summarize_int_list(data[loc][substr])
+                message += f"\t\t'{substr}' on row(s): {rowlist}\n"
+        message += (
+            "You may manually edit the compound names to address this issue with whatever replacement characters you "
+            "wish, but be sure to do so in both the study doc's Compounds sheet AND in all peak annotation files."
+        )
+        Exception.__init__(self, message)
+        self.exceptions = exceptions
+
+
+class ProhibitedStringValue(Exception):
+    # NOTE: Not user facing.  This exception is always caught and repackaged to provide input file context.
+
+    def __init__(
+        self,
+        found: List[str],
+        disallowed: Optional[List[str]] = None,
+        value: Optional[str] = None,
+        message: Optional[str] = None,
+        **kwargs,
+    ):
+        if disallowed is None or len(disallowed) == 0:
+            disallowed = found
+        if message is None:
+            valstr = f" (in '{value}')" if value is not None else ""
+            message = (
+                f"Prohibited character(s) {found} encountered{valstr}.\n"
+                f"None of the following reserved substrings are allowed: {disallowed}."
+            )
+        super().__init__(message, **kwargs)
+        self.found = found
+        self.value = value
+        self.disallowed = disallowed
+
+
+class ProhibitedCompoundName(ProhibitedStringValue, InfileError, SummarizableError):
+    """The compound name or synonym contains disallowed characters that were replaced with similar allowed characters.
+
+    This exception is always raised as a warning.
+
+    Disallowed characters are either compound name/synonym delimiters or Peak Group name delimiters that are used during
+    loading.
+
+    While the offending characters are automatically replaced, you may elect to use an alternate character.  If you go
+    with the automatic replacement, nothing further needs to be done, but if you edit the values in the Study Doc, but
+    be sure to make the edit everywhere, including the `Compounds` sheet, the `Tracers`/`Infusates` sheets (and in the
+    `Infusate` column in the `Animals` sheet), the `Peak Group Conflicts` sheet.  Also, all peak annotation files will
+    need to be updated as well.
+
+    Summarized by `ProhibitedCompoundNames`.
+    """
+
+    SummarizerExceptionClass = ProhibitedCompoundNames
+
+    def __init__(
+        self,
+        found: List[str],
+        value: Optional[str] = None,
+        fixed: Optional[str] = None,
+        disallowed: Optional[List[str]] = None,
+        message: Optional[str] = None,
+        **kwargs,
+    ):
+        try:
+            column = kwargs.pop("column")
+        except KeyError:
+            raise RequiredArgument("column", ProhibitedCompoundName.__name__)
+        if disallowed is None or len(disallowed) == 0:
+            disallowed = found
+        if message is None:
+            valstr = f" (in compound name '{value}')" if value is not None else ""
+            message = (
+                f"Prohibited compound name substring(s) {found} encountered{valstr} in %s.\n"
+                f"Column '{column}' values may not have any of the following reserved substrings: {disallowed}."
+            )
+        suggestion = kwargs.get("suggestion")
+        if fixed is not None:
+            message += (
+                f"\n\nThe compound name was automatically repaired to be '{fixed}'."
+            )
+        elif suggestion is None:
+            kwargs["suggestion"] = "Please remove or replace the prohibited substrings."
+        ProhibitedStringValue.__init__(
+            self, found, disallowed=disallowed, value=value, message=message
+        )
+        InfileError.__init__(self, message, column=column, **kwargs)
+        self.fixed = fixed
+
+
+class AnimalsWithoutSamples(Exception):
+    """Summary of `AnimalWithoutSamples` exceptions.
+
+    Lists the names of animals (and the locations in the study doc in which they can be found) that have no samples and
+    suggests how to resolve the issue.
+
+    DEV_SECTION - Everything above this delimiter is user-facing.  See TraceBaseDocs/README.md
+
+    Args:
+        exceptions (List[AnimalWithoutSamples])
+
+    Attributes:
+        Class:
+            None
+        Instance:
+            exceptions (List[AnimalWithoutSamples])
+            animals (List[str]): List of animal names.
+    """
+
+    def __init__(self, exceptions: List[AnimalWithoutSamples]):
+        # Assumes all exceptions are from the same 1 file's Animals sheet, and gets the file, sheet, and column from the
+        # first exception
+        first_exc: AnimalWithoutSamples = exceptions[0]
+        loc = generate_file_location_string(
+            file=first_exc.file, sheet=first_exc.sheet, column=first_exc.column
+        )
+
+        message = f"The following animals in {loc} do not have any samples in the Samples sheet:"
+
+        for exc in sorted(exceptions, key=lambda e: e.animal):
+            message += f"\n\t'{exc.animal}' on row {exc.rownum}"
+
+        message += (
+            "\n\nThe animals will be loaded if you do nothing.  You can ignore this for now and submit samples for "
+            "these animals in the future either by resubmitting this amended study doc or by submitting a new study "
+            "doc that supplements this existing study.  Or you can address the issue now by adding overlooked samples "
+            "to the Samples sheet (or remove the animals from the Animals sheet)."
+        )
+
+        super().__init__(message)
+        self.exceptions = exceptions
+        self.animals = [e.animal for e in exceptions]
+
+
+class AnimalWithoutSamples(InfileError, SummarizableError):
+    """An animal was detected without any samples associated with it in the `Samples` sheet.
+
+    If the animal has samples in the `Samples` sheet, it is likely that the load of every sample associated with the
+    animal encountered a separate error.  Fixing those errors will resolve this warning.
+
+    If however, there are no samples associated with the animal in the `Samples` sheet, it is likely that one or more
+    peak annotation files associated with the animal was omitted when generating the Study Doc on the Upload **Start**
+    page.  In this case, to address the issue, it is recommended that you generate a new Study Doc from **all** peak
+    annotation files combined and copy over all of your work from the current file, being careful to account for new
+    ordered samples rows and all auto-filled sheets, like `Peak Annotation File`/`Details` and `Compounds`.
+
+    This is recommended for a number of reasons that are covered elsewhere in the TraceBase documentation, but to
+    summarize, the Upload **Start** page performs checks that are not performed elsewhere to find conflicting issues
+    between peak annotation files, and it fills in all inter-sheet references (including hidden sheets and columns and
+    peak group conflicts) that are laborious and error prone to attempt manually.
+
+    You may alternatively elect to add the forgotten peak annotation files in a separate submission after the current
+    data has been loaded.  You may keep the animal records and ignore this warning.  The subsequent submission should
+    include the complete animal record and associated study record.
+
+    Summarized in `AnimalsWithoutSamples`.
+
+    DEV_SECTION - Everything above this delimiter is user-facing.  See TraceBaseDocs/README.md
+
+    Args:
+        animal (str): Name of an animal without samples.
+        message (Optional[str])
+
+    Attributes:
+        Class:
+            SummarizerExceptionClass (Exception): Concrete class attribute of SummarizableError's abstract requirement.
+                Exception classes derived from abstract base class `SummarizableError` are collected in
+                `DataRepo.loaders.base.table_loader.TableLoader` and summarized by the class defined here.
+        Instance:
+            animal (str): Name of an animal without samples.
+    """
+
+    SummarizerExceptionClass = AnimalsWithoutSamples
+
+    def __init__(self, animal: str, message: Optional[str] = None, **kwargs):
+        if message is None:
+            message = f"Animal '{animal}' does not have any samples in %s."
+
+        if "suggestion" not in kwargs.keys() or kwargs["suggestion"] is None:
+            message += (
+                "\n\nThe animal will be loaded if you do nothing.  You can ignore this for now and submit samples for "
+                "this animal in the future either by resubmitting this amended study doc or by submitting a new study "
+                "doc that supplements this existing study.  Or you can address the issue now by adding overlooked "
+                "samples to the Samples sheet (or remove the animal from the Animals sheet)."
+            )
+
+        super().__init__(message, **kwargs)
+        self.animal = animal
+
+
+class AnimalsWithoutSerumSamples(Exception):
+    """Summary of `AnimalWithoutSerumSamples` exceptions.
+
+    Lists the names of animals (and the locations in the study doc in which they can be found) that have no serum
+    samples, explains why they're important, and suggests how to resolve the issue.
+
+    DEV_SECTION - Everything above this delimiter is user-facing.  See TraceBaseDocs/README.md
+
+    Args:
+        exceptions (List[AnimalWithoutSerumSamples])
+
+    Attributes:
+        Class:
+            None
+        Instance:
+            exceptions (List[AnimalWithoutSerumSamples])
+            animals (List[str]): List of animal names.
+    """
+
+    def __init__(self, exceptions: List[AnimalWithoutSerumSamples]):
+        # Assumes all exceptions are from the same 1 file's Animals sheet, and gets the file, sheet, and column from the
+        # first exception
+        first_exc: AnimalWithoutSerumSamples = exceptions[0]
+        loc = generate_file_location_string(
+            file=first_exc.file, sheet=first_exc.sheet, column=first_exc.column
+        )
+
+        message = (
+            f"The following animals in {loc} do not have the necessary serum samples to perform FCirc "
+            "calculations:"
+        )
+
+        for exc in sorted(exceptions, key=lambda e: e.animal):
+            message += f"\n\t'{exc.animal}' on row {exc.rownum}"
+
+        message += (
+            "\nFCirc calculations on TraceBase are done using the tracer peak group(s) from the last serum sample, the "
+            "infusion rate, and the animal weight.  You can load data into TraceBase without serum samples, but the "
+            "FCirc values will be missing.\n\n"
+            "Everything will be loaded if you do nothing.  You can ignore this for now and submit serum samples for "
+            "these animals in the future either by resubmitting this amended study doc or by submitting a new study "
+            "doc that supplements this existing study.  Or you can address the issue now by adding overlooked serum "
+            "samples to the Samples sheet (or remove the animals from the Animals sheet)."
+        )
+
+        super().__init__(message)
+        self.exceptions = exceptions
+        self.animals = [e.animal for e in exceptions]
+
+
+class AnimalWithoutSerumSamples(InfileError, SummarizableError):
+    """An animal with a tracer infusion was detected without any serum samples associated with it in the `Samples`
+    sheet.
+
+    Serum samples are necessary in order for TraceBase to report FCirc calculations.
+
+    If the animal has serum samples in the `Samples` sheet, it is possible that the load of every serum sample
+    associated with the animal encountered a separate error.  Fixing those errors will resolve this warning.
+
+    If however, there are no serum samples associated with the animal in the `Samples` sheet, it is possible that a
+    peak annotation file associated with the animal was omitted when generating the Study Doc on the Upload **Start**
+    page.  In this case, to address the issue, it is recommended that you generate a new Study Doc from **all** peak
+    annotation files combined and copy over all of your work from the current file, being careful to account for new
+    ordered samples rows and all auto-filled sheets, like `Peak Annotation File`/`Details` and `Compounds`.
+
+    This is recommended for a number of reasons that are covered elsewhere in the TraceBase documentation, but to
+    summarize, the Upload **Start** page performs checks that are not performed elsewhere to find conflicting issues
+    between peak annotation files, and it fills in all inter-sheet references (including hidden sheets and columns and
+    peak group conflicts) that are laborious and error prone to attempt manually.
+
+    You may alternatively elect to add the forgotten peak annotation files in a separate submission after the current
+    data has been loaded.  You may keep the animal records and ignore this warning.  The subsequent submission should
+    include the complete animal record and associated study record.
+
+    Summarized in `AnimalsWithoutSerumSamples`.
+
+    DEV_SECTION - Everything above this delimiter is user-facing.  See TraceBaseDocs/README.md
+
+    Args:
+        animal (str): Name of an animal without serum samples.
+        message (Optional[str])
+
+    Attributes:
+        Class:
+            SummarizerExceptionClass (Exception): Concrete class attribute of SummarizableError's abstract requirement.
+                Exception classes derived from abstract base class `SummarizableError` are collected in
+                `DataRepo.loaders.base.table_loader.TableLoader` and summarized by the class defined here.
+        Instance:
+            animal (str): Name of an animal without samples.
+    """
+
+    SummarizerExceptionClass = AnimalsWithoutSerumSamples
+
+    def __init__(self, animal: str, message: Optional[str] = None, **kwargs):
+        if message is None:
+            message = (
+                f"Animal '{animal}' does not have the necessary serum samples to perform FCirc calculations in "
+                "%s."
+            )
+        if "suggestion" not in kwargs.keys() or kwargs["suggestion"] is None:
+            kwargs["suggestion"] = (
+                "FCirc calculations on TraceBase are done using the tracer peak group(s) from the last serum sample, "
+                "the infusion rate, and the animal weight.  You can load data into TraceBase without serum samples, "
+                "but the FCirc values will be missing.\n\n"
+                "Everything will be loaded if you do nothing.  You can ignore this for now and submit serum samples "
+                "for this animal in the future either by resubmitting this ammended study doc or by submitting a new "
+                "study doc that supplements this existing study.  Or you can address the issue now by adding "
+                "overlooked serum samples to the Samples sheet (or remove the animal from the Animals sheet)."
+            )
+        super().__init__(message, **kwargs)
+        self.animal = animal
 
 
 def generate_file_location_string(column=None, rownum=None, sheet=None, file=None):
@@ -4643,3 +6280,34 @@ def summarize_int_list(intlist):
         else:
             sum_list.append(f"{str(waiting_num)}-{str(last_num)}")
     return sum_list
+
+
+def trace(exc: Optional[Exception] = None):
+    """
+    Creates a pseudo-traceback for debugging.  Tracebacks are only built as the raised exception travels the stack to
+    where it's caught.  traceback.format_stack yields the entire stack, but that's overkill, so this loop filters out
+    anything that contains "site-packages" so that we only see our own code's steps.  This should effectively show us
+    only the bottom of the stack, though there's a chance that intermediate steps could be excluded.  I don't think
+    that's likely to happen, but we should be aware that it's a possibility.
+
+    The string is intended to only be used to debug a problem.  Print it inside an except block if you want to find the
+    cause of any particular buffered exception.
+
+    Args:
+        exc (Optional[Exception]): An optional caught exception to include a partial traceback with the returned trace.
+    Exceptions:
+        None
+    Returns:
+        trace (str): A string formatted stack trace (not including the optional exception's message)
+    """
+    trace = "".join(
+        [str(step) for step in traceback.format_stack() if "site-packages" not in step]
+    )
+    if (
+        isinstance(exc, Exception)
+        and hasattr(exc, "__traceback__")
+        and exc.__traceback__ is not None
+    ):
+        trace += "\nThe exception that triggered the above catch's trace has a partial traceback:\n\n"
+        trace += "".join(traceback.format_tb(exc.__traceback__))
+    return trace

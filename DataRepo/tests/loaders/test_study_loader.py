@@ -1,5 +1,6 @@
 from typing import Dict, Type
 
+from django.core.management import call_command
 from django.db.models import Model
 
 from DataRepo.loaders.animals_loader import AnimalsLoader
@@ -30,11 +31,15 @@ from DataRepo.models import (
 )
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
+    AggregatedErrors,
     AggregatedErrorsSet,
     AllMissingSamples,
     AllMissingTissues,
+    AnimalsWithoutSamples,
+    AnimalsWithoutSerumSamples,
     MissingTissues,
     MissingTreatments,
+    MultiLoadStatus,
     NoSamples,
     RecordDoesNotExist,
 )
@@ -185,6 +190,20 @@ class StudyLoaderTests(TracebaseTestCase):
             ].exception_type_exists(NoSamples)
         )
 
+        # This essentially tests that failed sample loads of serum samples prevent AnimalsWithoutSerumSamples warnings,
+        # as the file has a serum sample that failed to load.
+        self.assertFalse(
+            aess.aggregated_errors_dict[
+                "study_missing_data.xlsx"
+            ].exception_type_exists(AnimalsWithoutSerumSamples)
+        )
+        # Likewise for the AnimalsWithoutSamples warning
+        self.assertFalse(
+            aess.aggregated_errors_dict[
+                "study_missing_data.xlsx"
+            ].exception_type_exists(AnimalsWithoutSamples)
+        )
+
         self.assertEqual(
             1, len(aess.aggregated_errors_dict["alaglu_cor.xlsx"].exceptions)
         )
@@ -268,22 +287,6 @@ class StudyLoaderTests(TracebaseTestCase):
         )
         version_list, _ = StudyLoader.determine_matching_versions(df)
         self.assertEqual(["3.0"], version_list)
-
-    def test_mzxml_dir(self):
-        sl = StudyV3Loader(mzxml_dir="DataRepo/data/tests/small_obob_mzxmls")
-        expected = [
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_pos_mzxmls/Br-xz971_pos.mzXML",
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_pos_mzxmls/BAT-xz971_pos.mzXML",
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_neg_mzxmls/Br-xz971_neg.mzXML",
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_neg_mzxmls/BAT-xz971_neg.mzXML",
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/Br-xz971.mzXML",
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML",
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_mzxmls/Br-xz971.mzXML",
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML",
-        ]
-        self.assertEqual(
-            set(expected), set(sl.CustomLoaderKwargs.HEADERS["mzxml_files"])
-        )
 
     def test_get_loader_classes(self):
         self.assertEqual(
@@ -371,6 +374,53 @@ class StudyLoaderTests(TracebaseTestCase):
             },
             sl.record_counts,
         )
+
+    def test_no_samples_no_serum_warnings(self):
+        file = "DataRepo/data/tests/animal_without_samples/study.xlsx"
+
+        # Load prerequisite data - entire study containing animal with no
+        call_command(
+            "load_study",
+            infile="DataRepo/data/tests/no_serum_samples/study.xlsx",
+        )
+
+        # Create a loader instance
+        sl = StudyV3Loader(
+            df=read_from_file(file, sheet=None),
+            file=file,
+            # _validate=True causes raise of MultiLoadStatus when there is a warning, of which there should be 2
+            _validate=True,
+        )
+
+        # It should raise, since _validate is True
+        with self.assertRaises(MultiLoadStatus) as ar:
+            sl.load_data()
+
+        self.assertIn("study.xlsx", ar.exception.statuses.keys())
+        study_doc_aes: AggregatedErrors = ar.exception.statuses["study.xlsx"][
+            "aggregated_errors"
+        ]
+        # There should be 1 exception (AnimalsWithoutSerumSamples) that came from the SamplesLoader, evidenced by the
+        # fact that it is under the study doc load key
+        self.assertEqual(1, len(study_doc_aes.exceptions))
+        self.assertIsInstance(study_doc_aes.exceptions[0], AnimalsWithoutSerumSamples)
+        # The exception should be a warning
+        self.assertFalse(study_doc_aes.exceptions[0].is_error)
+        # And it should contain all of the animals' names
+        self.assertEqual(["xz971"], study_doc_aes.exceptions[0].animals)
+
+        self.assertIn("Animals Check", ar.exception.statuses.keys())
+        animal_check_aes: AggregatedErrors = ar.exception.statuses["Animals Check"][
+            "aggregated_errors"
+        ]
+        # There should be 1 exception (AnimalsWithoutSamples).  The serum exception should not happen, because it should
+        # be filtered by the presence of the samples sheet exception.
+        self.assertEqual(1, len(animal_check_aes.exceptions))
+        self.assertIsInstance(animal_check_aes.exceptions[0], AnimalsWithoutSamples)
+        # The exception should be a warning
+        self.assertFalse(animal_check_aes.exceptions[0].is_error)
+        # And it should contain all of the animals' names
+        self.assertEqual(["xz972"], animal_check_aes.exceptions[0].animals)
 
 
 class StudyV3LoaderTests(TracebaseTestCase):

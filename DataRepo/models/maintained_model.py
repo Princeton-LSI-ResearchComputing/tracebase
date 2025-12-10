@@ -3,7 +3,7 @@ import warnings
 from collections import defaultdict
 from contextlib import contextmanager
 from threading import local
-from typing import Dict, List
+from typing import Dict, List, Type
 
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
@@ -366,7 +366,7 @@ class MaintainedModel(Model):
     function.  If a record changes, the decorated function/class is used to update the field value.  It can also
     propagate changes of records in linked models.  Every function in the derived class decorated with the
     `@MaintainedModel.setter` decorator (defined above, outside this class) will be called and the associated field
-    will be updated.  Only methods that take no arguments are supported.  This class overrides the class's save and
+    will be updated.  Only methods that take no arguments are supported.  This class extends the class's save and
     delete methods and uses m2m_changed signals as triggers for the updates.
     """
 
@@ -509,7 +509,7 @@ class MaintainedModel(Model):
 
     def save(self, *args, **kwargs):
         """
-        This is an override of the derived model's save method that is being used here to automatically update
+        This is an extension of the derived model's save method that is being used here to automatically update
         maintained fields.
         """
         # via_query: Whether this is coming from the from_db method or not (implying no record change) - default False
@@ -632,7 +632,7 @@ class MaintainedModel(Model):
 
     def delete(self, *args, **kwargs):
         """
-        This is an override of the derived model's delete method that is being used here to automatically update
+        This is an extension of the derived model's delete method that is being used here to automatically update
         maintained fields.
         """
         # Custom argument: propagate - Whether to propagate updates to related model objects - default True
@@ -643,9 +643,6 @@ class MaintainedModel(Model):
         mass_updates = kwargs.pop("mass_updates", False)
 
         self_sig = self.get_record_signature()
-
-        # Delete the record triggering this update
-        retval = super().delete(*args, **kwargs)  # Call the "real" delete() method.
 
         # Retrieve the current coordinator
         coordinator = self.get_coordinator()
@@ -667,6 +664,10 @@ class MaintainedModel(Model):
                 for parent_inst in parents:
                     coordinator.buffer_update(parent_inst)
 
+            # Delete the record triggering this update after having buffered the parents (because the parent could be a
+            # M:M relation and cannot be retrieved if this record has already been deleted.
+            retval = super().delete(*args, **kwargs)  # Call the "real" delete() method.
+
             return retval
         elif coordinator.are_immediate_updates_enabled():
             # If autoupdates are happening (and it's not a mass-autoupdate (assumed because mass_updates
@@ -675,6 +676,10 @@ class MaintainedModel(Model):
             self.label_filters = coordinator.default_label_filters
             self.filter_in = coordinator.default_filter_in
         # Otherwise, we are performing a mass auto-update and want to update the previously set filter conditions
+
+        # Delete the record triggering this update.  In the event we were buffering, we had to do that above and return.
+        # Otherwise, we do it here.
+        retval = super().delete(*args, **kwargs)  # Call the "real" delete() method.
 
         if coordinator.are_immediate_updates_enabled() and propagate:
             # Percolate changes up to the parents (if any) and mark the deleted record as updated
@@ -685,7 +690,7 @@ class MaintainedModel(Model):
     @classmethod
     def from_db(cls, *args, **kwargs):
         """
-        This is an override of Model.from_db.  Model.from_db takes arguments: db, field_names, values.  It is used to
+        This is an extension of Model.from_db.  Model.from_db takes arguments: db, field_names, values.  It is used to
         convert SQL query results into Model objects.  This over-ride uses this opportunity to perform lazy-auto-updates
         of Model fields.  Note, it will not change the query results in terms of records.  I.e. if the maintained field
         value is stale (e.g. it should be "x", but instead is null, and the query is "WHERE field = 'x'", the record
@@ -719,9 +724,12 @@ class MaintainedModel(Model):
         # If any maintained fields are to be lazy-updated
         if len(lazy_update_fields) > 0:
             cs = ", "
-            print(
-                f"Triggering lazy auto-update of fields: {cls.__name__}.{{{cs.join(lazy_update_fields)}}}"
+            flds_str = (
+                ("s: " + cls.__name__ + ".{" + cs.join(lazy_update_fields) + "}")
+                if len(lazy_update_fields) > 1
+                else ": " + cls.__name__ + "." + lazy_update_fields[0]
             )
+            print(f"Triggering lazy auto-update of field{flds_str}")
             # Trigger an auto-update
             rec.save(  # pylint: disable=unexpected-keyword-arg
                 fields_to_autoupdate=lazy_update_fields, via_query=True
@@ -835,7 +843,7 @@ class MaintainedModel(Model):
         in its calculation because the order of update is not guaranteed to occur in a favorable series.  It should
         return a value compatible with the field type supplied.
 
-        These decorated functions are identified by the MaintainedModel class, whose save and delete methods override
+        These decorated functions are identified by the MaintainedModel class, whose save and delete methods extend
         the parent model and call the decorated functions to update field supplied to the factory function.  It also
         propagates the updates to the linked dependent model's save methods (if the parent and/or child field name is
         supplied), the assumption being that a change to "this" record's maintained field necessitates a change to
@@ -1561,6 +1569,8 @@ class MaintainedModel(Model):
                     try:
                         updater_dicts = mdl_cls.get_my_updaters()
                     except Exception as e:
+                        if not issubclass(mdl_cls, __class__):
+                            raise ModelNotMaintained(mdl_cls)
                         raise MissingMaintainedModelDerivedClass(class_name, e)
 
                     # Leave the loop when the max generation present changes so that we can update the updated buffer
@@ -1958,6 +1968,14 @@ class NotMaintained(Exception):
         super().__init__(message)
         self.parent = parent
         self.caller = caller
+
+
+class ModelNotMaintained(Exception):
+    def __init__(self, model_class: Type[Model]):
+        super().__init__(
+            f"Model class '{model_class.__name__}' must inherit from {MaintainedModel.__name__}."
+        )
+        self.model_class = model_class
 
 
 class BadModelFields(Exception):

@@ -57,7 +57,7 @@ def search_basic(request, mdl, fld, cmp, val, fmt, units=None):
         qry = basv_metadata.createNewBasicQuery(mdl, fld, cmp, val, fmtkey, units)
     except (KeyError, ObjectDoesNotExist, ValidationError, FieldError) as e:
         raise Http404(e)
-    download_forms = AdvancedSearchView.get_download_form_tuples(qry=qry)
+    download_forms = AdvancedSearchView().get_download_form_tuples(qry=qry)
 
     rows_per_page = int(
         get_cookie(

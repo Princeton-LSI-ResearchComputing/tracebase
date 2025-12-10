@@ -17,6 +17,7 @@ from DataRepo.models import (
 from DataRepo.models.maintained_model import (
     AutoUpdateFailed,
     MaintainedModelCoordinator,
+    ModelNotMaintained,
 )
 from DataRepo.tests.models.test_infusate import create_infusate_records
 from DataRepo.tests.tracebase_test_case import (
@@ -120,6 +121,7 @@ class MaintainedModelTests(MaintainedModelTestBase):
                 call_command(
                     "load_msruns",
                     infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table_blank_sample.xlsx",
+                    skip_mzxmls=True,
                 )
                 call_command(
                     "load_peak_annotation_files",
@@ -628,3 +630,11 @@ class RebuildMaintainedModelFieldsTests(TracebaseTestCase):
         coordinator = MaintainedModel._get_current_coordinator()
         # Ensure the buffer was emptied by rebuild_maintained_fields
         self.assertEqual(coordinator.buffer_size(), 0)
+
+
+class MaintainedModelMainTests(TracebaseTestCase):
+    def test_ModelNotMaintained(self):
+        mnm = ModelNotMaintained(Compound)
+        self.assertIn(
+            "Model class 'Compound' must inherit from MaintainedModel.", str(mnm)
+        )

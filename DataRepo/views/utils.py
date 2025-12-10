@@ -1,9 +1,60 @@
+from typing import Optional
 from urllib.parse import unquote
+from warnings import warn
 
-from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
+from django.conf import settings
+from django.core.paginator import EmptyPage, Paginator
+from django.http import HttpRequest
+
+from DataRepo.utils.exceptions import DeveloperWarning
+from DataRepo.utils.text_utils import iswhole
 
 
-def get_cookie(request, cookie_name, cookie_default=None):
+def get_cookie_dict(
+    request: HttpRequest,
+    prefix: Optional[str] = None,
+    exclude_empties=True,
+    preserve_prefix=False,
+):
+    """Get cookies from the request object (optionally matching a prefix).
+
+    Args:
+        request (HttpRequest)
+        prefix (Optional[str]): Get cookies whose name starts with this value.
+        exclude_empties (bool) [True]: Do not include cookies whose value is an empty string.
+        preserve_prefix (bool): Keep the prefix in the dict keys.
+    Exceptions:
+        None
+    Retuns:
+        matching_cookies (dict)
+    """
+    matching_cookies = {}
+    fullname: str
+    for fullname, val in request.COOKIES.items():
+        if (
+            prefix is None or (fullname.startswith(prefix) and prefix != fullname)
+        ) and (not exclude_empties or val != ""):
+            if prefix is None or preserve_prefix:
+                name = fullname
+            else:
+                name = fullname.replace(prefix, "", 1)
+            val = get_cookie(request, fullname)
+            matching_cookies[name] = val
+    return matching_cookies
+
+
+def get_cookie(request: HttpRequest, cookie_name: str, cookie_default=None):
+    """Get a cookie from the request object.
+
+    Args:
+        request (HttpRequest)
+        cookie_name (str)
+        cookie_default (Optional[Any])
+    Exceptions:
+        None
+    Retuns:
+        val (str)
+    """
     val = request.COOKIES.get(cookie_name, "")
     # A cookie value of an empty string should trigger the default value to be applied
     if val == "" and val != cookie_default:
@@ -17,6 +68,24 @@ def get_cookie(request, cookie_name, cookie_default=None):
             f"WARNING: Encountered unencoded cookie: '{cookie_name}' = '{val}'.  {type(e).__name__}: {e}"
         )
         return val
+
+
+def delete_cookie(request: HttpRequest, cookie_name: str):
+    """Delete a cookie from the request object and return its value.
+
+    Args:
+        request (HttpRequest)
+        cookie_name (str)
+    Exceptions:
+        None
+    Retuns:
+        val (str)
+    """
+    val = None
+    if cookie_name in request.COOKIES.keys():
+        val = get_cookie(request, cookie_name)
+        del request.COOKIES[cookie_name]
+    return val
 
 
 # See https://docs.djangoproject.com/en/5.1/howto/outputting-csv/#streaming-large-csv-files

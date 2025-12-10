@@ -5,9 +5,16 @@ from DataRepo.models.utilities import get_model_by_name
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
+    AnimalsWithoutSamples,
+    AnimalsWithoutSerumSamples,
+    AnimalWithoutSamples,
+    AnimalWithoutSerumSamples,
     CompoundDoesNotExist,
     DateParseError,
+    DBFieldVsFileColDeveloperWarning,
+    DBFieldVsFileColDeveloperWarnings,
     DefaultSequenceNotFound,
+    DeveloperWarning,
     DuplicateCompoundIsotopes,
     DuplicateValueErrors,
     DuplicateValues,
@@ -24,13 +31,17 @@ from DataRepo.utils.exceptions import (
     MissingColumnGroup,
     MissingCompounds,
     MissingDataAdded,
+    MissingFCircCalculationValue,
+    MissingFCircCalculationValues,
     MissingRecords,
     MissingSamples,
     MultiLoadStatus,
     MultipleDefaultSequencesFound,
     MutuallyExclusiveOptions,
     MzxmlColocatedWithMultipleAnnot,
+    MzxmlColocatedWithMultipleAnnots,
     MzxmlNotColocatedWithAnnot,
+    MzxmlNotColocatedWithAnnots,
     MzxmlSampleHeaderMismatch,
     NewResearcher,
     NewResearchers,
@@ -42,6 +53,9 @@ from DataRepo.utils.exceptions import (
     OptionsNotAvailable,
     PossibleDuplicateSample,
     PossibleDuplicateSamples,
+    ProhibitedCompoundName,
+    ProhibitedCompoundNames,
+    ProhibitedStringValue,
     RecordDoesNotExist,
     RequiredArgument,
     RequiredColumnValue,
@@ -60,6 +74,7 @@ from DataRepo.utils.exceptions import (
     UnskippedBlanks,
     generate_file_location_string,
     summarize_int_list,
+    trace,
 )
 
 
@@ -1280,14 +1295,106 @@ class ExceptionTests(TracebaseTestCase):
         )
         self.assertIn("Move a peak annot file to a point along the path.", str(mncwa))
 
+    def test_MzxmlNotColocatedWithAnnots(self):
+        """Tests that the summary exception includes all the mzXMLs not colocated with a peak annotation file, that the
+        exception describes this, and contains a suggestion of how to fix it."""
+        exc1 = MzxmlNotColocatedWithAnnot(
+            file="/abs/path/to/file.mzXML",
+        )
+        exc2 = MzxmlNotColocatedWithAnnot(
+            file="/second/abs/path/to/otherfile.mzXML",
+        )
+        mncwas = MzxmlNotColocatedWithAnnots([exc1, exc2])
+        self.assertIn(
+            "/abs/path/to/file.mzXML",
+            str(mncwas),
+        )
+        self.assertIn(
+            "/second/abs/path/to/otherfile.mzXML",
+            str(mncwas),
+        )
+        self.assertIn(
+            "do not have a peak annotation file existing along their paths",
+            str(mncwas),
+        )
+        self.assertIn(
+            "add the related peak annotation file to the directory containing the mzXML files",
+            str(mncwas),
+        )
+
     def test_MzxmlColocatedWithMultipleAnnot(self):
         mcwma = MzxmlColocatedWithMultipleAnnot(
             ["name1", "name2"],
+            "/abs/path/",
             file="/abs/path/to/file.mzXML",
         )
         self.assertIn(
             "associated with different sequences:\n\tname1\n\tname2\n", str(mcwma)
         )
+
+    def test_MzxmlColocatedWithMultipleAnnots(self):
+        """Tests that the summary exception includes:
+
+        1. An explanation of the cause of the exception
+        2. All mzXML files
+        3. A suggestion how to fix the data to resolve the exception
+        4. The directory containing the peak annotation files associated with sequence defaults
+        5. The sequence names associated with the directory
+
+        Example:
+            The following directories have multiple peak annotation files (associated with different 'Default
+            Sequence's, assigned in the 'Peak Annotation Files' sheet), meaning that the listed mzXML files cannot be
+            unambiguously assigned an MSRunSequence record.
+
+                Directory '/abs/path/' contains multiple peak annotation files associated with sequences ['seqname1',
+                'seqname2']:
+                    /abs/path/to/file.mzXML
+                Directory '/abs/path2/' contains multiple peak annotation files associated with sequences ['seqnameA',
+                'seqnameB']:
+                    /abs/path/to/file.mzXML
+
+            Explanation: When a sequence is not provided in the 'Peak Annotation Details' sheet for an mzXML file, the
+            association between an mzXML and the MSRunSequence it belongs to is inferred by its colocation with (or its
+            location under a parent directory containing) a peak annotation file, based on the 'Default Sequence'
+            assigned in the 'Peak Annotation Files' sheet.
+
+            Suggestion: Either provide values in the 'Sequence' column in the 'Peak Annotation Files' sheet or
+            re-arrange the multiple colocated peak annotation files to ensure that they are in the directory containing
+            the mzXML files that were used to generate them.  (If a peak annotation file was generated using a mix of
+            mzXML files from different sequences, the 'Sequence' column in the 'Oeak Annotation Details' sheet must be
+            filled in and it is recommended that mzXML files are grouped into directories defined by the sequence that
+            generated them.)
+        """
+        exc1 = MzxmlColocatedWithMultipleAnnot(
+            ["seqname1", "seqname2"],
+            "/abs/path/",
+            file="/abs/path/to/file.mzXML",
+        )
+        exc2 = MzxmlColocatedWithMultipleAnnot(
+            ["seqnameA", "seqnameB"],
+            "/abs/path2/",
+            file="/abs/path/to/file.mzXML",
+        )
+        mcwmas = MzxmlColocatedWithMultipleAnnots([exc1, exc2])
+        # Explanation
+        self.assertIn(
+            "mzXML and the MSRunSequence it belongs to is inferred by its colocation",
+            str(mcwmas),
+        )
+        # mzXML files
+        self.assertIn("/abs/path/to/file.mzXML", str(mcwmas))
+        self.assertIn("/abs/path/to/file.mzXML", str(mcwmas))
+        # Suggestion
+        self.assertIn("provide values in the 'Sequence' column", str(mcwmas))
+        self.assertIn(
+            "re-arrange the multiple colocated peak annotation files", str(mcwmas)
+        )
+        # Directories
+        self.assertIn("'/abs/path/'", str(mcwmas))
+        self.assertIn("'/abs/path2/'", str(mcwmas))
+        # Sequences
+        self.assertIn("['seqname1', 'seqname2']", str(mcwmas))
+        self.assertIn("['seqnameA', 'seqnameB']", str(mcwmas))
 
     def test_NoScans(self):
         ns = NoScans("/abs/path/to/file.mzXML")
@@ -1347,3 +1454,352 @@ class ExceptionTests(TracebaseTestCase):
         self.assertIn("header 's1' maps to samples: ['s1_pos', 's1_neg']", str(pdse))
         # Check suggestion exists
         self.assertIn("associated with the same tracebase sample", str(pdse))
+
+    def test_DBFieldVsFileColDeveloperWarning(self):
+        """Tests developer warnings about database/file value type issues.
+
+        Requirements tested (from GitHub issue #1662):
+            2. Repeated warnings must be summarized.
+            3. The warning about comparing a value from the DB with with a value from a file when their types differ
+               must be clear as to what the problem with it is and whether it needs to be addressed (and how)
+            4. The warning must mention whether ConflictingValueError exceptions will be created, in the context of it's
+               correctness being a determinant as to whether the type for the field should be added to the loader.
+            6. Customized ProgrammerErrors' names must be clearly applicable to only programmers.
+        """
+        tissue_class = get_model_by_name("Tissue")
+        rec = tissue_class.objects.create(name="elbow", description="knobby")
+        exc = DBFieldVsFileColDeveloperWarning(
+            rec,
+            "description",
+            "knobby",
+            5,
+            "TissuesLoader",
+            rownum=22,
+            sheet="Tissues",
+            file="mystudy.xlsx",
+        )
+        # Test general requirement: All relevant data included to identify the problem
+        self.assertIn("Tissue.description", str(exc))
+        self.assertIn(
+            "unmapped column in row [22] of sheet [Tissues] in mystudy.xlsx", str(exc)
+        )
+        self.assertIn("'knobby', a 'str'", str(exc))
+        self.assertIn("'5', a 'int'", str(exc))
+        # Test general requirement: Message includes suggestion
+        self.assertIn(
+            "If that conclusion is wrong, the loader (TissuesLoader) must be updated",
+            str(exc),
+        )
+        self.assertIn(
+            "Consult the docstring of the DBFieldVsFileColDeveloperWarning class for details.",
+            str(exc),
+        )
+        # Test general requirement: Message includes explanation
+        self.assertIn(
+            "intended to help debug the case where that ConflictingValueError appears wrong",
+            str(exc),
+        )
+        # Test Req 2. See docstring
+        self.assertIsInstance(exc, SummarizableError)
+        # Test Req 3. See docstring
+        self.assertIn("type of the value", str(exc))
+        self.assertIn("differs", str(exc))
+        # Test Req 4. See docstring
+        self.assertIn(
+            "this exception will be followed by a ConflictingValueError", str(exc)
+        )
+        # Test Req 6. See docstring
+        self.assertIsInstance(exc, DeveloperWarning)
+        self.assertIn("DeveloperWarning", type(exc).__name__)
+
+    def test_DBFieldVsFileColDeveloperWarnings(self):
+        """Tests summary developer warnings about database/file value type issues.
+
+        Requirements tested (from GitHub issue #1662):
+            3. The warning about comparing a value from the DB with with a value from a file when their types differ
+               must be clear as to what the problem with it is and whether it needs to be addressed (and how)
+            4. The warning must mention whether ConflictingValueError exceptions will be created, in the context of it's
+               correctness being a determinant as to whether the type for the field should be added to the loader.
+            6. Customized ProgrammerErrors' names must be clearly applicable to only programmers.
+        """
+        tissue_class = get_model_by_name("Tissue")
+        rec1 = tissue_class.objects.create(name="elbow", description="knobby")
+        exc1 = DBFieldVsFileColDeveloperWarning(
+            rec1,
+            "description",
+            "knobby",
+            5,
+            "TissuesLoader",
+            rownum=22,
+            sheet="Tissues",
+            file="mystudy.xlsx",
+        )
+        rec2 = tissue_class.objects.create(name="knee", description="gnarly")
+        exc2 = DBFieldVsFileColDeveloperWarning(
+            rec2,
+            "description",
+            "gnarly",
+            66,
+            "TissuesLoader",
+            rownum=55,
+            sheet="Tissues",
+            file="mystudy.xlsx",
+        )
+        exc = DBFieldVsFileColDeveloperWarnings([exc1, exc2])
+
+        # Test general requirement: Message includes explanation
+        self.assertIn(
+            (
+                "Model field values from existing records in the database were compared to values from the input file, "
+                "but the types differed"
+            ),
+            str(exc),
+        )
+        self.assertIn(
+            (
+                "This warning is intended to help debug the case where any of those ConflictingValueError exceptions "
+                "appear wrong"
+            ),
+            str(exc),
+        )
+        # Test general requirement: Message includes suggestion
+        self.assertIn(
+            "If any conclusions are wrong, the corresponding loader class must be updated",
+            str(exc),
+        )
+        self.assertIn(
+            "Consult the docstring of the DBFieldVsFileColDeveloperWarning class for details",
+            str(exc),
+        )
+        # Test general requirement: All relevant data included to identify the problem
+        self.assertIn("Loader: TissuesLoader, Field: Tissue.description", str(exc))
+        self.assertIn("row [22] of sheet [Tissues] in mystudy.xlsx", str(exc))
+        self.assertIn("'knobby' (type: str)", str(exc))
+        self.assertIn("'5' (type: int)", str(exc))
+        self.assertIn("row [55] of sheet [Tissues] in mystudy.xlsx", str(exc))
+        self.assertIn("'gnarly' (type: str)", str(exc))
+        self.assertIn("'66' (type: int)", str(exc))
+        # Test Req 3. See docstring
+        self.assertIn("types differed", str(exc))
+        # Test Req 4. See docstring
+        self.assertIn(
+            "exceptions will be followed by ConflictingValueError exceptions", str(exc)
+        )
+        # Test Req 6. See docstring
+        self.assertIsInstance(exc, DeveloperWarning)
+        self.assertIn("DeveloperWarning", type(exc).__name__)
+
+    def test_MissingFCircCalculationValues(self):
+        mfcv = MissingFCircCalculationValues(
+            [
+                MissingFCircCalculationValue(
+                    file="myfile",
+                    sheet="Animals",
+                    column="Infusion Rate",
+                    rownum=5,
+                ),
+                MissingFCircCalculationValue(
+                    file="myfile",
+                    sheet="Animals",
+                    column="Weight",
+                    rownum=5,
+                ),
+                MissingFCircCalculationValue(
+                    file="myfile",
+                    sheet="Samples",
+                    column="Collection Time",
+                    rownum=20,
+                ),
+            ]
+        )
+        self.assertIn("FCirc calculations on TraceBase are done using", str(mfcv))
+        self.assertIn("tracer peak group(s) from the last serum sample", str(mfcv))
+        self.assertIn("infusion rate, and the animal weight", str(mfcv))
+        self.assertIn("values are missing", str(mfcv))
+        self.assertIn("sheet [Animals] in myfile", str(mfcv))
+        self.assertIn("'Infusion Rate' on row(s): ['5']", str(mfcv))
+        self.assertIn("'Weight' on row(s): ['5']", str(mfcv))
+        self.assertIn("sheet [Samples] in myfile", str(mfcv))
+        self.assertIn("'Collection Time' on row(s): ['20']", str(mfcv))
+
+    def test_MissingFCircCalculationValue(self):
+        mfcv = MissingFCircCalculationValue(
+            file="myfile",
+            sheet="mysheet",
+            column="Infusion Rate",
+            rownum=5,
+        )
+        self.assertIn("FCirc calculations on TraceBase are done using", str(mfcv))
+        self.assertIn("tracer peak group(s) from the last serum sample", str(mfcv))
+        self.assertIn("infusion rate, and the animal weight", str(mfcv))
+        self.assertIn("This value is missing", str(mfcv))
+        self.assertIn(
+            "column [Infusion Rate] on row [5] of sheet [mysheet] in myfile", str(mfcv)
+        )
+        self.assertIn(
+            "You can load data into tracebase without these values", str(mfcv)
+        )
+        self.assertIn(
+            "FCirc values will either be missing (when there is no animal weight or infusion rate",
+            str(mfcv),
+        )
+        self.assertIn("inaccurate (if the sample collection time is missing", str(mfcv))
+
+    def test_ProhibitedCompoundNames(self):
+        pcn1 = ProhibitedCompoundName(
+            [";", "/"], file="file.txt", column="Compound", rownum=2
+        )
+        pcn2 = ProhibitedCompoundName(
+            [";"], file="file.txt", column="Compound", rownum=5
+        )
+        pcn3 = ProhibitedCompoundName(
+            ["/"], file="file.txt", column="Compound", rownum=16
+        )
+        e = ProhibitedCompoundNames(exceptions=[pcn1, pcn2, pcn3])
+        self.assertIn("Prohibited substrings encountered", str(e))
+        self.assertIn("column [Compound] in file.txt", str(e))
+        self.assertIn("'/' on row(s): ['2', '16']", str(e))
+        self.assertIn("';' on row(s): ['2', '5']", str(e))
+
+    def test_ProhibitedStringValue(self):
+        e = ProhibitedStringValue([";"], disallowed=[";", "/"], value="test;1")
+        self.assertIn("Prohibited character(s) [';'] encountered", str(e))
+        self.assertIn("(in 'test;1')", str(e))
+        self.assertIn(
+            "None of the following reserved substrings are allowed: [';', '/']", str(e)
+        )
+
+    def test_ProhibitedCompoundName(self):
+        with self.assertRaises(RequiredArgument):
+            ProhibitedCompoundName(
+                [";", "/"], value="compound;test/name;/", fixed="compound_test_name__"
+            )
+        e = ProhibitedCompoundName(
+            [";", "/"],
+            value="compound;test/name;/",
+            fixed="compound_test_name__",
+            column="Compound",
+            sheet="Compounds",
+        )
+        self.assertIn(
+            "Prohibited compound name substring(s) [';', '/'] encountered", str(e)
+        )
+        self.assertIn("(in compound name 'compound;test/name;/')", str(e))
+        self.assertIn(
+            "in column [Compound] of sheet [Compounds] in the load file data", str(e)
+        )
+        self.assertIn(
+            "Column 'Compound' values may not have any of the following reserved substrings: [';', '/'].",
+            str(e),
+        )
+        self.assertIn(
+            "The compound name was automatically repaired to be 'compound_test_name__'",
+            str(e),
+        )
+
+    def test_AnimalWithoutSamples(self):
+        e = AnimalWithoutSamples(
+            "George", file="doc.xlsx", sheet="Animals", column="Name", rownum=5
+        )
+        # Contains all pertinent data to solve the problem
+        self.assertIn("George", str(e))
+        self.assertIn("column [Name] on row [5] of sheet [Animals] in doc.xlsx", str(e))
+        # Explanation
+        self.assertIn("Animal ", str(e))
+        self.assertIn("does not have any samples", str(e))
+        # Suggestion
+        self.assertIn(
+            "You can ignore this for now and submit samples for this animal in the future",
+            str(e),
+        )
+        self.assertIn(
+            "you can address the issue now by adding overlooked samples", str(e)
+        )
+        self.assertIn("or remove the animal from the Animals sheet", str(e))
+
+    def test_AnimalsWithoutSamples(self):
+        e1 = AnimalWithoutSamples(
+            "George", file="doc.xlsx", sheet="Animals", column="Name", rownum=5
+        )
+        e2 = AnimalWithoutSamples(
+            "Henrietta", file="doc.xlsx", sheet="Animals", column="Name", rownum=19
+        )
+        e = AnimalsWithoutSamples([e1, e2])
+        # Contains all pertinent data to solve the problem
+        self.assertIn("column [Name] of sheet [Animals] in doc.xlsx", str(e))
+        self.assertIn("'George' on row 5", str(e))
+        self.assertIn("'Henrietta' on row 19", str(e))
+        # Explanation
+        self.assertIn("Animals ", str(e))
+        self.assertIn("do not have any samples", str(e))
+        # Suggestion
+        self.assertIn(
+            "You can ignore this for now and submit samples for these animals in the future",
+            str(e),
+        )
+        self.assertIn(
+            "you can address the issue now by adding overlooked samples", str(e)
+        )
+        self.assertIn("or remove the animals from the Animals sheet", str(e))
+
+    def test_AnimalWithoutSerumSamples(self):
+        e = AnimalWithoutSerumSamples(
+            "Kramer", file="doc.xlsx", sheet="Animals", column="Name", rownum=10
+        )
+        # Contains all pertinent data to solve the problem
+        self.assertIn("Kramer", str(e))
+        self.assertIn(
+            "column [Name] on row [10] of sheet [Animals] in doc.xlsx", str(e)
+        )
+        # Explanation
+        self.assertIn("Animal ", str(e))
+        self.assertIn(
+            "does not have the necessary serum samples to perform FCirc calc", str(e)
+        )
+        self.assertIn("FCirc calculations on TraceBase are done using", str(e))
+        self.assertIn("the last serum sample", str(e))
+        # Suggestion
+        self.assertIn(
+            "You can ignore this for now and submit serum samples for this animal in the future",
+            str(e),
+        )
+        self.assertIn(
+            "you can address the issue now by adding overlooked serum samples", str(e)
+        )
+        self.assertIn("or remove the animal from the Animals sheet", str(e))
+
+    def test_AnimalsWithoutSerumSamples(self):
+        e1 = AnimalWithoutSerumSamples(
+            "Kramer", file="doc.xlsx", sheet="Animals", column="Name", rownum=10
+        )
+        e2 = AnimalWithoutSerumSamples(
+            "Molly", file="doc.xlsx", sheet="Animals", column="Name", rownum=11
+        )
+        e = AnimalsWithoutSerumSamples([e1, e2])
+        # Contains all pertinent data to solve the problem
+        self.assertIn("column [Name] of sheet [Animals] in doc.xlsx", str(e))
+        self.assertIn("'Kramer' on row 10", str(e))
+        self.assertIn("'Molly' on row 11", str(e))
+        # Explanation
+        self.assertIn("animals ", str(e))
+        self.assertIn(
+            "do not have the necessary serum samples to perform FCirc calculations",
+            str(e),
+        )
+        self.assertIn("FCirc calculations on TraceBase are done using", str(e))
+        self.assertIn("the last serum sample", str(e))
+        # Suggestion
+        self.assertIn(
+            "You can ignore this for now and submit serum samples for these animals in the future",
+            str(e),
+        )
+        self.assertIn(
+            "you can address the issue now by adding overlooked serum samples", str(e)
+        )
+        self.assertIn("or remove the animals from the Animals sheet", str(e))
+
+    def test_trace(self):
+        trc = trace()
+        self.assertIn("trc = trace()", trc, msg=f"trace() output:\n{trc}")
+        self.assertIn("test_exceptions.py", trc, msg=f"trace() output:\n{trc}")
+        self.assertNotIn("site-packages", trc, msg=f"trace() output:\n{trc}")

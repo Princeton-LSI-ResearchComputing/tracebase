@@ -73,7 +73,7 @@ class Command(LoadTableCommand):
                 "Name of excel sheet/tab.  Only used if --peak-group-conflicts-file is an excel spreadsheet.  "
                 "Default: [%(default)s]."
             ),
-            default=MSRunsLoader.DataSheetName,
+            default=PeakGroupConflicts.DataSheetName,
             required=False,
         )
 

@@ -181,10 +181,19 @@ editor. Some linters that may be useful to install locally include:
   - [stylelint](https://stylelint.io)
 - Markdown
   - [markdownlint](https://github.com/igorshubovych/markdownlint-cli#readme)
+    - Example install: `npm install --save-dev markdownlint-cli`
+    - Recommended version: `0.45.0`
   - [textlint](https://github.com/textlint/textlint)
+<<<<<<< HEAD
+    - Example install
+      - `npm install --save-dev textlint`
+      - `npm install --save-dev textlint-rule-terminology`
+      - `npm install --save-dev textlint-filter-rule-comments`
+=======
     - `npm install --save-dev textlint`
     - `npm install --save-dev textlint-rule-terminology`
     - Example: `npx textlint -c .textlintrc.json CHANGELOG.md`
+>>>>>>> 127a6c0a... 3.1.5-beta point release.
 - Config
   - [editorconfig-checker](https://www.npmjs.com/package/editorconfig-checker)
 
@@ -207,7 +216,8 @@ using each linter's config that we've set up for superlinter:
     htmlhint -c .htmlhintrc .
     stylelint --config .stylelintrc.json --ip '**/bootstrap*' **/*.css
     markdownlint --config .markdown-lint.yml .
-    textlint -c .textlintrc.json **/*.md
+    find . \( ! -iname "*bootstrap*" -not -path '*/\.*' -not -path '*node_modules*' \
+        -iname "*.md" \) -exec npx textlint -c .textlintrc.json {} \;
     editorconfig-checker -v -exclude '__pycache__|\.DS_Store|\~\$.*' TraceBase DataRepo
 
 Note, some of these linter installs can be rather finicky, so if you have
@@ -254,12 +264,19 @@ See these resources for help implementing tests:
 
 #### Quality Control
 
-All pull requests must pass new and all previous tests, and pass a migration
-check before merging.  Run the following locally before submitting a pull
-request:
+All pull requests must pass new and all previous continuous integration tests,
+all JavaScript tests, and pass a migration check before merging.  Run the
+following locally before submitting a pull request:
 
     python manage.py test
     python manage.py makemigrations --check --dry-run
+    python -m http.server
+
+Then after the last command, in a major browser, go to:
+
+    http://127.0.0.1:8000/DataRepo/tests/static/js/tests.html
+
+and confirm all of the JavaScript tests pass.
 
 ### Model Updates
 
