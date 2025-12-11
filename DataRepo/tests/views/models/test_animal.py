@@ -13,9 +13,14 @@ class AnimalViewTests(ModelViewTests):
     def test_animal_list(self):
         response = self.client.get(reverse("animal_list"))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "models/animal/animal_list.html")
-        self.assertEqual(len(response.context["animal_list"]), self.ALL_ANIMALS_COUNT)
-        self.assertEqual(len(response.context["df"]), self.ALL_ANIMALS_COUNT)
+        self.assertTemplateUsed(response, "models/bst/list_view.html")
+        self.assertTemplateUsed(response, "models/bst/th.html")
+        self.assertTemplateUsed(response, "models/bst/td.html")
+        self.assertTemplateUsed(response, "models/bst/value.html")
+        self.assertTemplateUsed(response, "models/bst/value_list.html")
+        self.assertTemplateUsed(response, "models/animal/infusate_td.html")
+        self.assertTemplateUsed(response, "models/animal/infusate_value.html")
+        self.assertEqual(len(response.context["object_list"]), self.ALL_ANIMALS_COUNT)
 
     @tag("animal")
     def test_animal_detail(self):

@@ -13,10 +13,15 @@ class CompoundViewTests(ModelViewTests):
     def test_compound_list(self):
         response = self.client.get(reverse("compound_list"))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "models/compound/compound_list.html")
-        self.assertEqual(
-            len(response.context["compound_list"]), self.ALL_COMPOUNDS_COUNT
-        )
+        self.assertTemplateUsed(response, "models/bst/list_view.html")
+        self.assertTemplateUsed(response, "models/bst/th.html")
+        self.assertTemplateUsed(response, "models/bst/td.html")
+        self.assertTemplateUsed(response, "models/bst/value.html")
+        self.assertTemplateNotUsed(response, "models/bst/value_list.html")
+        self.assertTemplateUsed(response, "models/compound/hmdb_id.html")
+        self.assertTemplateUsed(response, "models/compound/synonym_list.html")
+        self.assertEqual(len(response.context["object_list"]), 15)  # per page size
+        self.assertEqual(response.context["total"], self.ALL_COMPOUNDS_COUNT)
 
     @tag("compound")
     def test_compound_detail(self):

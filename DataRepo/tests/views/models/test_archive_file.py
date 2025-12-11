@@ -11,9 +11,19 @@ class ArchiveFileViewTests(ModelViewTests):
     def test_archive_file_list(self):
         response = self.client.get(reverse("archive_file_list"))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "models/archive_file/archive_file_list.html")
+        self.assertTemplateUsed(response, "models/bst/list_view.html")
+        self.assertTemplateUsed(response, "models/bst/th.html")
+        self.assertTemplateUsed(response, "models/bst/td.html")
+        self.assertTemplateUsed(response, "models/bst/value.html")
+        self.assertTemplateNotUsed(response, "models/bst/value_list.html")
+        self.assertTemplateUsed(
+            response, "models/archive_file/peak_data_link_value.html"
+        )
+        self.assertTemplateUsed(
+            response, "models/archive_file/peak_groups_link_value.html"
+        )
         # 2 mzXML's, 2 raw, and 2 peak annotation files
-        self.assertEqual(6, len(response.context["archive_file_list"]))
+        self.assertEqual(6, len(response.context["object_list"]))
 
     def test_archive_file_detail(self):
         af1 = ArchiveFile.objects.filter(

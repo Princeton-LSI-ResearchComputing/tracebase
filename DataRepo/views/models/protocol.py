@@ -1,25 +1,22 @@
 import pandas as pd
-from django.views.generic import DetailView, ListView
+from django.views.generic import DetailView
 
 from DataRepo.models import Protocol
 from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
+from DataRepo.views.models.bst.query import BSTListView
 
 
-class AnimalTreatmentListView(ListView):
-    """
-    Generic class-based view for animal treatment protocols
-    """
-
+class AnimalTreatmentListView(BSTListView):
     model = Protocol
-    context_object_name = "animal_treatment_list"
-    template_name = "models/protocol/animal_treatments.html"
+    exclude = ["id", "category", "animals"]
+    column_ordering = ["name", "description", "animals_mm_count"]
+    paginate_by = 0
+    title = "Animal Treatments"
+    collapsed_default = False
 
     def get_queryset(self):
-        queryset = super().get_queryset()
-        queryset = Protocol.objects.filter(category=Protocol.ANIMAL_TREATMENT).order_by(
-            "name"
-        )
-        return queryset
+        qs = super().get_queryset()
+        return qs.filter(category=Protocol.ANIMAL_TREATMENT)
 
 
 class ProtocolDetailView(DetailView):

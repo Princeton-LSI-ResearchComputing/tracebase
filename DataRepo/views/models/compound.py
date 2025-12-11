@@ -1,26 +1,32 @@
-from django.views.generic import DetailView, ListView
+from django.views.generic import DetailView
 
 from DataRepo.models import Compound, PeakGroup
 from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
+from DataRepo.views.models.bst.query import BSTListView
 
 
-class CompoundListView(ListView):
-    """Generic class-based view for a list of compounds"""
-
+class CompoundListView(BSTListView):
     model = Compound
-    context_object_name = "compound_list"
-    template_name = "models/compound/compound_list.html"
-    ordering = ["name"]
-
-    def get_context_data(self, **kwargs):
-        # Call the base implementation first to get the context
-        context = super(CompoundListView, self).get_context_data(**kwargs)
-        # add data from the DataFrame to the context
-        comp_list_stats_df = qs2df.get_compound_list_stats_df()
-        # convert DataFrame to a list of dictionary
-        data = qs2df.df_to_list_of_dict(comp_list_stats_df)
-        context["df"] = data
-        return context
+    exclude = ["id", "peak_groups", "tracers"]
+    column_ordering = [
+        "name",
+        "formula",
+        "hmdb_id",
+        "synonyms_mm_count",
+        "synonyms",
+        "tracers_mm_count",
+        "peak_groups_mm_count",
+        "animals_by_tracer",
+    ]
+    column_settings = {
+        "synonyms": {
+            "value_template": "models/compound/synonym_list.html",
+            "limit": 15,
+        },
+        "hmdb_id": {"value_template": "models/compound/hmdb_id.html"},
+        "synonyms_mm_count": {"visible": False},
+        "animals_by_tracer": {"header": "Total Animals by Parent Tracer Compound"},
+    }
 
 
 class CompoundDetailView(DetailView):

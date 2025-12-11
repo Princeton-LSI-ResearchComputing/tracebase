@@ -14,16 +14,28 @@ class PeakDataViewTests(ModelViewTests):
         response = self.client.get("/DataRepo/peakdata/")
         pd = PeakData.objects.all()
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "models/peakdata/peakdata_list.html")
-        self.assertEqual(len(response.context["peakdata_list"]), pd.count())
+        self.assertTemplateUsed(response, "models/bst/list_view.html")
+        self.assertTemplateUsed(response, "models/bst/th.html")
+        self.assertTemplateUsed(response, "models/bst/td.html")
+        self.assertTemplateUsed(response, "models/bst/value.html")
+        self.assertTemplateUsed(response, "models/bst/value_list.html")
+        self.assertEqual(response.context["total"], pd.count())
 
     def test_peakdata_list_per_peakgroup(self):
         pg1 = PeakGroup.objects.filter(msrun_sample__sample__name="serum-xz971").first()
         pd1 = PeakData.objects.filter(peak_group_id=pg1.pk)
         response = self.client.get("/DataRepo/peakdata/?peak_group_id=" + str(pg1.pk))
+        self.assertEqual(response.status_code, 302)
+        response = self.client.get(
+            "/DataRepo/peakdata/?subquery=true&peak_group_id=" + str(pg1.pk)
+        )
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "models/peakdata/peakdata_list.html")
-        self.assertEqual(len(response.context["peakdata_list"]), pd1.count())
+        self.assertTemplateUsed(response, "models/bst/list_view.html")
+        self.assertTemplateUsed(response, "models/bst/th.html")
+        self.assertTemplateUsed(response, "models/bst/td.html")
+        self.assertTemplateUsed(response, "models/bst/value_list.html")
+        self.assertTemplateUsed(response, "models/bst/value.html")
+        self.assertEqual(response.context["total"], pd1.count())
 
 
 # This runs the above tests again with auto-update diabled

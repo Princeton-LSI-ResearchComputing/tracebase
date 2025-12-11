@@ -24,6 +24,8 @@ from .models import (
     StudyListView,
     TissueDetailView,
     TissueListView,
+    TracerDetailView,
+    TracerListView,
     study_summary,
 )
 from .nav import home
@@ -61,6 +63,8 @@ __all__ = [
     "AnimalDetailView",
     "TissueListView",
     "TissueDetailView",
+    "TracerDetailView",
+    "TracerListView",
     "SampleListView",
     "SampleDetailView",
     "MSRunSampleDetailView",

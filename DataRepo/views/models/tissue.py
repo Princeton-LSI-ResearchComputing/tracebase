@@ -1,15 +1,15 @@
-from django.views.generic import DetailView, ListView
+from django.views.generic import DetailView
 
 from DataRepo.models import Tissue
+from DataRepo.views.models.bst.query import BSTListView
 
 
-class TissueListView(ListView):
-    """Generic class-based view for a list of tissues"""
-
+class TissueListView(BSTListView):
     model = Tissue
-    context_object_name = "tissue_list"
-    template_name = "models/tissue/tissue_list.html"
-    ordering = ["name"]
+    exclude = ["id", "samples"]
+    column_ordering = ["name", "description", "samples_mm_count"]
+    paginate_by = 0
+    collapsed_default = False
 
 
 class TissueDetailView(DetailView):

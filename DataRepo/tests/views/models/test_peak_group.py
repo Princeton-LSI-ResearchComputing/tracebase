@@ -11,9 +11,13 @@ class PeakGroupViewTests(ModelViewTests):
     def test_peakgroup_list(self):
         response = self.client.get("/DataRepo/peakgroups/")
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "models/peakgroup/peakgroup_list.html")
+        self.assertTemplateUsed(response, "models/bst/list_view.html")
+        self.assertTemplateUsed(response, "models/bst/th.html")
+        self.assertTemplateUsed(response, "models/bst/td.html")
+        self.assertTemplateUsed(response, "models/bst/value.html")
+        self.assertTemplateUsed(response, "models/bst/value_list.html")
         self.assertEqual(
-            len(response.context["peakgroup_list"]),
+            response.context["total"],
             self.INF_PEAKGROUP_COUNT + self.SERUM_PEAKGROUP_COUNT,
         )
 
@@ -21,19 +25,26 @@ class PeakGroupViewTests(ModelViewTests):
         ms1 = MSRunSample.objects.filter(
             sample__name="BAT-xz971", ms_data_file__isnull=True
         ).get()
-        pg1 = PeakGroup.objects.filter(msrun_sample_id=ms1.id)
+        pg1 = PeakGroup.objects.filter(msrun_sample=ms1.id)
+        # The initial response is redirected to add &subquery=true, after clearing search/filter cookies.
+        response = self.client.get("/DataRepo/peakgroups/?msrun_sample=" + str(ms1.pk))
+        self.assertEqual(response.status_code, 302)
         response = self.client.get(
-            "/DataRepo/peakgroups/?msrun_sample_id=" + str(ms1.pk)
+            "/DataRepo/peakgroups/?subquery=true&msrun_sample=" + str(ms1.pk)
         )
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "models/peakgroup/peakgroup_list.html")
+        self.assertTemplateUsed(response, "models/bst/list_view.html")
+        self.assertTemplateUsed(response, "models/bst/th.html")
+        self.assertTemplateUsed(response, "models/bst/td.html")
+        self.assertTemplateUsed(response, "models/bst/value_list.html")
+        self.assertTemplateUsed(response, "models/bst/value.html")
         self.assertEqual(len(response.context["peakgroup_list"]), pg1.count())
 
     def test_peakgroup_detail(self):
         ms1 = MSRunSample.objects.filter(
             sample__name="BAT-xz971", ms_data_file__isnull=True
         ).get()
-        pg1 = PeakGroup.objects.filter(msrun_sample_id=ms1.id).first()
+        pg1 = PeakGroup.objects.filter(msrun_sample=ms1.id).first()
         response = self.client.get(reverse("peakgroup_detail", args=[pg1.id]))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "models/peakgroup/peakgroup_detail.html")

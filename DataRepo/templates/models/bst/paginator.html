@@ -1,0 +1,88 @@
+{% load static %}
+
+{% if page_obj.paginator.raw_total > 0 %}
+    <!-- Start BSTListView Pagination -->
+    <div>
+        <script src="{% static page_obj.paginator.script_name %}"></script>
+        <script>
+            {# This attaches a listener to the rows per page select list options to load a new page when the user changes the rows per page #}
+            document.addEventListener("DOMContentLoaded", function() {
+                initPaginator(
+                    '{{ page_obj.paginator.size_select_list.option_name }}',
+                    '{{ page_obj.paginator.page_name }}',
+                    '{{ page_obj.paginator.limit_name }}',
+                    {{ page_obj.paginator.per_page }}
+                )
+            });
+        </script>
+
+        <br>
+        <!-- Allow user to reduce the number of rows per page and see the number of results -->
+        <div style="float: left;">
+            {% if page_obj.paginator.total > 0 %}
+                <!-- Generate the "Showing N to M of T rows," message -->
+                Showing {{ page_obj.paginator.first_row }}
+                to {{ page_obj.paginator.last_row }}
+                of <span title="Unfiltered: {{ page_obj.paginator.raw_total }}">{{ page_obj.paginator.total }}</span>
+                {# Don't show the size select list if the total is less than the smallest page size option #}
+                rows{% if page_obj.paginator.can_be_resized %}, with {{ page_obj.paginator.size_select_list }} rows per page{% endif %}
+            {% else %}
+                Search matched 0 out of {{ page_obj.paginator.raw_total }} total records.
+            {% endif %}
+        </div>
+
+        {% if page_obj.has_other_pages %}
+            <!-- Pagination Control -->
+            <div style="float: right;" class="btn-group" role="group">
+                <!-- Generate the "<"/previous button -->
+                {% if page_obj.has_previous %}
+                    <a onclick="updatePage({{ page_obj.previous_page_number }});return false;" href="javascript:void(0);" class="btn btn-outline-primary">&laquo;</a>
+                {% endif %}
+
+                <!-- Generate the "1" button if the current page is more than flank-size away and the left side ellipsis button if there are pages between 1 and the pages close to the current page -->
+                {% if page_obj.paginator.show_first_shortcut %}
+                    <a onclick="updatePage(1);return false;" href="javascript:void(0);" class="btn btn-outline-primary">
+                        1
+                    </a>
+                    {% if page_obj.paginator.show_left_ellipsis %}
+                        <button class="btn btn-outline-primary" onclick="askForPage({{ page_obj.number }}, {{ page_obj.paginator.num_pages }})">
+                            &hellip;
+                        </button>
+                    {% endif %}
+                {% endif %}
+
+                <!-- Generate pagination buttons for pages close to the current page.  This includes a "selected" button for the current page. -->
+                {% for page_number in page_obj.paginator.linked_page_range %}
+                    {% if page_obj.number == page_number %}
+                        <button class="btn btn-outline-primary active">
+                            <span>{{ page_number }} <span class="sr-only"></span></span>
+                        </button>
+                    {% else %}
+                        <a onclick="updatePage({{ page_number }});return false;" href="javascript:void(0);" class="btn btn-outline-primary">
+                            {{ page_number }}
+                        </a>
+                    {% endif %}
+                {% endfor %}
+
+                <!-- Generate the right side ellipsis button if there are pages between the pages close to the current page and the last page, and a button for the last page if the current page is more than flank-size away -->
+                {% if page_obj.paginator.show_last_shortcut %}
+                    {% if page_obj.paginator.show_right_ellipsis %}
+                        <button class="btn btn-outline-primary" onclick="askForPage({{ page_obj.number }}, {{ page_obj.paginator.num_pages }})">
+                            &hellip;
+                        </button>
+                    {% endif %}
+                    <a onclick="updatePage({{ page_obj.paginator.num_pages }});return false;" href="javascript:void(0);" class="btn btn-outline-primary">
+                        {{ page_obj.paginator.num_pages }}
+                    </a>
+                {% endif %}
+
+                <!-- Generate the ">"/next button -->
+                {% if page_obj.has_next %}
+                    <a onclick="updatePage({{ page_obj.next_page_number }});return false;" href="javascript:void(0);" class="btn btn-outline-primary">&raquo;</a>
+                {% endif %}
+            </div>
+        <br><br>
+        {% endif %}
+    </div>
+    <!-- End BSTListView Pagination -->
+{% endif %}

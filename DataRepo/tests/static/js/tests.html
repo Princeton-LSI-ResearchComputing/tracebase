@@ -19,9 +19,9 @@
         </script>
 
         <!-- Bootstrap Table JS -->
-        <script src="https://unpkg.com/bootstrap-table@1.21.1/dist/bootstrap-table.min.js"></script>
-        <script src="https://unpkg.com/bootstrap-table@1.21.1/dist/extensions/filter-control/bootstrap-table-filter-control.min.js"></script>
-        <script src="https://unpkg.com/bootstrap-table@1.21.1/dist/extensions/export/bootstrap-table-export.min.js"></script>
+        <script src="https://unpkg.com/bootstrap-table@1.24.1/dist/bootstrap-table.min.js"></script>
+        <script src="https://unpkg.com/bootstrap-table@1.24.1/dist/extensions/filter-control/bootstrap-table-filter-control.min.js"></script>
+        <script src="https://unpkg.com/bootstrap-table@1.24.1/dist/extensions/export/bootstrap-table-export.min.js"></script>
 
         <!-- Javascript tests
 
@@ -37,32 +37,45 @@
 
         To add more tests, like for the tests in package:
 
-            /static/js/{whatever-folder}/{package-name}.js
+            /DataRepo/tests/static/js/{whatever-package}/{package-name}.js
 
         1. Create files like:
 
-            DataRepo/tests/js_tests/{whatever-folder}/test_{package-name}.js
+            /DataRepo/tests/static/js/{whatever-package}/test_{package-name}.js
 
         2. Add a script tag importing the package below using an absolute URL, e.g.
 
-            <script src="/static/js/{whatever-folder}/{package-name}.js"></script>
+            <script src="/static/js/{whatever-package}/{package-name}.js"></script>
 
-        3. Add a script tag importing the corresponding test package below (leaving off 'js_tests'), e.g.
+        3. Add a script tag importing the corresponding test package relative to this current directory, e.g.
 
-            <script src="{whatever-folder}/test_{package-name}.js"></script>
+            <script src="{whatever-package}/test_{package-name}.js"></script>
         -->
 
         <!-- Value Tests -->
-        <script src="/DataRepo/static/js/bst_list_view/value.js"></script>
-        <script src="bst_list_view/test_value.js"></script>
+        <script src="/static/js/bst/value.js"></script>
+        <script src="bst/test_value.js"></script>
 
         <!-- Sorter Tests -->
-        <script src="/DataRepo/static/js/bst_list_view/sorter.js"></script>
-        <script src="bst_list_view/test_sorter.js"></script>
+        <script src="/static/js/bst/sorter.js"></script>
+        <script src="bst/test_sorter.js"></script>
 
         <!-- Filterer Tests -->
-        <script src="/DataRepo/static/js/bst_list_view/filterer.js"></script>
-        <script src="bst_list_view/test_filterer.js"></script>
+        <script src="/static/js/bst/filterer.js"></script>
+        <script src="bst/test_filterer.js"></script>
+
+        <!-- Cookie Tests -->
+        <script src="/static/js/cookies.js"></script>
+        <script src="/static/js/bst/cookies.js"></script>
+        <script src="bst/test_cookies.js"></script>
+
+        <!-- ListView Tests -->
+        <script src="/static/js/bst/list_view.js"></script>
+        <script src="bst/test_list_view.js"></script>
+
+        <!-- Paginator Tests -->
+        <script src="/static/js/bst/paginator.js"></script>
+        <script src="bst/test_paginator.js"></script>
 
     </body>
 </html>

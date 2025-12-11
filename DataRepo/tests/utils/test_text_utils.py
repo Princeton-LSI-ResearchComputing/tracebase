@@ -3,6 +3,7 @@ from DataRepo.utils.text_utils import (
     autowrap,
     camel_to_title,
     get_num_parts,
+    get_plural,
     getsigfig,
     iswhole,
     sigfig,
@@ -200,3 +201,8 @@ class TextUtilsTests(TracebaseTestCase):
         self.assertEqual(
             underscored_to_title("this_is_a__function_tEST"), "This is a Function tEST"
         )
+
+    def test_get_plural(self):
+        self.assertEqual("algae", get_plural("alga"))
+        self.assertEqual("Samples", get_plural("Sample"))
+        self.assertEqual("Samples", get_plural("Samples"))
