@@ -1,13 +1,8 @@
 from typing import Optional
 from urllib.parse import unquote
-from warnings import warn
 
-from django.conf import settings
-from django.core.paginator import EmptyPage, Paginator
+from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
 from django.http import HttpRequest
-
-from DataRepo.utils.exceptions import DeveloperWarning
-from DataRepo.utils.text_utils import iswhole
 
 
 def get_cookie_dict(

@@ -4947,10 +4947,6 @@ class MutuallyExclusiveMethodArgs(Exception):
     pass
 
 
-class MutuallyExclusiveMethodArgs(Exception):
-    pass
-
-
 class RequiredOptions(CommandError):
     # NOTE: Not user facing.
     def __init__(self, missing, **kwargs):
