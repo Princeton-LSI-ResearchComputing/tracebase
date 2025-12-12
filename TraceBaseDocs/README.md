@@ -267,11 +267,11 @@ the sphinx config directory.  I.e. The directory where the conf.py file exists.
 ```bash
 cat _build/markdown/markdown/DataRepo.utils.md | \
 # Remove all but class name in the header
-perl -e 'while(<>){s/^### \*[^\*]+\* [^\(]+\.([^\(]+)(?:\(.*\)|\z)/### $1/;print;}' | \
-# Skip Attributes sections in the class docstrings
-perl -e '$skip=0;while(<>){if(/Attributes:/){$skip=1;}elsif($skip){if(/^#/){$skip=0;}}if($skip){next}print;}' | \
+perl -e 'while(<>){s/^### \*[^\*]+\* [^\(]+\.([^\(]+)(?:\(.*\)|\z)/### $1/;print}' | \
+# Skip developer/attributes sections in the class docstrings
+perl -e '$skp=0;while(<>){if(/DEV_SECTION|Attributes:/){$skp=1}elsif($skp){if(/^#/){$skp=0}}unless($skp){print}}' | \
 # Skip undocumented member attributes documentation that sphinx adds and refuses to skip
-perl -e '$skip=0;while(<>){if(/^####/){$skip=1;}elsif($skip){if(/^#/){$skip=0;}}if($skip){next}print;}' | \
+perl -e '$skp=0;while(<>){if(/^####/){$skp=1}elsif($skp){if(/^#/){$skp=0}}unless($skp){print}}' | \
 # Clean up lists with long lines (this removes gaps that commonmark adds when it concatenates the lines)
 perl -e 'while(<>){if(/^ *[\-\*] /){s/       */ /g;}print;}' > _build/markdown/markdown/user_facing_exceptions.md
 ```

@@ -121,6 +121,7 @@ class MaintainedModelTests(MaintainedModelTestBase):
                 call_command(
                     "load_msruns",
                     infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table_blank_sample.xlsx",
+                    skip_mzxmls=True,
                 )
                 call_command(
                     "load_peak_annotation_files",

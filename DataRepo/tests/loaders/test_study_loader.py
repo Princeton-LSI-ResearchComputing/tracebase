@@ -288,22 +288,6 @@ class StudyLoaderTests(TracebaseTestCase):
         version_list, _ = StudyLoader.determine_matching_versions(df)
         self.assertEqual(["3.0"], version_list)
 
-    def test_mzxml_dir(self):
-        sl = StudyV3Loader(mzxml_dir="DataRepo/data/tests/small_obob_mzxmls")
-        expected = [
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_pos_mzxmls/Br-xz971_pos.mzXML",
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_pos_mzxmls/BAT-xz971_pos.mzXML",
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_neg_mzxmls/Br-xz971_neg.mzXML",
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_neg_mzxmls/BAT-xz971_neg.mzXML",
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/Br-xz971.mzXML",
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML",
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_mzxmls/Br-xz971.mzXML",
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML",
-        ]
-        self.assertEqual(
-            set(expected), set(sl.CustomLoaderKwargs.HEADERS["mzxml_files"])
-        )
-
     def test_get_loader_classes(self):
         self.assertEqual(
             [
@@ -420,6 +404,9 @@ class StudyLoaderTests(TracebaseTestCase):
         # fact that it is under the study doc load key
         self.assertEqual(1, len(study_doc_aes.exceptions))
         self.assertIsInstance(study_doc_aes.exceptions[0], AnimalsWithoutSerumSamples)
+        # The exception should be a warning
+        self.assertFalse(study_doc_aes.exceptions[0].is_error)
+        # And it should contain all of the animals' names
         self.assertEqual(["xz971"], study_doc_aes.exceptions[0].animals)
 
         self.assertIn("Animals Check", ar.exception.statuses.keys())
@@ -430,6 +417,9 @@ class StudyLoaderTests(TracebaseTestCase):
         # be filtered by the presence of the samples sheet exception.
         self.assertEqual(1, len(animal_check_aes.exceptions))
         self.assertIsInstance(animal_check_aes.exceptions[0], AnimalsWithoutSamples)
+        # The exception should be a warning
+        self.assertFalse(animal_check_aes.exceptions[0].is_error)
+        # And it should contain all of the animals' names
         self.assertEqual(["xz972"], animal_check_aes.exceptions[0].animals)
 
 

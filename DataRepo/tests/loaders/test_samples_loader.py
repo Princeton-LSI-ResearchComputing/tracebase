@@ -171,7 +171,14 @@ class SamplesLoaderTests(TracebaseTestCase):
         with self.assertRaises(RollbackException):
             sl.get_or_create_sample(row, self.anml1, self.tiss1)
 
-        self.assertEqual(4, len(sl.aggregated_errors_object.exceptions))
+        self.assertEqual(
+            4,
+            len(sl.aggregated_errors_object.exceptions),
+            msg=(
+                f"Expected 4 exceptions, got {len(sl.aggregated_errors_object.exceptions)}: "
+                f"{[type(e).__name__ + ': ' + str(e) for e in sl.aggregated_errors_object.exceptions]}"
+            ),
+        )
 
         self.assertIsInstance(sl.aggregated_errors_object.exceptions[0], NewResearcher)
         self.assertIn(

@@ -1,12 +1,21 @@
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from django.core.management import call_command
 
-from DataRepo.models import LCMethod, MSRunSequence
-from DataRepo.models.archive_file import ArchiveFile
-from DataRepo.models.maintained_model import MaintainedModel
-from DataRepo.models.msrun_sample import MSRunSample
-from DataRepo.models.peak_group import PeakGroup
+from DataRepo.models import (
+    Animal,
+    ArchiveFile,
+    Compound,
+    Infusate,
+    LCMethod,
+    MaintainedModel,
+    MSRunSample,
+    MSRunSequence,
+    PeakGroup,
+    Sample,
+    Tissue,
+)
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
@@ -14,6 +23,7 @@ from DataRepo.utils.exceptions import (
     DefaultSequenceNotFound,
 )
 from DataRepo.utils.file_utils import string_to_date
+from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
 
 
 class LoadMSRunsCommandTests(TracebaseTestCase):
@@ -118,6 +128,68 @@ class LoadMSRunsCommandTests(TracebaseTestCase):
         self.assertEqual(
             2, MSRunSample.objects.filter(msrun_sequence=seq).count()
         )  # One for each file
+
+    def create_sample_record_for_mzxml_tests(self):
+        """This creates supporting records for tests test_init_mzxml_files_default and test_init_skip_mzxml_files"""
+
+        lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
+        MSRunSequence.objects.create(
+            researcher="John Doe",
+            date=datetime.strptime("1991-5-7", "%Y-%m-%d"),
+            instrument=MSRunSequence.INSTRUMENT_CHOICES[0][0],
+            lc_method=lcm,
+        )
+        Compound.objects.create(
+            name="gluc",
+            formula="C6H12O6",
+            hmdb_id="HMDB0000122",
+        )
+        infobj = parse_infusate_name_with_concs("gluc-[13C6][10]")
+        inf, _ = Infusate.objects.get_or_create_infusate(infobj)
+        inf.save()
+        anml = Animal.objects.create(
+            name="test_animal",
+            age=timedelta(weeks=int(13)),
+            sex="M",
+            genotype="WT",
+            body_weight=200,
+            diet="normal",
+            feeding_status="fed",
+            infusate=inf,
+        )
+        tsu = Tissue.objects.create(name="Brain")
+        Sample.objects.create(
+            # This is the sample name in DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx
+            name="Sample Name",
+            tissue=tsu,
+            animal=anml,
+            researcher="John Doe",
+            date=datetime.now(),
+        )
+
+    def test_init_mzxml_files_default(self):
+        """This test ensures that mzXML files are found and loaded by default"""
+        # Load data required by the test
+        self.create_sample_record_for_mzxml_tests()
+        # Run the loader
+        call_command(
+            "load_msruns",
+            infile="DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",
+        )
+        # NOTE: This count includes the 1 raw file and 2 mzXMLs.
+        self.assertEqual(3, ArchiveFile.objects.count())
+
+    def test_init_skip_mzxml_files(self):
+        """This test ensures that mzXML file loads can be skipped"""
+        # Load data required by the test
+        self.create_sample_record_for_mzxml_tests()
+        # Run the loader
+        call_command(
+            "load_msruns",
+            infile="DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",
+            skip_mzxmls=True,
+        )
+        self.assertEqual(0, ArchiveFile.objects.count())
 
     def test_wrong_instrument(self):
         with self.assertRaises(AggregatedErrors) as ar:
