@@ -412,11 +412,20 @@ class RequiredValueError(InfileError, SummarizableError):
 class RequiredColumnValues(Exception):
     """Summary of every RequiredColumnValue exception.
 
-    Instance Attributes:
+    DEV_SECTION - Everything above this delimiter is user-facing.  See TraceBaseDocs/README.md
+
+    Args:
         required_column_values (List[RequiredColumnValue])
+        init_message (Optional[str]): The message preceding the summary of the affected file locations.
+        suggestion (Optional[str])
+    Attributes:
+        Class:
+            None
+        Instance:
+            required_column_values (List[RequiredColumnValue])
     """
 
-    def __init__(self, required_column_values, init_message=None):
+    def __init__(self, required_column_values, init_message=None, suggestion=None):
         if init_message is None:
             message = "Required column values missing on the indicated rows:\n"
         else:
@@ -436,6 +445,8 @@ class RequiredColumnValues(Exception):
                 if rcv_dict[loc][col] is not None and len(rcv_dict[loc][col]) > 0:
                     rowstr = summarize_int_list(rcv_dict[loc][col])
                 message += f"\t\tColumn: [{col}] on rows: {rowstr}\n"
+        if suggestion is not None:
+            message += suggestion
         super().__init__(message)
         self.required_column_values = required_column_values
 

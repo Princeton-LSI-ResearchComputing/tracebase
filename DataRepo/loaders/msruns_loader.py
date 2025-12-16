@@ -664,6 +664,8 @@ class MSRunsLoader(TableLoader):
         #      which mzXMLs have been added to MSRunSample records)
         if self.df is not None:
             for _, row in self.df.iterrows():
+                if self.is_row_empty(row):
+                    continue
                 try:
                     self.get_or_create_msrun_sample_from_row(row)
                 except RollbackException:
@@ -904,23 +906,32 @@ class MSRunsLoader(TableLoader):
         if self.DataHeaders.SEQNAME not in self.df.columns:
             return
 
-        # Quickly extract the skip and sequence name data from the infile using pandas' methodology
-        if self.DataHeaders.SKIP in self.df.columns:
-            no_sequence = self.df[[self.DataHeaders.SKIP, self.DataHeaders.SEQNAME]]
-        else:
-            no_sequence = self.df[self.DataHeaders.SEQNAME].to_frame()
-            no_sequence[self.DataHeaders.SKIP] = ""
-
         # Find any unskipped sequence names that have no value
         missing_seqnames = []
-        for _, row in no_sequence.iterrows():
+        missing_seqnames_warnings = []
+        suggestion = (
+            f"Filling in a valid '{self.DataHeaders.ANNOTNAME}' will associate a sample with the default sequence "
+            f"assigned via the '{self.DataHeaders.ANNOTNAME}', or, if this sequence differs from the default, enter a "
+            f"'{self.DataHeaders.SEQNAME}'."
+        )
+        for _, row in self.df.iterrows():
+
+            if self.is_row_empty(row):
+                continue
+
+            # Extract the skip and sequence name data from the infile using pandas' methodology instead of get_row_val
+            # to avoid incrementing the row_index/rownum.
 
             # Determine if the row is skipped
-            skip_str = row[self.DataHeaders.SKIP]
-            if str(skip_str).strip() in self.none_vals:
+            if (
+                self.DataHeaders.SKIP not in self.df.columns
+                or str(row[self.DataHeaders.SKIP]).strip() in self.none_vals
+            ):
                 skip = False
             else:
-                skip = str(skip_str).strip().lower() in self.SKIP_STRINGS
+                skip = (
+                    str(row[self.DataHeaders.SKIP]).strip().lower() in self.SKIP_STRINGS
+                )
 
             # If not skipped, buffer a conditionally required argument exception if there is not sequence name value
             # and raise so that a user running the load doesn't have to wait a long time before realizing they
@@ -929,18 +940,49 @@ class MSRunsLoader(TableLoader):
                 seq = row[self.DataHeaders.SEQNAME]
                 if str(seq).strip() in self.none_vals:
                     missing_seqnames.append(row.name + 2)
+                    if self.validate:
+                        # We're not buffering using self.aggregated_errors_object.buffer_warning because we want to
+                        # create our own summary exception for this specific case in order to suggest how to fix the
+                        # issue (because the column values in the sequence column are not strictly required - they can
+                        # be handled by the curator).
+                        missing_seqnames_warnings.append(
+                            RequiredColumnValue(
+                                self.DataHeaders.SEQNAME,
+                                rownum=row.name + 2,
+                                sheet=self.DataSheetName,
+                                file=self.friendly_file,
+                                suggestion=suggestion,
+                            )
+                        )
 
         if len(missing_seqnames) > 0:
-            self.aggregated_errors_object.buffer_error(
-                self.seq_defaults_error.set_formatted_message(
-                    suggestion=(
-                        f"This is necessary because there exists {len(missing_seqnames)} rows "
-                        f"{summarize_int_list(missing_seqnames)} that do not have a value in the "
-                        f"'{self.DataHeaders.SEQNAME}' column.  You can either enter a {self.DataHeaders.SEQNAME} for "
-                        "all such rows or provide the default arguments described above to use for all rows."
+            if not self.validate:
+                self.aggregated_errors_object.buffer_error(
+                    self.seq_defaults_error.set_formatted_message(
+                        sheet=self.DataSheetName,
+                        file=self.friendly_file,
+                        column=self.DataHeaders.SEQNAME,
+                        suggestion=(
+                            f"This is necessary because there exists {len(missing_seqnames)} rows "
+                            f"{summarize_int_list(missing_seqnames)} that do not have a value in the "
+                            f"'{self.DataHeaders.SEQNAME}' column.  You can either enter a "
+                            f"'{self.DataHeaders.SEQNAME}' in the '{self.DataSheetName}' sheet on the affected rows, "
+                            f"enter a '{self.DataHeaders.ANNOTNAME}' in the '{self.DataSheetName}' sheet that matches "
+                            f"a '{PeakAnnotationFilesLoader.DataHeaders.FILE}' in the "
+                            f"'{PeakAnnotationFilesLoader.DataSheetName}' sheet that has a "
+                            f"'{PeakAnnotationFilesLoader.DataHeaders.SEQNAME}' assigned, "
+                            "or provide the default arguments described above to use for all rows."
+                        ),
                     ),
-                ),
-            )
+                )
+            else:
+                self.aggregated_errors_object.buffer_warning(
+                    RequiredColumnValues(
+                        missing_seqnames_warnings,
+                        suggestion=suggestion,
+                    ),
+                    is_fatal=self.validate,
+                )
 
             # If there are mzXML files, we want to exit early so the user can correct the problem now instead of after a
             # complete load attempt
@@ -978,6 +1020,8 @@ class MSRunsLoader(TableLoader):
         # Take an accounting of all expected samples and mzXML files.  Note that in the absence of an explicitly entered
         # mzXML file, the sample header is used as a stand-in for the mzXML file's name (minus extension).
         for _, row in self.df.iterrows():
+            if self.is_row_empty(row):
+                continue
             sample_name = self.get_row_val(row, self.headers.SAMPLENAME)
             sample_header = self.get_row_val(row, self.headers.SAMPLEHEADER)
             mzxml_name_with_opt_path = self.get_row_val(row, self.headers.MZXMLNAME)
@@ -1261,6 +1305,8 @@ class MSRunsLoader(TableLoader):
         self.set_row_index(None)
 
         for _, row in self.df.iterrows():
+            if self.is_row_empty(row):
+                continue
             sample_name = self.get_row_val(row, self.headers.SAMPLENAME)
             sample_header = self.get_row_val(row, self.headers.SAMPLEHEADER)
             mzxml_path = self.get_row_val(row, self.headers.MZXMLNAME)
