@@ -379,7 +379,8 @@ def parse_isotope_label(
                 for pos_obs in possible_observations:
                     zero_obs = deepcopy(pos_obs)
                     zero_obs["count"] = 0
-                    isotope_observations.append(zero_obs)
+                    if zero_obs not in isotope_observations:
+                        isotope_observations.append(zero_obs)
                 return isotope_observations
             return []
         else:
