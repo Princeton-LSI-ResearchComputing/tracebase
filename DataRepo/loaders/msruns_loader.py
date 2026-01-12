@@ -923,6 +923,15 @@ class MSRunsLoader(TableLoader):
                             is_error=True,
                         )
                 else:
+                    if len(self.mzxml_to_sample_name[mzxml_name_no_ext].keys()) > 1:
+                        self.aggregated_errors_object.buffer_error(
+                            AmbiguousMzxmlSampleMatch(
+                                list(
+                                    self.mzxml_to_sample_name[mzxml_name_no_ext].keys()
+                                ),
+                                mzxml_name_no_ext,
+                            )
+                        )
                     # We going to guess the sample name based on the mzXML filename (without the extension)
                     sample_name = self.guess_sample_name(exact_sample_header_from_mzxml)
 
