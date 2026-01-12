@@ -3968,6 +3968,52 @@ class AssumedMzxmlSampleMatch(InfileError, SummarizableError):
         self.mzxml_file = mzxml_file
 
 
+class AmbiguousMzxmlSampleMatches(Exception):
+    """Summary of `AmbiguousMzxmlSampleMatch` exceptions."""
+
+    def __init__(self, exceptions: List[AmbiguousMzxmlSampleMatch], message=None):
+        if message is None:
+            message = (
+                "The following mzXML files could not be mapped to a single sample.  Add a row for every mzXML file "
+                "with the indicated name, including their paths relative to the study directory, to the Peak "
+                "Annotation Details sheet."
+            )
+            matches_by_annot_file = defaultdict(list)
+            exc: AmbiguousMzxmlSampleMatch
+            for exc in exceptions:
+                loc = generate_file_location_string(
+                    file=exc.file,
+                    sheet=exc.sheet,
+                )
+                matches_by_annot_file[loc].append(exc)
+            for loc, exc_list in sorted(
+                matches_by_annot_file.items(), key=lambda tpl: tpl[0]
+            ):
+                message += f"\t{loc}\n"
+                for exc in sorted(exc_list, key=lambda e: e.mzxml_name):
+                    message += (
+                        f"\t\t'{exc.mzxml_name}' matches samples: {exc.sample_names}\n"
+                    )
+        super().__init__(message)
+        self.exceptions = exceptions
+
+
+class AmbiguousMzxmlSampleMatch(InfileError, SummarizableError):
+    """"""
+
+    SummarizerExceptionClass = AmbiguousMzxmlSampleMatches
+
+    def __init__(self, sample_names: List[str], mzxml_name: str, **kwargs):
+        message = (
+            f"mzXML file '{mzxml_name}' could not be mapped to a single sample.  Add a row for every mzXML file with "
+            "this name, including its path relative from the study directory, to %s.  Potential sample matches "
+            f"include: {sample_names}."
+        )
+        super().__init__(message, **kwargs)
+        self.sample_names = sample_names
+        self.mzxml_name = mzxml_name
+
+
 class UnmatchedMzXMLs(Exception):
     """Summary of `UnmatchedMzXML` exceptions."""
 
