@@ -355,8 +355,8 @@ class AnimalsLoader(TableLoader):
         diet = self.get_row_val(row, self.headers.DIET)
         feeding_status = self.get_row_val(row, self.headers.FEEDINGSTATUS)
 
-        # Before we skip the row (likely because *required* data is missing), let's also check some optional, but
-        # strongly encouraged columns:
+        # Before we potentially skip the row (likely because *required* data is missing), let's also check some
+        # optional, but strongly encouraged columns:
         if self.infusate_supplied:
             fcirc_vals = [
                 (infusion_rate, self.headers.INFUSIONRATE),
@@ -383,50 +383,63 @@ class AnimalsLoader(TableLoader):
             "name": name,
             "genotype": genotype,
         }
+        # Optional fields (Query should account for Nones)
+        qry_dict = rec_dict.copy()
 
         errored = False
 
-        # Optional fields
-        if genotype is not None:
-            rec_dict["genotype"] = genotype
-
-        if age is not None:
+        if age is None:
+            qry_dict["age__isnull"] = True
+        else:
             try:
                 # TODO: Make it possible to parse and use units for age(/duration)
                 rec_dict["age"] = timedelta(weeks=age)
+                qry_dict["age"] = rec_dict["age"]
             except Exception as e:
                 self.buffer_infile_exception(e, column=self.headers.AGE)
                 errored = True
                 # Press on to find more errors...
 
-        if sex is not None:
+        if sex is None:
+            qry_dict["sex__isnull"] = True
+        else:
             try:
                 rec_dict["sex"] = value_from_choices_label(sex, Animal.SEX_CHOICES)
+                qry_dict["sex"] = rec_dict["sex"]
             except Exception as e:
                 self.buffer_infile_exception(e, column=self.headers.SEX)
                 errored = True
                 # Press on to find more errors...
 
-        if diet is not None:
-            rec_dict["diet"] = diet
-
-        if feeding_status is not None:
-            rec_dict["feeding_status"] = feeding_status
-
-        if treatment is not None:
-            rec_dict["treatment"] = treatment
-
-        # Copy the exact query filters from the rec_dict accumulated thus far
-        qry_dict = rec_dict.copy()
-        # Then add approximate search filters to qry_dict that account for precision issues and infusateless animals...
-
-        if infusate is not None:
-            rec_dict["infusate"] = infusate
-            qry_dict["infusate"] = infusate
+        if diet is None:
+            qry_dict["diet__isnull"] = True
         else:
-            qry_dict["infusate__isnull"] = True
+            rec_dict["diet"] = diet
+            qry_dict["diet"] = rec_dict["diet"]
 
-        if infusion_rate is not None:
+        if feeding_status is None:
+            qry_dict["feeding_status__isnull"] = True
+        else:
+            rec_dict["feeding_status"] = feeding_status
+            qry_dict["feeding_status"] = rec_dict["feeding_status"]
+
+        if treatment is None:
+            qry_dict["treatment__isnull"] = True
+        else:
+            rec_dict["treatment"] = treatment
+            qry_dict["treatment"] = rec_dict["treatment"]
+
+        if infusate is None:
+            qry_dict["infusate__isnull"] = True
+        else:
+            rec_dict["infusate"] = infusate
+            qry_dict["infusate"] = rec_dict["infusate"]
+
+        # Add approximate search filters to qry_dict that account for precision issues and infusateless animals...
+
+        if infusion_rate is None:
+            qry_dict["infusion_rate__isnull"] = True
+        else:
             if infusate is None:
                 if infusate_name is None:
                     # We will assume that this is on the same row that produced the RecordDoesNotExist exception for the
@@ -458,7 +471,9 @@ class AnimalsLoader(TableLoader):
                     errored = True
                     # Press on to find more errors...
 
-        if weight is not None:
+        if weight is None:
+            qry_dict["body_weight__isnull"] = True
+        else:
             try:
                 # TODO: Make it possible to parse and use units for weight
                 rec_dict["body_weight"] = float(weight)

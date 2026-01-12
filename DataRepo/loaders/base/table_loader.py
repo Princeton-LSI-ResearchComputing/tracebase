@@ -17,7 +17,7 @@ from django.db.utils import ProgrammingError
 from django.forms import model_to_dict
 
 from DataRepo.models.maintained_model import AutoUpdateFailed
-from DataRepo.models.utilities import get_model_fields
+from DataRepo.models.utilities import get_model_fields, is_key_field, is_many_related_to_parent
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     AggregatedErrorsSet,
@@ -2677,16 +2677,21 @@ class TableLoader(ABC):
         # NOTE: Be aware that model_to_dict does not get all potentially populated fields
         for fld, val in model_to_dict(rec).items():
             # If the rec_dict passed in does not have a field and its value in the DB is populated
-            # 1. Do not add fields that do not map to infile columns 1:1 (this includes fields like 'id' and maintained
-            # fields whose values are updated after insertion) [first 2 lines of the conditional]
-            # 2. The field from the database is not in the new record's dict [third line of the conditional]
-            # 3. The value in the DB is not a None value [last 2 lines of the conditional]
             if (
+                # Do not add fields that do not map to infile columns 1:1 (this includes fields like 'id' and maintained
+                # fields whose values are updated after insertion) [first 2 lines of the conditional]
                 type(rec).__name__ in self.FieldToDataHeaderKey.keys()
                 and fld in self.FieldToDataHeaderKey[type(rec).__name__].keys()
+                # The field from the database is not in the new record's dict
                 and fld not in tmp_rec_dict.keys()
+                # The value in the DB is not a None value
                 and val is not None
                 and str(val) not in self.none_vals
+                # The field is not a many-related FK (because those are added later and cannot be a part of rec_dict)
+                and (
+                    not is_key_field(fld, type(rec))
+                    or not is_many_related_to_parent(fld, type(rec))
+                )
             ):
                 # Set the new field value to None so we can include that difference as a cause for the IntegrityError
                 tmp_rec_dict[fld] = None
@@ -2710,16 +2715,14 @@ class TableLoader(ABC):
                 expected_type = self.model_field_to_column_type(
                     type(rec).__name__, field
                 )
-                if (
-                    # There is a type defined for the table column corresponding to this field
-                    expected_type is not None
-                    # The type of the value from the column does not match the type defined for that column
-                    and type(new_value) is not expected_type
-                    # Finally, when the values are cast to the column type, they are still not equal
-                    # (We cast both because the field type may not precisely be the column type.)
-                    and expected_type(orig_value) != expected_type(new_value)
-                ):
-                    differs = True
+                # There is a type defined for the table column corresponding to this field
+                if expected_type is not None:
+                    try:
+                        # Cast both values to the column type and set whether they differ.
+                        # (We cast both because the field type may not precisely be the column type.)
+                        differs = expected_type(orig_value) != expected_type(new_value)
+                    except TypeError:
+                        differs = True
                 elif expected_type is None:
                     # Fall back to a str-cast comparison
                     differs = str(orig_value) != str(new_value)
