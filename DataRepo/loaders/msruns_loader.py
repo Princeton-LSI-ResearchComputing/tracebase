@@ -32,6 +32,7 @@ from DataRepo.models.hier_cached_model import (
 )
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
+    AmbiguousMzxmlSampleMatch,
     AssumedMzxmlSampleMatch,
     ConditionallyRequiredArgs,
     DefaultSequenceNotFound,
@@ -603,10 +604,14 @@ class MSRunsLoader(TableLoader):
         # MSRunSample records)
         self.mzxml_dict = defaultdict(lambda: defaultdict(list))
 
-        # This will contain the sample header mapped to the sample name in the database.  It will be used to map
-        # multiple mzXML files with the same name to a sample (because mzXML files with the same name could not be
-        # mapped to a specific row, but they should all map to the same sample).
+        # This will contain the sample header mapped to the sample name in the database.
         self.header_to_sample_name = defaultdict(lambda: defaultdict(list))
+        # This will contain the mzXML basename mapped to the sample name in the database.  It will only be used to map
+        # multiple leftover mzXML files with the same name to a sample (when they could not be mapped to a specific row,
+        # but all map to the same sample).  Filling in the mzXML File Name column is optional.  When it is empty, the
+        # Sample Data Header is used, as it is assumed to be the same.  The mzXML File Name should be filled in when it
+        # differs.
+        self.mzxml_to_sample_name = defaultdict(lambda: defaultdict(list))
 
         # This will prevent creation of MSRunSample records for mzXMLs associated with (e.g.) blanks when leftover
         # mzXMLs are handled (a leftover being an mzXML unassociated with an MSRunSample record).
@@ -821,18 +826,27 @@ class MSRunsLoader(TableLoader):
                         0
                     ]
 
-                # If the mzXML name was recorded in the infile as 1 or more peak annot file headers and it(/they) only
-                # map(s) to 1 sample name (i.e. there are multiple files with the same filename/annot-header, but they
-                # are all for the same sample)
+                # If the mzXML name was recorded in the infile as mapping to multiple different peak annot file headers
+                # and it only maps to 1 sample name (i.e. there are multiple files with the same filename/annot-header,
+                # but they are all for the same sample)
                 if (
-                    mzxml_name_no_ext in self.header_to_sample_name.keys()
-                    and len(self.header_to_sample_name[mzxml_name_no_ext].keys()) == 1
+                    mzxml_name_no_ext in self.mzxml_to_sample_name.keys()
+                    and len(self.mzxml_to_sample_name[mzxml_name_no_ext].keys()) == 1
                 ):
                     # Get the sample name from the infile/sheet
                     sample_name = next(
-                        iter(self.header_to_sample_name[mzxml_name_no_ext])
+                        iter(self.mzxml_to_sample_name[mzxml_name_no_ext])
                     )
                 else:
+                    if len(self.mzxml_to_sample_name[mzxml_name_no_ext].keys()) > 1:
+                        self.aggregated_errors_object.buffer_error(
+                            AmbiguousMzxmlSampleMatch(
+                                list(
+                                    self.mzxml_to_sample_name[mzxml_name_no_ext].keys()
+                                ),
+                                mzxml_name_no_ext,
+                            )
+                        )
                     # We going to guess the sample name based on the mzXML filename (without the extension)
                     sample_name = self.guess_sample_name(exact_sample_header_from_mzxml)
 
@@ -1537,8 +1551,10 @@ class MSRunsLoader(TableLoader):
         MSRunSample records identified from the row data.  This is later used to process leftover mzXML files that were
         not denoted in the peak annotation details file/sheet.
 
-        Updates self.header_to_sample_name, which is used to associate mzXML files with the samples they belong to (when
-        they could be assigned to a specific row of the infile, due to multiple files with the same name).
+        Updates self.header_to_sample_name, which is used to check for possible duplicate samples.
+
+        Also updates self.mzxml_to_sample_name, which is used to associate mzXML files with the samples they belong to
+        (when they could be assigned to a specific row of the infile, due to multiple files with the same name).
 
         Args:
             row (pandas dataframe row)
@@ -1614,22 +1630,25 @@ class MSRunsLoader(TableLoader):
             sample = self.get_sample_by_name(sample_name)
             msrun_sequence = self.get_msrun_sequence(name=sequence_name)
 
-            if mzxml_path is not None:
+            if mzxml_path is None:
+                # Assume that the mzXML name matches the sample header (as it would only differ if the user explicitly
+                # edited it).  This is safe to assume because we're only going to use it if we could not pair up an
+                # mzXML file with a row of the peak annotation details sheet, in which case the user would get an error
+                # and be instructed to add the file to the appropriate row manually.
+                self.mzxml_to_sample_name[sample_header][sample_name].append(
+                    self.rownum
+                )
+            else:
                 mzxml_name = self.get_sample_header_from_mzxml_name(
                     os.path.basename(mzxml_path)
                 )
 
-                # NOTE: Intentionally treating sample_header (an Optional[str]) as a bool.
-                if mzxml_name[0].isdigit() and (
-                    not sample_header or sample_header != mzxml_name
-                ):
-                    # The leftover mzXMLs code uses self.header_to_sample_name to lookup the DB sample name.  The peak
-                    # correction software does not allow sample names to start with a number, and we don't want that
-                    # lookup to fail and raise an error, so we're going to throw it in there.  It doesn't matter that
-                    # the sample header version was already set.  It differs from the mzxml name.
-                    self.header_to_sample_name[mzxml_name][sample_name].append(
-                        self.rownum
-                    )
+                # The leftover mzXMLs code uses self.mzxml_to_sample_name to lookup the DB sample name.  NOTE: The peak
+                # correction software does not allow sample names to start with a number, so even though the sample data
+                # header is usually identical to the mzXML basename, this mapping is tracked separately.  This is
+                # maintained separately from self.header_to_sample_name also in case the headers distinctly map
+                # intentionally to different samples, but the mzXML names do not.
+                self.mzxml_to_sample_name[mzxml_name][sample_name].append(self.rownum)
 
                 if sample_header is not None:
                     # We're going to check to see if the sample_header and mzxml_name differ and issue a warning for

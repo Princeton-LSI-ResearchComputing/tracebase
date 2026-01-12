@@ -17,7 +17,11 @@ from django.db.utils import ProgrammingError
 from django.forms import model_to_dict
 
 from DataRepo.models.maintained_model import AutoUpdateFailed
-from DataRepo.models.utilities import get_model_fields, is_key_field, is_many_related_to_parent
+from DataRepo.models.utilities import (
+    get_model_fields,
+    is_key_field,
+    is_many_related_to_parent,
+)
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     AggregatedErrorsSet,
