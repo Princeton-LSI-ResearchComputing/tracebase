@@ -3974,9 +3974,10 @@ class AmbiguousMzxmlSampleMatches(Exception):
     def __init__(self, exceptions: List[AmbiguousMzxmlSampleMatch], message=None):
         if message is None:
             message = (
-                "The following mzXML files could not be mapped to a single sample.  Add a row for every mzXML file "
-                "with the indicated name, including their paths relative to the study directory, to the Peak "
-                "Annotation Details sheet."
+                "The following mzXML files could not be mapped to a single sample.  Each mzXML must be associated with "
+                "an MSRunSample, which links to a Sample record, so knowing which sample an mzXML is associated with "
+                "is required.  To resolve this, add a row for every mzXML file with the indicated name, including "
+                "their paths relative to the study directory, to the Peak Annotation Details sheet."
             )
             matches_by_annot_file = defaultdict(list)
             exc: AmbiguousMzxmlSampleMatch
@@ -4005,9 +4006,10 @@ class AmbiguousMzxmlSampleMatch(InfileError, SummarizableError):
 
     def __init__(self, sample_names: List[str], mzxml_name: str, **kwargs):
         message = (
-            f"mzXML file '{mzxml_name}' could not be mapped to a single sample.  Add a row for every mzXML file with "
-            "this name, including its path relative from the study directory, to %s.  Potential sample matches "
-            f"include: {sample_names}."
+            f"mzXML file '{mzxml_name}' could not be mapped to a single sample.  Each mzXML must be associated with an "
+            "MSRunSample, which links to a Sample record, so knowing which sample an mzXML is associated with is "
+            "required.  To resolve this, add a row for every mzXML file with this name, including its path relative "
+            f"from the study directory, to %s.  Potential sample matches include: {sample_names}."
         )
         super().__init__(message, **kwargs)
         self.sample_names = sample_names
