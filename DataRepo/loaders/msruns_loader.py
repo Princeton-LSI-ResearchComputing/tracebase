@@ -826,6 +826,8 @@ class MSRunsLoader(TableLoader):
                         0
                     ]
 
+                sample_name = None
+
                 # If the mzXML name was recorded in the infile as mapping to multiple different peak annot file headers
                 # and it only maps to 1 sample name (i.e. there are multiple files with the same filename/annot-header,
                 # but they are all for the same sample)
@@ -837,8 +839,15 @@ class MSRunsLoader(TableLoader):
                     sample_name = next(
                         iter(self.mzxml_to_sample_name[mzxml_name_no_ext])
                     )
-                else:
-                    if len(self.mzxml_to_sample_name[mzxml_name_no_ext].keys()) > 1:
+                elif len(self.mzxml_to_sample_name[mzxml_name_no_ext].keys()) > 1:
+                    these_are_leftovers = any(
+                        [
+                            not fldct["added"]
+                            for pathkey in self.mzxml_dict[mzxml_name_no_ext].keys()
+                            for fldct in self.mzxml_dict[mzxml_name_no_ext][pathkey]
+                        ]
+                    )
+                    if these_are_leftovers:
                         self.aggregated_errors_object.buffer_error(
                             AmbiguousMzxmlSampleMatch(
                                 list(
@@ -847,6 +856,7 @@ class MSRunsLoader(TableLoader):
                                 mzxml_name_no_ext,
                             )
                         )
+                else:
                     # We going to guess the sample name based on the mzXML filename (without the extension)
                     sample_name = self.guess_sample_name(exact_sample_header_from_mzxml)
 
@@ -859,17 +869,31 @@ class MSRunsLoader(TableLoader):
                     for pathkey in self.mzxml_dict[mzxml_name_no_ext].keys()
                     for fldct in self.mzxml_dict[mzxml_name_no_ext][pathkey]
                 ]
-                sample = self.get_sample_by_name(
-                    sample_name, from_mzxmls=mzxml_filepaths
-                )
+                sample = None
+                if sample_name is not None:
+                    sample = self.get_sample_by_name(
+                        sample_name, from_mzxmls=mzxml_filepaths
+                    )
 
                 # NOTE: The directory content of self.mzxml_dict is based on the actual supplied mzXML files, not on the
                 # content of the mzxml filename column in the infile.
                 for mzxml_dir in dirs:
+                    mzxml_metadata: dict
                     for mzxml_metadata in self.mzxml_dict[mzxml_name_no_ext][mzxml_dir]:
+                        tmp_sample = sample
+                        if (
+                            sample_name is None
+                            and "sample_name" in mzxml_metadata.keys()
+                            and mzxml_metadata["sample_name"] is not None
+                        ):
+                            tmp_sample = self.get_sample_by_name(
+                                mzxml_metadata["sample_name"],
+                                from_mzxmls=mzxml_filepaths,
+                            )
+
                         try:
                             self.get_or_create_msrun_sample_from_mzxml(
-                                sample,
+                                tmp_sample,
                                 mzxml_name_no_ext,
                                 mzxml_dir,
                                 mzxml_metadata,
@@ -1524,6 +1548,8 @@ class MSRunsLoader(TableLoader):
         mzxml_metadata["mzxml_filename"] = mzxml_filename
         # Set a filepath relative to the mzXML dir
         mzxml_metadata["mzxml_filepath"] = os.path.relpath(mzxml_file, self.mzxml_dir)
+        # No sample from the input file is associated with this mzXML (yet)
+        mzxml_metadata["sample_name"] = None
 
         # We will use this to know when to add leftovers that were not in the infile
         mzxml_metadata["added"] = False
@@ -1696,6 +1722,8 @@ class MSRunsLoader(TableLoader):
             #    retrieval and/or creation may fail below [which will buffer an error that eventually will be raised],
             #    because the point is that we don't try and get or create it again as a "leftover" from the infile)
             mzxml_metadata["added"] = True
+            # The input file has explicitly associated this sample name with this mzXML file
+            mzxml_metadata["sample_name"] = sample_name
 
             # 4. Create a record dict to be used for creating an MSRunSample record
             msrs_rec_dict = {
@@ -2140,6 +2168,7 @@ class MSRunsLoader(TableLoader):
 
             # Update the fact this one has been handled
             mzxml_metadata["added"] = True
+            mzxml_metadata["sample_name"] = sample.name
 
             if created:
                 self.created(MSRunSample.__name__)
@@ -2535,6 +2564,7 @@ class MSRunsLoader(TableLoader):
             "mzxml_dir": None,
             "mzxml_filename": None,
             "added": False,
+            "sample_name": None,
         }
 
         # If we have an mzXML filename, that trumps any mzxml we might match using the sample header
