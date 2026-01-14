@@ -2816,6 +2816,12 @@ class MSRunsLoader(TableLoader):
                     ) == os.path.normpath(dir):
                         return multiple_mzxml_dict[dir][0], False
 
+            if mzxml_string_dir != "":
+                # Check for an exact match
+                for dir in multiple_mzxml_dict.keys():
+                    if os.path.normpath(mzxml_string_dir) == os.path.normpath(dir):
+                        return multiple_mzxml_dict[dir], False
+
         # If we have a sample_header, that trumps any mzxml we might match using the sample name
         if multiple_mzxml_dict is None and sample_header is not None:
             multiple_mzxml_dict = self.mzxml_dict_by_header.get(sample_header)
