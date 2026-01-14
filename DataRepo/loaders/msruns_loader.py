@@ -848,13 +848,15 @@ class MSRunsLoader(TableLoader):
                         ]
                     )
                     if these_are_leftovers:
-                        self.aggregated_errors_object.buffer_error(
+                        self.buffer_infile_exception(
                             AmbiguousMzxmlSampleMatch(
                                 list(
                                     self.mzxml_to_sample_name[mzxml_name_no_ext].keys()
                                 ),
                                 mzxml_name_no_ext,
-                            )
+                            ),
+                            is_error=True,
+                            is_fatal=True,
                         )
                 else:
                     # We going to guess the sample name based on the mzXML filename (without the extension)
@@ -2574,6 +2576,12 @@ class MSRunsLoader(TableLoader):
             mzxml_name = self.get_sample_header_from_mzxml_name(mzxml_filename)
             multiple_mzxml_dict = self.mzxml_dict.get(mzxml_name)
 
+            if mzxml_string_dir != "":
+                # Check for an exact match
+                for dir in multiple_mzxml_dict.keys():
+                    if os.path.normpath(mzxml_string_dir) == os.path.normpath(dir):
+                        return multiple_mzxml_dict[dir], False
+
         # If we have a sample_header, that trumps any mzxml we might match using the sample name
         if multiple_mzxml_dict is None:
             multiple_mzxml_dict = self.mzxml_dict.get(sample_header)
@@ -2639,8 +2647,9 @@ class MSRunsLoader(TableLoader):
         if len(matches) == 0:
             self.buffer_infile_exception(
                 ValueError(
-                    "Unable to file mzXML metadata that matches the values on this row of the peak annotation details "
-                    f"sheet: sample_name: {sample_name} sample_header: {sample_header} mzxml_path: {mzxml_path}"
+                    "Unable to find mzXML metadata that matches the values on this row of the peak annotation details "
+                    f"sheet: sample_name: {sample_name} sample_header: {sample_header} mzxml_path: {mzxml_path} "
+                    f"multiple_mzxml_dict: {multiple_mzxml_dict}"
                 ),
                 is_error=True,
                 is_fatal=True,
