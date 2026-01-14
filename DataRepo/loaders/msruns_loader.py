@@ -2535,7 +2535,7 @@ class MSRunsLoader(TableLoader):
         available (matching) paths (this will be all files with the same name if no path was supplied).  The user is
         then instructed to edit the mzXML name on the indicated row to include one of the displayed file paths.
 
-        Uses self.mzxml_dict, which contains data parsed from mzXML files indexes by mzXML basename and directory.
+        Uses self.mzxml_dict, which contains data parsed from mzXML files indexed by mzXML basename and directory.
 
         Args:
             sample_name (str): Name of a sample in the database.
@@ -2634,6 +2634,17 @@ class MSRunsLoader(TableLoader):
             # 'get_or_create_msrun_sample_from_row'.  The method 'get_or_create_msrun_sample_from_mzxml' (called
             # in a loop from 'load_data') will create the leftover MSRunSample records in 'matches' that we are not
             # returning here.
+            return placeholder_mzxml_metadata, True
+
+        if len(matches) == 0:
+            self.buffer_infile_exception(
+                ValueError(
+                    "Unable to file mzXML metadata that matches the values on this row of the peak annotation details "
+                    f"sheet: sample_name: {sample_name} sample_header: {sample_header} mzxml_path: {mzxml_path}"
+                ),
+                is_error=True,
+                is_fatal=True,
+            )
             return placeholder_mzxml_metadata, True
 
         return matches[0], False
