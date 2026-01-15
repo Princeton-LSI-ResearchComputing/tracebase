@@ -601,8 +601,14 @@ class MSRunsLoader(TableLoader):
         self.exact_mode = exact_mode
 
         # This will contain metadata parsed from the mzXML files (and the created ArchiveFile records to be added to
-        # MSRunSample records)
-        self.mzxml_dict = defaultdict(lambda: defaultdict(list))
+        # MSRunSample records).  It's first key is the sample header (not necessarily the mzXML basename) and the second
+        # key is the relative directory path from the study directory (which can be can be '', to mean *any* directory
+        # under which a file of this name can be found).  This is explicitly to allow entry of the file names (which is
+        # very labor intensive) to be optional.
+        self.mzxml_dict_by_header = defaultdict(lambda: defaultdict(list))
+
+        # # This is for convenience - to be able to look up the metadata by the actual mzXML basename.
+        # self.mzxml_dict_by_file = defaultdict(lambda: defaultdict(list))
 
         # This will contain the sample header mapped to the sample name in the database.
         self.header_to_sample_name = defaultdict(lambda: defaultdict(list))
@@ -649,7 +655,7 @@ class MSRunsLoader(TableLoader):
         # 1. Traverse the supplied mzXML files
         #    - create ArchiveFile records.
         #    - Extract data from the mzxML files
-        #    - store extracted metadata and ArchiveFile record objects in self.mzxml_dict, a 4D dict:
+        #    - store extracted metadata and ArchiveFile record objects in self.mzxml_dict_by_header, a 4D dict:
         #      {mzXML_name: {mzXML_dir: [{**metadata},...]}}
         # We need the directory to match the mzXML in the infile with the MSRunSequence name on the same row.  mzXML
         # files can easily have the same name and all users can reasonably be expected to know their location and the
@@ -662,6 +668,7 @@ class MSRunsLoader(TableLoader):
                 # Exception handling was handled in get_or_create_*
                 # Continue processing rows to find more errors
                 pass
+        print(f"AAA self.mzxml_dict_by_header: {self.mzxml_dict_by_header}")
 
         # 2. Traverse the infile
         #    - create MSRunSample records
@@ -727,7 +734,7 @@ class MSRunsLoader(TableLoader):
                 )
                 # Otherwise, we errored about it not being found already
 
-            for mzxml_name_no_ext in self.mzxml_dict.keys():
+            for mzxml_name_no_ext in self.mzxml_dict_by_header.keys():
 
                 # We will skip creating MSRunSample records for rows marked with 'skip' (e.g. blanks), because to have
                 # an MSRunSample record, you need a Sample record, and we don't create those for blank samples.
@@ -736,12 +743,12 @@ class MSRunsLoader(TableLoader):
                     # we check each dir to see if it is present among the skipped files
                     dirs = [
                         dir
-                        for dir in self.mzxml_dict[mzxml_name_no_ext].keys()
+                        for dir in self.mzxml_dict_by_header[mzxml_name_no_ext].keys()
                         if dir
                         not in self.skip_msrunsample_by_mzxml[mzxml_name_no_ext].keys()
                     ]
                 else:
-                    dirs = list(self.mzxml_dict[mzxml_name_no_ext].keys())
+                    dirs = list(self.mzxml_dict_by_header[mzxml_name_no_ext].keys())
 
                 if mzxml_name_no_ext in self.skip_msrunsample_by_mzxml.keys():
                     if len(dirs) == 0:
@@ -767,8 +774,8 @@ class MSRunsLoader(TableLoader):
                         continue
                     elif "" in self.skip_msrunsample_by_mzxml[mzxml_name_no_ext].keys():
                         skip_files = []
-                        for dr in self.mzxml_dict[mzxml_name_no_ext].keys():
-                            for dct in self.mzxml_dict[mzxml_name_no_ext][dr]:
+                        for dr in self.mzxml_dict_by_header[mzxml_name_no_ext].keys():
+                            for dct in self.mzxml_dict_by_header[mzxml_name_no_ext][dr]:
                                 skip_files.append(
                                     os.path.join(dr, dct["mzxml_filename"])
                                 )
@@ -818,10 +825,12 @@ class MSRunsLoader(TableLoader):
                 # guess_sample_name
                 if not self.exact_mode:
                     # All of the file names should be the same, so we're going to arbitrarily grab the first one
-                    arbitrary_key = next(iter(self.mzxml_dict[mzxml_name_no_ext]))
-                    mzxml_filename = self.mzxml_dict[mzxml_name_no_ext][arbitrary_key][
-                        0
-                    ]["mzxml_filename"]
+                    arbitrary_key = next(
+                        iter(self.mzxml_dict_by_header[mzxml_name_no_ext])
+                    )
+                    mzxml_filename = self.mzxml_dict_by_header[mzxml_name_no_ext][
+                        arbitrary_key
+                    ][0]["mzxml_filename"]
                     exact_sample_header_from_mzxml = (os.path.splitext(mzxml_filename))[
                         0
                     ]
@@ -842,8 +851,12 @@ class MSRunsLoader(TableLoader):
                 elif len(self.mzxml_to_sample_name[mzxml_name_no_ext].keys()) > 1:
                     leftover_samples = [
                         fldct["sample_name"]
-                        for pathkey in self.mzxml_dict[mzxml_name_no_ext].keys()
-                        for fldct in self.mzxml_dict[mzxml_name_no_ext][pathkey]
+                        for pathkey in self.mzxml_dict_by_header[
+                            mzxml_name_no_ext
+                        ].keys()
+                        for fldct in self.mzxml_dict_by_header[mzxml_name_no_ext][
+                            pathkey
+                        ]
                         if not fldct["added"]
                     ]
                     unique_leftover_samples = []
@@ -872,8 +885,8 @@ class MSRunsLoader(TableLoader):
                 # attempt to create an 'MSRunSample' record, for which a corresponding sample is required.
                 mzxml_filepaths = [
                     fldct["mzxml_filepath"]
-                    for pathkey in self.mzxml_dict[mzxml_name_no_ext].keys()
-                    for fldct in self.mzxml_dict[mzxml_name_no_ext][pathkey]
+                    for pathkey in self.mzxml_dict_by_header[mzxml_name_no_ext].keys()
+                    for fldct in self.mzxml_dict_by_header[mzxml_name_no_ext][pathkey]
                 ]
                 sample = None
                 if sample_name is not None:
@@ -881,11 +894,13 @@ class MSRunsLoader(TableLoader):
                         sample_name, from_mzxmls=mzxml_filepaths
                     )
 
-                # NOTE: The directory content of self.mzxml_dict is based on the actual supplied mzXML files, not on the
+                # NOTE: The directory content of self.mzxml_dict_by_header is based on the actual supplied mzXML files, not on the
                 # content of the mzxml filename column in the infile.
                 for mzxml_dir in dirs:
                     mzxml_metadata: dict
-                    for mzxml_metadata in self.mzxml_dict[mzxml_name_no_ext][mzxml_dir]:
+                    for mzxml_metadata in self.mzxml_dict_by_header[mzxml_name_no_ext][
+                        mzxml_dir
+                    ]:
                         tmp_sample = sample
                         if (
                             sample_name is None
@@ -1425,7 +1440,7 @@ class MSRunsLoader(TableLoader):
 
     @transaction.atomic
     def get_or_create_mzxml_and_raw_archive_files(self, mzxml_file):
-        """Get or create ArchiveFile records for an mzXML file and a record for its raw file.  Updates self.mzxml_dict.
+        """Get or create ArchiveFile records for an mzXML file and a record for its raw file.  Updates self.mzxml_dict_by_header.
 
         Args:
             mzxml_file (str or Path object)
@@ -1562,8 +1577,17 @@ class MSRunsLoader(TableLoader):
 
         # Save the metadata by mzxml name (which may not be unique, so we're using the record ID as a second key, so
         # that we can later associate a sample header (with the same non-unique issue) to its multiple mzXMLs).
-        mzxml_name = self.get_sample_header_from_mzxml_name(mzxml_filename)
-        self.mzxml_dict[mzxml_name][mzxml_dir].append(mzxml_metadata)
+        mzxml_name = self.make_sample_header_from_mzxml_name(mzxml_filename)
+        self.mzxml_dict_by_header[mzxml_name][mzxml_dir].append(mzxml_metadata)
+        # mzxml_basename, _ = os.path.splitext(mzxml_filename)
+
+        # # This is for convenient access from the actual mzXML file name, which could differ from the sample header if
+        # # the user manually renamed it.
+        # if (
+        #     mzxml_basename not in self.mzxml_dict_by_file.keys()
+        #     and mzxml_dir not in self.mzxml_dict_by_file[mzxml_basename].keys()
+        # ):
+        #     self.mzxml_dict_by_file[mzxml_basename][mzxml_dir] = self.mzxml_dict_by_header[mzxml_name][mzxml_dir]
 
         return (
             mzaf_rec,
@@ -1579,7 +1603,7 @@ class MSRunsLoader(TableLoader):
         Calls check_reassign_peak_groups, which shuffles PeakGroups around and potentially deletes placeholder
         MSRunSample records whose PeakGroups have been reassigned to a concrete MSRunSample record.
 
-        Updates self.mzxml_dict (via get_matching_mzxml_metadata) to denote which mzXML files were included in
+        Updates self.mzxml_dict_by_header (via get_matching_mzxml_metadata) to denote which mzXML files were included in
         MSRunSample records identified from the row data.  This is later used to process leftover mzXML files that were
         not denoted in the peak annotation details file/sheet.
 
@@ -1623,7 +1647,7 @@ class MSRunsLoader(TableLoader):
                     mzxml_dir, mzxml_filename = os.path.split(mzxml_path)
                     if os.path.isabs(mzxml_dir):
                         mzxml_dir = os.path.relpath(mzxml_dir, self.mzxml_dir)
-                    mzxml_name = self.get_sample_header_from_mzxml_name(mzxml_filename)
+                    mzxml_name = self.make_sample_header_from_mzxml_name(mzxml_filename)
                     self.skip_msrunsample_by_mzxml[mzxml_name][mzxml_dir].append(
                         self.rownum
                     )
@@ -1671,7 +1695,7 @@ class MSRunsLoader(TableLoader):
                     self.rownum
                 )
             else:
-                mzxml_name = self.get_sample_header_from_mzxml_name(
+                mzxml_name = self.make_sample_header_from_mzxml_name(
                     os.path.basename(mzxml_path)
                 )
 
@@ -1686,7 +1710,7 @@ class MSRunsLoader(TableLoader):
                     # We're going to check to see if the sample_header and mzxml_name differ and issue a warning for
                     # users to double-check things in case they accidentally mismatches an mzXML and a sample header in
                     # the peak annotation details sheet.
-                    sample_header_name = self.get_sample_header_from_mzxml_name(
+                    sample_header_name = self.make_sample_header_from_mzxml_name(
                         sample_header
                     )
                     if sample_header_name != mzxml_name and (
@@ -1915,7 +1939,9 @@ class MSRunsLoader(TableLoader):
                 )[0]
 
                 # Let's see if this is a "dash" issue
-                sample_name_nodash = self.get_sample_header_from_mzxml_name(sample_name)
+                sample_name_nodash = self.make_sample_header_from_mzxml_name(
+                    sample_name
+                )
                 if sample_name_nodash != sample_name:
                     try:
                         return Sample.objects.get(name=sample_name_nodash)
@@ -2541,7 +2567,7 @@ class MSRunsLoader(TableLoader):
         available (matching) paths (this will be all files with the same name if no path was supplied).  The user is
         then instructed to edit the mzXML name on the indicated row to include one of the displayed file paths.
 
-        Uses self.mzxml_dict, which contains data parsed from mzXML files indexed by mzXML basename and directory.
+        Uses self.mzxml_dict_by_header, which contains data parsed from mzXML files indexed by mzXML basename and directory.
 
         Args:
             sample_name (str): Name of a sample in the database.
@@ -2550,7 +2576,7 @@ class MSRunsLoader(TableLoader):
         Exceptions:
             None
         Returns:
-            (dict): A single dict of mzXML metadata from self.mzxml_dict[mzxml basename][mzxml dir]
+            (dict): A single dict of mzXML metadata from self.mzxml_dict_by_header[mzxml basename][mzxml dir]
             (bool): Whether there were multiple matching mzXML files
         """
         mzxml_string_dir = ""
@@ -2577,14 +2603,24 @@ class MSRunsLoader(TableLoader):
         if mzxml_path is not None:
             mzxml_string_dir, mzxml_filename = os.path.split(mzxml_path)
             mzxml_basename = (os.path.splitext(mzxml_filename))[0]
-            mzxml_name = self.get_sample_header_from_mzxml_name(mzxml_filename)
-            multiple_mzxml_dict = self.mzxml_dict.get(mzxml_name)
 
-            print(f"WWW multiple_mzxml_dict: {multiple_mzxml_dict}")
+            # BUG: This is getting the wrong multiple_mzxml_dict, or rather that dict does not include same-named mzxmls
+            # in directories where the sample header differs (i.e. has been edited).  Ah crap!  The problem is that the
+            # keys in self.mzxml_dict_by_header are not the actual file name - they are the sample data headers (or the
+            # best guess at what it is)!  That's why this calls make_sample_header_from_mzxml_name!  I need to be
+            # looking at self.mzxml_files!  That's just a list, so I'll need to figure out how to get the metadata...
+            mzxml_name = self.make_sample_header_from_mzxml_name(mzxml_filename)
+            multiple_mzxml_dict = self.mzxml_dict_by_header.get(mzxml_name)
+
+            print(
+                f"WWW mzxml_filename {mzxml_filename} multiple_mzxml_dict: {multiple_mzxml_dict}"
+            )
             if multiple_mzxml_dict is not None and mzxml_string_dir != "":
                 # Check for an exact match
                 for dir in multiple_mzxml_dict.keys():
-                    print(f"XXX {dir} vs {mzxml_string_dir}\nYYY {len(multiple_mzxml_dict[dir])} {multiple_mzxml_dict[dir]}")
+                    print(
+                        f"XXX {dir} vs {mzxml_string_dir}\nYYY {len(multiple_mzxml_dict[dir])} {multiple_mzxml_dict[dir]}"
+                    )
                     if len(multiple_mzxml_dict[dir]) == 1 and os.path.normpath(
                         mzxml_string_dir
                     ) == os.path.normpath(dir):
@@ -2593,15 +2629,15 @@ class MSRunsLoader(TableLoader):
                 print("ZZZ THERE WAS NO MATCH!")
 
         # If we have a sample_header, that trumps any mzxml we might match using the sample name
-        if multiple_mzxml_dict is None:
-            multiple_mzxml_dict = self.mzxml_dict.get(sample_header)
+        if multiple_mzxml_dict is None and sample_header is not None:
+            multiple_mzxml_dict = self.mzxml_dict_by_header.get(sample_header)
             mzxml_name = str(sample_header)
             if mzxml_path is None:
                 mzxml_basename = mzxml_name
 
         # As a last resort, we use the sample name itself
         if multiple_mzxml_dict is None:
-            multiple_mzxml_dict = self.mzxml_dict.get(sample_name)
+            multiple_mzxml_dict = self.mzxml_dict_by_header.get(sample_name)
             mzxml_name = str(sample_name)
             if mzxml_path is None:
                 mzxml_basename = mzxml_name
@@ -2915,7 +2951,7 @@ class MSRunsLoader(TableLoader):
         }, errs_buffer
 
     def unpaired_mzxml_files_exist(self):
-        """Traverse self.mzxml_dict and return True if any mzXML files have not yet been added to an MSRunSample record
+        """Traverse self.mzxml_dict_by_header and return True if any mzXML files have not yet been added to an MSRunSample record
         (meaning, it was not listed in the Peak Annotation Details sheet/file or there were multiple files with the same
         name, not all paths were provided in the input file, and thus, the file could not be paired with a row).
 
@@ -2929,9 +2965,9 @@ class MSRunsLoader(TableLoader):
         Returns
             boolean
         """
-        for mzxml_name in self.mzxml_dict.keys():
-            for mzxml_dir in self.mzxml_dict[mzxml_name].keys():
-                for mzxml_metadata in self.mzxml_dict[mzxml_name][mzxml_dir]:
+        for mzxml_name in self.mzxml_dict_by_header.keys():
+            for mzxml_dir in self.mzxml_dict_by_header[mzxml_name].keys():
+                for mzxml_metadata in self.mzxml_dict_by_header[mzxml_name][mzxml_dir]:
                     if mzxml_metadata["added"] is False and (
                         # TODO: Also check if a skip exists without the directory having been added.
                         mzxml_name not in self.skip_msrunsample_by_mzxml.keys()
@@ -3069,7 +3105,7 @@ class MSRunsLoader(TableLoader):
 
         return delstats
 
-    def get_sample_header_from_mzxml_name(self, mzxml_name: str):
+    def make_sample_header_from_mzxml_name(self, mzxml_name: str):
         """This turns an mzxml file- or base-name into a sample header.  Uses self.exact_mode to decide whether to
         replace dashes with underscores.
 

@@ -308,7 +308,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         described in the infile because they weren't used in the production of a peak annotation file).
         """
         msrl = MSRunsLoader()
-        msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
+        msrl.mzxml_dict_by_header = deepcopy(self.MOCK_MZXML_DICT)
         self.assertTrue(msrl.unpaired_mzxml_files_exist())
 
     def test_leftover_mzxml_files_exist_false(self):
@@ -316,8 +316,8 @@ class MSRunsLoaderTests(TracebaseTestCase):
         described in the infile because they weren't used in the production of a peak annotation file).
         """
         msrl = MSRunsLoader()
-        msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
-        msrl.mzxml_dict["BAT_xz971"][
+        msrl.mzxml_dict_by_header = deepcopy(self.MOCK_MZXML_DICT)
+        msrl.mzxml_dict_by_header["BAT_xz971"][
             "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
         ][0]["added"] = True
         self.assertFalse(msrl.unpaired_mzxml_files_exist())
@@ -419,7 +419,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         warning."""
         msrl = MSRunsLoader()
         msrl.set_row_index(2)
-        msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
+        msrl.mzxml_dict_by_header = deepcopy(self.MOCK_MZXML_DICT)
         mzxml_metadata, mult_matches = msrl.get_matching_mzxml_metadata(
             "mysample1",  # Sample name - does not match
             "mysample1_neg_pos_scan2",  # Sample header - does not match (because of the "1")
@@ -462,7 +462,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         a path to the mzXML Name column in the --infile."""
         msrl = MSRunsLoader()
         msrl.set_row_index(2)
-        msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
+        msrl.mzxml_dict_by_header = deepcopy(self.MOCK_MZXML_DICT)
         mzxml_metadata, mult_matches = msrl.get_matching_mzxml_metadata(
             "mysample1",  # Sample name - does not match
             "mysample1_neg_pos_scan2",  # Sample header - does not match (because of the "1")
@@ -479,7 +479,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
     def test_get_matching_mzxml_metadata_header_matches_uniquely(self):
         msrl = MSRunsLoader()
         msrl.set_row_index(2)
-        msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
+        msrl.mzxml_dict_by_header = deepcopy(self.MOCK_MZXML_DICT)
         expected = self.MOCK_MZXML_DICT["Br_xz971"][
             "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
         ][0]
@@ -638,7 +638,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
             ][0]
         )
 
-        msrl.mzxml_dict = self.MOCK_MZXML_DICT
+        msrl.mzxml_dict_by_header = self.MOCK_MZXML_DICT
 
         # Test create
         rec, created = msrl.get_or_create_msrun_sample_from_mzxml(
@@ -681,7 +681,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
             ][0]
         )
 
-        msrl.mzxml_dict = self.MOCK_MZXML_DICT
+        msrl.mzxml_dict_by_header = self.MOCK_MZXML_DICT
 
         rec, created = msrl.get_or_create_msrun_sample_from_mzxml(
             sample,  # Make sure this isn't necessary in edge cases
@@ -835,7 +835,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
 
         # Set up the loader object
         msrl = MSRunsLoader()
-        msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
+        msrl.mzxml_dict_by_header = deepcopy(self.MOCK_MZXML_DICT)
 
         # The row data we will attempt to load
         row = pd.Series(
@@ -876,7 +876,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
 
         # Set up the loader object
         msrl = MSRunsLoader()
-        msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
+        msrl.mzxml_dict_by_header = deepcopy(self.MOCK_MZXML_DICT)
 
         # Assure no placeholder exists (i.e. make sure the test will be valid)
         self.assertEqual(
@@ -938,7 +938,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
 
         # Set up the loader object
         msrl = MSRunsLoader()
-        msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
+        msrl.mzxml_dict_by_header = deepcopy(self.MOCK_MZXML_DICT)
 
         # The row data we will attempt to load
         row = pd.Series(
@@ -1010,7 +1010,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
 
         # Set up the loader object
         msrl = MSRunsLoader()
-        msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
+        msrl.mzxml_dict_by_header = deepcopy(self.MOCK_MZXML_DICT)
 
         # The row data we will attempt to load
         row = pd.Series(
@@ -1078,7 +1078,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
 
         # Set up the loader object
         msrl = MSRunsLoader()
-        msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
+        msrl.mzxml_dict_by_header = deepcopy(self.MOCK_MZXML_DICT)
 
         # The row data we will attempt to load
         row = pd.Series(
@@ -1171,7 +1171,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
 
         # Set up the loader object
         msrl = MSRunsLoader()
-        msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
+        msrl.mzxml_dict_by_header = deepcopy(self.MOCK_MZXML_DICT)
 
         ph_id = self.msr.id
 
@@ -1245,7 +1245,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
 
         # Set up the loader object
         msrl = MSRunsLoader()
-        msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
+        msrl.mzxml_dict_by_header = deepcopy(self.MOCK_MZXML_DICT)
 
         ph_id = self.msr.id
 
@@ -1295,7 +1295,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
 
         # Set up the loader object
         msrl = MSRunsLoader()
-        msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
+        msrl.mzxml_dict_by_header = deepcopy(self.MOCK_MZXML_DICT)
 
         ph_id = self.msr.id
 
@@ -1347,7 +1347,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
 
         # Set up the loader object
         msrl = MSRunsLoader()
-        msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
+        msrl.mzxml_dict_by_header = deepcopy(self.MOCK_MZXML_DICT)
 
         # Create a concrete MSRunSample record (i.e. it has an mzXML file and no peak groups link to it)
         concrete_mzxml_dict = self.MOCK_MZXML_DICT["BAT_xz971"][
@@ -1512,29 +1512,29 @@ class MSRunsLoaderTests(TracebaseTestCase):
 
     def test_get_sample_header_from_mzxml_name(self):
         msrl1 = MSRunsLoader()
-        name1 = msrl1.get_sample_header_from_mzxml_name(
+        name1 = msrl1.make_sample_header_from_mzxml_name(
             "path/file-with-dashes_and_underscrore.mzXML"
         )
         self.assertEqual("file_with_dashes_and_underscrore", name1)
-        name2 = msrl1.get_sample_header_from_mzxml_name(
+        name2 = msrl1.make_sample_header_from_mzxml_name(
             "file-with-dashes_and_underscrore.mzXML"
         )
         self.assertEqual("file_with_dashes_and_underscrore", name2)
-        name3 = msrl1.get_sample_header_from_mzxml_name(
+        name3 = msrl1.make_sample_header_from_mzxml_name(
             "file-with-dashes_and_underscrore"
         )
         self.assertEqual("file_with_dashes_and_underscrore", name3)
 
         msrl2 = MSRunsLoader(exact_mode=True)
-        name4 = msrl2.get_sample_header_from_mzxml_name(
+        name4 = msrl2.make_sample_header_from_mzxml_name(
             "path/file-with-dashes_and_underscrore.mzXML"
         )
         self.assertEqual("file-with-dashes_and_underscrore", name4)
-        name5 = msrl2.get_sample_header_from_mzxml_name(
+        name5 = msrl2.make_sample_header_from_mzxml_name(
             "file-with-dashes_and_underscrore.mzXML"
         )
         self.assertEqual("file-with-dashes_and_underscrore", name5)
-        name6 = msrl2.get_sample_header_from_mzxml_name(
+        name6 = msrl2.make_sample_header_from_mzxml_name(
             "file-with-dashes_and_underscrore"
         )
         self.assertEqual("file-with-dashes_and_underscrore", name6)
