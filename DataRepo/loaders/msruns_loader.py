@@ -2613,7 +2613,7 @@ class MSRunsLoader(TableLoader):
             multiple_mzxml_dict = self.mzxml_dict_by_header.get(mzxml_name)
 
             print(
-                f"WWW mzxml_filename {mzxml_filename} multiple_mzxml_dict: {multiple_mzxml_dict}"
+                f"WWW mzxml_name {mzxml_name} mzxml_filename {mzxml_filename} multiple_mzxml_dict: {multiple_mzxml_dict}"
             )
             if multiple_mzxml_dict is not None and mzxml_string_dir != "":
                 # Check for an exact match
