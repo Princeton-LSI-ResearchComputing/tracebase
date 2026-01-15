@@ -2626,7 +2626,7 @@ class MSRunsLoader(TableLoader):
                     ) == os.path.normpath(dir):
                         print("ZZZ MATCH!")
                         return multiple_mzxml_dict[dir][0], False
-                print("ZZZ THERE WAS NO MATCH!")
+                print(f"ZZZ THERE WAS NO MATCH! {self.mzxml_dict_by_header}")
 
         # If we have a sample_header, that trumps any mzxml we might match using the sample name
         if multiple_mzxml_dict is None and sample_header is not None:
