@@ -2582,9 +2582,8 @@ class MSRunsLoader(TableLoader):
 
             if multiple_mzxml_dict is not None and mzxml_string_dir != "":
                 # Check for an exact match
-                import json
                 for dir in multiple_mzxml_dict.keys():
-                    print(f"XXX {dir} vs {mzxml_string_dir}\nYYY {json.dumps(multiple_mzxml_dict[dir], indent=4, sort_keys=True)}")
+                    print(f"XXX {dir} vs {mzxml_string_dir}\nYYY {len(multiple_mzxml_dict[dir])} {multiple_mzxml_dict[dir]}")
                     if len(multiple_mzxml_dict[dir]) == 1 and os.path.normpath(
                         mzxml_string_dir
                     ) == os.path.normpath(dir):
