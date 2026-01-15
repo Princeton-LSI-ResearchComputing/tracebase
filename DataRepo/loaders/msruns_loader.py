@@ -840,23 +840,29 @@ class MSRunsLoader(TableLoader):
                         iter(self.mzxml_to_sample_name[mzxml_name_no_ext])
                     )
                 elif len(self.mzxml_to_sample_name[mzxml_name_no_ext].keys()) > 1:
-                    these_are_leftovers = any(
+                    leftover_samples = any(
                         [
-                            not fldct["added"]
+                            fldct["sample_name"]
                             for pathkey in self.mzxml_dict[mzxml_name_no_ext].keys()
                             for fldct in self.mzxml_dict[mzxml_name_no_ext][pathkey]
+                            if not fldct["added"]
                         ]
                     )
-                    if these_are_leftovers:
+                    unique_leftover_samples = []
+                    for smplnm in leftover_samples:
+                        if smplnm not in unique_leftover_samples:
+                            unique_leftover_samples.append(smplnm)
+                    if len(unique_leftover_samples) == 1:
+                        sample_name = unique_leftover_samples[0]
+                    elif len(unique_leftover_samples) == 0:
+                        continue
+                    else:
                         self.buffer_infile_exception(
                             AmbiguousMzxmlSampleMatch(
-                                list(
-                                    self.mzxml_to_sample_name[mzxml_name_no_ext].keys()
-                                ),
+                                unique_leftover_samples,
                                 mzxml_name_no_ext,
                             ),
                             is_error=True,
-                            is_fatal=True,
                         )
                 else:
                     # We going to guess the sample name based on the mzXML filename (without the extension)
