@@ -840,14 +840,12 @@ class MSRunsLoader(TableLoader):
                         iter(self.mzxml_to_sample_name[mzxml_name_no_ext])
                     )
                 elif len(self.mzxml_to_sample_name[mzxml_name_no_ext].keys()) > 1:
-                    leftover_samples = any(
-                        [
-                            fldct["sample_name"]
-                            for pathkey in self.mzxml_dict[mzxml_name_no_ext].keys()
-                            for fldct in self.mzxml_dict[mzxml_name_no_ext][pathkey]
-                            if not fldct["added"]
-                        ]
-                    )
+                    leftover_samples = [
+                        fldct["sample_name"]
+                        for pathkey in self.mzxml_dict[mzxml_name_no_ext].keys()
+                        for fldct in self.mzxml_dict[mzxml_name_no_ext][pathkey]
+                        if not fldct["added"]
+                    ]
                     unique_leftover_samples = []
                     for smplnm in leftover_samples:
                         if smplnm not in unique_leftover_samples:
