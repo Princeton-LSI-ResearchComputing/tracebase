@@ -666,6 +666,7 @@ class MSRunsLoader(TableLoader):
                 # Exception handling was handled in get_or_create_*
                 # Continue processing rows to find more errors
                 pass
+        print(f"AAA self.mzxml_dict_by_header: {self.mzxml_dict_by_header}")
 
         # 2. Traverse the infile
         #    - create MSRunSample records
@@ -2815,18 +2816,6 @@ class MSRunsLoader(TableLoader):
                         mzxml_string_dir
                     ) == os.path.normpath(dir):
                         return multiple_mzxml_dict[dir][0], False
-
-            print(f"WWW multiple_mzxml_dict: {multiple_mzxml_dict}")
-            if multiple_mzxml_dict is not None and mzxml_string_dir != "":
-                # Check for an exact match
-                for dir in multiple_mzxml_dict.keys():
-                    print(f"XXX {dir} vs {mzxml_string_dir}\nYYY {len(multiple_mzxml_dict[dir])} {multiple_mzxml_dict[dir]}")
-                    if len(multiple_mzxml_dict[dir]) == 1 and os.path.normpath(
-                        mzxml_string_dir
-                    ) == os.path.normpath(dir):
-                        print("ZZZ MATCH!")
-                        return multiple_mzxml_dict[dir][0], False
-                print("ZZZ THERE WAS NO MATCH!")
 
         # If we have a sample_header, that trumps any mzxml we might match using the sample name
         if multiple_mzxml_dict is None and sample_header is not None:
