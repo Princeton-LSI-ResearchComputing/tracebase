@@ -2580,6 +2580,7 @@ class MSRunsLoader(TableLoader):
             mzxml_name = self.get_sample_header_from_mzxml_name(mzxml_filename)
             multiple_mzxml_dict = self.mzxml_dict.get(mzxml_name)
 
+            print(f"WWW multiple_mzxml_dict: {multiple_mzxml_dict}")
             if multiple_mzxml_dict is not None and mzxml_string_dir != "":
                 # Check for an exact match
                 for dir in multiple_mzxml_dict.keys():
@@ -2587,7 +2588,9 @@ class MSRunsLoader(TableLoader):
                     if len(multiple_mzxml_dict[dir]) == 1 and os.path.normpath(
                         mzxml_string_dir
                     ) == os.path.normpath(dir):
+                        print("ZZZ MATCH!")
                         return multiple_mzxml_dict[dir][0], False
+                print("ZZZ THERE WAS NO MATCH!")
 
         # If we have a sample_header, that trumps any mzxml we might match using the sample name
         if multiple_mzxml_dict is None:
