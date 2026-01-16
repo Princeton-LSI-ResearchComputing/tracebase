@@ -1647,7 +1647,7 @@ class MSRunsLoader(TableLoader):
             mzxml_filename = None
             if mzxml_path is not None:
                 mzxml_dir, mzxml_filename = os.path.split(mzxml_path)
-                if not os.path.samefile(
+                if mzxml_dir != "" and not os.path.samefile(
                     mzxml_dir, self.mzxml_dir
                 ) and not os.path.exists(mzxml_path):
                     self.errored(MSRunSample.__name__)
