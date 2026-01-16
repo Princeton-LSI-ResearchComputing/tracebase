@@ -36,6 +36,7 @@ from DataRepo.utils.exceptions import (
     AssumedMzxmlSampleMatch,
     ConditionallyRequiredArgs,
     DefaultSequenceNotFound,
+    FileFromInputNotFound,
     InfileError,
     InvalidMSRunName,
     MissingSamples,
@@ -1620,7 +1621,7 @@ class MSRunsLoader(TableLoader):
             Buffers:
                 RecordDoesNotExist
         Returns:
-            rec (MSRunSample)
+            rec (Optional[MSRunSample])
             created (boolean)
         """
         created = False
@@ -1641,10 +1642,21 @@ class MSRunsLoader(TableLoader):
             # Annotation file name is not used in the load of this data.  It is only used when the PeakAnnotationsLoader
             # retrieves metadata for a particular peak annotations file by calling get_loaded_msrun_sample_dict.
 
+            # Check the mzXML path, if one is given and contains a subfolder
+            mzxml_dir = None
+            mzxml_filename = None
+            if mzxml_path is not None:
+                mzxml_dir, mzxml_filename = os.path.split(mzxml_path)
+                if not os.path.samefile(
+                    mzxml_dir, self.mzxml_dir
+                ) and not os.path.exists(mzxml_path):
+                    self.errored(MSRunSample.__name__)
+                    self.buffer_infile_exception(FileFromInputNotFound(mzxml_path))
+                    return rec, False
+
             if skip is True:
                 self.skipped(MSRunSample.__name__)
                 if mzxml_path is not None:
-                    mzxml_dir, mzxml_filename = os.path.split(mzxml_path)
                     if os.path.isabs(mzxml_dir):
                         mzxml_dir = os.path.relpath(mzxml_dir, self.mzxml_dir)
                     mzxml_name = self.make_sample_header_from_mzxml_name(mzxml_filename)
