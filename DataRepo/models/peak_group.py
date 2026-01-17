@@ -268,9 +268,15 @@ class PeakGroup(HierCachedModel, MaintainedModel):
         # If the record already exists (e.g. doing an update), exclude self.  (self.pk is None otherwise.)
         if exists_in_db(self):
             conflicts = conflicts.exclude(pk=self.pk)
+            print(
+                f"UUU EXISTS IN DB! {self.pk} vs {[str(r.pk) for r in conflicts.all()]}"
+            )
         else:
             dupes = conflicts.exclude(pk=self.pk).filter(
                 peak_annotation_file=self.peak_annotation_file
+            )
+            print(
+                f"UUU NRECS? {conflicts.count()} NDUPES? PKS: {dupes.count()}! {self.pk} vs {[str(r.pk) for r in dupes.all()]}"
             )
             if dupes.count() > 0:
                 # NOTE: DuplicatePeakGroup and MultiplePeakGroupRepresentation states can exist at the same time.  This
