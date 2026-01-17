@@ -4691,16 +4691,35 @@ class MultiplePeakGroupRepresentation(SummarizableError):
             new_rec (PeakGroup): An uncommitted record.
             existing_recs (PeakGroup.QuerySet)
         """
-        new_str = "\n\t\t".join(
-            [f"{k}: {v}" for k, v in model_to_dict(new_rec).items()]
-        )
-        existing_str = "\n\t\t".join(
-            [
-                f"\n{i + 1}\t\t\t"
-                + "\n\t\t\t".join([f"{k}: {v}" for k, v in model_to_dict(rec).items()])
-                for i, rec in enumerate(existing_recs.all())
-            ]
-        )
+        new_dict = {
+            "name": new_rec.name,
+            "formula": new_rec.formula,
+            "msrun_sample": str(new_rec.msrun_sample),
+            "peak_annotation_file": new_rec.peak_annotation_file.filename,
+        }
+        new_str = "\n\t\t".join([f"{k}: {v}" for k, v in new_dict.items()])
+        existing_dicts = [
+            {
+                "name": e_rec.name,
+                "formula": e_rec.formula,
+                "msrun_sample": str(e_rec.msrun_sample),
+                "peak_annotation_file": e_rec.peak_annotation_file.filename,
+            }
+            for e_rec in existing_recs.all()
+        ]
+        if existing_recs.count() > 1:
+            existing_str = "\n\t\t".join(
+                [
+                    f"{i + 1}\n\t\t\t"
+                    + "\n\t\t\t".join([f"{k}: {v}" for k, v in e_dict.items()])
+                    for i, e_dict in enumerate(existing_dicts)
+                ]
+            )
+        else:
+            # Assumes 1 record exists
+            existing_str = "\n\t\t".join(
+                [f"{k}: {v}" for k, v in existing_dicts[0].items()]
+            )
 
         message = (
             "Multiple representations of this peak group compound were encountered:\n"
