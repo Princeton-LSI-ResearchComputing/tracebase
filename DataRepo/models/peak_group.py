@@ -272,11 +272,9 @@ class PeakGroup(HierCachedModel, MaintainedModel):
                 f"UUU EXISTS IN DB! {self.pk} vs {[str(r.pk) for r in conflicts.all()]}"
             )
         else:
-            dupes = conflicts.exclude(pk=self.pk).filter(
-                peak_annotation_file=self.peak_annotation_file
-            )
+            dupes = conflicts.filter(peak_annotation_file=self.peak_annotation_file)
             print(
-                f"UUU NRECS? {conflicts.count()} NDUPES? PKS: {dupes.count()}! {self.pk} vs {[str(r.pk) for r in dupes.all()]}"
+                f"UUU NRECS? {conflicts.count()} NDUPES? {dupes.count()}! EXISTING PKS: {[str(r.pk) for r in dupes.all()]}"
             )
             if dupes.count() > 0:
                 # NOTE: DuplicatePeakGroup and MultiplePeakGroupRepresentation states can exist at the same time.  This
