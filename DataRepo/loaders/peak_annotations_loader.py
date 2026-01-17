@@ -859,9 +859,9 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         # one, skip its load.  (Note, this updates counts and deletes an unselected PeakGroup if it was previously
         # loaded.)
         # BUG: I think there may be a bug in 2 places:
-        # 1. If there is no selected peak group, I bet that no representation of a peak group that had a multiple
-        #    representations exception raised from PeakGroup.save is saved when there is no line for it in the peak
-        #    group conflicts sheet.
+        # 1. If there is no selected peak group (i.e. a row is missing from the conflicts sheet), I bet that no
+        #    representation of a peak group that had a multiple representations exception raised from PeakGroup.save is
+        #    saved when there is no line for it in the peak group conflicts sheet.
         # 2. The validate interface is not catching some multiple representations.  And I bet it is due to a case
         #    involving existing peakgroups on a subsequent reload.
         if not self.is_selected_peak_group(pgname, peak_annot_file, msrun_sample):
