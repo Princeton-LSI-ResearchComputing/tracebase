@@ -1466,11 +1466,20 @@ class MSRunsLoader(TableLoader):
         # Parse out the polarity, mz_min, mz_max, raw_file_name, and raw_file_sha1
         default_suggestion = "The mzXML file will be skipped."
         raised = False
+        mzxml_metadata = None
         errs: AggregatedErrors
         try:
             mzxml_metadata, errs = self.parse_mzxml(mzxml_file)
         except FileNotFoundError as fnfe:
             self.buffer_infile_exception(fnfe)
+            raised = True
+        except NoScans as ns:
+            # This prevents bad lookups of actual samples/files
+            self.set_mzxml_metadata(mzxml_metadata, mzxml_file)
+
+            self.buffer_infile_exception(
+                ns, is_error=False, suggestion=default_suggestion
+            )
             raised = True
         finally:
             if raised:
@@ -1525,12 +1534,6 @@ class MSRunsLoader(TableLoader):
             self.skipped(ArchiveFile.__name__)  # Skipping raw file below
             raise RollbackException()
 
-        mzxml_dir, mzxml_filename = os.path.split(mzxml_file)
-
-        abs_mzxml_dir = os.path.abspath(mzxml_dir)
-        # Make the mzxml_dir be relative to self.mzxml_dir
-        mzxml_dir = os.path.relpath(abs_mzxml_dir, self.mzxml_dir)
-
         # Get or create an ArchiveFile record for a raw file
         try:
             raw_rec_dict = {
@@ -1557,9 +1560,55 @@ class MSRunsLoader(TableLoader):
             self.errored(ArchiveFile.__name__)
             raise RollbackException()
 
-        # Add in the ArchiveFile record objects
-        mzxml_metadata["mzaf_record"] = mzaf_rec
-        mzxml_metadata["rawaf_record"] = rawaf_rec
+        self.set_mzxml_metadata(
+            mzxml_metadata,
+            mzxml_file,
+            mzaf_rec=mzaf_rec,
+            rawaf_rec=rawaf_rec,
+        )
+
+        return (
+            mzaf_rec,
+            mzaf_created,
+            rawaf_rec,
+            rawaf_created,
+        )
+
+    def set_mzxml_metadata(
+        self,
+        mzxml_metadata: Optional[dict],
+        mzxml_file: str,
+        mzaf_rec: Optional[ArchiveFile] = None,
+        rawaf_rec: Optional[ArchiveFile] = None,
+    ):
+        """Updates self.mzxml_dict_by_header with what's in mzxml_metadata for the given mzxml_file."""
+
+        mzxml_dir, mzxml_filename = os.path.split(mzxml_file)
+
+        abs_mzxml_dir = os.path.abspath(mzxml_dir)
+        # Make the mzxml_dir be relative to self.mzxml_dir
+        mzxml_dir = os.path.relpath(abs_mzxml_dir, self.mzxml_dir)
+
+        if mzxml_metadata is None:
+            mzxml_metadata = {}
+
+        if "raw_file_name" not in mzxml_metadata.keys():
+            mzxml_metadata["raw_file_name"] = None
+        if "raw_file_sha1" not in mzxml_metadata.keys():
+            mzxml_metadata["raw_file_sha1"] = None
+        if "polarity" not in mzxml_metadata.keys():
+            mzxml_metadata["polarity"] = None
+        if "mz_min" not in mzxml_metadata.keys():
+            mzxml_metadata["mz_min"] = None
+        if "mz_max" not in mzxml_metadata.keys():
+            mzxml_metadata["mz_max"] = None
+
+        # Add in the ArchiveFile record objects, if supplied
+        if "mzaf_record" not in mzxml_metadata.keys() or mzaf_rec is not None:
+            mzxml_metadata["mzaf_record"] = mzaf_rec
+        if "rawaf_record" not in mzxml_metadata.keys() or rawaf_rec is not None:
+            mzxml_metadata["rawaf_record"] = rawaf_rec
+
         # And we'll use this for error reporting
         mzxml_metadata["mzxml_dir"] = mzxml_dir
         mzxml_metadata["mzxml_filename"] = mzxml_filename
@@ -1575,22 +1624,6 @@ class MSRunsLoader(TableLoader):
         # that we can later associate a sample header (with the same non-unique issue) to its multiple mzXMLs).
         mzxml_name = self.make_sample_header_from_mzxml_name(mzxml_filename)
         self.mzxml_dict_by_header[mzxml_name][mzxml_dir].append(mzxml_metadata)
-        # mzxml_basename, _ = os.path.splitext(mzxml_filename)
-
-        # # This is for convenient access from the actual mzXML file name, which could differ from the sample header if
-        # # the user manually renamed it.
-        # if (
-        #     mzxml_basename not in self.mzxml_dict_by_file.keys()
-        #     and mzxml_dir not in self.mzxml_dict_by_file[mzxml_basename].keys()
-        # ):
-        #     self.mzxml_dict_by_file[mzxml_basename][mzxml_dir] = self.mzxml_dict_by_header[mzxml_name][mzxml_dir]
-
-        return (
-            mzaf_rec,
-            mzaf_created,
-            rawaf_rec,
-            rawaf_created,
-        )
 
     @transaction.atomic
     def get_or_create_msrun_sample_from_row(self, row):
@@ -2835,8 +2868,8 @@ class MSRunsLoader(TableLoader):
         Exceptions:
             Raises:
                 FileNotFoundError
-            Buffers:
                 NoScans
+            Buffers:
                 MixedPolarityErrors
                 ValueError
                 MzxmlParseError
@@ -2854,22 +2887,11 @@ class MSRunsLoader(TableLoader):
             If full_dict=True:
                 xmltodict.parse(xml_content)
         """
-        # In order to use this as a class method, we will buffer the errors in a one-off AggregatedErrors object
-        errs_buffer = AggregatedErrors()
-
         raw_file_name = None
         raw_file_sha1 = None
         polarity = None
         mz_min = None
         mz_max = None
-
-        output_dict = {
-            "raw_file_name": raw_file_name,
-            "raw_file_sha1": raw_file_sha1,
-            "polarity": polarity,
-            "mz_min": mz_min,
-            "mz_max": mz_max,
-        }
 
         # Assume Path object
         mzxml_path_obj = mzxml_path
@@ -2887,8 +2909,10 @@ class MSRunsLoader(TableLoader):
         mzxml_dict = xmltodict.parse(xml_content)
 
         if "scan" not in mzxml_dict["mzXML"]["msRun"].keys():
-            errs_buffer.buffer_warning(NoScans(mzxml_path))
-            return output_dict, errs_buffer
+            raise NoScans(mzxml_path)
+
+        # In order to use this as a class method, we will buffer the errors in a one-off AggregatedErrors object
+        errs_buffer = AggregatedErrors()
 
         if full_dict:
             return mzxml_dict, errs_buffer
@@ -2960,13 +2984,13 @@ class MSRunsLoader(TableLoader):
                 ).with_traceback(ke.__traceback__)
             )
 
-        output_dict["raw_file_name"] = raw_file_name
-        output_dict["raw_file_sha1"] = raw_file_sha1
-        output_dict["polarity"] = polarity
-        output_dict["mz_min"] = mz_min
-        output_dict["mz_max"] = mz_max
-
-        return output_dict, errs_buffer
+        return {
+            "raw_file_name": raw_file_name,
+            "raw_file_sha1": raw_file_sha1,
+            "polarity": polarity,
+            "mz_min": mz_min,
+            "mz_max": mz_max,
+        }, errs_buffer
 
     def unpaired_mzxml_files_exist(self):
         """Traverse self.mzxml_dict_by_header and return True if any mzXML files have not yet been added to an MSRunSample record
