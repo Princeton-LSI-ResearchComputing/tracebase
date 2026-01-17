@@ -4698,6 +4698,7 @@ class MultiplePeakGroupRepresentation(SummarizableError):
         message = (
             "Multiple representations of this peak group compound were encountered:\n"
             f"\tCompound: {new_rec.name}\n"
+            f"\tMSRunSample: {new_rec.msrun_sample}\n"
             f"\tMSRunSequence: {new_rec.msrun_sample.msrun_sequence}\n"
             "Each peak group originated from:\n"
             f"\t{files_str}\n"
@@ -4732,6 +4733,39 @@ class MultiplePeakGroupRepresentation(SummarizableError):
 
     def __str__(self):
         return self.message
+
+
+class DuplicatePeakGroup(InfileError):
+    """Duplicate PeakGroup record encountered.
+
+    This is an internal technical error.  It happens when the business rules for which MSRunSample record to link a
+    PeakGroup record to has changed between an initial and supplemental load of a Study Doc.  E.g. A researcher has
+    added data (e.g. samples) to an existing Study doc and the entire load is re-run to fill in the missing data.
+
+    When this happens, a get_or_create is used to retrieve previously created records if they exist, but if the linked-
+    to MSRunSample record has changed from a caoncrete record to a placeholder record, the existing "duplicate"
+    PeakGroup record is not "gotten" because it's not a perfect match.  So a new "duplicate" record is created.
+    """
+
+    def __init__(
+        self,
+        new_rec: PeakGroup,
+        existing_recs,
+        message: Optional[str] = None,
+        **kwargs,
+    ):
+        if message is None:
+            message = (
+                "Duplicate PeakGroup record created in %s:\n"
+                f"\tCompound: {new_rec}\n"
+                f"\tPeak Annotation File: {new_rec.peak_annotation_file.filename}\n"
+                "Each is linked to these MSRunSamples:\n"
+                f"\tNew: {new_rec.msrun_sample}\n"
+                f"\tExisting: {[exstg.msrun_sample for exstg in existing_recs.all()]}"
+            )
+        super().__init__(message, **kwargs)
+        self.new_rec = new_rec
+        self.existing_recs = existing_recs
 
 
 class PossibleDuplicateSamples(SummarizedInfileError, Exception):

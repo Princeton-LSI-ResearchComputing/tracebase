@@ -233,19 +233,16 @@ class PeakGroup(HierCachedModel, MaintainedModel):
         Args:
             None
         Exceptions:
+            DuplicatePeakGroup
             MultiplePeakGroupRepresentation
         Returns:
             None
         """
         from DataRepo.models.utilities import exists_in_db
-        from DataRepo.utils.exceptions import MultiplePeakGroupRepresentation
-
-        if (
-            not hasattr(self, "peak_annotation_file")
-            or self.peak_annotation_file is None
-        ):
-            # This cannot be a multiple representation issue if no peak annotation file is provided
-            return None
+        from DataRepo.utils.exceptions import (
+            DuplicatePeakGroup,
+            MultiplePeakGroupRepresentation,
+        )
 
         # Look for peak groups with the same name (i.e. compound) for the same sample, coming from a different peak
         # annotation file
@@ -257,6 +254,16 @@ class PeakGroup(HierCachedModel, MaintainedModel):
         # If the record already exists (e.g. doing an update), exclude self.  (self.pk is None otherwise.)
         if exists_in_db(self):
             conflicts = conflicts.exclude(pk=self.pk)
+        else:
+            dupes = conflicts.exclude(pk=self.pk).filter(
+                peak_annotation_file=self.peak_annotation_file
+            )
+            if dupes.count() > 0:
+                # NOTE: DuplicatePeakGroup and MultiplePeakGroupRepresentation states can exist at the same time.  This
+                # DuplicatePeakGroup exception occludes the MultiplePeakGroupRepresentation exception, but that's only
+                # because it is written to support record creation.  If there are pre-existing multiple representations,
+                # here is not the place to find them unless the creation of this record causes them to exist.
+                raise DuplicatePeakGroup(self, dupes)
 
         if conflicts.count() > 0:
             raise MultiplePeakGroupRepresentation(self, conflicts)

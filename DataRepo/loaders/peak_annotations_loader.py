@@ -35,6 +35,7 @@ from DataRepo.utils.exceptions import (
     AggregatedErrors,
     ConditionallyRequiredArgs,
     DuplicateCompoundIsotopes,
+    DuplicatePeakGroup,
     DuplicatePeakGroupResolutions,
     DuplicateValues,
     InfileError,
@@ -879,6 +880,25 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                 mpgr.set_formatted_message(suggestion=self.multrep_suggestion)
             )
             self.errored(PeakGroup.__name__)
+            raise RollbackException()
+        except DuplicatePeakGroup as dpg:
+            self.aggregated_errors_object.buffer_warning(
+                dpg.set_formatted_message(
+                    suggestion=(
+                        "This has occurred likely because the PeakGroup records are linked to different MSRunSample "
+                        "records.  It is a side-effect of a change in business rules governing placeholder MSRunSample "
+                        "records.  After loading, PeakGroup records should be reorganized to follow the current "
+                        "business rules and link to the same MSRunSample record, but is not a serious issue and may be "
+                        "safely ignored."
+                    ),
+                    file=self.friendly_file,
+                    sheet=self.DataSheetName,
+                    rownum=self.rownum,
+                ),
+                is_fatal=False,
+            )
+            self.warned(PeakGroup.__name__)
+            # We are going to rollback and simply ignore the creation of this record.
             raise RollbackException()
         except NoTracerLabeledElements as ntle:
             self.buffer_infile_exception(
