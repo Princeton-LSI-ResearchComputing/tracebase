@@ -4915,10 +4915,16 @@ class MultiplePeakGroupRepresentation(SummarizableError):
                     [f"{k}: {v}" for k, v in existing_dicts[0].items()]
                 )
 
+            filenames = [new_rec.peak_annotation_file.filename]
+            filenames.extend([r.peak_annotation_file.filename for r in existing_recs.all()])
+            files_str = "\n\t".join(filenames)
+
             message = (
                 "Multiple representations of this peak group compound were encountered:\n"
                 f"\tNew:\n\t\t{new_str}\n"
                 f"\tExisting:\n\t\t{existing_str}\n"
+                "Each peak group originated from:\n"
+                f"\t{files_str}\n"
                 "Only 1 representation of a compound per sample is allowed."
             )
 

@@ -268,6 +268,16 @@ class PeakGroup(HierCachedModel, MaintainedModel):
         # If the record already exists (e.g. doing an update), exclude self.  (self.pk is None otherwise.)
         if exists_in_db(self):
             conflicts = conflicts.exclude(pk=self.pk)
+        else:
+            dupes = conflicts.exclude(pk=self.pk).filter(
+                peak_annotation_file=self.peak_annotation_file
+            )
+            if dupes.count() > 0:
+                # NOTE: DuplicatePeakGroup and MultiplePeakGroupRepresentation states can exist at the same time.  This
+                # DuplicatePeakGroup exception occludes the MultiplePeakGroupRepresentation exception, but that's only
+                # because it is written to support record creation.  If there are pre-existing multiple representations,
+                # here is not the place to find them unless the creation of this record causes them to exist.
+                raise DuplicatePeakGroup(self, dupes)
 
         # Look for duplicates due solely to business rule changes regarding MSRunSample placeholder records that
         # changes the linked MSRunSample record
