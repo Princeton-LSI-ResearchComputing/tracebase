@@ -3235,7 +3235,7 @@ class UnexpectedLabel(InfileError, SummarizableError):
 
     SummarizerExceptionClass = UnexpectedLabels
 
-    def __init__(self, unexpected, possible, **kwargs):
+    def __init__(self, unexpected: List[str], possible: List[str], **kwargs):
         message = (
             f"One or more observed peak labels were not among the label(s) in the tracer(s):\n"
             f"\tObserved: {unexpected}\n"

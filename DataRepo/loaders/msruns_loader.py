@@ -1472,11 +1472,6 @@ class MSRunsLoader(TableLoader):
         except FileNotFoundError as fnfe:
             self.buffer_infile_exception(fnfe)
             raised = True
-        except NoScans as ns:
-            self.buffer_infile_exception(
-                ns, is_error=False, suggestion=default_suggestion
-            )
-            raised = True
         finally:
             if raised:
                 errs = AggregatedErrors()
@@ -1647,9 +1642,11 @@ class MSRunsLoader(TableLoader):
             mzxml_filename = None
             if mzxml_path is not None:
                 mzxml_dir, mzxml_filename = os.path.split(mzxml_path)
-                if mzxml_dir != "" and not os.path.samefile(
-                    mzxml_dir, self.mzxml_dir
-                ) and not os.path.exists(mzxml_path):
+                if (
+                    mzxml_dir != ""
+                    and not os.path.samefile(mzxml_dir, self.mzxml_dir)
+                    and not os.path.exists(mzxml_path)
+                ):
                     self.errored(MSRunSample.__name__)
                     self.buffer_infile_exception(FileFromInputNotFound(mzxml_path))
                     return rec, False
@@ -2838,8 +2835,8 @@ class MSRunsLoader(TableLoader):
         Exceptions:
             Raises:
                 FileNotFoundError
-                NoScans
             Buffers:
+                NoScans
                 MixedPolarityErrors
                 ValueError
                 MzxmlParseError
@@ -2857,11 +2854,22 @@ class MSRunsLoader(TableLoader):
             If full_dict=True:
                 xmltodict.parse(xml_content)
         """
+        # In order to use this as a class method, we will buffer the errors in a one-off AggregatedErrors object
+        errs_buffer = AggregatedErrors()
+
         raw_file_name = None
         raw_file_sha1 = None
         polarity = None
         mz_min = None
         mz_max = None
+
+        output_dict = {
+            "raw_file_name": raw_file_name,
+            "raw_file_sha1": raw_file_sha1,
+            "polarity": polarity,
+            "mz_min": mz_min,
+            "mz_max": mz_max,
+        }
 
         # Assume Path object
         mzxml_path_obj = mzxml_path
@@ -2879,10 +2887,8 @@ class MSRunsLoader(TableLoader):
         mzxml_dict = xmltodict.parse(xml_content)
 
         if "scan" not in mzxml_dict["mzXML"]["msRun"].keys():
-            raise NoScans(mzxml_path)
-
-        # In order to use this as a class method, we will buffer the errors in a one-off AggregatedErrors object
-        errs_buffer = AggregatedErrors()
+            errs_buffer.buffer_warning(NoScans(mzxml_path))
+            return output_dict, errs_buffer
 
         if full_dict:
             return mzxml_dict, errs_buffer
@@ -2954,13 +2960,13 @@ class MSRunsLoader(TableLoader):
                 ).with_traceback(ke.__traceback__)
             )
 
-        return {
-            "raw_file_name": raw_file_name,
-            "raw_file_sha1": raw_file_sha1,
-            "polarity": polarity,
-            "mz_min": mz_min,
-            "mz_max": mz_max,
-        }, errs_buffer
+        output_dict["raw_file_name"] = raw_file_name
+        output_dict["raw_file_sha1"] = raw_file_sha1
+        output_dict["polarity"] = polarity
+        output_dict["mz_min"] = mz_min
+        output_dict["mz_max"] = mz_max
+
+        return output_dict, errs_buffer
 
     def unpaired_mzxml_files_exist(self):
         """Traverse self.mzxml_dict_by_header and return True if any mzXML files have not yet been added to an MSRunSample record
