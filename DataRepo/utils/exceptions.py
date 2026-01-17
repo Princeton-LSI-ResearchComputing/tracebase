@@ -4691,17 +4691,21 @@ class MultiplePeakGroupRepresentation(SummarizableError):
             new_rec (PeakGroup): An uncommitted record.
             existing_recs (PeakGroup.QuerySet)
         """
+        new_str = "\n\t\t".join(
+            [f"{k}: {v}" for k, v in model_to_dict(new_rec).items()]
+        )
+        existing_str = "\n\t\t".join(
+            [
+                f"\n{i + 1}\t\t\t"
+                + "\n\t\t\t".join([f"{k}: {v}" for k, v in model_to_dict(rec).items()])
+                for i, rec in enumerate(existing_recs.all())
+            ]
+        )
 
-        filenames = [new_rec.peak_annotation_file.filename]
-        filenames.extend([r.peak_annotation_file.filename for r in existing_recs.all()])
-        files_str = "\n\t".join(filenames)
         message = (
             "Multiple representations of this peak group compound were encountered:\n"
-            f"\tCompound: {new_rec.name}\n"
-            f"\tMSRunSample: {new_rec.msrun_sample}\n"
-            f"\tMSRunSequence: {new_rec.msrun_sample.msrun_sequence}\n"
-            "Each peak group originated from:\n"
-            f"\t{files_str}\n"
+            f"\tNew:\n\t\t{new_str}\n"
+            f"\tExisting:\n\t\t{existing_str}\n"
             "Only 1 representation of a compound per sample is allowed."
         )
         if suggestion is not None:
@@ -4713,7 +4717,10 @@ class MultiplePeakGroupRepresentation(SummarizableError):
         super().__init__(message)
         self.new_rec = new_rec
         self.existing_recs = existing_recs
-        self.filenames: List[str] = filenames
+        self.filenames: List[str] = [new_rec.peak_annotation_file.filename]
+        self.filenames.extend(
+            [r.peak_annotation_file.filename for r in existing_recs.all()]
+        )
         self.compound: str = new_rec.name
         self.sequence: MSRunSequence = new_rec.msrun_sample.msrun_sequence
         self.sample: Sample = new_rec.msrun_sample.sample
