@@ -839,9 +839,7 @@ class MissingModelRecordsByFile(MissingRecords, ABC):
                 )
 
         # This sets self.loc, self.file, and self.sheet, which we need below. Then we'll set the message.
-        print("CALLING MissingRecords.__init__(self, exceptions, **kwargs)")
         MissingRecords.__init__(self, exceptions, **kwargs)
-        print("CALLING ABC.__init__(self)")
         ABC.__init__(self)
         message = kwargs.pop("message", None)
         num_examples = 3
