@@ -839,8 +839,7 @@ class MissingModelRecordsByFile(MissingRecords, ABC):
                 )
 
         # This sets self.loc, self.file, and self.sheet, which we need below. Then we'll set the message.
-        MissingRecords.__init__(self, exceptions, **kwargs)
-        ABC.__init__(self)
+        super().__init__(exceptions, **kwargs)
         message = kwargs.pop("message", None)
         num_examples = 3
         if message is None:
@@ -1129,16 +1128,15 @@ class AllUnskippedBlanks(MissingModelRecordsByFile):
     ModelName = "Sample"
     RecordName = ModelName
 
-    def __init__(self, exceptions, succinct=None, **kwargs):
-        suggestion = kwargs.get("suggestion")
+    def __init__(self, *args, suggestion=None, **kwargs):
         if suggestion is None:
-            kwargs["suggestion"] = (
+            suggestion = (
                 "Note that the unskipped blank sample names can be the same in multiple files.  If this exception is "
                 "accompanied by a NoPeakAnnotationDetails exception, the reported unskipped blanks are likelt "
                 "associated with one of those peak annotation files.  Follow its suggestion and you can ignore this "
                 "exception."
             )
-        super().__init__(exceptions, succinct=succinct, **kwargs)
+        super().__init__(*args, suggestion=suggestion, **kwargs)
 
 
 class MissingCompounds(MissingModelRecords):
