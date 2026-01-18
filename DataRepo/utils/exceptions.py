@@ -4788,9 +4788,11 @@ class DuplicatePeakGroup(InfileError):
                 "Each is linked to these MSRunSamples:\n"
                 f"\tNew: {new_rec.msrun_sample}\n"
                 f"\tExisting: {[exstg.msrun_sample for exstg in existing_recs.all()]}\n"
-                "The user may ignore this error.  A curator may choose to ignore this error, but could reassign "
-                "PeakGroup links to MSRunSample records based on the current business rules so that this error no "
-                "longer appears."
+                "The user may ignore this error.  This is a technical error due to the fact that the duplicate "
+                "PeakGroup records are linked to different MSRunSample records.  It is a side-effect of a change in "
+                "business rules governing placeholder MSRunSample records between an initial load and a supplemental "
+                "load.  This is not a serious issue.  A curator may choose to ignore it, but could reassign PeakGroup "
+                "links to MSRunSample records based on the current business rules so that this error no longer appears."
             )
         super().__init__(message, **kwargs)
         self.new_rec = new_rec
