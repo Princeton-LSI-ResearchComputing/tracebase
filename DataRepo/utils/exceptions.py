@@ -1128,15 +1128,16 @@ class AllUnskippedBlanks(MissingModelRecordsByFile):
     ModelName = "Sample"
     RecordName = ModelName
 
-    def __init__(self, *args, suggestion=None, **kwargs):
+    def __init__(self, exceptions, succinct=None, **kwargs):
+        suggestion = kwargs.get("suggestion")
         if suggestion is None:
-            suggestion = (
+            kwargs["suggestion"] = (
                 "Note that the unskipped blank sample names can be the same in multiple files.  If this exception is "
                 "accompanied by a NoPeakAnnotationDetails exception, the reported unskipped blanks are likelt "
                 "associated with one of those peak annotation files.  Follow its suggestion and you can ignore this "
                 "exception."
             )
-        super().__init__(*args, suggestion=suggestion, **kwargs)
+        super().__init__(exceptions, succinct=succinct, **kwargs)
 
 
 class MissingCompounds(MissingModelRecords):
