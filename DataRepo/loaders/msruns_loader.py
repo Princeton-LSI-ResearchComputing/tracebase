@@ -1342,7 +1342,8 @@ class MSRunsLoader(TableLoader):
             if skip and not sample_header:
                 continue
 
-            # If the sample header happens to match a header in another peak annot file, skip it
+            # If the sample header belongs to a peak annot file other than the target annot file, skip it.  We are
+            # explicitly gathering headers from a specific annot file.
             _, annot_name = os.path.split(tmp_annot_name)
             if target_annot_name != annot_name:
                 continue

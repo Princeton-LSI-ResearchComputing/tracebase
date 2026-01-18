@@ -1107,6 +1107,8 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
 
             self.msrun_sample_dict[sample_header]["seen"] = True
 
+            print(f"SSS self.msrun_sample_dict[{sample_header}]: {self.msrun_sample_dict[sample_header]}")
+
             # TODO: Consolidate the strategy.  I had made a quick change to the SKIP value coming from the file due to a
             # pandas quirk about dtype and empty excel cells, but the value returned by
             # self.msrunsloader.get_loaded_msrun_sample_dict is converted to a boolean.  This can lead to confusion, so
@@ -1131,6 +1133,8 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         #    there is more than 1 match, we can try to whittle it down using what we've been provided in the way of the
         #    default sequence data.
 
+        debug_save = self.msrun_sample_dict.copy()
+
         # Initialize the entry in the msrun_sample_dict so we can avoid this code block if we encounter the header again
         self.msrun_sample_dict[sample_header] = {}
         self.msrun_sample_dict[sample_header]["seen"] = True
@@ -1140,6 +1144,9 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         query_dict = {"name": sample_header}
         samples = Sample.objects.filter(**query_dict)
         if samples.count() == 0:
+
+            print(f"RRR self.msrun_sample_dict (before entry ({sample_header}) deleted): {debug_save}")
+
             self.aggregated_errors_object.buffer_error(
                 RecordDoesNotExist(
                     Sample,
@@ -1447,7 +1454,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             pgrec (Optional[PeakGroup)
         Exceptions:
             Buffers:
-                UnexpectedLabels
+                UnexpectedLabel
                 IsotopeStringDupe
                 ObservedIsotopeUnbalancedError
                 ObservedIsotopeParsingError
