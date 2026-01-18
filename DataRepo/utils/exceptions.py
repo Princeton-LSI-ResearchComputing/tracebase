@@ -1108,7 +1108,7 @@ class AllUnskippedBlanks(MissingModelRecordsByFile):
     ModelName = "Sample"
     RecordName = ModelName
 
-    def __init__(*args, suggestion: Optional[str] = None, **kwargs):
+    def __init__(self, *args, suggestion: Optional[str] = None, **kwargs):
         if suggestion is None:
             suggestion = (
                 "Note that the unskipped blank sample names can be the same in multiple files.  If this exception is "
@@ -2140,6 +2140,9 @@ class AggregatedErrors(Exception):
                 exception_class,
                 attr_name=attr_name,
                 attr_val=attr_val,
+                # TODO: This should separate the search state and change state.  I.e. if you want to change things to a
+                # warning, but want to retrieve both errors and warnings, that can't be done using this method.
+                # Besides, the method name is inconsistent with the search behavior.
                 is_error=(is_error if is_error is None else not is_error),
             ):
                 if is_error is not None:

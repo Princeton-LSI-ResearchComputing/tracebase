@@ -1040,7 +1040,9 @@ class StudyLoader(ConvertedTableLoader, ABC):
             self.multiple_pg_reps_exceptions.extend(mpgr_exc.exceptions)
 
         # Unexpected labels exceptions
-        uel_excs = aes.modify_exception_type(UnexpectedLabels, is_error=False)
+        uel_excs = aes.get_exception_type(
+            UnexpectedLabels, attr_name="is_error", attr_val=False
+        )
         uel_exc: UnexpectedLabels
         for uel_exc in uel_excs:
             self.unexpected_labels_exceptions.extend(uel_exc.exceptions)
@@ -1065,9 +1067,8 @@ class StudyLoader(ConvertedTableLoader, ABC):
         Returns:
             None
         """
-        mrecs_excs = aes.modify_exception_type(
-            missing_class, is_fatal=False, is_error=False
-        )
+        aes.modify_exception_type(missing_class, is_fatal=False, is_error=False)
+        mrecs_excs = aes.get_exception_type(missing_class)
         for mrecs_exc in mrecs_excs:
             buffer.extend(mrecs_exc.exceptions)
 
