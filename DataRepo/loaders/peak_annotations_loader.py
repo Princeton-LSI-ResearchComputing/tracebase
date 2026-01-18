@@ -1673,6 +1673,9 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         likely_missing_dnes = []
         for sdne in sample_dnes:
             if Sample.is_a_blank(sdne.query_obj["name"]):
+                # Make the missing blanks exceptions, contained by UnskippedBlanks, into warnings
+                sdne.is_error = False
+                sdne.is_fatal = self.validate
                 possible_blank_dnes.append(sdne)
             else:
                 likely_missing_dnes.append(sdne)
