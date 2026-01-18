@@ -4787,11 +4787,87 @@ class DuplicatePeakGroup(InfileError):
                 f"\tPeak Annotation File: {new_rec.peak_annotation_file.filename}\n"
                 "Each is linked to these MSRunSamples:\n"
                 f"\tNew: {new_rec.msrun_sample}\n"
-                f"\tExisting: {[exstg.msrun_sample for exstg in existing_recs.all()]}"
+                f"\tExisting: {[exstg.msrun_sample for exstg in existing_recs.all()]}\n"
+                "The user may ignore this error.  A curator may choose to ignore this error, but could reassign "
+                "PeakGroup links to MSRunSample records based on the current business rules so that this error no "
+                "longer appears."
             )
         super().__init__(message, **kwargs)
         self.new_rec = new_rec
         self.existing_recs = existing_recs
+
+
+class TechnicalPeakGroupDuplicate(InfileError):
+    """Duplicate PeakGroup record encountered due to an edited peak annotation file.
+
+    This is an internal technical error.  It happens when the linked peak annotation file is the same file (as
+    determined by name), but the file was edited.  In this case, that edit did not qualitatively change the peak group.
+    It just didn't match the file.
+    """
+
+    def __init__(
+        self,
+        new_rec: PeakGroup,
+        existing_recs,
+        message: Optional[str] = None,
+        **kwargs,
+    ):
+        if message is None:
+            existing_files_str = ", ".join(
+                [
+                    f"{exstg.peak_annotation_file.filename} ({exstg.peak_annotation_file.checksum})"
+                    for exstg in existing_recs.all()
+                ]
+            )
+            message = (
+                "Duplicate PeakGroup record created in %s due to an apparent edit of the peak annotation file:\n"
+                f"\tCompound: {new_rec}\n"
+                f"\tSample: {new_rec.msrun_sample.sample.name}\n"
+                "Edited Peak Annotation Files:\n"
+                f"\tNew: {new_rec.peak_annotation_file.filename} ({new_rec.peak_annotation_file.checksum})\n"
+                f"\tExisting: {existing_files_str}\n"
+                "A curator must delete the previously loaded outdated peak annotation file along with all its peak "
+                "groups, and must then rerun this load.  This will eliminate the stale peak annotation file so that "
+                "all download links yield the same file."
+            )
+        super().__init__(message, **kwargs)
+        self.new_rec = new_rec
+        self.existing_recs = existing_recs
+
+
+class ComplexPeakGroupDuplicate(ConflictingValueError):
+    """Complex Duplicate PeakGroup record encountered due to an edited peak annotation file.
+
+    This happens when the PeakGroup was edited in the file, possibly also differing due to technical issues, like
+    changed business rules regarding MSRunSample placeholder handling and/or a technically differing peak annotation
+    file record.  In this case, that edit changed the PeakGroup.  A migration will be required to update the existing
+    record to match.  Alternatively, the affected PeakGroup records can be deleted and reloaded.  Ideally, every Peak
+    Annotation File and all its PeakGroup records should be deleted, so that files linked from every PeakGroup is
+    consistent.
+    """
+
+    def __init__(self, *args, suggestion: Optional[str] = None, **kwargs):
+        if suggestion is None:
+            suggestion = (
+                "There are 2 likely cases causing this error:\n\n"
+                "\t1. There are differences in this peak group (e.g. different formula) due to having edited in the "
+                "peak annotation file between the initial load and a supplemental load.  All the user has to do here "
+                "is confirm that the changes are correct.  See curator note below^.\n"
+                "\t2. There are no apparent differences in this peak group, but the peak annotation file was edited "
+                "between the initial load and a supplemental load.  In this case, the peak annotation file will be "
+                "shown as different, but the files appear the same.  The user may ignore this error.  See curator note "
+                "below^.\n"
+                "\t3. The business rules that link a peak group to an MSRunSample record have changed between the "
+                "initial load and a supplemental load.  This is a technical issue that the curator alone is "
+                "responsible for.  The peak annotation file will not be presented as different.  The user may ignore "
+                "this error.  A curator can likely ignore this error, but could reassign PeakGroup links to "
+                "MSRunSample records based on the current business rules so that this error no longer appears.\n\n"
+                "^ In cases 1 & 2, a curator should confirm differences shown are deemed correct by the user, and must "
+                "delete the previously loaded outdated file along with all its peak groups, and must then rerun this "
+                "load.  This will eliminate the stale peak annotation file so that all download links yield the same "
+                "file."
+            )
+        super().__init__(*args, suggestion=suggestion, **kwargs)
 
 
 class PossibleDuplicateSamples(SummarizedInfileError, Exception):
