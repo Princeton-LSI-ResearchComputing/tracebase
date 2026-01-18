@@ -362,6 +362,11 @@ class PeakGroup(HierCachedModel, MaintainedModel):
         # TODO: appears to be some code that ignores the error, because the loads have been succeeding despite those
         # TODO: errors having been printed.  That code should be located and deleted.
 
+        # BUG: The above should fix the creation of duplicate peak groups, but those errors were formerly
+        # MultiplePeakGroupRepresentation exceptions and somewhere in the loading code downstream of this, there appears
+        # to be some code that ignores the error error, because the loads have been succeeding despite those errors
+        # having been printed.  That code should be located and deleted.
+
         if conflicts.count() > 0:
             raise MultiplePeakGroupRepresentation(self, conflicts)
 
