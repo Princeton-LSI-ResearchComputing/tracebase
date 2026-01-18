@@ -1151,7 +1151,9 @@ class StudyLoader(ConvertedTableLoader, ABC):
 
             # Collect all the missing samples in 1 error to add to the animal sample table file
             if len(exc_lst) > 0:
-                print(f"MMM CALLING {exc_cls}({exc_lst}, succinct={succinct}, suggestion={suggestion})")
+                print(
+                    f"MMM CALLING {exc_cls}({exc_lst}, succinct={succinct}, suggestion={suggestion})"
+                )
                 self.load_statuses.set_load_exception(
                     exc_cls(exc_lst, succinct=succinct, suggestion=suggestion),
                     load_key,
