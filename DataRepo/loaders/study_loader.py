@@ -1046,6 +1046,9 @@ class StudyLoader(ConvertedTableLoader, ABC):
         uel_exc: UnexpectedLabels
         for uel_exc in uel_excs:
             self.unexpected_labels_exceptions.extend(uel_exc.exceptions)
+        print(
+            f"NNN Num UnexpectedLabels exceptions found: {len(self.unexpected_labels_exceptions)} EXISTS IN AES: {aes.exception_type_exists(UnexpectedLabels)}"
+        )
 
     def extract_missing_records_exception(
         self,
