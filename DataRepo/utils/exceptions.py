@@ -1108,7 +1108,7 @@ class AllUnskippedBlanks(MissingModelRecordsByFile):
     ModelName = "Sample"
     RecordName = ModelName
 
-    def __init__(self, *args, suggestion: Optional[str] = None, **kwargs):
+    def __init__(self, *args, suggestion=None, **kwargs):
         if suggestion is None:
             suggestion = (
                 "Note that the unskipped blank sample names can be the same in multiple files.  If this exception is "
