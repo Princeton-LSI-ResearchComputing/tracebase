@@ -544,6 +544,8 @@ class StudyLoader(ConvertedTableLoader, ABC):
         # Perform cross-loader checks
         self.perform_checks(loaders)
 
+        print(f"ALL EXC BEFORE PACKAGING: QQQ {all_aggregated_errors} PPP")
+
         # Package up all of the exceptions.  This changes the error states of the various loaders, to emphasis the
         # summaries and deemphasize (and/or remove) potentially repeated errors.
         for aes in all_aggregated_errors:
@@ -558,6 +560,8 @@ class StudyLoader(ConvertedTableLoader, ABC):
 
         enable_caching_updates()
 
+        print(f"ALL EXC BEFORE GROUPING: QQQ {all_aggregated_errors} PPP")
+
         self.create_grouped_exceptions()
 
         # If we're in validate mode, raise the MultiLoadStatus Exception whether there were errors or not, so
@@ -568,6 +572,8 @@ class StudyLoader(ConvertedTableLoader, ABC):
             # not, so that we can report the load status of all load files, including successful loads.  It's
             # like Dry Run mode, but exclusively for the validation interface.
             raise self.load_statuses
+
+        print(f"ALL EXC BEFORE RAISING: QQQ {all_aggregated_errors} PPP")
 
         # If there were actual errors, raise an AggregatedErrorsSet exception inside the atomic block to cause
         # a rollback of everything
