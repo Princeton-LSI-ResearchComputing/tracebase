@@ -1101,6 +1101,24 @@ class AllMissingSamples(MissingModelRecordsByFile):
     RecordName = ModelName
 
 
+class AllUnskippedBlanks(MissingModelRecordsByFile):
+    """Summary of samples likely not expected to exist in the database (because they contain "blank" in their name) that
+    were not found."""
+
+    ModelName = "Sample"
+    RecordName = ModelName
+
+    def __init__(*args, suggestion: Optional[str] = None, **kwargs):
+        if suggestion is None:
+            suggestion = (
+                "Note that the unskipped blank sample names can be the same in multiple files.  If this exception is "
+                "accompanied by a NoPeakAnnotationDetails exception, the reported unskipped blanks are likelt "
+                "associated with one of those peak annotation files.  Follow its suggestion and you can ignore this "
+                "exception."
+            )
+        super().__init__(*args, suggestion=suggestion, **kwargs)
+
+
 class MissingCompounds(MissingModelRecords):
     """Summary of compounds expected to exist in the database that were not found, while loading a single input file.
 
@@ -1166,6 +1184,7 @@ class UnskippedBlanks(MissingSamples):
             )
         self.orig_message = message
         self.set_formatted_message(suggestion=suggestion, **kwargs)
+        self.exceptions = exceptions
 
 
 class NoSamples(MissingSamples):
@@ -1268,6 +1287,24 @@ class UnexpectedSamples(InfileError):
             message += f"  {suggestion}"
         super().__init__(message, **kwargs)
         self.missing_samples = missing_samples
+
+
+class NoPeakAnnotationDetails(InfileError):
+    """No sample headers were found in the Peak Annotation Details sheet of the Study doc for the indicated peak
+    annotation file.
+
+    This usually occurs if a user is adding data to an existing study doc and neglects to update the Peak Annotation
+    Details sheet using the output of the submission start page."""
+
+    def __init__(self, annot_file: str, **kwargs):
+        message = (
+            f"No sample headers for peak annotation file '{annot_file}' were found in %s.  An attempt will be made to "
+            "automatically associate the headers with Sample records, but you may see warnings about unskipped "
+            "blanks.  If any samples cannot be found, you can associate them by populating the Peak Annotation Details "
+            "sheet.  It is recommended that you use the submission start page to generate this data."
+        )
+        super().__init__(message)
+        self.annot_file = annot_file
 
 
 class EmptyColumns(InfileError):
