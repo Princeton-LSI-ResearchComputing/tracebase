@@ -819,8 +819,7 @@ class MissingModelRecordsByFile(MissingRecords, ABC):
                 )
 
         # This sets self.loc, self.file, and self.sheet, which we need below. Then we'll set the message.
-        MissingRecords.__init__(self, exceptions, **kwargs)
-        ABC.__init__(self)
+        super().__init__(exceptions, **kwargs)
         message = kwargs.pop("message", None)
         num_examples = 3
         if message is None:
@@ -1109,16 +1108,15 @@ class AllUnskippedBlanks(MissingModelRecordsByFile):
     ModelName = "Sample"
     RecordName = ModelName
 
-    def __init__(self, exceptions, succinct=None, **kwargs):
-        suggestion = kwargs.get("suggestion")
+    def __init__(self, *args, suggestion=None, **kwargs):
         if suggestion is None:
-            kwargs["suggestion"] = (
+            suggestion = (
                 "Note that the unskipped blank sample names can be the same in multiple files.  If this exception is "
                 "accompanied by a NoPeakAnnotationDetails exception, the reported unskipped blanks are likelt "
                 "associated with one of those peak annotation files.  Follow its suggestion and you can ignore this "
                 "exception."
             )
-        super().__init__(exceptions, succinct=succinct, **kwargs)
+        super().__init__(*args, suggestion=suggestion, **kwargs)
 
 
 class MissingCompounds(MissingModelRecords):
@@ -3227,7 +3225,7 @@ class ObservedIsotopeUnbalancedError(ObservedIsotopeParsingError):
 class AllUnexpectedLabels(Exception):
     """Summary of `UnexpectedLabels` exceptions arising from multiple input files."""
 
-    def __init__(self, exceptions: List[UnexpectedLabel]):
+    def __init__(self, exceptions: List[UnexpectedLabel], **kwargs):
         counts: Dict[str, dict] = defaultdict(lambda: {"files": [], "observations": 0})
         for exc in exceptions:
             for element in exc.unexpected:
@@ -3241,6 +3239,7 @@ class AllUnexpectedLabels(Exception):
                 "files\n"
             )
         message += "There may be contamination."
+        # We're going to ignore kwargs.  It's only there to consume args taken by all the other "All*" exceptions
         super().__init__(message)
         self.exceptions = exceptions
         self.counts = counts
@@ -3322,7 +3321,7 @@ class NoCommonLabel(Exception):
 class AllNoScans(Exception):
     """Summary of NoScans exceptions."""
 
-    def __init__(self, no_scans_excs, message=None):
+    def __init__(self, no_scans_excs, message=None, **kwargs):
         if not message:
             loc_msg_default = ", obtained from the indicated file locations,"
             loc_msg = ""
@@ -3367,6 +3366,7 @@ class AllNoScans(Exception):
                 f"{mzxml_str}"
             )
 
+        # We're going to ignore kwargs.  It's only there to consume args taken by all the other "All*" exceptions
         super().__init__(message)
         self.no_scans_excs = no_scans_excs
 
@@ -3400,7 +3400,7 @@ class NoScans(InfileError, SummarizableError):
 class AllMzxmlSequenceUnknown(Exception):
     """Summary of `MzxmlSequenceUnknown` exceptions from multiple input files."""
 
-    def __init__(self, exceptions, message=None):
+    def __init__(self, exceptions, message=None, **kwargs):
         if not message:
             loc_msg_default = ""
             loc_msg = ""
@@ -3462,6 +3462,7 @@ class AllMzxmlSequenceUnknown(Exception):
                 f"to be supplied will occur below:\n{mzxml_str}"
             )
 
+        # We're going to ignore kwargs.  It's only there to consume args taken by all the other "All*" exceptions
         super().__init__(message)
         self.exceptions = exceptions
 
@@ -3727,7 +3728,7 @@ class MultipleDefaultSequencesFound(Exception):
 class AllMzXMLSkipRowErrors(Exception):
     """Summary of `MzXMLSkipRowErrors` exceptions from multiple input files."""
 
-    def __init__(self, exceptions, message=None):
+    def __init__(self, exceptions, message=None, **kwargs):
         if not message:
             # Build the dict of organized exceptions
             loc_msg_default = ", as obtained from the indicated file locations"
@@ -3857,6 +3858,7 @@ class AllMzXMLSkipRowErrors(Exception):
                     f"supplied paths{loc_msg}:\n{diff_paths_str}"
                 )
 
+        # We're going to ignore kwargs.  It's only there to consume args taken by all the other "All*" exceptions
         super().__init__(message)
         self.exceptions = exceptions
 
