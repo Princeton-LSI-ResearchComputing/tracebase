@@ -396,7 +396,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
             )
 
     def check_exclude_sheets(self):
-        """This buffers an error if any supplied sheet names to not match any of the loader classes' DataSheetName class
+        """This buffers an error if any supplied sheet names do not match any of the loader classes' DataSheetName class
         attributes.
 
         Args:

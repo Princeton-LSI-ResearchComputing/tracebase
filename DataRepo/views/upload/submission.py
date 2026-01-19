@@ -1,9 +1,10 @@
 import base64
 import os.path
+from pathlib import Path
 import warnings
 from collections import defaultdict
 from io import BytesIO
-from typing import Dict, Optional, Type
+from typing import Dict, List, Optional, Type
 
 import numpy as np
 import pandas as pd
@@ -41,6 +42,7 @@ from DataRepo.loaders.studies_loader import StudiesLoader
 from DataRepo.loaders.study_loader import StudyLoader
 from DataRepo.loaders.tissues_loader import TissuesLoader
 from DataRepo.loaders.tracers_loader import TracersLoader
+from DataRepo.models.archive_file import ArchiveFile
 from DataRepo.models.compound import Compound
 from DataRepo.models.infusate import Infusate
 from DataRepo.models.infusate_tracer import InfusateTracer
@@ -68,6 +70,7 @@ from DataRepo.utils.exceptions import (
     MultiplePeakAnnotationFileFormats,
     MultipleStudyDocVersions,
     NoSamples,
+    PeakAnnotationFileConflict,
     UnknownPeakAnnotationFileFormat,
     UnknownStudyDocVersion,
 )
@@ -411,6 +414,26 @@ class BuildSubmissionView(FormView):
                         top=False,
                     )
                     continue
+
+                print("LLL CHECKING ANNOT FILES")
+                # Check to see if this file was already loaded, but edited
+                existing_annots = ArchiveFile.objects.filter(filename=peak_annot_filename)
+                if existing_annots.count() > 0:
+                    path_obj = Path(peak_annot_file)
+                    computed_checksum = ArchiveFile.hash_file(path_obj)
+                    differing_annot_files: List[ArchiveFile] = []
+                    existing_annot: ArchiveFile
+                    for existing_annot in existing_annots:
+                        if computed_checksum != existing_annot.checksum:
+                            differing_annot_files.append(existing_annot)
+
+                    if len(differing_annot_files) > 0:
+                        self.load_status_data.set_load_exception(
+                            PeakAnnotationFileConflict(peak_annot_filename, differing_annot_files),
+                            peak_annot_filename,
+                            top=False,
+                            default_is_error=False,
+                        )
 
                 # Map the user's filename to the web form file path
                 self.annot_files_dict[peak_annot_filename] = peak_annot_file
