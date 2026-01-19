@@ -1671,19 +1671,25 @@ class MSRunsLoader(TableLoader):
             # Annotation file name is not used in the load of this data.  It is only used when the PeakAnnotationsLoader
             # retrieves metadata for a particular peak annotations file by calling get_loaded_msrun_sample_dict.
 
-            # Check the mzXML path, if one is given and contains a subfolder
+            # Check the mzXML path, if one is given
             mzxml_dir = None
             mzxml_filename = None
             if mzxml_path is not None:
                 mzxml_dir, mzxml_filename = os.path.split(mzxml_path)
-                if (
-                    mzxml_dir != ""
-                    and not os.path.samefile(mzxml_dir, self.mzxml_dir)
-                    and not os.path.exists(mzxml_path)
-                ):
-                    self.errored(MSRunSample.__name__)
-                    self.buffer_infile_exception(FileFromInputNotFound(mzxml_path))
-                    return rec, False
+
+                # Validate mode does not handle mzXML files - only the study doc validation, so we can only check the
+                # paths provided in the mzXML File Name column if we are not in validate mode
+                if not self.validate:
+                    norm_mzxml_dir = not os.path.normpath(mzxml_dir)
+                    head, _ = os.path.split(norm_mzxml_dir)
+                    has_subdir = head and head not in (".", os.curdir)
+                    if (
+                        not has_subdir
+                        and not os.path.exists(mzxml_path)
+                    ):
+                        self.errored(MSRunSample.__name__)
+                        self.buffer_infile_exception(FileFromInputNotFound(mzxml_path))
+                        return rec, False
 
             if skip is True:
                 self.skipped(MSRunSample.__name__)
