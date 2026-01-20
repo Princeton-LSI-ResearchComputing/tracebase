@@ -1830,10 +1830,7 @@ class MSRunsLoader(TableLoader):
                     norm_mzxml_dir = os.path.normpath(mzxml_dir)
                     head, _ = os.path.split(norm_mzxml_dir)
                     has_subdir = head not in ("", ".", os.curdir)
-                    if (
-                        not has_subdir
-                        and not os.path.exists(mzxml_path)
-                    ):
+                    if has_subdir and not os.path.exists(mzxml_path):
                         self.errored(MSRunSample.__name__)
                         self.buffer_infile_exception(FileFromInputNotFound(mzxml_path))
                         return rec, False
@@ -2257,6 +2254,8 @@ class MSRunsLoader(TableLoader):
                 # The mzXMLs need to be iterated to create or `UnmatchedMzXML` or `UnmatchedBlankMzXML` exceptions for
                 # each file so that this script doesn't need to be run multiple times to add files to the 'Peak
                 # Annotation Details' sheet
+                # TODO: Neither the warning nor the error in this for loop should be buffered if the mzXML is in the
+                # details sheet and marked as skip.
                 for from_mzxml in from_mzxmls:
                     if Sample.is_a_blank(sample_name):
                         # This warning may already exist from the check_mzxml_files method.  This is different from the
