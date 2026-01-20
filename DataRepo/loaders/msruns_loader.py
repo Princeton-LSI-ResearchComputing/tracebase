@@ -1829,7 +1829,7 @@ class MSRunsLoader(TableLoader):
                 if not self.validate:
                     norm_mzxml_dir = os.path.normpath(mzxml_dir)
                     head, _ = os.path.split(norm_mzxml_dir)
-                    has_subdir = head and head not in (".", os.curdir)
+                    has_subdir = head not in ("", ".", os.curdir)
                     if (
                         not has_subdir
                         and not os.path.exists(mzxml_path)
