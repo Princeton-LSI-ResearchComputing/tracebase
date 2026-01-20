@@ -1827,7 +1827,7 @@ class MSRunsLoader(TableLoader):
                 # Validate mode does not handle mzXML files - only the study doc validation, so we can only check the
                 # paths provided in the mzXML File Name column if we are not in validate mode
                 if not self.validate:
-                    norm_mzxml_dir = not os.path.normpath(mzxml_dir)
+                    norm_mzxml_dir = os.path.normpath(mzxml_dir)
                     head, _ = os.path.split(norm_mzxml_dir)
                     has_subdir = head and head not in (".", os.curdir)
                     if (
