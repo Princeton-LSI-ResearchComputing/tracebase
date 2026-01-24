@@ -417,7 +417,9 @@ class BuildSubmissionView(FormView):
 
                 print("LLL CHECKING ANNOT FILES")
                 # Check to see if this file was already loaded, but edited
-                existing_annots = ArchiveFile.objects.filter(filename=peak_annot_filename)
+                existing_annots = ArchiveFile.objects.filter(
+                    filename=peak_annot_filename
+                )
                 if existing_annots.count() > 0:
                     path_obj = Path(peak_annot_file)
                     computed_checksum = ArchiveFile.hash_file(path_obj)
@@ -429,7 +431,9 @@ class BuildSubmissionView(FormView):
 
                     if len(differing_annot_files) > 0:
                         self.load_status_data.set_load_exception(
-                            PeakAnnotationFileConflict(peak_annot_filename, differing_annot_files),
+                            PeakAnnotationFileConflict(
+                                peak_annot_filename, differing_annot_files
+                            ),
                             peak_annot_filename,
                             top=False,
                             default_is_error=False,
