@@ -5866,8 +5866,13 @@ class PeakAnnotationFileConflict(Exception):
     edits are necessary, a curator will need to perform a database migration to delete and reload all data associated
     with the modified file.  The user is informed of this with this exception as a warning.
     """
-    def __init__(self, peak_annot_filename: str, differing_annot_files: List[ArchiveFile]):
-        timestamps_str = "\n\t".join([str(f.imported_timestamp) for f in differing_annot_files])
+
+    def __init__(
+        self, peak_annot_filename: str, differing_annot_files: List[ArchiveFile]
+    ):
+        timestamps_str = "\n\t".join(
+            [str(f.imported_timestamp) for f in differing_annot_files]
+        )
         message = "".join(
             f"{len(differing_annot_files)} differing version of a peak annotation file with the same name, "
             f"'{peak_annot_filename}', was previously loaded on:\n\n\t"
