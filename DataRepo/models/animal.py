@@ -150,7 +150,7 @@ class Animal(MaintainedModel, HierCachedModel):
 
     @MaintainedModel.setter(
         generation=0,
-        child_field_names=["samples"],
+        # child_field_names=["samples"],  # No need to propagate down.  This change does not affect any change below.
         update_label="fcirc_calcs",
         update_field_name="last_serum_sample",
     )
@@ -184,6 +184,10 @@ class Animal(MaintainedModel, HierCachedModel):
         update_label="label_combo",
     )
     def _label_combo(self):
+        """Generates a string to populate the label_combo field.
+
+        Updates here are triggered when an Infusate record is saved.
+        """
         return self.infusate._label_combo() if self.infusate is not None else None
 
     @property  # type: ignore

@@ -139,8 +139,8 @@ class Compound(MaintainedModel):
 
     @MaintainedModel.setter(
         generation=0,
-        update_field_name="animals_by_tracer",
-        child_field_names=["tracers"],
+        update_field_name="animals_by_tracer",  # No change here affects anything else.
+        # child_field_names=["tracers"],  # No change here affects anything else.
         update_label="tracer_stat",
     )
     def _animals_by_tracer(self):
