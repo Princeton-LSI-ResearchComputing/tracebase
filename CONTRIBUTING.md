@@ -9,15 +9,22 @@ repository in order to start developing/contributing.
 
 #### Python
 
-Install the latest Python (version 3.9.1), and make sure it is in your path:
+TraceBase has been tested with Python 3.7 through 3.10.  TraceBase may work with later Python versions, but currently
+there are dependency issues with Python 3.14.
+
+Install a Python version that is 3.9.1 or greater (3.10 is the current recommendation) from:
+
+    https://www.python.org/downloads/
+
+Make sure that version of python is in your path:
 
     $ python --version
-    Python 3.9.1
+    Python 3.10.11
 
 Test to make sure that the `python` command now shows your latest python install:
 
     $ python --version
-    Python 3.9.1
+    Python 3.10.11
 
 #### Postgres
 
