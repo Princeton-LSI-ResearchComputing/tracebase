@@ -38,7 +38,7 @@ class DebugDatabaseCache(DatabaseCache):
             "CACHE DEBUG:\n"
             f"\t_cull(self, db={db}, cursor={cursor}, now={now}, num={num})\n"
             f"\tself._max_entries: {self._max_entries}\n"
-            f"\tsettings.CACHES: {settings.caches}\n"
+            f"\tsettings.CACHES: {settings.CACHES}\n"
             f"Count BEFORE _cull: {get_num_cache_rows()}"
         )
         super()._cull(db, cursor, now, num)
@@ -74,7 +74,7 @@ class DebugDatabaseCache(DatabaseCache):
 
         print(
             f"cache._base_delete_many CALLED! - with keys: {keys}, "
-            f"_max_entries: {self._max_entries} CACHES: {settings.caches}"
+            f"_max_entries: {self._max_entries} CACHES: {settings.CACHES}"
         )
 
         before = get_num_cache_rows()
@@ -87,7 +87,7 @@ class DebugDatabaseCache(DatabaseCache):
                 "cache._base_delete_many CALLED!  See above trace.  DEBUG INFO:\n"
                 f"\t_base_delete_many(self, keys={keys})\n"
                 f"\tself._max_entries: {self._max_entries}\n"
-                f"\tsettings.CACHES: {settings.caches}\n"
+                f"\tsettings.CACHES: {settings.CACHES}\n"
                 f"\tCount BEFORE _base_delete_many: {before}\n"
                 f"\tCount AFTER _base_delete_many: {after}"
             )
