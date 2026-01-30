@@ -29,10 +29,12 @@ class DebugDatabaseCache(DatabaseCache):
     """Override of DatabaseCache methods that delete cache entries to see why caches are apparently being culled way
     before max entries (1500000) is hit."""
 
+    last_key = None
+
     def _cull(self, db, cursor, now, num):
         from DataRepo.utils.exceptions import AggregatedErrors
 
-        print(AggregatedErrors.get_trace())
+        print(AggregatedErrors.get_trace(prune_dependencies=False))
         print("cache._cull CALLED!  See above trace")
         print(
             "CACHE DEBUG:\n"
@@ -47,23 +49,28 @@ class DebugDatabaseCache(DatabaseCache):
     def delete(self, key, version=None):
         from DataRepo.utils.exceptions import AggregatedErrors
 
-        print(AggregatedErrors.get_trace())
+        print(AggregatedErrors.get_trace(prune_dependencies=False))
         print("cache.delete CALLED!  See above trace")
         return super().delete(key, version=version)
 
     def delete_many(self, keys, version=None):
         from DataRepo.utils.exceptions import AggregatedErrors
 
-        print(AggregatedErrors.get_trace())
+        print(AggregatedErrors.get_trace(prune_dependencies=False))
         print("cache.delete_many CALLED!  See above trace")
         super().delete_many(keys, version=version)
 
     def clear(self):
         from DataRepo.utils.exceptions import AggregatedErrors
 
-        print(AggregatedErrors.get_trace())
+        print(AggregatedErrors.get_trace(prune_dependencies=False))
         print("cache.clear CALLED!  See above trace")
         super().clear()
+
+    def get(self, key, default=None, version=None):
+        self.last_key = key
+        result = super().get(key, default=default, version=version)
+        return result
 
     def set(self, *args, **kwargs):
         print("SANITY CHECK: cache.set CALLED", end="                            \r")
@@ -82,29 +89,31 @@ class DebugDatabaseCache(DatabaseCache):
         after = get_num_cache_rows()
 
         if before > after:
-            print(AggregatedErrors.get_trace())
+            print(AggregatedErrors.get_trace(prune_dependencies=False))
             print(
                 "cache._base_delete_many CALLED!  See above trace.  DEBUG INFO:\n"
+                f"\tlast lookup key: {self.last_key}\n"
                 f"\t_base_delete_many(self, keys={keys})\n"
                 f"\tself._max_entries: {self._max_entries}\n"
                 f"\tsettings.CACHES: {settings.CACHES}\n"
                 f"\tCount BEFORE _base_delete_many: {before}\n"
                 f"\tCount AFTER _base_delete_many: {after}"
             )
+            raise ValueError("Stopping after first cull")
 
         return result
 
     async def adelete(self, key, version=None):
         from DataRepo.utils.exceptions import AggregatedErrors
 
-        print(AggregatedErrors.get_trace())
+        print(AggregatedErrors.get_trace(prune_dependencies=False))
         print("cache.adelete CALLED!  See above trace")
         return super().adelete(key, version=version)
 
     async def adelete_many(self, keys, version=None):
         from DataRepo.utils.exceptions import AggregatedErrors
 
-        print(AggregatedErrors.get_trace())
+        print(AggregatedErrors.get_trace(prune_dependencies=False))
         print("cache.adelete_many CALLED!  See above trace")
         super().adelete_many(keys, version=version)
 

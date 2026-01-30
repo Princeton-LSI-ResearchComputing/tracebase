@@ -2310,12 +2310,12 @@ class AggregatedErrors(Exception):
         return exc_str
 
     @classmethod
-    def get_trace(cls):
+    def get_trace(cls, prune_dependencies=True):
         """Alias for get_buffered_traceback_string (for convenient debugging)"""
-        return cls.get_buffered_traceback_string()
+        return cls.get_buffered_traceback_string(prune_dependencies=prune_dependencies)
 
     @classmethod
-    def get_buffered_traceback_string(cls):
+    def get_buffered_traceback_string(cls, prune_dependencies=True):
         """
         Creates a pseudo-traceback for debugging.  Tracebacks are only built as the raised exception travels the stack
         to where it's caught.  traceback.format_stack yields the entire stack, but that's overkill, so this loop
@@ -2326,6 +2326,8 @@ class AggregatedErrors(Exception):
         The string is intended to only be used to debug a problem.  Print it inside an except block if you want to find
         the cause of any particular buffered exception.
         """
+        if not prune_dependencies:
+            return "".join([str(step) for step in traceback.format_stack()])
         return "".join(
             [
                 str(step)
