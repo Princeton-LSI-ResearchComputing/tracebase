@@ -1,7 +1,8 @@
 from django.core.management import BaseCommand
 
 from DataRepo.models.hier_cached_model import (
-    delete_all_caches,
+    caching_updates,
+    caching_retrievals,
     disable_caching_retrievals,
     disable_caching_updates,
     enable_caching_retrievals,
@@ -11,10 +12,11 @@ from DataRepo.models.maintained_model import MaintainedModel
 
 
 class Command(BaseCommand):
-    # Show this when the user types help
-    help = "Update all maintained fields for every record in the database containing maintained fields.  Note that "
-    "this assumes that no @MaintainedModel.setter function uses a maintained field in its calculation, because that "
-    "would make the auto-updates order-dependent."
+    help = (
+        "Update all maintained fields for every record in the database containing maintained fields.\n\nNote: This "
+        "assumes that no @MaintainedModel.setter function uses a maintained field in its calculation, because that "
+        "would make the auto-updates order-dependent."
+    )
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -34,14 +36,24 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         try:
-            disable_caching_retrievals()
-            disable_caching_updates()
+            # Maintained field rebuilds are accomplished by calling .save() on every record.  This should not be done
+            # with caching updates enabled.  Caching retrievals are also disabled because, although the maintained model
+            # setter methods should not use cached values (and vice-versa), if they do, always calculating the cached
+            # value is guaranteed to be accurate and this makes their updates not be order-dependent.
+            saved_caching_updates = caching_updates
+            saved_caching_retrievals = caching_retrievals
+            if caching_retrievals:
+                disable_caching_retrievals()
+            if caching_updates:
+                disable_caching_updates()
+
             MaintainedModel.rebuild_maintained_fields(
                 "DataRepo.models",  # optional - should work without this, but supplying anyway
                 label_filters=options["labels"],
                 filter_in=not options["exclude"],
             )
-            delete_all_caches()
         finally:
-            enable_caching_updates()
-            enable_caching_retrievals()
+            if saved_caching_updates:
+                enable_caching_updates()
+            if saved_caching_retrievals:
+                enable_caching_retrievals()
