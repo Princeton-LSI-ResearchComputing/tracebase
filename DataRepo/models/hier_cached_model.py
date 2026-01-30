@@ -72,10 +72,10 @@ class DebugDatabaseCache(DatabaseCache):
     def _base_delete_many(self, keys):
         from DataRepo.utils.exceptions import AggregatedErrors
 
-        print(
-            f"cache._base_delete_many CALLED! - with keys: {keys}, "
-            f"_max_entries: {self._max_entries} CACHES: {settings.CACHES}"
-        )
+        # print(
+        #     f"cache._base_delete_many CALLED! - with keys: {keys}, "
+        #     f"_max_entries: {self._max_entries} CACHES: {settings.CACHES}"
+        # )
 
         before = get_num_cache_rows()
         result = super()._base_delete_many(keys)
