@@ -65,6 +65,10 @@ class DebugDatabaseCache(DatabaseCache):
         print("cache.clear CALLED!  See above trace")
         super().clear()
 
+    def set(self, *args, **kwargs):
+        print("SANITY CHECK: cache.set CALLED", end="                            \r")
+        super().set(*args, **kwargs)
+
 
 # I don't know if this needs to go after the derived class definition or not, but putting it here to be on the safe side
 from django.core.cache import cache
