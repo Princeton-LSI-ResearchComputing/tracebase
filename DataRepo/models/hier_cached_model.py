@@ -36,7 +36,7 @@ class DebugDatabaseCache(DatabaseCache):
             f"\tsettings.CACHES: {settings.caches}\n"
             f"Count BEFORE _cull: {get_num_cache_rows()}"
         )
-        super()._cull()
+        super()._cull(db, cursor, now, num)
         print(f"\tCount AFTER _cull: {get_num_cache_rows()}")
 
 
@@ -110,7 +110,7 @@ def set_cache(rec, cache_func_name, value):
         cachekey = get_cache_key(rec, cache_func_name)
         cache.set(cachekey, value, timeout=None, version=1)
         if settings.DEBUG:
-            print(f"Setting cache {cachekey} to {value}")
+            print(f"Setting cache {cachekey} to {value}", end="                     \r")
         root_rec, first_method_name = rec.get_representative_root_rec_and_method()
         # If this isn't the representative, tell the root record that caches exist under it somewhere
         if (
