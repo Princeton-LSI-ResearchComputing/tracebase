@@ -3,13 +3,45 @@ from typing import Dict, List, Optional
 from warnings import warn
 
 from django.conf import settings
-from django.core.cache import cache
+from django.core.cache.backends.db import DatabaseCache
+from django.db import connections
 from django.db.models import Model
 
 caching_retrievals = True
 caching_updates = True
 throw_cache_errors = False
 func_name_lists: Dict[str, List] = {}
+
+
+def get_num_cache_rows():
+    cache_settings = settings.CACHES.get("default", {})
+    table_name = cache_settings.get("LOCATION", "django_cache")
+    db_alias = cache_settings.get("DATABASE", "default")
+    connection = connections[db_alias]
+    with connection.cursor() as cursor:
+        cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
+        row = cursor.fetchone()
+        count = row[0]
+    return count
+
+
+class DebugDatabaseCache(DatabaseCache):
+    def _cull(self, db, cursor, now, num):
+        """Override of DatabaseCache._cull to see why caches are apparently being culled way before max entries
+        (1500000) is hit."""
+        print(
+            "CACHE DEBUG:\n"
+            f"\t_cull(self, db={db}, cursor={cursor}, now={now}, num={num})\n"
+            f"\tself._max_entries: {self.max_entries}\n"
+            f"\tsettings.CACHES: {settings.caches}\n"
+            f"Count BEFORE _cull: {get_num_cache_rows()}"
+        )
+        super()._cull()
+        print(f"\tCount AFTER _cull: {get_num_cache_rows()}")
+
+
+# I don't know if this needs to go after the derived class definition or not, but putting it here to be on the safe side
+from django.core.cache import cache
 
 
 def cached_function(f):
