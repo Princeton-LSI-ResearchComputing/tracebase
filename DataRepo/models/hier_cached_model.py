@@ -49,7 +49,7 @@ class DebugDatabaseCache(DatabaseCache):
 
         print(AggregatedErrors.get_trace())
         print("cache.delete CALLED!  See above trace")
-        super().delete(key, version=version)
+        return super().delete(key, version=version)
 
     def delete_many(self, keys, version=None):
         from DataRepo.utils.exceptions import AggregatedErrors
@@ -68,6 +68,27 @@ class DebugDatabaseCache(DatabaseCache):
     def set(self, *args, **kwargs):
         print("SANITY CHECK: cache.set CALLED", end="                            \r")
         super().set(*args, **kwargs)
+
+    def _base_delete_many(self, keys):
+        from DataRepo.utils.exceptions import AggregatedErrors
+
+        print(AggregatedErrors.get_trace())
+        print("cache._base_delete_many CALLED!  See above trace")
+        return super()._base_delete_many(keys)
+
+    async def adelete(self, key, version=None):
+        from DataRepo.utils.exceptions import AggregatedErrors
+
+        print(AggregatedErrors.get_trace())
+        print("cache.adelete CALLED!  See above trace")
+        return super().adelete(key, version=version)
+
+    async def adelete_many(self, keys, version=None):
+        from DataRepo.utils.exceptions import AggregatedErrors
+
+        print(AggregatedErrors.get_trace())
+        print("cache.adelete_many CALLED!  See above trace")
+        super().adelete_many(keys, version=version)
 
 
 # I don't know if this needs to go after the derived class definition or not, but putting it here to be on the safe side
