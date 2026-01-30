@@ -247,7 +247,8 @@ SUBMISSION_DRIVE_FOLDER = env.str(
 # See: https://docs.djangoproject.com/en/dev/topics/cache/#setting-up-the-cache
 PROD_CACHES = {
     "default": {
-        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        # "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "BACKEND": "DataRepo.models.hier_cached_model.DebugDatabaseCache",
         "LOCATION": "tracebase_cache_table",
         "TIMEOUT": None,
         "OPTIONS": {"MAX_ENTRIES": 1500000},
