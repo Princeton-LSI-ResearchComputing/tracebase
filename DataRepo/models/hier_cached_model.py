@@ -37,7 +37,7 @@ class DebugDatabaseCache(DatabaseCache):
         print(
             "CACHE DEBUG:\n"
             f"\t_cull(self, db={db}, cursor={cursor}, now={now}, num={num})\n"
-            f"\tself._max_entries: {self.max_entries}\n"
+            f"\tself._max_entries: {self._max_entries}\n"
             f"\tsettings.CACHES: {settings.caches}\n"
             f"Count BEFORE _cull: {get_num_cache_rows()}"
         )
@@ -72,9 +72,27 @@ class DebugDatabaseCache(DatabaseCache):
     def _base_delete_many(self, keys):
         from DataRepo.utils.exceptions import AggregatedErrors
 
-        print(AggregatedErrors.get_trace())
-        print("cache._base_delete_many CALLED!  See above trace")
-        return super()._base_delete_many(keys)
+        print(
+            f"cache._base_delete_many CALLED! - with keys: {keys}, "
+            f"_max_entries: {self._max_entries} CACHES: {settings.caches}"
+        )
+
+        before = get_num_cache_rows()
+        result = super()._base_delete_many(keys)
+        after = get_num_cache_rows()
+
+        if before > after:
+            print(AggregatedErrors.get_trace())
+            print(
+                "cache._base_delete_many CALLED!  See above trace.  DEBUG INFO:\n"
+                f"\t_base_delete_many(self, keys={keys})\n"
+                f"\tself._max_entries: {self._max_entries}\n"
+                f"\tsettings.CACHES: {settings.caches}\n"
+                f"\tCount BEFORE _base_delete_many: {before}\n"
+                f"\tCount AFTER _base_delete_many: {after}"
+            )
+
+        return result
 
     async def adelete(self, key, version=None):
         from DataRepo.utils.exceptions import AggregatedErrors
