@@ -26,9 +26,14 @@ def get_num_cache_rows():
 
 
 class DebugDatabaseCache(DatabaseCache):
+    """Override of DatabaseCache methods that delete cache entries to see why caches are apparently being culled way
+    before max entries (1500000) is hit."""
+
     def _cull(self, db, cursor, now, num):
-        """Override of DatabaseCache._cull to see why caches are apparently being culled way before max entries
-        (1500000) is hit."""
+        from DataRepo.utils.exceptions import AggregatedErrors
+
+        print(AggregatedErrors.get_trace())
+        print("cache._cull CALLED!  See above trace")
         print(
             "CACHE DEBUG:\n"
             f"\t_cull(self, db={db}, cursor={cursor}, now={now}, num={num})\n"
@@ -38,6 +43,27 @@ class DebugDatabaseCache(DatabaseCache):
         )
         super()._cull(db, cursor, now, num)
         print(f"\tCount AFTER _cull: {get_num_cache_rows()}")
+
+    def delete(self, key, version=None):
+        from DataRepo.utils.exceptions import AggregatedErrors
+
+        print(AggregatedErrors.get_trace())
+        print("cache.delete CALLED!  See above trace")
+        super().delete(key, version=version)
+
+    def delete_many(self, keys, version=None):
+        from DataRepo.utils.exceptions import AggregatedErrors
+
+        print(AggregatedErrors.get_trace())
+        print("cache.delete_many CALLED!  See above trace")
+        super().delete_many(keys, version=version)
+
+    def clear(self):
+        from DataRepo.utils.exceptions import AggregatedErrors
+
+        print(AggregatedErrors.get_trace())
+        print("cache.clear CALLED!  See above trace")
+        super().clear()
 
 
 # I don't know if this needs to go after the derived class definition or not, but putting it here to be on the safe side
