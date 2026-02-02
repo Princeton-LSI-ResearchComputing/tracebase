@@ -486,6 +486,10 @@ class PeakGroupLabel(HierCachedModel):
         try:
             result = self.animal.infusion_rate * tracer_info["concentration"] / fraction
         except ZeroDivisionError:
+            warnings.warn(
+                f"PeakGroup {self.peak_group.name} - cannot compute intact tracer rate for element {self.element} when "
+                "its fraction (sum) is zero."
+            )
             result = None
 
         return result
@@ -561,6 +565,10 @@ class PeakGroupLabel(HierCachedModel):
                 / self.enrichment_fraction
             )
         except ZeroDivisionError:
+            warnings.warn(
+                f"PeakGroup {self.peak_group.name} - cannot compute average disappearance rate for element "
+                f"{self.element} when the enrichment fraction is zero."
+            )
             result = None
 
         return result
