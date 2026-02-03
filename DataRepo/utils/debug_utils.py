@@ -20,10 +20,10 @@ from DataRepo.models.hier_cached_model import (
 def fix_peak_group_names():
     """Fixes peak group names that did not have spaces stripped between delimiters.
 
-    When a peak contains 2 indistinguishable compounts, e.g. "citrate" and "isocitrate", the peak group name is composed
+    When a peak contains 2 indistinguishable compounds, e.g. "citrate" and "isocitrate", the peak group name is composed
     of the multiple compound synonym names delimited by "/".  If the user entered for example " citrate / isocitrate ",
     the extra spaces were supposed to have been removed so that it is entered as "citrate/isocitrate", but there was a
-    bug for a long time that did not remove the internal spaces, such that the peak group name became "cotrate /
+    bug for a long time that did not remove the internal spaces, such that the peak group name became "citrate /
     isocitrate".
 
     This issue is further complicated by the fact that if a load was ever re-run after the bug-fix, a duplictae record
