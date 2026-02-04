@@ -33,8 +33,10 @@ from DataRepo.models.hier_cached_model import (
 )
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
+    ComplexPeakGroupDuplicate,
     ConditionallyRequiredArgs,
     DuplicateCompoundIsotopes,
+    DuplicatePeakGroup,
     DuplicatePeakGroupResolutions,
     DuplicateValues,
     InfileError,
@@ -53,6 +55,7 @@ from DataRepo.utils.exceptions import (
     RecordDoesNotExist,
     ReplacingPeakGroupRepresentation,
     RollbackException,
+    TechnicalPeakGroupDuplicate,
     UnexpectedLabel,
     UnexpectedSamples,
     UnskippedBlanks,
@@ -857,6 +860,12 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         # If the peak annotation file for this PeakGroup is a part of a multiple representation and is not the selected
         # one, skip its load.  (Note, this updates counts and deletes an unselected PeakGroup if it was previously
         # loaded.)
+        # BUG: I think there may be a bug in 2 places:
+        # 1. If there is no selected peak group (i.e. a row is missing from the conflicts sheet), I bet that no
+        #    representation of a peak group that had a multiple representations exception raised from PeakGroup.save is
+        #    saved when there is no line for it in the peak group conflicts sheet.
+        # 2. The validate interface is not catching some multiple representations.  And I bet it is due to a case
+        #    involving existing peakgroups on a subsequent reload.
         if not self.is_selected_peak_group(pgname, peak_annot_file, msrun_sample):
             return None, False
 
@@ -877,6 +886,38 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         except MultiplePeakGroupRepresentation as mpgr:
             self.aggregated_errors_object.buffer_error(
                 mpgr.set_formatted_message(suggestion=self.multrep_suggestion)
+            )
+            self.errored(PeakGroup.__name__)
+            raise RollbackException()
+        except DuplicatePeakGroup as dpg:
+            self.aggregated_errors_object.buffer_warning(
+                dpg.set_formatted_message(
+                    file=self.friendly_file,
+                    sheet=self.DataSheetName,
+                    rownum=self.rownum,
+                ),
+                is_fatal=False,
+            )
+            self.warned(PeakGroup.__name__)
+            # We are going to rollback and simply ignore the creation of this record.
+            raise RollbackException()
+        except TechnicalPeakGroupDuplicate as tpgd:
+            self.aggregated_errors_object.buffer_error(
+                tpgd.set_formatted_message(
+                    file=self.friendly_file,
+                    sheet=self.DataSheetName,
+                    rownum=self.rownum,
+                ),
+            )
+            self.errored(PeakGroup.__name__)
+            raise RollbackException()
+        except (ComplexPeakGroupDuplicate, TechnicalPeakGroupDuplicate) as tpgd:
+            self.aggregated_errors_object.buffer_error(
+                tpgd.set_formatted_message(
+                    file=self.friendly_file,
+                    sheet=self.DataSheetName,
+                    rownum=self.rownum,
+                ),
             )
             self.errored(PeakGroup.__name__)
             raise RollbackException()
