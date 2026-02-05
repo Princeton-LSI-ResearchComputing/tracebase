@@ -268,7 +268,7 @@ class LoadSamplesSmallObobTests(TracebaseTestCase):
         self.assertIsInstance(aes.exceptions[0], RequiredColumnValues)
         self.assertEqual(
             1,
-            len(aes.exceptions[0].required_column_values),
+            len(aes.exceptions[0].exceptions),
             msg="1 row (with animal name only) with missing required values (completely empty row ignored)",
         )
         self.assertIn(

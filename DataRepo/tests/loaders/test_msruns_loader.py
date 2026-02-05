@@ -40,6 +40,7 @@ from DataRepo.utils.exceptions import (
     PossibleDuplicateSample,
     RecordDoesNotExist,
     RequiredColumnValue,
+    RequiredColumnValues,
     RollbackException,
     UnmatchedBlankMzXML,
     UnmatchedMzXML,
@@ -1924,7 +1925,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertFalse(msrl.aggregated_errors_object.exceptions[0].is_error)
         self.assertFalse(msrl.aggregated_errors_object.exceptions[0].is_fatal)
 
-    def test_skip_rows_do_not_error(self):
+    def test_skip_empty_rows_do_not_error(self):
         """Ensures that skipped rows never result in RequiredColumnValue errors.
 
         This also checks for the ConditionallyRequiredArgs error, because although the sequence name column does not
@@ -1938,24 +1939,34 @@ class MSRunsLoaderTests(TracebaseTestCase):
         This serves to effectively test the check_seqname_column method.
         """
 
-        # Data with missing required value records and no skips should result in 4 RequiredColumnValue errors
+        # Partially populated data with missing required values, except for completely empty rows, and no skips should
+        # result in 4 RequiredColumnValue errors and a ConditionallyRequiredArgs error that does not include the empty
+        # row.
         df_dict = {
-            "Sample Name": ["s1", None, None, None],
-            "Sample Data Header": [None, None, None, None],
+            "Sample Name": ["s1", None, None, None, None],
+            "Sample Data Header": [None, None, None, None, None],
             "mzXML File Name": [
                 None,
                 "s2_pos.mzXML",
                 "BAT-xz971.mzXML",
                 "BAT-xz971.mzXML",
+                None,
             ],
-            "Peak Annotation File Name": ["accucor.xlsx", "accucor2.xlsx", None, None],
+            "Peak Annotation File Name": [
+                "accucor.xlsx",
+                "accucor2.xlsx",
+                None,
+                None,
+                None,
+            ],
             "Sequence": [
                 "Dick, polar-HILIC-25-min, QE, 1991-5-7",
                 "Dick, polar-HILIC-25-min, QE, 1991-5-7",
                 None,
                 None,
+                None,
             ],
-            "Skip": [None, None, None, None],
+            "Skip": [None, None, None, None, None],
         }
 
         # First, test that if not skipped (and there are no mzXML files), we would get a RequiredColumnValue error for
@@ -1971,6 +1982,60 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertEqual(
             set([RequiredColumnValue, ConditionallyRequiredArgs]),
             set(msr_loader.aggregated_errors_object.get_exception_types()),
+        )
+        # Assert that the empty row is not among those that need conditionally required args
+        cra_err = msr_loader.aggregated_errors_object.get_exception_type(
+            ConditionallyRequiredArgs
+        )[0]
+        self.assertIn(
+            "there exists 2 rows ['4-5'] that do not have a value in the 'Sequence' column",
+            str(cra_err),
+        )
+
+        # Now ensure that a ConditionallyRequiredArgs error does not occur in validate mode (because a user on the
+        # validate page cannot supply command line arguments)
+        msr_loader_validate = MSRunsLoader(
+            df=pd.DataFrame.from_dict(df_dict),
+            file="DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",
+            skip_mzxmls=True,
+            _validate=True,
+        )
+        msr_loader_validate.check_dataframe_values()
+        # NOTE: In validate mode, the MSRunsLoader custom-handles the creation of the RequiredColumnValues summary
+        # exception so that it can apply a case-specific suggestion.
+        self.assertEqual(
+            set([RequiredColumnValue, RequiredColumnValues]),
+            set(msr_loader_validate.aggregated_errors_object.get_exception_types()),
+        )
+        self.assertEqual(
+            5, len(msr_loader_validate.aggregated_errors_object.exceptions)
+        )
+        # The RequiredColumnValue errors are different from the ones associated with the Sequence column (which are
+        # warnings).  We should assert that these are errors and do not contain the suggestion about the peak annotation
+        # file name column
+        rcv_err: RequiredColumnValue = (
+            msr_loader_validate.aggregated_errors_object.get_exception_type(
+                RequiredColumnValue
+            )[0]
+        )
+        self.assertTrue(rcv_err.is_error)
+        self.assertIsNone(rcv_err.suggestion)
+        # Ensure that the suggestion of how to fix this was applied to the individual and summary exceptions
+        rcvs_warn: RequiredColumnValues = (
+            msr_loader_validate.aggregated_errors_object.get_exception_type(
+                RequiredColumnValues
+            )[0]
+        )
+        self.assertFalse(rcvs_warn.is_error)
+        self.assertIn(
+            "Filling in a valid 'Peak Annotation File Name' will associate a sample with the default sequence",
+            str(rcvs_warn),
+        )
+        rcv_example_warn = rcvs_warn.exceptions[0]
+        self.assertFalse(rcv_example_warn.is_error)
+        self.assertIn(
+            "Filling in a valid 'Peak Annotation File Name' will associate a sample with the default sequence",
+            str(rcv_example_warn),
         )
 
         # Now check that we only get the ConditionallyRequiredArgs error when there are mzXML files and that it raises
@@ -1991,8 +2056,8 @@ class MSRunsLoaderTests(TracebaseTestCase):
             aes.get_exception_types(),
         )
 
-        # Now, if the rows are skipped, there should be no exceptions at all
-        df_dict["Skip"] = ["skip", "skip", "skip", "skip"]
+        # Now, if the rows (aside from the empty row) are skipped, there should be no exceptions at all
+        df_dict["Skip"] = ["skip", "skip", "skip", "skip", None]
         msr_loader = MSRunsLoader(
             df=pd.DataFrame.from_dict(df_dict),
             file="DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",

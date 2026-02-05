@@ -771,6 +771,8 @@ class ExceptionTests(TracebaseTestCase):
             "\t\tColumn: [col2] on rows: ['5-8']\n"
         )
         self.assertEqual(expected, str(rcv))
+        rcv2 = RequiredColumnValues(rcvs, suggestion="SUGGEST")
+        self.assertIn("SUGGEST", str(rcv2))
 
     def test_RequiredValueErrors(self):
         rves = [
