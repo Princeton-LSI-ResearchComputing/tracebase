@@ -1,7 +1,10 @@
 ---
 name: TraceBase Tests
 
-"on": [push, workflow_dispatch]
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch: null
 
 # Set permissions for GITHUB_TOKEN
 # https://docs.github.com/en/actions/using-jobs/assigning-permissions-to-jobs
@@ -35,10 +38,10 @@ jobs:
       CACHES: TEST_CACHES
     steps:
       - uses: actions/checkout@v1
-      - name: Set up Python 3.9
+      - name: Set up Python
         uses: actions/setup-python@v1
         with:
-          python-version: 3.9
+          python-version: '3.10'
       - name: psycopg2 prerequisites
         run: |
           sudo apt-get update

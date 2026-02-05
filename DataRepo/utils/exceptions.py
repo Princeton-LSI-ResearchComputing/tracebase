@@ -415,24 +415,29 @@ class RequiredColumnValues(Exception):
     DEV_SECTION - Everything above this delimiter is user-facing.  See TraceBaseDocs/README.md
 
     Args:
-        required_column_values (List[RequiredColumnValue])
+        exceptions (List[RequiredColumnValue])
         init_message (Optional[str]): The message preceding the summary of the affected file locations.
         suggestion (Optional[str])
     Attributes:
         Class:
             None
         Instance:
-            required_column_values (List[RequiredColumnValue])
+            exceptions (List[RequiredColumnValue])
     """
 
-    def __init__(self, required_column_values, init_message=None, suggestion=None):
+    def __init__(
+        self,
+        exceptions: List[RequiredColumnValue],
+        init_message: Optional[str] = None,
+        suggestion: Optional[str] = None,
+    ):
         if init_message is None:
             message = "Required column values missing on the indicated rows:\n"
         else:
             message = f"{init_message}:\n"
 
-        rcv_dict = defaultdict(lambda: defaultdict(list))
-        for rcv in required_column_values:
+        rcv_dict: Dict[str, Dict[str, list]] = defaultdict(lambda: defaultdict(list))
+        for rcv in exceptions:
             loc = generate_file_location_string(sheet=rcv.sheet, file=rcv.file)
             col = rcv.column
             if rcv.rownum not in rcv_dict[loc][col]:
@@ -448,7 +453,9 @@ class RequiredColumnValues(Exception):
         if suggestion is not None:
             message += suggestion
         super().__init__(message)
-        self.required_column_values = required_column_values
+        self.exceptions = exceptions
+        self.init_message = init_message
+        self.suggestion = suggestion
 
 
 class RequiredColumnValue(InfileError, SummarizableError):

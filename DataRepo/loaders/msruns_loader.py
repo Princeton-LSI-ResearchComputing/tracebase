@@ -954,6 +954,11 @@ class MSRunsLoader(TableLoader):
                                 suggestion=suggestion,
                             )
                         )
+                        # We are custom-handling these exceptions as warnings because the Sequence column is not
+                        # technically required, but we want to suggest that adding a peak annotation file name will
+                        # assign a default sequence.
+                        missing_seqnames_warnings[-1].is_error = False
+                        missing_seqnames_warnings[-1].is_fatal = True
 
         if len(missing_seqnames) > 0:
             if not self.validate:
