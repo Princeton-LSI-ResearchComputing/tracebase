@@ -278,7 +278,7 @@ class LoadAnimalsAutoupdateTests(TracebaseTestCase):
         self.assertTrue(isinstance(aes.exceptions[0], RequiredColumnValues))
         self.assertEqual(
             1,
-            len(aes.exceptions[0].required_column_values),
+            len(aes.exceptions[0].exceptions),
             msg="1 row with missing required values",
         )
         self.assertIn(
