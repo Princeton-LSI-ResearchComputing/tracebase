@@ -2699,7 +2699,7 @@ class ConflictingValueError(InfileError, SummarizableError):
                         "orig": "the database decription",
                         "new": "the file description",
                 }
-            rec_dict (dict obf objects): The dict that was (or would be) supplied to Model.get_or_create()
+            rec_dict (dict): The dict that was (or would be) supplied to Model.get_or_create()
             derived (boolean) [False]: Whether the database value was a generated value or not.  Certain fields in the
                 database are automatically maintained, and values in the loading file may not actually be loaded, thus
                 differences with generated values should be designated as warnings only.
