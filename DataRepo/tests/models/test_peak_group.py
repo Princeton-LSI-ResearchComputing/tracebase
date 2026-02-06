@@ -26,7 +26,10 @@ from DataRepo.utils.exceptions import (
     MultiplePeakGroupRepresentation,
     NoTracerLabeledElements,
 )
-from DataRepo.utils.infusate_name_parser import parse_infusate_name
+from DataRepo.utils.infusate_name_parser import (
+    ObservedIsotopeData,
+    parse_infusate_name,
+)
 
 
 class PeakGroupTests(TracebaseTestCase):
@@ -251,4 +254,26 @@ class MultiLabelPeakGroupTests(TracebaseTestCase):
         )
         output = pg.peak_labeled_elements
         expected = ["C", "N"]
+        self.assertEqual(expected, output)
+
+    @MaintainedModel.no_autoupdates()
+    def test_possible_isotope_observations(self):
+        pg = PeakGroup.objects.filter(msrun_sample__sample__name="xzl5_panc").get(
+            name="glutamine"
+        )
+        output = pg.possible_isotope_observations
+        expected = [
+            ObservedIsotopeData(
+                element="C",
+                mass_number=13,
+                count=0,
+                parent=True,
+            ),
+            ObservedIsotopeData(
+                element="N",
+                mass_number=15,
+                count=0,
+                parent=True,
+            ),
+        ]
         self.assertEqual(expected, output)
