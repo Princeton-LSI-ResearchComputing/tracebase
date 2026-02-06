@@ -6,9 +6,6 @@ supplied by the researcher:
 <!-- markdownlint-disable MD007 -->
 * Animal Body [Weight](../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc.md#weight)
 * [Infusion Rate](../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc.md#infusionrate)
-* MS [Run Date](../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc.md#rundate)
-    * Note: reruns take precedence over previous runs
-    * If this date is not provided, and the last serum sample was run multiple times, an arbitrary run is selected
 * At least 1 serum sample, with:
     * [tissue](../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc.md#tissue) name
       containing "serum".
@@ -16,6 +13,9 @@ supplied by the researcher:
     * A peak group for every tracer the animal was infused with
     * Note: The **intact** FCirc calculations require the detection of a fully labeled tracer in each of the infused
       tracers' PeakGroups.
+* MS [Run Date](../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc.md#rundate)
+    * Note: reruns take precedence over previous runs
+    * If this date is not provided, and the last serum sample was run multiple times, an arbitrary run is selected
 <!-- markdownlint-enable MD007 -->
 
 ## Rates of Appearance/Disappearance (`Ra`/`Rd`)
