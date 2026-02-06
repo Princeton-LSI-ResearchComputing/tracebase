@@ -110,7 +110,7 @@ celerybeat.pid
 
 # Environments
 .env
-.venv
+.venv*
 env/
 venv/
 ENV/
@@ -143,7 +143,7 @@ package.json
 *.patch
 
 # Scratch files
-scratch.*
+scratch*
 
 # Robs custom ignores - I use the following file that I haven't made into an "app" yet
 DataRepo/management/commands/list_tests.py
