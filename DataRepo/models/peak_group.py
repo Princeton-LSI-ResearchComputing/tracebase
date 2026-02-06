@@ -185,20 +185,21 @@ class PeakGroup(HierCachedModel, MaintainedModel):
         )
 
         if self.compounds.count() > 0:
+            # This prevents a tracer label from being added when the element does not exist in the measured compound.
             for compound_rec in self.compounds.all():
                 for tracer_label in tracer_labels:
                     if (
                         compound_rec.atom_count(tracer_label.element) > 0
                         and tracer_label not in possible_observations
                     ):
-                        possible_observations.append(
-                            ObservedIsotopeData(
-                                element=tracer_label.element,
-                                mass_number=tracer_label.mass_number,
-                                count=0,
-                                parent=True,
-                            )
+                        observation = ObservedIsotopeData(
+                            element=tracer_label.element,
+                            mass_number=tracer_label.mass_number,
+                            count=0,
+                            parent=True,
                         )
+                        if observation not in possible_observations:
+                            possible_observations.append(observation)
         else:
             # If no compounds have yet been linked, fall back to the peak group formula (which note, could differ from
             # the compound formula (but only due to ionization))

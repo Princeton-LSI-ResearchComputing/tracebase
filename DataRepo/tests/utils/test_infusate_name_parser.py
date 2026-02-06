@@ -494,6 +494,96 @@ class InfusateValidationTests(InfusateTestData):
         obs = parse_isotope_label(label, possible_obs)
         self.assertEqual(expected, obs)
 
+    def test_parse_isotope_label_multiple_possible_success(self):
+        """If the possible observations sent in has duplicates, the result should ignore the dupes."""
+
+        # Explicitly excluding N to ensure that only 1 N count is added
+        label = "C13-label-3"
+        expected = [
+            ObservedIsotopeData(
+                element="C",
+                mass_number=13,
+                count=3,  # This was parsed from the isotope label
+                parent=False,
+            ),
+            ObservedIsotopeData(
+                element="N",
+                mass_number=15,
+                count=0,  # Missing observations get count 0
+                parent=False,
+            ),
+        ]
+        too_many_possible = [
+            ObservedIsotopeData(
+                element="C",
+                mass_number=13,
+                count=3,
+                parent=False,
+            ),
+            ObservedIsotopeData(
+                element="C",
+                mass_number=13,
+                count=3,
+                parent=False,
+            ),
+            ObservedIsotopeData(
+                element="N",
+                mass_number=15,
+                count=1,
+                parent=False,
+            ),
+            ObservedIsotopeData(
+                element="N",
+                mass_number=15,
+                count=1,
+                parent=False,
+            ),
+        ]
+        obs = parse_isotope_label(label, too_many_possible)
+        self.assertEqual(expected, obs)
+
+    def test_parse_isotope_label_parent_multiple_possible_success(self):
+        """If the possible observations sent in has duplicates, the result should ignore the dupes when missing counts
+        (of 0) are added."""
+
+        label = "C12 PARENT"
+        expected = [
+            ObservedIsotopeData(
+                element="N",
+                mass_number=15,
+                count=0,  # Parent gets count 0 by default
+                parent=False,
+            ),
+            ObservedIsotopeData(
+                element="C",
+                mass_number=13,
+                count=0,  # Parent gets count 0 by default
+                parent=False,
+            ),
+        ]
+        too_many_possible = [
+            ObservedIsotopeData(
+                element="N",
+                mass_number=15,
+                count=1,
+                parent=False,
+            ),
+            ObservedIsotopeData(
+                element="C",
+                mass_number=13,
+                count=3,
+                parent=False,
+            ),
+            ObservedIsotopeData(
+                element="N",
+                mass_number=15,
+                count=1,
+                parent=False,
+            ),
+        ]
+        obs = parse_isotope_label(label, too_many_possible)
+        self.assertEqual(expected, obs)
+
     def test_parse_isotope_label_no_carbon(self):
         tracer_labeled_elements = [
             ObservedIsotopeData(element="N", mass_number=14, count=2, parent=True),
