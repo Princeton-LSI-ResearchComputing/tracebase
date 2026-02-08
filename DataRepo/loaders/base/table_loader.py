@@ -17,7 +17,11 @@ from django.db.utils import ProgrammingError
 from django.forms import model_to_dict
 
 from DataRepo.models.maintained_model import AutoUpdateFailed
-from DataRepo.models.utilities import get_model_fields, is_key_field, is_many_related_to_parent
+from DataRepo.models.utilities import (
+    get_model_fields,
+    is_key_field,
+    is_many_related_to_parent,
+)
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     AggregatedErrorsSet,
@@ -31,6 +35,7 @@ from DataRepo.utils.exceptions import (
     InfileError,
     InvalidHeaderCrossReferenceError,
     MultiLoadStatus,
+    MultipleConflictingValueMatches,
     MutuallyExclusiveArgs,
     NoLoadData,
     RecordDoesNotExist,
@@ -2630,8 +2635,59 @@ class TableLoader(ABC):
         orig_exception: Optional[Exception] = None,
         is_error=True,
         is_fatal=True,
+        check_only=False,
     ):
-        """Generate ConflictingValueError exceptions based on differences between a supplied record and dict.
+        """This is a wrapper to get_inconsistencies that returns a boolean indicating whether conflicting value errors
+        were found between a rec_dict (that was supplied to Model.objects.get_or_create, but raised an IntegrityError)
+        and a matching Model record.
+
+        The matching model record must be determined and supplied.  See handle_load_db_errors.
+
+        Args:
+            rec (Model)
+            rec_dict (dict): A dict (e.g., as supplied to get_or_create() or create())
+            orig_exception (Optional[Exception]): The exception that preceded the call to this method, if any
+            is_error (bool)
+            is_fatal (bool)
+            check_only (bool): Do not buffer and errors or warnings
+        Exceptions:
+            Raises:
+                None
+            Buffers:
+                ConflictingValueError
+                DBFieldVsFileColDeveloperWarning
+        Returns:
+            found_errors (bool)
+        """
+        differences, _ = self.get_inconsistencies(
+            rec,
+            rec_dict,
+            orig_exception=orig_exception,
+            is_error=is_error,
+            is_fatal=is_fatal,
+            check_only=check_only,
+        )
+        return len(differences.keys()) > 0
+
+    def get_inconsistencies(
+        self,
+        rec: Model,
+        rec_dict: dict,
+        orig_exception: Optional[Exception] = None,
+        is_error=True,
+        is_fatal=True,
+        check_only=False,
+    ):
+        """Get a dict that describes differences between a supplied record and dict.
+
+        The differences dict obtains is keyed on field name and shows the value from the matching record in the
+        "database" sub-key and the differing value from the rec_dict in the "file" sub-key (assuming that the dict was
+        created from an input file).  Example return differences dict:
+
+            differences[field] = {
+                "orig": orig_value,
+                "new": new_value,
+            }
 
         This function compares the supplied database model record with the dict that was used to (get or) create a
         record that resulted (or will result) in an IntegrityError (i.e. a unique constraint violation).  Call this
@@ -2641,18 +2697,19 @@ class TableLoader(ABC):
                 rec, created = Model.objects.get_or_create(**rec_dict)
             except IntegrityError as ie:
                 rec = Model.objects.get(name="unique value")
-                self.check_for_inconsistencies(rec, rec_dict, orig_exception=ie)
+                self.get_inconsistencies(rec, rec_dict, orig_exception=ie)
 
         It can also be called pre-emptively by querying for only a record's unique field and supply the record and a
         dict for record creation.  E.g.:
             rec_dict = {field values for record creation}
             rec = Model.objects.get(name="unique value")
-            self.check_for_inconsistencies(rec, rec_dict)
+            self.get_inconsistencies(rec, rec_dict)
 
         The purpose of this function is to provide helpful information in an exception (i.e. repackage an
         IntegrityError) so that users working to resolve the error can quickly identify and resolve the issue.
 
-        It buffers any issues it encounters as a ConflictingValueError inside self.aggregated_errors_object.
+        It buffers any issues it encounters as a ConflictingValueError inside self.aggregated_errors_object unless
+        check_only is true.
 
         Args:
             rec (Model)
@@ -2660,6 +2717,7 @@ class TableLoader(ABC):
             orig_exception (Optional[Exception]): The exception that preceded the call to this method, if any
             is_error (bool)
             is_fatal (bool)
+            check_only (bool): Do not buffer and errors or warnings
         Exceptions:
             Raises:
                 None
@@ -2668,6 +2726,7 @@ class TableLoader(ABC):
                 DBFieldVsFileColDeveloperWarning
         Returns:
             found_errors (bool)
+            num_matches (int)
         """
         # Make sure that all relevant values are compared, i.e. the rec_dict may exclude fields that have values in the
         # DB record.  So we should populate the rec_dict with `None` for fields it doesn't have that the DB record has
@@ -2700,8 +2759,8 @@ class TableLoader(ABC):
         # missing fields in the dict instead of the None values we populate here.
 
         # Now look for differences between the rec and the rec_dict
-        found_errors = False
         differences = {}
+        num_matches = 0
         for field, new_value in tmp_rec_dict.items():
             orig_value = getattr(rec, field)
             differs = False
@@ -2728,7 +2787,11 @@ class TableLoader(ABC):
                     differs = str(orig_value) != str(new_value)
 
                     # Only buffer a DBFieldVsFileColDeveloperWarning when both compared values are not None
-                    if orig_value is not None and new_value is not None:
+                    if (
+                        not check_only
+                        and orig_value is not None
+                        and new_value is not None
+                    ):
                         self.aggregated_errors_object.buffer_warning(
                             DBFieldVsFileColDeveloperWarning(
                                 rec,
@@ -2747,8 +2810,10 @@ class TableLoader(ABC):
                     "orig": orig_value,
                     "new": new_value,
                 }
-        if len(differences.keys()) > 0:
-            found_errors = True
+            else:
+                num_matches += 1
+
+        if not check_only and len(differences.keys()) > 0:
             self.aggregated_errors_object.buffer_exception(
                 ConflictingValueError(
                     rec,
@@ -2762,7 +2827,8 @@ class TableLoader(ABC):
                 is_error=is_error,
                 is_fatal=is_fatal,
             )
-        return found_errors
+
+        return differences, num_matches
 
     def model_field_to_column_type(
         self, mdl_name: str, fld_name: str
@@ -2939,22 +3005,41 @@ class TableLoader(ABC):
         if isinstance(exception, IntegrityError):
             if "duplicate key value violates unique constraint" in estr:
 
-                # Iterate through the unique fields to find a conflicting record
-                for ufield in self.get_unique_fields(model, fields=rec_dict.keys()):
-                    # Only proceed if we have all the values
-                    # NOTE: If we don't find the conflict, that's OK.  The original exception will be buffered.
-                    if ufield not in rec_dict.keys():
-                        continue
+                # Obtain the existing database record(s) that generated the IntegrityError
+                matching_recs = self.get_offending_unique_constraint_recs(
+                    model, rec_dict
+                )
 
-                    qs = model.objects.filter(
-                        Q(**{f"{ufield}__exact": rec_dict[ufield]})
+                if len(matching_recs) == 1:
+                    errs_found = self.check_for_inconsistencies(
+                        matching_recs[0],
+                        rec_dict,
+                        orig_exception=exception,
+                        is_error=is_error,
+                        is_fatal=is_fatal,
                     )
-
-                    # If there was a record found using a unique field
-                    if qs.count() == 1:
-                        rec = qs.first()
-                        errs_found = self.check_for_inconsistencies(
+                    if errs_found:
+                        return True
+                elif len(matching_recs) > 1:
+                    # There were multiple database records that matched the rec_dict (due to unique constraint
+                    # conditions).  The following looks for a clear best match based on fewer differing field values.
+                    recs_diffs = []
+                    for rec in matching_recs:
+                        diffs, _ = self.get_inconsistencies(
                             rec,
+                            rec_dict,
+                            orig_exception=exception,
+                            is_error=is_error,
+                            is_fatal=is_fatal,
+                            check_only=True,
+                        )
+                        recs_diffs.append((rec, diffs))
+
+                    if len(recs_diffs) == 1:
+                        # If from the loop, only one differed, we can assume it is the source of the unique constraint
+                        # violation, because otherwise, it would have reasonably been a get.
+                        errs_found = self.check_for_inconsistencies(
+                            recs_diffs[0][0],
                             rec_dict,
                             orig_exception=exception,
                             is_error=is_error,
@@ -2962,37 +3047,17 @@ class TableLoader(ABC):
                         )
                         if errs_found:
                             return True
-
-                # If there was no conflict found using unique fields, iterate through the custom unique constraints
-                constraint: UniqueConstraint
-                # Create a set of the fields in the dict that caused the error
-                field_set = set(rec_dict.keys())
-                for constraint in self.get_unique_constraints(model):
-                    # Only proceed if we have all the values
-                    # NOTE: If we don't find the conflict, that's OK.  The original exception will be buffered.
-                    combo_set = set(constraint.fields)
-                    if not combo_set.issubset(field_set):
-                        continue
-
-                    q = Q()
-                    for uf in constraint.fields:
-                        q &= Q(**{f"{uf}__exact": rec_dict[uf]})
-                    qs = model.objects.filter(q)
-                    if constraint.condition:
-                        qs = qs.filter(constraint.condition)
-
-                    # If there was a record found using a unique field (combo)
-                    if qs.count() == 1:
-                        rec = qs.first()
-                        errs_found = self.check_for_inconsistencies(
-                            rec,
-                            rec_dict,
-                            orig_exception=exception,
-                            is_error=is_error,
-                            is_fatal=is_fatal,
+                    elif len(recs_diffs) > 1:
+                        self.aggregated_errors_object.buffer_error(
+                            MultipleConflictingValueMatches(
+                                recs_diffs,
+                                rec_dict=rec_dict,
+                                rownum=self.rownum,
+                                sheet=self.sheet,
+                                file=self.friendly_file,
+                            )
                         )
-                        if errs_found:
-                            return True
+                        return True
 
             elif "violates not-null constraint" in estr:
                 # Parse the field name out of the exception string
@@ -3199,6 +3264,139 @@ class TableLoader(ABC):
 
         # If we get here, we did not identify the error as one we knew what to do with
         return False
+
+    def get_offending_unique_constraint_recs(
+        self,
+        model: Type[Model],
+        rec_dict: dict,
+    ) -> List[Model]:
+        """This uses the values in the supplied rec_dict, combined with the model's unique fields and unique constraints
+        to try and identify the record that caused the unique constraint violation.
+
+        NOTE: If unique constraints use conditions, it is possible that multiple matching records can be returned.
+        That's because there is no way to apply the unique constraint's condition to the rec_dict.  I.e. there is no
+        Django method that takes a dict and a Q expression and returns whether or not the dict matches the condition.
+
+        Args:
+            model (Type[Model]): Model being loaded when the exception occurred
+            rec_dict (dict): Fields and their values that were passed to either `create` or `get_or_create`
+        Exceptions:
+            None
+        Returns:
+            matching_recs List[Model]
+        """
+
+        matching_recs: List[Model] = []
+
+        # Iterate through the unique fields to find a conflicting record
+        for ufield in self.get_unique_fields(model, fields=rec_dict.keys()):
+            # Only proceed if we have all the values
+            # NOTE: If we don't find the conflict, that's OK.  The original exception will be buffered.
+            if ufield not in rec_dict.keys():
+                continue
+
+            qs = model.objects.filter(Q(**{f"{ufield}__exact": rec_dict[ufield]}))
+
+            # If there was a record found using a unique field
+            if qs.count() == 1:
+                matching_recs.append(qs.first())
+                return matching_recs
+
+        # If there was no conflict found using unique fields, iterate through the custom unique constraints
+        constraint: UniqueConstraint
+        # Create a set of the fields in the dict that caused the error
+        field_set = set(rec_dict.keys())
+        matching_recs = []
+        for constraint in self.get_unique_constraints(model):
+            # Only proceed if we have all the values
+            # NOTE: If we don't find the conflict, that's OK.  The original exception will be buffered.
+            combo_set = set(constraint.fields)
+            if not combo_set.issubset(field_set):
+                continue
+
+            q = Q()
+            for uf in constraint.fields:
+                q &= Q(**{f"{uf}__exact": rec_dict[uf]})
+
+            qs = model.objects.filter(q)
+
+            if constraint.condition:
+                qs = qs.filter(constraint.condition)
+
+            # If there was a record found using a unique field (combo)
+            if qs.count() == 1:
+                rec = qs.first()
+                matching_recs.append(rec)
+
+        if len(matching_recs) > 1:
+            return self._filter_multiple_unique_constraint_matches(
+                rec_dict, matching_recs
+            )
+
+        return matching_recs
+
+    def _filter_multiple_unique_constraint_matches(
+        self,
+        rec_dict: dict,
+        matching_recs: List[Model],
+    ):
+        """This method takes multiple model records matching a rec_dict and decides which record best matches based on
+        the number of field differences and the number of fields that are the same.  The record with the fewest
+        differences is preferred.  If there are multiple with the same fewest number of differences, the one with the
+        most same values is preferred.  If the result could not be narrowed down to 1 record, the ones with the fewest
+        differences or (among those) most same, are returned.
+
+        NOTE: If a model's unique constraints have conditions, the values in a dict could match multiple records.
+
+        For example, consider 2 database records created from these rec_dicts: {name: a, val: 1} and {name: a} and the
+        table has 2 unique constraints: one that applies to when val is null and one when val is not null.
+
+        If the the rec_dict passed in was {name: a, val: 1}, the query resulting from the first rec dict would match
+        both database records, because we cannot apply the unique constraint object's condition to see if it matches the
+        dict passed in.  Instead of writing a method to apply a Q ibject to a dict to see if it matches (which would be
+        the ideal, but hard to maintain solution), we will instead call check_for_inconsistencies in each case and go
+        with the one that has fewer differences.
+
+        Args:
+            rec_dict (dict): A dict that was supplied to Model.objects.get_or_create and triggered an IntegrityError
+                referencing a unique constraint violation.
+            matching_recs (List[Model]): A list of records obtained using the unique fields or fields from the model's
+                unique constraints, whose values came from rec_dict.
+        Exceptions:
+            None
+        Returns:
+            (List[Model]): A subset of matching_recs that represent the best match.  Multiple records can be returned if
+                the model's unique constrains contain conditions.
+        """
+        # There were multiple database records that matched the rec_dict (due to unique constraint
+        # conditions).  The following looks for a clear best match based on fewer differing field values.
+        matches_by_num_diffs = defaultdict(list)
+        matches_by_num_same = defaultdict(list)
+        for matching_rec in matching_recs:
+            differences, num_matches = self.get_inconsistencies(
+                matching_rec,
+                rec_dict,
+                check_only=True,
+            )
+            matches_by_num_diffs[len(differences.keys())].append(matching_rec)
+            matches_by_num_same[num_matches].append(matching_rec)
+
+        fewest_differences = sorted([int(k) for k in matches_by_num_diffs.keys()])[0]
+        if len(matches_by_num_diffs[fewest_differences]) == 1:
+            return matches_by_num_diffs[fewest_differences]
+
+        most_same = sorted([int(k) for k in matches_by_num_same.keys()], reverse=True)[
+            0
+        ]
+        if len(matches_by_num_same[most_same]) == 1:
+            return matches_by_num_same[most_same]
+
+        if len(matches_by_num_same[most_same]) > len(
+            matches_by_num_diffs[fewest_differences]
+        ):
+            return matches_by_num_diffs[fewest_differences]
+
+        return matches_by_num_same[most_same]
 
     @classmethod
     def get_one_column_dupes(cls, data, col_key, ignore_row_idxs=None):

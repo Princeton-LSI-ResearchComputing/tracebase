@@ -5,9 +5,12 @@ import pandas as pd
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, ProgrammingError
 from django.db.models import (
+    RESTRICT,
     AutoField,
     CharField,
+    ForeignKey,
     IntegerField,
+    ManyToManyField,
     Model,
     Q,
     UniqueConstraint,
@@ -27,6 +30,7 @@ from DataRepo.utils.exceptions import (
     DuplicateValueErrors,
     DuplicateValues,
     InfileDatabaseError,
+    MultipleConflictingValueMatches,
     NoLoadData,
     RequiredColumnValue,
     RequiredColumnValues,
@@ -179,6 +183,76 @@ class TableLoaderTests(TracebaseTestCase):
 
         return TestUCConditionLoader
 
+    @classmethod
+    def generate_test_related_models(cls):
+        class TestRelatedModel(Model):
+            id = AutoField(primary_key=True)
+            name = CharField(unique=True)
+
+            class Meta:
+                app_label = "loader"
+
+        class TestManyModel(Model):
+            id = AutoField(primary_key=True)
+            name = CharField(unique=True)
+
+            class Meta:
+                app_label = "loader"
+
+        # A model that links to other models in 1:1 and M:M
+        class TestConnectedModel(Model):
+            id = AutoField(primary_key=True)
+            name = CharField(unique=True)
+            optval = CharField(null=True, blank=True)
+            related = ForeignKey(
+                to="loader.TestRelatedModel",
+                on_delete=RESTRICT,
+                related_name="tcm",
+            )
+            manyfield = ManyToManyField(
+                to="loader.TestManyModel",
+                related_name="tcms",
+            )
+
+            class Meta:
+                app_label = "loader"
+
+        return TestConnectedModel, TestRelatedModel, TestManyModel
+
+    @classmethod
+    def generate_test_related_loader(cls, mdl):
+        class TestRelatedLoader(TableLoader):
+            DataSheetName = "test"
+            DataTableHeaders = namedtuple(
+                "DataTableHeaders", ["NAME", "OPTVAL", "RELATED", "MANY"]
+            )
+            DataHeaders = DataTableHeaders(
+                NAME="Name", OPTVAL="OptVal", RELATED="Related", MANY="Many"
+            )
+            DataRequiredHeaders = ["NAME"]
+            DataRequiredValues = DataRequiredHeaders
+            DataUniqueColumnConstraints = [["NAME"]]
+            FieldToDataHeaderKey = {
+                mdl.__name__: {
+                    "name": "NAME",
+                    "optval": "OPTVAL",
+                    "related": "RELATED",
+                    "many": "MANY",
+                }
+            }
+            DataColumnMetadata = DataTableHeaders(
+                NAME=TableColumn.init_flat(name="Name Header"),
+                OPTVAL=TableColumn.init_flat(field=mdl.optval),
+                RELATED=TableColumn.init_flat(name="Related Header"),
+                MANY=TableColumn.init_flat(name="Many Header"),
+            )
+            Models = [mdl]
+
+            def load_data(self):
+                return None
+
+        return TestRelatedLoader
+
     def __init__(self, *args, **kwargs):
         # The test model and loader must be created for the entire class or instance.  I chose "instance" so that I
         # didn't need to put the generators in a separate class or at __main__ level.  If you try and generate them in
@@ -194,6 +268,12 @@ class TableLoaderTests(TracebaseTestCase):
         )
         self.test_ucc_loader_class = self.generate_uccondition_test_loader(
             self.test_uc_model_class
+        )
+        (self.connected_model, self.related_model, self.many_model) = (
+            self.generate_test_related_models()
+        )
+        self.test_related_loader = self.generate_test_related_loader(
+            self.connected_model
         )
         super().__init__(*args, **kwargs)
 
@@ -351,8 +431,12 @@ class TableLoaderTests(TracebaseTestCase):
         )
 
     def test_handle_load_db_errors_unique_constraint_condition(self):
-        """Ensures that a unique constraint's condition is used when looking for conflicts"""
-        tl = self.test_ucc_loader_class()
+        """Ensures that a unique constraint's condition is used when looking for conflicts.
+
+        This indirectly tests get_inconsistencies, get_offending_unique_constraint_recs, and
+        _filter_multiple_unique_constraint_matches
+        """
+        tl = self.test_ucc_loader_class(debug=True)
         # Circumventing the need to call load_data, set what is needed to call handle_load_db_errors...
         tl.set_row_index(0)  # Converted to row 2 (header line is 1)
 
@@ -372,8 +456,7 @@ class TableLoaderTests(TracebaseTestCase):
             newrecdict,
         )
 
-        print(tl.aggregated_errors_object.exceptions[0])
-        # Ensure a ConflictingValueError was buffered
+        # Ensure 1 ConflictingValueError was buffered
         self.assertEqual(
             1,
             len(tl.aggregated_errors_object.exceptions),
@@ -394,7 +477,130 @@ class TableLoaderTests(TracebaseTestCase):
         # Ensure that the record that handle_load_db_errors identified is the correct one (it had to have used the
         # condition or else it would have found erec1 using the first constraint)
         cve: ConflictingValueError = tl.aggregated_errors_object.exceptions[0]
-        self.assertEqual(erec2, cve.rec)
+        self.assertEquivalent(erec2, cve.rec)
+
+    def test_handle_load_db_errors_ambiguous_unique_constraint_condition(self):
+        """Ensures that when multiple unique constraints match, a MultipleConflictingValueMatches is buffered.
+
+        This indirectly tests get_inconsistencies, get_offending_unique_constraint_recs, and
+        _filter_multiple_unique_constraint_matches
+        """
+        tl = self.test_ucc_loader_class(debug=True)
+        # Circumventing the need to call load_data, set what is needed to call handle_load_db_errors...
+        tl.set_row_index(0)  # Converted to row 2 (header line is 1)
+
+        # Create 2 existing records
+        erec1 = self.test_ucc_model_class.objects.create(**{"name": "a"})
+        erec1.full_clean()
+        erec2 = self.test_ucc_model_class.objects.create(
+            **{"name": "a", "file": 1, "opt_val": "b"}
+        )
+        erec2.full_clean()
+
+        # Supplying ["opt_val": None] is technically unsupported by the TableLoader when using get_or_create, but that
+        # is the one condition I found that would trigger the multiple unique constrain match issue.  There are probably
+        # other ways to trigger it.
+        newrecdict = {"name": "a", "file": 1, "opt_val": None}
+
+        # Send a simulated IntegrityError to handle_load_db_errors
+        tl.handle_load_db_errors(
+            IntegrityError("duplicate key value violates unique constraint"),
+            self.test_ucc_model_class,
+            newrecdict,
+        )
+
+        # Ensure 1 ConflictingValueError was buffered
+        self.assertEqual(
+            1,
+            len(tl.aggregated_errors_object.exceptions),
+            msg=(
+                "Expected 1 ConflictingValueError, got: "
+                f"{[type(e).__name__ for e in tl.aggregated_errors_object.exceptions]}"
+            ),
+        )
+        self.assertIsInstance(
+            tl.aggregated_errors_object.exceptions[0],
+            MultipleConflictingValueMatches,
+        )
+
+        # Ensure that the record that handle_load_db_errors identified is the correct one (it had to have used the
+        # condition or else it would have found erec1 using the first constraint)
+        mcvm: MultipleConflictingValueMatches = tl.aggregated_errors_object.exceptions[
+            0
+        ]
+        self.assertTrue(any(erec2 == r for r, _, _ in mcvm.recs_diffs_cves))
+
+    def test_get_inconsistencies_optional_and_related_fields(self):
+        """Ensures that get_inconsistencies finds differences in optional fields when a user adds data to existing
+        records and does not include differences with many-related models.  See PR #1713.
+        """
+
+        # Create a loader object from which we will call get_inconsistencies
+        tl = self.test_related_loader()
+
+        # Create existing records (that ostensibly caused an IntegrityError exception), so that we have a rec to supply
+        # to get_inconsistencies.  The end goal here is a 'connected_model' record that links to a 1:1 relation and an
+        # M:M relation
+        rmo = self.related_model.objects.create(name="test")
+        mmo = self.many_model.objects.create(name="test")
+        recdict = {"name": "test1", "optval": "a", "related": rmo}
+        rec = self.connected_model.objects.create(**recdict)
+        rec.manyfield.add(mmo)
+
+        # An integrity error requires a conflict, and we want to test a difference with optional values, so:
+        del recdict["optval"]
+
+        # Get the inconsistencies - This should identify only the optval difference
+        differences, num_same = tl.get_inconsistencies(rec, recdict)
+
+        # Now test that both the difference in optval is reported and that there is no difference reported with respect
+        # to the many-related model being null
+        self.assertEquivalent({"optval": {"orig": "a", "new": None}}, differences)
+        # Test that the number of matching field values between rec_dict and the actual existing record is correct
+        self.assertEqual(2, num_same)
+
+        # Add on a first-order check that a single ConflictingValueError was buffered
+        self.assertEqual(
+            ConflictingValueError, type(tl.aggregated_errors_object.exceptions[0])
+        )
+        self.assertEqual(1, len(tl.aggregated_errors_object.exceptions))
+        self.assertEqual(rec, tl.aggregated_errors_object.exceptions[0].rec)
+
+    def test_get_inconsistencies_optional_value_added(self):
+        """Ensures that get_inconsistencies finds differences in optional fields when a user adds data to existing
+        records and does not include differences with many-related models.  See PR #1713.
+        """
+
+        # Create a loader object from which we will call get_inconsistencies
+        tl = self.test_related_loader()
+
+        # Create existing records (that ostensibly caused an IntegrityError exception), so that we have a rec to supply
+        # to get_inconsistencies.  The end goal here is a 'connected_model' record that links to a 1:1 relation and an
+        # M:M relation
+        rmo = self.related_model.objects.create(name="test2")
+        mmo = self.many_model.objects.create(name="test2")
+        recdict = {"name": "test2", "related": rmo}
+        rec = self.connected_model.objects.create(**recdict)
+        rec.manyfield.add(mmo)
+
+        # An integrity error requires a conflict, and we want to test a difference with optional values, so:
+        recdict["optval"] = "b"
+
+        # Get the inconsistencies - This should identify only the optval difference
+        differences, num_same = tl.get_inconsistencies(rec, recdict)
+
+        # Now test that both the difference in optval is reported and that there is no difference reported with respect
+        # to the many-related model being null
+        self.assertEquivalent({"optval": {"orig": None, "new": "b"}}, differences)
+        # Test that the number of matching field values between rec_dict and the actual existing record is correct
+        self.assertEqual(2, num_same)
+
+        # Add on a first-order check that a single ConflictingValueError was buffered
+        self.assertEqual(
+            ConflictingValueError, type(tl.aggregated_errors_object.exceptions[0])
+        )
+        self.assertEqual(1, len(tl.aggregated_errors_object.exceptions))
+        self.assertEqual(rec, tl.aggregated_errors_object.exceptions[0].rec)
 
     def test_check_for_inconsistencies_case1(self):
         """Ensures that check_for_inconsistencies correctly packages conflicts"""

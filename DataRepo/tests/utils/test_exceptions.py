@@ -36,6 +36,8 @@ from DataRepo.utils.exceptions import (
     MissingRecords,
     MissingSamples,
     MultiLoadStatus,
+    MultipleConflictingValueMatches,
+    MultipleConflictingValueMatchesSummary,
     MultipleDefaultSequencesFound,
     MutuallyExclusiveOptions,
     MzxmlColocatedWithMultipleAnnot,
@@ -1805,3 +1807,79 @@ class ExceptionTests(TracebaseTestCase):
         self.assertIn("trc = trace()", trc, msg=f"trace() output:\n{trc}")
         self.assertIn("test_exceptions.py", trc, msg=f"trace() output:\n{trc}")
         self.assertNotIn("site-packages", trc, msg=f"trace() output:\n{trc}")
+
+    def test_MultipleConflictingValueMatchesSummary(self):
+        from DataRepo.models import Study
+
+        # These will not cause an integrity error, but that's not important for this test
+        s1 = Study.objects.create(name="s1")
+        s2 = Study.objects.create(name="s2")
+        rec_dict1 = {"name": "s3"}
+
+        recs_diffs1 = [
+            (s1, {"name": {"orig": "s1", "new": "s3"}}),
+            (s2, {"name": {"orig": "s2", "new": "s3"}}),
+        ]
+
+        mcvm1 = MultipleConflictingValueMatches(
+            recs_diffs1,
+            rec_dict=rec_dict1,
+        )
+
+        rec_dict2 = {"name": "s4"}
+
+        recs_diffs2 = [
+            (s1, {"name": {"orig": "s1", "new": "s4"}}),
+            (s2, {"name": {"orig": "s2", "new": "s4"}}),
+        ]
+
+        mcvm2 = MultipleConflictingValueMatches(
+            recs_diffs2,
+            rec_dict=rec_dict2,
+        )
+
+        mcvms = MultipleConflictingValueMatchesSummary([mcvm1, mcvm2])
+
+        # Number of sheets reported
+        self.assertIn("Data from 1 file sheets has conflicts", str(mcvms))
+        # Model and file reported
+        self.assertIn("Model Study in the load file data", str(mcvms))
+        # Record reported
+        self.assertIn("file record: {'name': 's3'}", str(mcvms))
+        # Differences indented and summarized
+        self.assertIn(
+            "Database record 1: {'name': 's1', 'description': None}", str(mcvms)
+        )
+        self.assertIn("name\n\t\t\t\tdatabase: [s1]\n\t\t\t\tfile: [s3]", str(mcvms))
+        self.assertIn(
+            "Database record 2: {'name': 's2', 'description': None}", str(mcvms)
+        )
+        self.assertIn("name\n\t\t\t\tdatabase: [s2]\n\t\t\t\tfile: [s3]", str(mcvms))
+        self.assertIn("database: [s1]\n\t\t\t\tfile: [s4]", str(mcvms))
+        self.assertIn("name\n\t\t\t\tdatabase: [s2]\n\t\t\t\tfile: [s4]", str(mcvms))
+
+    def test_MultipleConflictingValueMatches(self):
+        from DataRepo.models import Study
+
+        # These will not cause an integrity error, but that's not important for this test
+        s1 = Study.objects.create(name="s1")
+        s2 = Study.objects.create(name="s2")
+        rec_dict = {"name": "s3"}
+
+        recs_diffs = [
+            (s1, {"name": {"orig": "s1", "new": "s3"}}),
+            (s2, {"name": {"orig": "s2", "new": "s3"}}),
+        ]
+
+        mcvm = MultipleConflictingValueMatches(
+            recs_diffs,
+            rec_dict=rec_dict,
+            rownum=2,
+            sheet="Study",
+            file="study.xlsx",
+        )
+
+        self.assertIn("row [2] of sheet [Study] in study.xlsx", str(mcvm))
+        self.assertIn("conflicts with 2 existing database records", str(mcvm))
+        self.assertIn("database: [s1]\n\t\t\tfile: [s3]", str(mcvm))
+        self.assertIn("database: [s2]\n\t\t\tfile: [s3]", str(mcvm))
