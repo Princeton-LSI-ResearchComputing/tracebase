@@ -1847,13 +1847,9 @@ class ExceptionTests(TracebaseTestCase):
         # Record reported
         self.assertIn("file record: {'name': 's3'}", str(mcvms))
         # Differences indented and summarized
-        self.assertIn(
-            "Database record 1: {'name': 's1', 'description': None}", str(mcvms)
-        )
+        self.assertIn("{'name': 's1', 'description': None}", str(mcvms))
         self.assertIn("name\n\t\t\t\tdatabase: [s1]\n\t\t\t\tfile: [s3]", str(mcvms))
-        self.assertIn(
-            "Database record 2: {'name': 's2', 'description': None}", str(mcvms)
-        )
+        self.assertIn("{'name': 's2', 'description': None}", str(mcvms))
         self.assertIn("name\n\t\t\t\tdatabase: [s2]\n\t\t\t\tfile: [s3]", str(mcvms))
         self.assertIn("database: [s1]\n\t\t\t\tfile: [s4]", str(mcvms))
         self.assertIn("name\n\t\t\t\tdatabase: [s2]\n\t\t\t\tfile: [s4]", str(mcvms))

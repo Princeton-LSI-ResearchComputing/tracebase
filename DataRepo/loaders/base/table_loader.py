@@ -2680,9 +2680,9 @@ class TableLoader(ABC):
     ):
         """Get a dict that describes differences between a supplied record and dict.
 
-        The differences dict obtains is keyed on field name and shows the value from the matching record in the
-        "database" sub-key and the differing value from the rec_dict in the "file" sub-key (assuming that the dict was
-        created from an input file).  Example return differences dict:
+        The differences dict obtained is keyed on field name and shows the value from the matching record in the
+        database sub-key "orig" and the differing value from the rec_dict in the file sub-key "new" (assuming that the
+        dict was created from an input file).  Example return differences dict:
 
             differences[field] = {
                 "orig": orig_value,

@@ -3,7 +3,7 @@ from typing import List
 
 import pandas as pd
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError, ProgrammingError
+from django.db import IntegrityError, ProgrammingError, connection
 from django.db.models import (
     RESTRICT,
     AutoField,
@@ -217,6 +217,11 @@ class TableLoaderTests(TracebaseTestCase):
             class Meta:
                 app_label = "loader"
 
+        # Create the temporary/dynamic test tables in the test database
+        with connection.schema_editor() as schema_editor:
+            for model in [TestRelatedModel, TestManyModel, TestConnectedModel]:
+                schema_editor.create_model(model)
+
         return TestConnectedModel, TestRelatedModel, TestManyModel
 
     @classmethod
@@ -237,7 +242,7 @@ class TableLoaderTests(TracebaseTestCase):
                     "name": "NAME",
                     "optval": "OPTVAL",
                     "related": "RELATED",
-                    "many": "MANY",
+                    "manyfield": "MANY",
                 }
             }
             DataColumnMetadata = DataTableHeaders(
@@ -268,12 +273,6 @@ class TableLoaderTests(TracebaseTestCase):
         )
         self.test_ucc_loader_class = self.generate_uccondition_test_loader(
             self.test_uc_model_class
-        )
-        (self.connected_model, self.related_model, self.many_model) = (
-            self.generate_test_related_models()
-        )
-        self.test_related_loader = self.generate_test_related_loader(
-            self.connected_model
         )
         super().__init__(*args, **kwargs)
 
@@ -436,7 +435,7 @@ class TableLoaderTests(TracebaseTestCase):
         This indirectly tests get_inconsistencies, get_offending_unique_constraint_recs, and
         _filter_multiple_unique_constraint_matches
         """
-        tl = self.test_ucc_loader_class(debug=True)
+        tl = self.test_ucc_loader_class()
         # Circumventing the need to call load_data, set what is needed to call handle_load_db_errors...
         tl.set_row_index(0)  # Converted to row 2 (header line is 1)
 
@@ -485,7 +484,7 @@ class TableLoaderTests(TracebaseTestCase):
         This indirectly tests get_inconsistencies, get_offending_unique_constraint_recs, and
         _filter_multiple_unique_constraint_matches
         """
-        tl = self.test_ucc_loader_class(debug=True)
+        tl = self.test_ucc_loader_class()
         # Circumventing the need to call load_data, set what is needed to call handle_load_db_errors...
         tl.set_row_index(0)  # Converted to row 2 (header line is 1)
 
@@ -534,17 +533,22 @@ class TableLoaderTests(TracebaseTestCase):
         """Ensures that get_inconsistencies finds differences in optional fields when a user adds data to existing
         records and does not include differences with many-related models.  See PR #1713.
         """
+        # TODO: See TODO note in the constructor
+        (connected_model, related_model, many_model) = (
+            self.generate_test_related_models()
+        )
+        test_related_loader = self.generate_test_related_loader(connected_model)
 
         # Create a loader object from which we will call get_inconsistencies
-        tl = self.test_related_loader()
+        tl = test_related_loader()
 
         # Create existing records (that ostensibly caused an IntegrityError exception), so that we have a rec to supply
         # to get_inconsistencies.  The end goal here is a 'connected_model' record that links to a 1:1 relation and an
         # M:M relation
-        rmo = self.related_model.objects.create(name="test")
-        mmo = self.many_model.objects.create(name="test")
+        rmo = related_model.objects.create(name="test")
+        mmo = many_model.objects.create(name="test")
         recdict = {"name": "test1", "optval": "a", "related": rmo}
-        rec = self.connected_model.objects.create(**recdict)
+        rec = connected_model.objects.create(**recdict)
         rec.manyfield.add(mmo)
 
         # An integrity error requires a conflict, and we want to test a difference with optional values, so:
@@ -570,17 +574,22 @@ class TableLoaderTests(TracebaseTestCase):
         """Ensures that get_inconsistencies finds differences in optional fields when a user adds data to existing
         records and does not include differences with many-related models.  See PR #1713.
         """
+        # TODO: See TODO note in the constructor
+        (connected_model, related_model, many_model) = (
+            self.generate_test_related_models()
+        )
+        test_related_loader = self.generate_test_related_loader(connected_model)
 
         # Create a loader object from which we will call get_inconsistencies
-        tl = self.test_related_loader()
+        tl = test_related_loader()
 
         # Create existing records (that ostensibly caused an IntegrityError exception), so that we have a rec to supply
         # to get_inconsistencies.  The end goal here is a 'connected_model' record that links to a 1:1 relation and an
         # M:M relation
-        rmo = self.related_model.objects.create(name="test2")
-        mmo = self.many_model.objects.create(name="test2")
+        rmo = related_model.objects.create(name="test2")
+        mmo = many_model.objects.create(name="test2")
         recdict = {"name": "test2", "related": rmo}
-        rec = self.connected_model.objects.create(**recdict)
+        rec = connected_model.objects.create(**recdict)
         rec.manyfield.add(mmo)
 
         # An integrity error requires a conflict, and we want to test a difference with optional values, so:
