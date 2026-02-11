@@ -5,6 +5,7 @@ from DataRepo.utils.text_utils import (
     get_num_parts,
     get_plural,
     getsigfig,
+    indent,
     iswhole,
     sigfig,
     sigfigceil,
@@ -206,3 +207,17 @@ class TextUtilsTests(TracebaseTestCase):
         self.assertEqual("algae", get_plural("alga"))
         self.assertEqual("Samples", get_plural("Sample"))
         self.assertEqual("Samples", get_plural("Samples"))
+
+    def test_indent(self):
+        self.assertEqual(
+            "\tThis\n\t\n\tis a\n\t\ttest",
+            indent("This\n\nis a\n\ttest"),
+        )
+        self.assertEqual(
+            "\t\tThis\n\t\t\n\t\tis a\n\t\t\ttest",
+            indent("This\n\nis a\n\ttest", degree=2),
+        )
+        self.assertEqual(
+            "  This\n  \n  is a\n  \ttest",
+            indent("This\n\nis a\n\ttest", indent_str="  "),
+        )

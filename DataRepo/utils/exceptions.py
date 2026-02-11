@@ -6,7 +6,7 @@ import warnings
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from django.core.exceptions import (
     MultipleObjectsReturned,
@@ -17,6 +17,8 @@ from django.core.management import CommandError
 from django.db.models import Model, Q
 from django.db.utils import ProgrammingError
 from django.forms.models import model_to_dict
+
+from DataRepo.utils.text_utils import indent
 
 if TYPE_CHECKING:
     from DataRepo.models.animal import Animal
@@ -2699,7 +2701,7 @@ class ConflictingValueError(InfileError, SummarizableError):
                         "orig": "the database decription",
                         "new": "the file description",
                 }
-            rec_dict (dict obf objects): The dict that was (or would be) supplied to Model.get_or_create()
+            rec_dict (dict): The dict that was (or would be) supplied to Model.get_or_create()
             derived (boolean) [False]: Whether the database value was a generated value or not.  Certain fields in the
                 database are automatically maintained, and values in the loading file may not actually be loaded, thus
                 differences with generated values should be designated as warnings only.
@@ -2732,7 +2734,7 @@ class ConflictingValueError(InfileError, SummarizableError):
             if derived:
                 message += (
                     "\nNote, the database field value(s) shown are automatically generated.  The database record may "
-                    "nor may not exist.  The value in your file conflicts with the generated value."
+                    "or may not exist.  The value in your file conflicts with the generated value."
                 )
         super().__init__(message, **kwargs)
         self.rec = rec  # Model record that conflicts
@@ -5591,6 +5593,176 @@ class MultipleStudyDocVersions(StudyDocVersionException):
             )
         super().__init__(message, match_data, matching_version_numbers)
         self.matching_version_numbers = matching_version_numbers
+
+
+class MultipleConflictingValueMatchesSummary(Exception):
+    """Summary of MultipleConflictingValueMatches exceptions."""
+
+    def __init__(self, exceptions: List[MultipleConflictingValueMatches]):
+
+        # Construct all the conflict data in a multi-dimensional dict
+        conflict_data: Dict[str, dict] = defaultdict(
+            lambda: defaultdict(lambda: defaultdict(list))
+        )
+        mcvm: MultipleConflictingValueMatches
+        for mcvm in exceptions:
+            # Create a new location string that excludes the column and includes the affected model
+            file_loc = generate_file_location_string(sheet=mcvm.sheet, file=mcvm.file)
+            mdl = mcvm.model.__name__
+            mcvm_loc = f"Model {mdl} in {file_loc}"
+            for rec, differences, _ in mcvm.recs_diffs_cves:
+                conflict_data[mcvm_loc][str(mcvm.rec_dict)][str(rec.id)] = {
+                    "rec": model_to_dict(rec, exclude=["id"]),
+                    "diffs": differences,
+                }
+
+        preamble = (
+            f"Data from {len(conflict_data.keys())} file sheets has conflicts with existing database records, but we "
+            "were unable to determine which differences to report due to multiple unique constraints and query "
+            "limitations, so all differences with each matching record are reported below, broken down by file sheet "
+            "and model.  It is up to the user to decide which matching record is relevant and fix the differences "
+            "derived from the file to match the correct existing database record.  The correct match will likely have "
+            "more matching values to the record parsed from the file.\n\n"
+            "Note that the file record may be incomplete due to either the order in which records are loaded or due to "
+            "optional file values that were left empty.  Any values in the database that are not in the file are the "
+            "likely correct match.\n\n"
+            "The following are the differences/conflicts:\n\n"
+        )
+        summary = [preamble]
+
+        # Compile the summary text, sorted
+        for mcvm_loc in sorted(conflict_data.keys()):
+            summary.append(mcvm_loc)
+            for file_rec in sorted(conflict_data[mcvm_loc].keys()):
+                summary.append(f"\tDifferences between file record: {file_rec} and:")
+                for rec_id in conflict_data[mcvm_loc][file_rec].keys():
+                    summary.append(
+                        f"\t\tDatabase record {rec_id}: {conflict_data[mcvm_loc][file_rec][rec_id]['rec']}:"
+                    )
+                    for field, diff_dict in sorted(
+                        conflict_data[mcvm_loc][file_rec][rec_id]["diffs"].items()
+                    ):
+                        summary.append(f"\t\t\t{field}")
+                        summary.append(f"\t\t\t\tdatabase: [{diff_dict['orig']}]")
+                        summary.append(f"\t\t\t\tfile: [{diff_dict['new']}]")
+
+        # Append a note to developers
+        summary.append(
+            "Developers should see if either the conditions in the unique constraints of the models involved can be "
+            "improved to be mutually exclusive or whether TableLoader.get_inconsistencies can be improved to identify "
+            "the precise match."
+        )
+
+        message = "\n".join(summary)
+
+        super().__init__(message)
+
+
+class MultipleConflictingValueMatches(InfileError, SummarizableError):
+    """The reports an error between file data and existing records in the database when there are multiple matching
+    database records.
+
+    Some file-created records can conflict with existing database records.  This usually happens when a researcher is
+    adding supplemental study data to a study doc and has edited the old data that has already been loaded, but in doing
+    so, they edited or filled in some of the missing values in the old study data.  TraceBase does not yet support the
+    editing of previously loaded study data, even if that is to fill in previously upsupplied optional values.  Doing so
+    creates conflicts with the previously loaded data.  If you have edited or added data to previously loaded records
+    from your study doc, a curator will need to create a custom migration.
+
+    The other possibility is that your data is a brand new study, but your conflicting records happen to collide with
+    unrelated records from another study, in which case you would have to make your data unique.  Frequently, this will
+    be unique fields like animal or sample name, for example.
+
+    In this case however, the matching database record could not be narrowed down to a single offending database record.
+    This can sometimes happen when a model has multiple unique constraints that apply individually to subsets of
+    database records.  If a user has for example, deleted an optional value from an existing row of the file, there is
+    no way to query in the deleted value to match it.  And that combined with multiple unique constraints can result in
+    multiple matches.
+
+    When this happens, the differences between the file-derived record and each of the matching database records is
+    displayed.  The user must determine which database record is the matching one and either report this to a curator so
+    that they can edit the existing database record(s) of you can reverse the file edit that caused the conflict.
+
+    Tip: The correct matching and conflicting record will be the one that has more matching values.
+
+    NOTE: This exception is analogous to the ConflictingValueError, but is specifically for the case when a single
+    offending database record cannot be identified.
+
+    DEV_SECTION - Everything above this delimiter is user-facing.  See TraceBaseDocs/README.md
+
+    If this exception ever occurs, or occurs repeatedly, there are a couple options to avoid it and make a regular
+    ConflictingValueError occur instead.  The inability to identify the exact offending record and report the precise
+    conflicting values arises due to a couple of factors.  First, This occurs when there are multiple unique constraints
+    and at least one uses a condition.  Second, the rec_dict from the file cannot be matched using the unique constraint
+    condition in order to rule out a database match.
+
+    One fix would be to improve TableLoader.get_inconsistencies so that it can rule out a unique constraint if its
+    condition is violated by the file-derived rec_dict.  This would require a recursive method that takes a Q object and
+    the rec_dict and determines in the rec_dict meets the unique constraint's condition.  If it does not, skip that
+    unique constraint.
+
+    The other option would be to modify the unique constraints to make the file record's values not match one of the
+    unique constrains.
+    """
+
+    SummarizerExceptionClass = MultipleConflictingValueMatchesSummary
+
+    def __init__(
+        self,
+        recs_diffs: List[Tuple[Model, dict]],
+        rec_dict=None,
+        message=None,
+        derived=False,
+        **kwargs,
+    ):
+        # This assumes all the records in recs_diffs are from the same model
+        model = type(recs_diffs[0][0])
+
+        # This builds contained ConflictingValueError exceptions to be able to include their difference descriptions in
+        # this exception's verbiage.
+        recs_diffs_cves = []
+        for rec, differences in recs_diffs:
+            cve = ConflictingValueError(
+                rec,
+                differences,
+                rec_dict=rec_dict,
+                derived=derived,
+            )
+            recs_diffs_cves.append((rec, differences, cve))
+
+        if message is None:
+            # The preamble describing the problem
+            message = (
+                f"Data from %s has conflicts with {len(recs_diffs)} existing database records, but we were unable to "
+                "determine which differences to report due to multiple unique constraints and query limitations, so "
+                "all differences with each matching record are reported below.  It is up to the user to decide which "
+                "matching record is relevant and fix the differences derived from the file to match the correct "
+                "existing database record.  The correct match will likely have more matching values to the "
+                f"{type(recs_diffs[0][0]).__name__} record parsed from the file:\n\n"
+                f"\t{rec_dict}\n\n"
+                "Note that it may be incomplete due to either the order in which records are loaded or due to optional "
+                "file values that were left empty.  Any values in the database that are not in the file are the likely "
+                "correct match.\n\n"
+                "The following are the differences between each of the matching records:\n\n"
+            )
+
+            # This includes the string version of a ConflictingValueError describing differences for each matching rec
+            for rec, differences, cve in recs_diffs_cves:
+                message += f"Differences with {type(rec).__name__} record {rec.id}:\n{indent(str(cve))}\n"
+
+            # Append a note to developers to see if they can prevent this ambiguity from happening again.
+            message += (
+                "Developers should see if either the conditions in the unique constraints of model "
+                f"{type(recs_diffs[0][0]).__name__} can be improved to be mutually exclusive or whether "
+                "TableLoader.get_inconsistencies can be improved to identify the precise match."
+            )
+
+        super().__init__(message, **kwargs)
+
+        self.recs_diffs_cves = recs_diffs_cves
+        self.rec_dict = rec_dict
+        self.derived = derived
+        self.model = model
 
 
 class DeveloperWarning(Warning):
