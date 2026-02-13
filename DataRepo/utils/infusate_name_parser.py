@@ -421,7 +421,8 @@ def parse_isotope_label(
                             unexpected_observations.append(element)
                     if len(unexpected_observations) > 0:
                         raise UnexpectedLabel(
-                            unexpected_observations, possible_observations
+                            unexpected_observations,
+                            [pe["element"] for pe in possible_observations],
                         )
 
                 if len(dupe_indexes) > 0:

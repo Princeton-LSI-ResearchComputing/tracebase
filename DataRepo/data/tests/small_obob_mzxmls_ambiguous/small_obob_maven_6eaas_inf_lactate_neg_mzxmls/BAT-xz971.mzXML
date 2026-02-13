@@ -3,18 +3,18 @@
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
        xsi:schemaLocation="http://sashimi.sourceforge.net/schema_revision/mzXML_3.2 http://sashimi.sourceforge.net/schema_revision/mzXML_3.2/mzXML_idx_3.2.xsd">
   <msRun scanCount="929" startTime="PT60.2854S" endTime="PT1200.72S">
-    <parentFile fileName="file:///C:\XCalibur\data\MDN\210902_exp027d_batch4 serum/BAT-xz971_neg.raw"
+    <parentFile fileName="file:///C:\XCalibur\data\MDN\210902_exp027d_batch4 serum/BAT-xz971.raw"
                 fileType="RAWData"
-                fileSha1="31bc554534cf9f1e568529d110caa85f1fd0a8c7"/>
+                fileSha1="31bc554534cf9f1e568529d110caa85f1fd0a8c5"/>
     <scan num="1"
           lowMz="1"
           highMz="100.9"
-          polarity="-">
+          polarity="+">
     </scan>
     <scan num="3"
           lowMz="2"
           highMz="502.9"
-          polarity="-">
+          polarity="+">
     </scan>
   </msRun>
 </mzXML>
