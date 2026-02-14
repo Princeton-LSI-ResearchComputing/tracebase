@@ -234,30 +234,129 @@ class PeakGroup(HierCachedModel, MaintainedModel):
         Args:
             None
         Exceptions:
+            DuplicatePeakGroup
             MultiplePeakGroupRepresentation
         Returns:
             None
         """
         from DataRepo.models.utilities import exists_in_db
-        from DataRepo.utils.exceptions import MultiplePeakGroupRepresentation
-
-        if (
-            not hasattr(self, "peak_annotation_file")
-            or self.peak_annotation_file is None
-        ):
-            # This cannot be a multiple representation issue if no peak annotation file is provided
-            return None
+        from DataRepo.utils.exceptions import (
+            ComplexPeakGroupDuplicate,
+            DuplicatePeakGroup,
+            MultiplePeakGroupRepresentation,
+            TechnicalPeakGroupDuplicate,
+        )
 
         # Look for peak groups with the same name (i.e. compound) for the same sample, coming from a different peak
-        # annotation file
+        # annotation file.
+        # NOTE: Previously, we excluded any records matching the peak annotation file record, intending to avoid
+        #       duplicate peak groups, however that exclude statement was removed because the file could have been
+        #       edited.
         conflicts = PeakGroup.objects.filter(
             name=self.name,
             msrun_sample__sample__pk=self.msrun_sample.sample.pk,
-        ).exclude(peak_annotation_file=self.peak_annotation_file)
+        )
 
         # If the record already exists (e.g. doing an update), exclude self.  (self.pk is None otherwise.)
         if exists_in_db(self):
             conflicts = conflicts.exclude(pk=self.pk)
+            print(
+                f"UUU EXISTS IN DB! {self.pk} vs {[str(r.pk) for r in conflicts.all()]}"
+            )
+        else:
+            print(
+                f"UUU Nconflicts? {conflicts.count()} EXISTING PKS: {[r.peak_annotation_file.filename + ' (' + r.peak_annotation_file.checksum + ')' for r in conflicts.all()]}"
+            )
+
+            # Look for duplicates due solely to business rule changes regarding MSRunSample placeholder records that
+            # changes the linked MSRunSample record
+            dupes = conflicts.filter(
+                formula=self.formula,
+                peak_annotation_file=self.peak_annotation_file,
+            ).exclude(msrun_sample__pk=self.msrun_sample.pk)
+            if dupes.count() > 0:
+                # NOTE: DuplicatePeakGroup and MultiplePeakGroupRepresentation states can exist at the same time.  This
+                # DuplicatePeakGroup exception occludes the MultiplePeakGroupRepresentation exception, but that's only
+                # because it is written to support record creation.  If there are pre-existing multiple representations,
+                # here is not the place to find them unless the creation of this record causes them to exist.
+                raise DuplicatePeakGroup(self, dupes)
+
+            # Look for duplicates solely due to the fact that the peak annotation file was edited
+            file_edit_dupes = conflicts.filter(
+                msrun_sample__pk=self.msrun_sample.pk,
+                formula=self.formula,
+                peak_annotation_file__filename=self.peak_annotation_file.filename,
+            ).exclude(peak_annotation_file=self.peak_annotation_file)
+            if file_edit_dupes.count() > 0:
+                # NOTE: DuplicatePeakGroup and MultiplePeakGroupRepresentation states can exist at the same time.  This
+                # DuplicatePeakGroup exception occludes the MultiplePeakGroupRepresentation exception, but that's only
+                # because it is written to support record creation.  If there are pre-existing multiple representations,
+                # here is not the place to find them unless the creation of this record causes them to exist.
+                raise TechnicalPeakGroupDuplicate(self, file_edit_dupes)
+
+            # Finally, look for complex duplicates where either edits to the file and/or business rules (about the
+            # linked MSRunSample record) changed this PeakGroup
+            complex_dupes = conflicts.filter(
+                msrun_sample__pk=self.msrun_sample.pk,
+                formula=self.formula,
+                peak_annotation_file__filename=self.peak_annotation_file.filename,
+            ).exclude(peak_annotation_file=self.peak_annotation_file)
+            if complex_dupes.count() > 0:
+                # NOTE: DuplicatePeakGroup and MultiplePeakGroupRepresentation states can exist at the same time.  This
+                # DuplicatePeakGroup exception occludes the MultiplePeakGroupRepresentation exception, but that's only
+                # because it is written to support record creation.  If there are pre-existing multiple representations,
+                # here is not the place to find them unless the creation of this record causes them to exist.
+                rec_dict = {
+                    "msrun_sample": self.msrun_sample,
+                    "name": self.name,
+                    "formula": self.formula,
+                    "peak_annotation_file": self.peak_annotation_file,
+                }
+
+                dupe1 = complex_dupes.first()
+                differences = {}
+                if (
+                    type(dupe1.msrun_sample) is not type(self.msrun_sample)
+                    or dupe1.msrun_sample != self.msrun_sample
+                ):
+                    differences["msrun_sample"] = {
+                        "orig": f"{dupe1.msrun_sample} ({'concrete' if dupe1.ms_data_file else 'placeholder'})",
+                        "new": f"{self.msrun_sample} ({'concrete' if self.ms_data_file else 'placeholder'})",
+                    }
+                if (
+                    type(dupe1.formula) is not type(self.formula)
+                    or dupe1.formula != self.formula
+                ):
+                    differences["formula"] = {
+                        "orig": str(dupe1.formula),
+                        "new": str(self.formula),
+                    }
+                if (
+                    type(dupe1.peak_annotation_file)
+                    is not type(self.peak_annotation_file)
+                    or dupe1.peak_annotation_file != self.peak_annotation_file
+                ):
+                    differences["peak_annotation_file"] = {
+                        "orig": f"{dupe1.peak_annotation_file.filename} ({dupe1.peak_annotation_file.checksum})",
+                        "new": f"{self.peak_annotation_file.filename} ({self.peak_annotation_file.checksum})",
+                    }
+
+                suggestion = None
+                n_other_dupes = complex_dupes.count() - 1
+                if n_other_dupes > 0:
+                    suggestion = f"Note, there are {n_other_dupes} other complex duplicates not shown."
+
+                raise ComplexPeakGroupDuplicate(
+                    dupe1,
+                    differences,
+                    rec_dict=rec_dict,
+                    suggestion=suggestion,
+                )
+
+        # BUG: The above should fix the creation of duplicate peak groups, but those errors were formerly
+        # MultiplePeakGroupRepresentation exceptions and somewhere in the loading code downstream of this, there appears
+        # to be some code that ignores the error error, because the loads have been succeeding despite those errors
+        # having been printed.  That code should be located and deleted.
 
         if conflicts.count() > 0:
             raise MultiplePeakGroupRepresentation(self, conflicts)
