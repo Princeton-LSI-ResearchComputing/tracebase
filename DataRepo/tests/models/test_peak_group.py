@@ -210,11 +210,14 @@ class PeakGroupTests(TracebaseTestCase):
         self.assertAlmostEqual(self.pg.total_abundance, 3000)
 
     def test_unique_constraint(self):
-        self.assertRaises(
-            IntegrityError,
-            lambda: PeakGroup.objects.create(
-                name=self.pg.name, msrun_sample=self.pg.msrun_sample
-            ),
+        with self.assertRaises(IntegrityError) as ar:
+            PeakGroup.objects.create(
+                name=self.pg.name,
+                msrun_sample=self.pg.msrun_sample,
+                peak_annotation_file=self.pg.peak_annotation_file,
+            )
+        self.assertIn(
+            "duplicate key value violates unique constraint", str(ar.exception)
         )
 
 

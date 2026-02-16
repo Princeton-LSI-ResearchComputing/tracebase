@@ -247,6 +247,13 @@ class PeakGroup(HierCachedModel, MaintainedModel):
             TechnicalPeakGroupDuplicate,
         )
 
+        # Ignore if a unique constraint violation will happen anyway
+        if PeakGroup.objects.filter(
+            name=self.name,
+            msrun_sample=self.msrun_sample,
+        ).exists():
+            return
+
         # Look for peak groups with the same name (i.e. compound) for the same sample, coming from a different peak
         # annotation file.
         # NOTE: Previously, we excluded any records matching the peak annotation file record, intending to avoid
@@ -260,13 +267,6 @@ class PeakGroup(HierCachedModel, MaintainedModel):
         # If the record already exists (e.g. doing an update), exclude self.  (self.pk is None otherwise.)
         if exists_in_db(self):
             conflicts = conflicts.exclude(pk=self.pk)
-            print(
-                f"UUU EXISTS IN DB! {self.pk} vs {[str(r.pk) for r in conflicts.all()]}"
-            )
-        else:
-            print(
-                f"UUU Nconflicts? {conflicts.count()} EXISTING PKS: {[r.peak_annotation_file.filename + ' (' + r.peak_annotation_file.checksum + ')' for r in conflicts.all()]}"
-            )
 
             # Look for duplicates due solely to business rule changes regarding MSRunSample placeholder records that
             # changes the linked MSRunSample record
