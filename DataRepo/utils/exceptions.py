@@ -2588,12 +2588,12 @@ class ConflictingValueErrors(Exception):
     """A summarization of `ConflictingValueError` exceptions.
 
     Instance Attributes:
-        conflicting_value_errors (List[ConflictingValueError])
+        exceptions (List[ConflictingValueError])
     """
 
     def __init__(
         self,
-        conflicting_value_errors: list[ConflictingValueError],
+        exceptions: list[ConflictingValueError],
     ):
         """Initializes a ConflictingValueErrors exception"""
 
@@ -2601,7 +2601,7 @@ class ConflictingValueErrors(Exception):
         conflict_data: Dict[str, dict] = defaultdict(
             lambda: defaultdict(lambda: defaultdict(list))
         )
-        for cve in conflicting_value_errors:
+        for cve in exceptions:
             # Create a new location string that excludes the column
             cve_loc = generate_file_location_string(sheet=cve.sheet, file=cve.file)
             if cve.rec is None:
@@ -2650,7 +2650,7 @@ class ConflictingValueErrors(Exception):
                             db_msgs.append(db_msg)
                     message += "".join(db_msgs)
         super().__init__(message)
-        self.conflicting_value_errors = conflicting_value_errors
+        self.exceptions = exceptions
 
 
 class ConflictingValueError(InfileError, SummarizableError):

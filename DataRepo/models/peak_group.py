@@ -247,10 +247,13 @@ class PeakGroup(HierCachedModel, MaintainedModel):
             TechnicalPeakGroupDuplicate,
         )
 
-        # Ignore if a unique constraint violation will happen anyway
+        # Ignore if a unique constraint violation will happen due to something other than the msrun_sample or
+        # peak_annotation_file differing.  E.g. only the formula differs.  Cases where the msrun_samples or
+        # peak_annotation_files differ are handled below.
         if PeakGroup.objects.filter(
             name=self.name,
             msrun_sample=self.msrun_sample,
+            peak_annotation_file=self.peak_annotation_file,
         ).exists():
             return
 
@@ -353,10 +356,10 @@ class PeakGroup(HierCachedModel, MaintainedModel):
                     suggestion=suggestion,
                 )
 
-        # BUG: The above should fix the creation of duplicate peak groups, but those errors were formerly
-        # MultiplePeakGroupRepresentation exceptions and somewhere in the loading code downstream of this, there appears
-        # to be some code that ignores the error error, because the loads have been succeeding despite those errors
-        # having been printed.  That code should be located and deleted.
+        # TODO: The above should fix the creation of duplicate peak groups, but those errors were formerly
+        # TODO: MultiplePeakGroupRepresentation exceptions and somewhere in the loading code downstream of this, there
+        # TODO: appears to be some code that ignores the error, because the loads have been succeeding despite those
+        # TODO: errors having been printed.  That code should be located and deleted.
 
         if conflicts.count() > 0:
             raise MultiplePeakGroupRepresentation(self, conflicts)

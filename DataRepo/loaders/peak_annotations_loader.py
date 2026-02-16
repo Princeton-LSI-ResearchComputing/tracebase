@@ -901,16 +901,6 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             self.warned(PeakGroup.__name__)
             # We are going to rollback and simply ignore the creation of this record.
             raise RollbackException()
-        except TechnicalPeakGroupDuplicate as tpgd:
-            self.aggregated_errors_object.buffer_error(
-                tpgd.set_formatted_message(
-                    file=self.friendly_file,
-                    sheet=self.DataSheetName,
-                    rownum=self.rownum,
-                ),
-            )
-            self.errored(PeakGroup.__name__)
-            raise RollbackException()
         except (ComplexPeakGroupDuplicate, TechnicalPeakGroupDuplicate) as tpgd:
             self.aggregated_errors_object.buffer_error(
                 tpgd.set_formatted_message(
