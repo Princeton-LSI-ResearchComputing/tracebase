@@ -2173,9 +2173,7 @@ class ExceptionTests(TracebaseTestCase):
             "Compound: testname\n\tPeak Annotation File: test_data_file", str(exc)
         )
         self.assertIn("MSRunSamples:\n\tNew: test1 run by John Doe", str(exc))
-        self.assertIn(
-            "Existing: [<MSRunSample: test1 run by John Doe on ", str(exc)
-        )
+        self.assertIn("Existing: [<MSRunSample: test1 run by John Doe on ", str(exc))
         self.assertIn(
             "duplicate PeakGroup records are linked to different MSRunSample records",
             str(exc),
