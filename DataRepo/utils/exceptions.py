@@ -1124,6 +1124,24 @@ class AllMissingSamples(MissingModelRecordsByFile):
     RecordName = ModelName
 
 
+class AllUnskippedBlanks(MissingModelRecordsByFile):
+    """Summary of samples likely not expected to exist in the database (because they contain "blank" in their name) that
+    were not found."""
+
+    ModelName = "Sample"
+    RecordName = ModelName
+
+    def __init__(self, *args, suggestion=None, **kwargs):
+        if suggestion is None:
+            suggestion = (
+                "Note that the unskipped blank sample names can be the same in multiple files.  If this exception is "
+                "accompanied by a NoPeakAnnotationDetails exception, the reported unskipped blanks are likelt "
+                "associated with one of those peak annotation files.  Follow its suggestion and you can ignore this "
+                "exception."
+            )
+        super().__init__(*args, suggestion=suggestion, **kwargs)
+
+
 class MissingCompounds(MissingModelRecords):
     """Summary of compounds expected to exist in the database that were not found, while loading a single input file.
 
@@ -1189,6 +1207,7 @@ class UnskippedBlanks(MissingSamples):
             )
         self.orig_message = message
         self.set_formatted_message(suggestion=suggestion, **kwargs)
+        self.exceptions = exceptions
 
 
 class NoSamples(MissingSamples):
@@ -1291,6 +1310,24 @@ class UnexpectedSamples(InfileError):
             message += f"  {suggestion}"
         super().__init__(message, **kwargs)
         self.missing_samples = missing_samples
+
+
+class NoPeakAnnotationDetails(InfileError):
+    """No sample headers were found in the Peak Annotation Details sheet of the Study doc for the indicated peak
+    annotation file.
+
+    This usually occurs if a user is adding data to an existing study doc and neglects to update the Peak Annotation
+    Details sheet using the output of the submission start page."""
+
+    def __init__(self, annot_file: str, **kwargs):
+        message = (
+            f"No sample headers for peak annotation file '{annot_file}' were found in %s.  An attempt will be made to "
+            "automatically associate the headers with Sample records, but you may see warnings about unskipped "
+            "blanks.  If any samples cannot be found, you can associate them by populating the Peak Annotation Details "
+            "sheet.  It is recommended that you use the submission start page to generate this data."
+        )
+        super().__init__(message)
+        self.annot_file = annot_file
 
 
 class EmptyColumns(InfileError):
@@ -2126,6 +2163,9 @@ class AggregatedErrors(Exception):
                 exception_class,
                 attr_name=attr_name,
                 attr_val=attr_val,
+                # TODO: This should separate the search state and change state.  I.e. if you want to change things to a
+                # warning, but want to retrieve both errors and warnings, that can't be done using this method.
+                # Besides, the method name is inconsistent with the search behavior.
                 is_error=(is_error if is_error is None else not is_error),
             ):
                 if is_error is not None:
@@ -3211,7 +3251,7 @@ class ObservedIsotopeUnbalancedError(ObservedIsotopeParsingError):
 class AllUnexpectedLabels(Exception):
     """Summary of `UnexpectedLabels` exceptions arising from multiple input files."""
 
-    def __init__(self, exceptions: List[UnexpectedLabel]):
+    def __init__(self, exceptions: List[UnexpectedLabel], **kwargs):
         counts: Dict[str, dict] = defaultdict(lambda: {"files": [], "observations": 0})
         for exc in exceptions:
             for element in exc.unexpected:
@@ -3225,6 +3265,7 @@ class AllUnexpectedLabels(Exception):
                 "files\n"
             )
         message += "There may be contamination."
+        # We're going to ignore kwargs.  It's only there to consume args taken by all the other "All*" exceptions
         super().__init__(message)
         self.exceptions = exceptions
         self.counts = counts
@@ -3325,7 +3366,7 @@ class NoCommonLabel(Exception):
 class AllNoScans(Exception):
     """Summary of NoScans exceptions."""
 
-    def __init__(self, no_scans_excs, message=None):
+    def __init__(self, no_scans_excs, message=None, **kwargs):
         if not message:
             loc_msg_default = ", obtained from the indicated file locations,"
             loc_msg = ""
@@ -3370,6 +3411,7 @@ class AllNoScans(Exception):
                 f"{mzxml_str}"
             )
 
+        # We're going to ignore kwargs.  It's only there to consume args taken by all the other "All*" exceptions
         super().__init__(message)
         self.no_scans_excs = no_scans_excs
 
@@ -3403,7 +3445,7 @@ class NoScans(InfileError, SummarizableError):
 class AllMzxmlSequenceUnknown(Exception):
     """Summary of `MzxmlSequenceUnknown` exceptions from multiple input files."""
 
-    def __init__(self, exceptions, message=None):
+    def __init__(self, exceptions, message=None, **kwargs):
         if not message:
             loc_msg_default = ""
             loc_msg = ""
@@ -3465,6 +3507,7 @@ class AllMzxmlSequenceUnknown(Exception):
                 f"to be supplied will occur below:\n{mzxml_str}"
             )
 
+        # We're going to ignore kwargs.  It's only there to consume args taken by all the other "All*" exceptions
         super().__init__(message)
         self.exceptions = exceptions
 
@@ -3730,7 +3773,7 @@ class MultipleDefaultSequencesFound(Exception):
 class AllMzXMLSkipRowErrors(Exception):
     """Summary of `MzXMLSkipRowErrors` exceptions from multiple input files."""
 
-    def __init__(self, exceptions, message=None):
+    def __init__(self, exceptions, message=None, **kwargs):
         if not message:
             # Build the dict of organized exceptions
             loc_msg_default = ", as obtained from the indicated file locations"
@@ -3860,6 +3903,7 @@ class AllMzXMLSkipRowErrors(Exception):
                     f"supplied paths{loc_msg}:\n{diff_paths_str}"
                 )
 
+        # We're going to ignore kwargs.  It's only there to consume args taken by all the other "All*" exceptions
         super().__init__(message)
         self.exceptions = exceptions
 
