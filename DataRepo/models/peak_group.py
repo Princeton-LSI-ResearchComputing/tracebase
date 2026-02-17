@@ -234,8 +234,10 @@ class PeakGroup(HierCachedModel, MaintainedModel):
         Args:
             None
         Exceptions:
+            ComplexPeakGroupDuplicate
             DuplicatePeakGroup
             MultiplePeakGroupRepresentation
+            TechnicalPeakGroupDuplicate
         Returns:
             None
         """

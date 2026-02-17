@@ -14,6 +14,7 @@ from DataRepo.utils.exceptions import (
     AnimalWithoutSamples,
     AnimalWithoutSerumSamples,
     ComplexPeakGroupDuplicate,
+    ComplexPeakGroupDuplicates,
     CompoundDoesNotExist,
     DateParseError,
     DBFieldVsFileColDeveloperWarning,
@@ -22,6 +23,7 @@ from DataRepo.utils.exceptions import (
     DeveloperWarning,
     DuplicateCompoundIsotopes,
     DuplicatePeakGroup,
+    DuplicatePeakGroups,
     DuplicateValueErrors,
     DuplicateValues,
     EmptyColumns,
@@ -76,6 +78,7 @@ from DataRepo.utils.exceptions import (
     SummarizableError,
     SummarizedInfileError,
     TechnicalPeakGroupDuplicate,
+    TechnicalPeakGroupDuplicates,
     UnequalColumnGroups,
     UnexpectedLabel,
     UnexpectedSamples,
@@ -1982,7 +1985,8 @@ class ExceptionTests(TracebaseTestCase):
 
     def test_ComplexPeakGroupDuplicate(self):
         """This exception is for PeakGroups that are duplicated due to an edited peak annotation file (and the data in
-        the PeakGroup DID change)."""
+        the PeakGroup DID change).  Also tests the summary exception.
+        """
         from DataRepo.models import (
             ArchiveFile,
             DataFormat,
@@ -2046,9 +2050,20 @@ class ExceptionTests(TracebaseTestCase):
         )
         self.assertIn("There are 3 likely cases causing this error", str(exc))
 
+        cpgds = ComplexPeakGroupDuplicates([exc])
+        self.assertIn("C2H6", str(cpgds))
+        self.assertIn("C2H4O1", str(cpgds))
+        self.assertIn(
+            "test_data_file (558ea654d7f2914ca4527580edf4fac11bd151c3)", str(cpgds)
+        )
+        self.assertIn(
+            "test_data_file (558ea654d7f2914ca4527580edf4fac11bd151c2)", str(cpgds)
+        )
+
     def test_TechnicalPeakGroupDuplicate(self):
         """This exception is for PeakGroups that are duplicated due to an edited peak annotation file (and the data in
-        the PeakGroup DID NOT change)."""
+        the PeakGroup DID NOT change).  Also tests the summary exception.
+        """
         from DataRepo.models import (
             ArchiveFile,
             DataFormat,
@@ -2111,9 +2126,13 @@ class ExceptionTests(TracebaseTestCase):
             str(exc),
         )
 
+        tpgds = TechnicalPeakGroupDuplicates([exc])
+        self.assertIn("test_data_file (1 peak groups)", str(tpgds))
+
     def test_DuplicatePeakGroup(self):
         """This exception is for PeakGroups that are duplicated due to a change in business rules relating to whether
-        PeakGroup records link to concrete MSRunSample records or placeholder records.
+        PeakGroup records link to concrete MSRunSample records or placeholder records.  Also tests the summary
+        exception.
         """
         from DataRepo.models import (
             ArchiveFile,
@@ -2178,3 +2197,6 @@ class ExceptionTests(TracebaseTestCase):
             "duplicate PeakGroup records are linked to different MSRunSample records",
             str(exc),
         )
+
+        dpgs = DuplicatePeakGroups([exc])
+        self.assertIn("test_data_file\n\t\ttestname", str(dpgs))
