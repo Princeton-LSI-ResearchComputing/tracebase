@@ -4965,7 +4965,7 @@ class ComplexPeakGroupDuplicate(ConflictingValueError):
     def __init__(self, *args, suggestion: Optional[str] = None, **kwargs):
         if suggestion is None:
             suggestion = (
-                "There are 2 likely cases causing this error:\n\n"
+                "There are 3 likely cases causing this error:\n\n"
                 "\t1. There are differences in this peak group (e.g. different formula) due to having edited in the "
                 "peak annotation file between the initial load and a supplemental load.  All the user has to do here "
                 "is confirm that the changes are correct.  See curator note below^.\n"
