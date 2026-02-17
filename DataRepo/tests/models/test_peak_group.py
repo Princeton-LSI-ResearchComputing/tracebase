@@ -23,8 +23,11 @@ from DataRepo.models.compound import Compound
 from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
+    ComplexPeakGroupDuplicate,
+    DuplicatePeakGroup,
     MultiplePeakGroupRepresentation,
     NoTracerLabeledElements,
+    TechnicalPeakGroupDuplicate,
 )
 from DataRepo.utils.infusate_name_parser import (
     ObservedIsotopeData,
@@ -210,11 +213,14 @@ class PeakGroupTests(TracebaseTestCase):
         self.assertAlmostEqual(self.pg.total_abundance, 3000)
 
     def test_unique_constraint(self):
-        self.assertRaises(
-            IntegrityError,
-            lambda: PeakGroup.objects.create(
-                name=self.pg.name, msrun_sample=self.pg.msrun_sample
-            ),
+        with self.assertRaises(IntegrityError) as ar:
+            PeakGroup.objects.create(
+                name=self.pg.name,
+                msrun_sample=self.pg.msrun_sample,
+                peak_annotation_file=self.pg.peak_annotation_file,
+            )
+        self.assertIn(
+            "duplicate key value violates unique constraint", str(ar.exception)
         )
 
 
@@ -277,3 +283,146 @@ class MultiLabelPeakGroupTests(TracebaseTestCase):
             ),
         ]
         self.assertEqual(expected, output)
+
+    @MaintainedModel.no_autoupdates()
+    def test_check_for_multiple_representations_integrity_error_fallback(self):
+        """This test asserts that check_for_multiple_representations raises no error when this is a simple
+        UniqueConstraint violation."""
+        existing_pg = PeakGroup.objects.filter(
+            msrun_sample__sample__name="xzl5_panc"
+        ).get(name="glutamine")
+        new_pg = PeakGroup(
+            name=existing_pg.name,
+            formula=existing_pg.formula,
+            msrun_sample=existing_pg.msrun_sample,
+            peak_annotation_file=existing_pg.peak_annotation_file,
+        )
+        # No error raised = successful test
+        new_pg.check_for_multiple_representations()
+
+    @MaintainedModel.no_autoupdates()
+    def test_check_for_multiple_representations_duplicate_peak_group(self):
+        """This test asserts that check_for_multiple_representations raises a DuplicatePeakGroup error when the
+        MSRunSample differs."""
+        existing_pg = PeakGroup.objects.filter(
+            msrun_sample__sample__name="xzl5_panc"
+        ).get(name="glutamine")
+        # To test this, we need a concrete MSRunSample record, and for that we need an mzXML ArchiveFile record
+        mzf, _ = ArchiveFile.objects.get_or_create(
+            filename="test_mz_file",
+            checksum="23456789010",
+            data_type=DataType.objects.get(code="ms_data"),
+            data_format=DataFormat.objects.get(code="mzxml"),
+        )
+        concrete_msrun_sample, _ = MSRunSample.objects.get_or_create(
+            sample=existing_pg.msrun_sample.sample,
+            msrun_sequence=existing_pg.msrun_sample.msrun_sequence,
+            ms_data_file=mzf,
+        )
+        new_pg = PeakGroup(
+            name=existing_pg.name,
+            formula=existing_pg.formula,
+            msrun_sample=concrete_msrun_sample,
+            peak_annotation_file=existing_pg.peak_annotation_file,
+        )
+        with self.assertRaises(DuplicatePeakGroup):
+            new_pg.check_for_multiple_representations()
+
+    @MaintainedModel.no_autoupdates()
+    def test_check_for_multiple_representations_technical_peak_group_duplicate(self):
+        """This test asserts that check_for_multiple_representations raises a TechnicalPeakGroupDuplicate error when the
+        peak annotation file has the same name, but its content differs (i.e. the checksum differs).
+        """
+        existing_pg = PeakGroup.objects.filter(
+            msrun_sample__sample__name="xzl5_panc"
+        ).get(name="glutamine")
+        # To test this, we need an edited peak annotation file (i.e. same file name but different checksum)
+        paaf = ArchiveFile.objects.create(
+            filename=existing_pg.peak_annotation_file.filename,
+            file_location=None,
+            checksum="23456789011",
+            data_type=DataType.objects.get(code="ms_peak_annotation"),
+            data_format=DataFormat.objects.get(code="accucor"),
+        )
+        new_pg = PeakGroup(
+            name=existing_pg.name,
+            formula=existing_pg.formula,
+            msrun_sample=existing_pg.msrun_sample,
+            peak_annotation_file=paaf,
+        )
+        with self.assertRaises(TechnicalPeakGroupDuplicate):
+            new_pg.check_for_multiple_representations()
+
+    @MaintainedModel.no_autoupdates()
+    def test_check_for_multiple_representations_complex_peak_group_duplicate(self):
+        """This test asserts that check_for_multiple_representations raises a ComplexPeakGroupDuplicate error when the
+        record qualitatively differs (e.g. the formula is different) and either the peak annotation file has the same
+        name, but its content differs or the msrun_sample differs."""
+        existing_pg = PeakGroup.objects.filter(
+            msrun_sample__sample__name="xzl5_panc"
+        ).get(name="glutamine")
+        # To test this, we need an edited peak annotation file (i.e. same file name but different checksum) and...
+        paaf = ArchiveFile.objects.create(
+            filename=existing_pg.peak_annotation_file.filename,
+            checksum="23456789011",
+            file_location=None,
+            data_type=DataType.objects.get(code="ms_peak_annotation"),
+            data_format=DataFormat.objects.get(code="accucor"),
+        )
+        # We need a different formula
+        new_pg1 = PeakGroup(
+            name=existing_pg.name,
+            formula="C4H10",
+            msrun_sample=existing_pg.msrun_sample,
+            peak_annotation_file=paaf,
+        )
+        with self.assertRaises(ComplexPeakGroupDuplicate):
+            new_pg1.check_for_multiple_representations()
+
+        # We will also test the case of a different MSRunSample
+
+        # To test this, we need a concrete MSRunSample record, and for that we need an mzXML ArchiveFile record
+        mzf, _ = ArchiveFile.objects.get_or_create(
+            filename="test_mz_file",
+            checksum="23456789010",
+            data_type=DataType.objects.get(code="ms_data"),
+            data_format=DataFormat.objects.get(code="mzxml"),
+        )
+        concrete_msrun_sample = MSRunSample.objects.create(
+            sample=existing_pg.msrun_sample.sample,
+            msrun_sequence=existing_pg.msrun_sample.msrun_sequence,
+            ms_data_file=mzf,
+        )
+        new_pg2 = PeakGroup(
+            name=existing_pg.name,
+            formula="C4H10",
+            msrun_sample=concrete_msrun_sample,
+            peak_annotation_file=existing_pg.peak_annotation_file,
+        )
+        with self.assertRaises(ComplexPeakGroupDuplicate):
+            new_pg2.check_for_multiple_representations()
+
+    @MaintainedModel.no_autoupdates()
+    def test_check_for_multiple_representations_multiple_representation(self):
+        """This test asserts that check_for_multiple_representations raises a MultiplePeakGroupRepresentation error in
+        the cannonical case where it is simply the same sample, same name, but different peak annotations file.
+        """
+        existing_pg = PeakGroup.objects.filter(
+            msrun_sample__sample__name="xzl5_panc"
+        ).get(name="glutamine")
+        # To test this, we need an edited peak annotation file (i.e. same file name but different checksum)
+        paaf = ArchiveFile.objects.create(
+            filename="some_other_file.xlsx",
+            file_location=None,
+            checksum="23456789012",
+            data_type=DataType.objects.get(code="ms_peak_annotation"),
+            data_format=DataFormat.objects.get(code="accucor"),
+        )
+        new_pg = PeakGroup(
+            name=existing_pg.name,
+            msrun_sample=existing_pg.msrun_sample,
+            formula=existing_pg.formula,
+            peak_annotation_file=paaf,
+        )
+        with self.assertRaises(MultiplePeakGroupRepresentation):
+            new_pg.check_for_multiple_representations()

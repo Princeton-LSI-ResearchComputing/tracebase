@@ -209,7 +209,7 @@ class CompoundLoadingTests(TracebaseTestCase):
         self.assertEqual(ConflictingValueErrors, type(aes.exceptions[0]))
         self.assertEqual(
             2,
-            len(aes.exceptions[0].conflicting_value_errors),
+            len(aes.exceptions[0].exceptions),
             msg="There are 2 conflicts",
         )
         self.assertEqual(
@@ -217,7 +217,7 @@ class CompoundLoadingTests(TracebaseTestCase):
             len(
                 [
                     exc
-                    for exc in aes.exceptions[0].conflicting_value_errors
+                    for exc in aes.exceptions[0].exceptions
                     if "compound" in exc.differences.keys()
                 ]
             ),

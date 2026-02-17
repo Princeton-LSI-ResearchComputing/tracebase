@@ -30,6 +30,7 @@ from DataRepo.models.animal import Animal
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
+    ComplexPeakGroupDuplicate,
     ConditionallyRequiredArgs,
     DuplicateCompoundIsotopes,
     DuplicatePeakGroupResolutions,
@@ -37,10 +38,13 @@ from DataRepo.utils.exceptions import (
     MissingC12ParentPeak,
     MissingCompounds,
     MissingSamples,
+    MultiplePeakGroupRepresentation,
     NoSamples,
     ProhibitedCompoundName,
     RecordDoesNotExist,
     ReplacingPeakGroupRepresentation,
+    RollbackException,
+    TechnicalPeakGroupDuplicate,
     UnexpectedSamples,
     UnskippedBlanks,
 )
@@ -477,6 +481,119 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         self.assertEqual(1, PeakGroup.objects.count())
         _, created2 = al.get_or_create_peak_group(row, paf, {"serine": self.SERINE})
         self.assertFalse(created2)
+
+    def test_get_or_create_peak_group_technical_peak_group_duplicate(self):
+        """This test asserts that get_or_create_peak_group catches a TechnicalPeakGroupDuplicate error when the
+        peak annotation file has the same name, but its content differs (i.e. the checksum differs).
+        """
+        al = AccucorLoader()
+        row = pd.Series(
+            {
+                AccucorLoader.DataHeaders.FORMULA: "C3H7NO3",
+                AccucorLoader.DataHeaders.SAMPLEHEADER: "072920_XXX1_1_TS1",
+            }
+        )
+        # Create an existing peak group
+        rec_dict = {
+            "file_location": "DataRepo/data/tests/data_submission/accucor1.xlsx",
+            "data_type": "ms_peak_annotation",
+            "data_format": "accucor",
+        }
+        paf, _ = ArchiveFile.objects.get_or_create(**rec_dict)
+        al.get_or_create_peak_group(row, paf, {"serine": self.SERINE})
+        self.assertEqual(0, len(al.aggregated_errors_object.exceptions))
+
+        # Now create a version from an "edited" peak annotation file (i.e. different checksum)
+        del rec_dict["file_location"]
+        rec_dict["filename"] = "accucor1.xlsx"
+        rec_dict["checksum"] = "01234567893"
+        paf, _ = ArchiveFile.objects.get_or_create(**rec_dict)
+        with self.assertRaises(RollbackException):
+            al.get_or_create_peak_group(row, paf, {"serine": self.SERINE})
+        self.assertEqual(1, len(al.aggregated_errors_object.exceptions))
+        self.assertIsInstance(
+            al.aggregated_errors_object.exceptions[0], TechnicalPeakGroupDuplicate
+        )
+        self.assertTrue(al.aggregated_errors_object.exceptions[0].is_error)
+
+    def test_get_or_create_peak_group_complex_peak_group_duplicate(self):
+        """This test asserts that get_or_create_peak_group catches a ComplexPeakGroupDuplicate error when the peak
+        annotation file has the same name, but its content differs (i.e. the checksum differs) and the peak group has
+        changed (e.g. the formula differs)."""
+        row = pd.Series(
+            {
+                AccucorLoader.DataHeaders.FORMULA: "C3H7NO3",
+                AccucorLoader.DataHeaders.SAMPLEHEADER: "072920_XXX1_1_TS1",
+            }
+        )
+        # Create an existing peak group
+        rec_dict = {
+            "file_location": "DataRepo/data/tests/data_submission/accucor1.xlsx",
+            "data_type": "ms_peak_annotation",
+            "data_format": "accucor",
+        }
+        paf, _ = ArchiveFile.objects.get_or_create(**rec_dict)
+        al = AccucorLoader()
+        al.get_or_create_peak_group(row, paf, {"serine": self.SERINE})
+
+        # Now create a version from an "edited" peak annotation file (i.e. different checksum) where the formula has
+        # changed
+        row = pd.Series(
+            {
+                AccucorLoader.DataHeaders.FORMULA: "C3H6NO3",
+                AccucorLoader.DataHeaders.SAMPLEHEADER: "072920_XXX1_1_TS1",
+            }
+        )
+        del rec_dict["file_location"]
+        rec_dict["filename"] = "accucor1.xlsx"
+        rec_dict["checksum"] = "01234567893"
+        paf, _ = ArchiveFile.objects.get_or_create(**rec_dict)
+        with self.assertRaises(RollbackException):
+            al.get_or_create_peak_group(row, paf, {"serine": self.SERINE})
+        self.assertEqual(1, len(al.aggregated_errors_object.exceptions))
+        self.assertIsInstance(
+            al.aggregated_errors_object.exceptions[0], ComplexPeakGroupDuplicate
+        )
+        self.assertTrue(al.aggregated_errors_object.exceptions[0].is_error)
+
+    def test_get_or_create_peak_group_multiple_representation(self):
+        """This test asserts that get_or_create_peak_group catches a TechnicalPeakGroupDuplicate error when the
+        peak annotation file has the same name, but its content differs (i.e. the checksum differs).
+        """
+        row = pd.Series(
+            {
+                AccucorLoader.DataHeaders.FORMULA: "C3H7NO3",
+                AccucorLoader.DataHeaders.SAMPLEHEADER: "072920_XXX1_1_TS1",
+            }
+        )
+        # Create an existing peak group
+        rec_dict = {
+            "file_location": "DataRepo/data/tests/data_submission/accucor1.xlsx",
+            "data_type": "ms_peak_annotation",
+            "data_format": "accucor",
+        }
+        paf, _ = ArchiveFile.objects.get_or_create(**rec_dict)
+        al = AccucorLoader()
+        al.get_or_create_peak_group(row, paf, {"serine": self.SERINE})
+
+        # Now create a version from a different peak annotation file
+        row = pd.Series(
+            {
+                AccucorLoader.DataHeaders.FORMULA: "C3H6NO3",
+                AccucorLoader.DataHeaders.SAMPLEHEADER: "072920_XXX1_1_TS1",
+            }
+        )
+        del rec_dict["file_location"]
+        rec_dict["filename"] = "accucor2.xlsx"
+        rec_dict["checksum"] = "01234567893"
+        paf, _ = ArchiveFile.objects.get_or_create(**rec_dict)
+        with self.assertRaises(RollbackException):
+            al.get_or_create_peak_group(row, paf, {"serine": self.SERINE})
+        self.assertEqual(1, len(al.aggregated_errors_object.exceptions))
+        self.assertIsInstance(
+            al.aggregated_errors_object.exceptions[0], MultiplePeakGroupRepresentation
+        )
+        self.assertTrue(al.aggregated_errors_object.exceptions[0].is_error)
 
     def test_get_msrun_sample_no_annot_details_df(self):
         al = AccucorLoader()

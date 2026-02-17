@@ -662,7 +662,8 @@ class PeakGroupLabelPropertyTests(TracebaseTestCase):
         msrs = self.make_msrun_sample(seq, peak_group.msrun_sample.sample)
 
         peak_group_zero = PeakGroup.objects.create(
-            name=peak_group.name,
+            name=peak_group.name
+            + "_stereoisomer",  # To avoid unique constraint violation
             formula=peak_group.formula,
             msrun_sample=msrs,
             peak_annotation_file=peak_group.peak_annotation_file,

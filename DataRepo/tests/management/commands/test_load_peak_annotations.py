@@ -21,7 +21,7 @@ from DataRepo.models import (
     Tracer,
     TracerLabel,
 )
-from DataRepo.models.archive_file import ArchiveFile
+from DataRepo.models.archive_file import ArchiveFile, DataFormat, DataType
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
@@ -317,11 +317,14 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
 
     def test_conflicting_peakgroups(self):
         """
-        Test that loading two conflicting PeakGroups rasies ConflictingValueErrors
+        Test that loading two conflicting PeakGroups rasies MultiplePeakGroupRepresentations
 
-        Attempt to load two PeakGroups for the same Compound in the same MSRunSample
-        Note, when there are 2 different peak annotation files, it's a ConflictingValueErrors.  The formula for glucose
-        was changed in the conflicting file.
+        Attempt to load two PeakGroups for the same Compound in the same MSRunSample Note, when there are 2 different
+        peak annotation files, it's a MultiplePeakGroupRepresentation.  If the file is the same, but the data is
+        different, compared to the the previous load (e.g. the user edited the data), it is technically a
+        ConflictingValueError, however the edited file event will always be handled as a TechnicalPeakGroupDuplicate, so
+        it should be effectively impossible to get a ConflictingValueError from a PeakGroup record creation, unless the
+        data was manipulated in code, e.g. in a test.  The formula for glucose was changed in the conflicting file.
         """
 
         self.load_glucose_data()
@@ -335,7 +338,7 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
 
         aes: AggregatedErrors = ar.exception
         self.assertEqual(1, aes.num_errors)
-        self.assertEqual(MultiplePeakGroupRepresentations, type(aes.exceptions[0]))
+        self.assertIsInstance(aes.exceptions[0], MultiplePeakGroupRepresentations)
         # 1 compounds, 2 samples -> 2 PeakGroups
         # This error occurs on each of 7 rows, twice (once for each sample)
         self.assertEqual(14, len(aes.exceptions[0].exceptions))
@@ -358,7 +361,15 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
                 adl.headers.FORMULA: peak_group.formula,
             }
         )
-        paf = ArchiveFile(filename="peak_annotation_filename.tsv")
+        data_type = DataType.objects.get(code="ms_peak_annotation")
+        data_format = DataFormat.objects.get(code="accucor")
+        paf = ArchiveFile(
+            checksum="1234567890",
+            filename="peak_annotation_filename.tsv",
+            data_type=data_type,
+            data_format=data_format,
+        )
+        paf.save()
         crd = {peak_group.name: peak_group.compounds.first()}
         # Test the instance method "get_or_create_peak_group" buffers an error
         # when inserting an exact duplicate PeakGroup
@@ -492,7 +503,7 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
 
     def test_ambiguous_msruns_error(self):
         """
-        Tests that an AmbiguousMSRuns exception is raised when a duplicate sample.peak group is encountered and the
+        Tests that an AmbiguousMSRuns exception is raised when a duplicate sample peak group is encountered and the
         peak annotation file names differ
 
         This also tests that we do not allow the same compound to be measured from the
@@ -508,7 +519,7 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
         # Check second file failed (duplicate compound)
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
-        self.assertTrue(isinstance(aes.exceptions[0], MultiplePeakGroupRepresentations))
+        self.assertIsInstance(aes.exceptions[0], MultiplePeakGroupRepresentations)
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
