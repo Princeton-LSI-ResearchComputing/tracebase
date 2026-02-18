@@ -33,8 +33,10 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     AggregatedErrorsSet,
+    AllMissingCompounds,
     AllMissingSamples,
     AllMissingTissues,
+    AllUnskippedBlanks,
     AnimalsWithoutSamples,
     AnimalsWithoutSerumSamples,
     MissingTissues,
@@ -249,6 +251,12 @@ class StudyLoaderTests(TracebaseTestCase):
         sl.missing_compound_record_exceptions = [
             RecordDoesNotExist(Compound, {"name": "titanium"})
         ]
+        # Create a RecordDoesNotExist exception for a blank sample that is a warning
+        blank_exc = RecordDoesNotExist(Sample, {"name": "blank6"})
+        blank_exc.is_error = False
+        blank_exc.is_fatal = True
+        sl.unskipped_blank_record_exceptions = [blank_exc]
+
         sl.create_grouped_exceptions()
 
         expected_status_keys = set(
@@ -269,6 +277,21 @@ class StudyLoaderTests(TracebaseTestCase):
         self.assertEqual(
             expected_status_keys,
             set(sl.load_statuses.statuses.keys()),
+        )
+        self.assertTrue(
+            sl.load_statuses.statuses["Samples Check"][
+                "aggregated_errors"
+            ].exception_type_exists(AllMissingSamples)
+        )
+        self.assertTrue(
+            sl.load_statuses.statuses["Compounds Check"][
+                "aggregated_errors"
+            ].exception_type_exists(AllMissingCompounds)
+        )
+        self.assertTrue(
+            sl.load_statuses.statuses["Peak Annotation Blanks Check"][
+                "aggregated_errors"
+            ].exception_type_exists(AllUnskippedBlanks)
         )
 
     def test_get_loader_instances(self):
