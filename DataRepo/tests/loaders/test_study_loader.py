@@ -250,14 +250,26 @@ class StudyLoaderTests(TracebaseTestCase):
             RecordDoesNotExist(Compound, {"name": "titanium"})
         ]
         sl.create_grouped_exceptions()
-        self.assertEqual(
-            9,
-            len(sl.load_statuses.statuses.keys()),
-            msg=f"Load status keys: {list(sl.load_statuses.statuses.keys())}",
+
+        expected_status_keys = set(
+            [
+                "Studies Check",
+                "Samples Check",
+                "Peak Annotation Samples Check",
+                "Peak Annotation Blanks Check",
+                "Tissues Check",
+                "Treatments Check",
+                "Compounds Check",
+                "Peak Groups Check",
+                "Contamination Check",
+                "study_missing_data.xlsx",
+            ]
         )
-        self.assertIn("Samples Check", sl.load_statuses.statuses.keys())
-        self.assertIn("Compounds Check", sl.load_statuses.statuses.keys())
-        self.assertIn("study_missing_data.xlsx", sl.load_statuses.statuses.keys())
+
+        self.assertEqual(
+            expected_status_keys,
+            set(sl.load_statuses.statuses.keys()),
+        )
 
     def test_get_loader_instances(self):
         sl = StudyV3Loader(_validate=True)

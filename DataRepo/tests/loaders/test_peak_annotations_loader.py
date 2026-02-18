@@ -1015,6 +1015,9 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
                 il.aggregated_errors_object.num_errors,
                 il.aggregated_errors_object.num_warnings,
             ),
+            msg=", ".join(
+                e.__name__ for e in il.aggregated_errors_object.get_exception_types()
+            ),
         )
         dpgrs = il.aggregated_errors_object.get_exception_type(
             DuplicatePeakGroupResolutions
@@ -1124,16 +1127,14 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
             ),
             file="DataRepo/data/tests/multiple_representations/resolution_handling/poshigh_cor.xlsx",
             peak_group_conflicts_file=(
-                "DataRepo/data/tests/multiple_representations/"
-                "resolution_handling/poshigh_resolution.tsv"
+                "DataRepo/data/tests/multiple_representations/resolution_handling/poshigh_resolution.tsv"
             ),
             peak_group_conflicts_sheet="Peak Group Conflicts",
             peak_group_conflicts_df=read_from_file(
-                "DataRepo/data/tests/multiple_representations/resolution_handling/poshigh_resolution.tsv",
+                "DataRepo/data/tests/multiple_representations/resolution_handling/poshigh_resolution.tsv"
             ),
             peak_annotation_details_file=(
-                "DataRepo/data/tests/multiple_representations/"
-                "resolution_handling/prereqs.xlsx"
+                "DataRepo/data/tests/multiple_representations/resolution_handling/prereqs.xlsx"
             ),
             peak_annotation_details_sheet="Peak Annotation Details",
             peak_annotation_details_df=dfdict["Peak Annotation Details"],
@@ -1144,6 +1145,9 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
             (
                 il2.aggregated_errors_object.num_errors,
                 il2.aggregated_errors_object.num_warnings,
+            ),
+            msg=", ".join(
+                e.__name__ for e in il2.aggregated_errors_object.get_exception_types()
             ),
         )
         rpgrs = il2.aggregated_errors_object.get_exception_type(
