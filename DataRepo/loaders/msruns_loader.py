@@ -666,7 +666,6 @@ class MSRunsLoader(TableLoader):
                 # Exception handling was handled in get_or_create_*
                 # Continue processing rows to find more errors
                 pass
-        print(f"AAA self.mzxml_dict_by_header: {self.mzxml_dict_by_header}")
 
         # 2. Traverse the infile
         #    - create MSRunSample records
