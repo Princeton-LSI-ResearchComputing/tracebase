@@ -1350,7 +1350,7 @@ class NoPeakAnnotationDetails(InfileError, SummarizableError):
             "blanks.  If any samples cannot be found, you can associate them by populating the Peak Annotation Details "
             "sheet.  It is recommended that you use the submission start page to generate this data."
         )
-        super().__init__(message)
+        super().__init__(message, **kwargs)
         self.annot_file = annot_file
 
 

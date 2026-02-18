@@ -7,6 +7,7 @@ from DataRepo.models.utilities import get_model_by_name
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
+    AllUnskippedBlanks,
     AmbiguousMzxmlSampleMatch,
     AmbiguousMzxmlSampleMatches,
     AnimalsWithoutSamples,
@@ -56,6 +57,8 @@ from DataRepo.utils.exceptions import (
     NewResearcher,
     NewResearchers,
     NoLoadData,
+    NoPeakAnnotationDetails,
+    NoPeakAnnotationDetailsErrors,
     NoSamples,
     NoScans,
     NoTracerLabeledElements,
@@ -2200,3 +2203,48 @@ class ExceptionTests(TracebaseTestCase):
 
         dpgs = DuplicatePeakGroups([exc])
         self.assertIn("test_data_file\n\t\ttestname", str(dpgs))
+
+    def test_NoPeakAnnotationDetails(self):
+        npad = NoPeakAnnotationDetails(
+            "annot.xlsx",
+            file="study.xlsx",
+            sheet="Peak Annotation Details",
+            column="Peak Annot File",
+        )
+        self.assertIn(
+            "No sample headers for peak annotation file 'annot.xlsx'", str(npad)
+        )
+        self.assertIn(
+            "column [Peak Annot File] of sheet [Peak Annotation Details] in study.xlsx",
+            str(npad),
+        )
+        self.assertIn("populating the Peak Annotation Details sheet", str(npad))
+        self.assertIn("use the submission start page to generate this data", str(npad))
+
+        # Test its summary exception
+        npades = NoPeakAnnotationDetailsErrors([npad])
+        self.assertIn(
+            "No sample headers for the following peak annotation files", str(npades)
+        )
+        self.assertIn("found in the Peak Annotation Details sheet", str(npades))
+        self.assertIn("annot.xlsx", str(npades))
+        self.assertIn(
+            "associate them by populating the Peak Annotation Details sheet",
+            str(npades),
+        )
+        self.assertIn(
+            "use the submission start page to generate this data", str(npades)
+        )
+
+    def test_AllUnskippedBlanks(self):
+        from DataRepo.models import Sample
+
+        exceptions = [RecordDoesNotExist(Sample, {"name": "blank"})]
+        exc = AllUnskippedBlanks(
+            exceptions, succinct=False, suggestion="Test suggestion"
+        )
+        self.assertIn(
+            "1 Sample records matching the following values were not found", str(exc)
+        )
+        self.assertIn("blank", str(exc))
+        self.assertIn("Test suggestion", str(exc))
