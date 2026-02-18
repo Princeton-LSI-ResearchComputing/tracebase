@@ -1309,12 +1309,39 @@ class UnexpectedSamples(InfileError):
         self.missing_samples = missing_samples
 
 
-class NoPeakAnnotationDetails(InfileError):
+class NoPeakAnnotationDetailsErrors(Exception):
+    """Summarizes multiple NoPeakAnnotationDetails exceptions."""
+
+    def __init__(self, exceptions: List[NoPeakAnnotationDetails]):
+        summary_list = [
+            (
+                "No sample headers for the following peak annotation files were found in the Peak Annotation Details "
+                "sheet:\n"
+            )
+        ]
+        for exc in sorted(exceptions, key=lambda e: e.annot_file):
+            line = f"\t{exc.annot_file}\n"
+            if line not in summary_list:
+                summary_list.append(line)
+        summary_list.append(
+            (
+                "An attempt will be made to automatically associate the headers with Sample records, but you may see "
+                "warnings about unskipped blanks.  If any samples cannot be found, you can associate them by "
+                "populating the Peak Annotation Details sheet.  It is recommended that you use the submission start "
+                "page to generate this data."
+            )
+        )
+        super().__init__("\n".join(summary_list))
+
+
+class NoPeakAnnotationDetails(InfileError, SummarizableError):
     """No sample headers were found in the Peak Annotation Details sheet of the Study doc for the indicated peak
     annotation file.
 
     This usually occurs if a user is adding data to an existing study doc and neglects to update the Peak Annotation
     Details sheet using the output of the submission start page."""
+
+    SummarizerExceptionClass = NoPeakAnnotationDetailsErrors
 
     def __init__(self, annot_file: str, **kwargs):
         message = (
