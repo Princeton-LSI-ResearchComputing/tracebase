@@ -525,8 +525,8 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                 self.missing_annot_file_details[self.msrunsloader.friendly_file] = True
                 self.aggregated_errors_object.buffer_warning(
                     NoPeakAnnotationDetails(
-                        self.get_friendly_filename(),
-                        file=self.msrunsloader.friendly_file,
+                        self.get_friendly_filename(),  # Peak annot file
+                        file=self.msrunsloader.friendly_file,  # Study doc
                         sheet=self.msrunsloader.DataSheetName,
                         column=self.msrunsloader.DataHeaders.ANNOTNAME,
                     ),
