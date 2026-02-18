@@ -33,8 +33,10 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     AggregatedErrorsSet,
+    AllMissingCompounds,
     AllMissingSamples,
     AllMissingTissues,
+    AllUnskippedBlanks,
     AnimalsWithoutSamples,
     AnimalsWithoutSerumSamples,
     MissingTissues,
@@ -249,15 +251,48 @@ class StudyLoaderTests(TracebaseTestCase):
         sl.missing_compound_record_exceptions = [
             RecordDoesNotExist(Compound, {"name": "titanium"})
         ]
+        # Create a RecordDoesNotExist exception for a blank sample that is a warning
+        blank_exc = RecordDoesNotExist(Sample, {"name": "blank6"})
+        blank_exc.is_error = False
+        blank_exc.is_fatal = True
+        sl.unskipped_blank_record_exceptions = [blank_exc]
+
         sl.create_grouped_exceptions()
-        self.assertEqual(
-            9,
-            len(sl.load_statuses.statuses.keys()),
-            msg=f"Load status keys: {list(sl.load_statuses.statuses.keys())}",
+
+        expected_status_keys = set(
+            [
+                "Studies Check",
+                "Samples Check",
+                "Peak Annotation Samples Check",
+                "Peak Annotation Blanks Check",
+                "Tissues Check",
+                "Treatments Check",
+                "Compounds Check",
+                "Peak Groups Check",
+                "Contamination Check",
+                "study_missing_data.xlsx",
+            ]
         )
-        self.assertIn("Samples Check", sl.load_statuses.statuses.keys())
-        self.assertIn("Compounds Check", sl.load_statuses.statuses.keys())
-        self.assertIn("study_missing_data.xlsx", sl.load_statuses.statuses.keys())
+
+        self.assertEqual(
+            expected_status_keys,
+            set(sl.load_statuses.statuses.keys()),
+        )
+        self.assertTrue(
+            sl.load_statuses.statuses["Samples Check"][
+                "aggregated_errors"
+            ].exception_type_exists(AllMissingSamples)
+        )
+        self.assertTrue(
+            sl.load_statuses.statuses["Compounds Check"][
+                "aggregated_errors"
+            ].exception_type_exists(AllMissingCompounds)
+        )
+        self.assertTrue(
+            sl.load_statuses.statuses["Peak Annotation Blanks Check"][
+                "aggregated_errors"
+            ].exception_type_exists(AllUnskippedBlanks)
+        )
 
     def test_get_loader_instances(self):
         sl = StudyV3Loader(_validate=True)

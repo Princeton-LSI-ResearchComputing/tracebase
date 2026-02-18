@@ -377,7 +377,11 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
             adl.get_or_create_peak_group(row, paf, crd)
 
         aes = adl.aggregated_errors_object
-        self.assertEqual(1, len(aes.exceptions))
+        self.assertEqual(
+            1,
+            len(aes.exceptions),
+            msg=", ".join([e.__name__ for e in aes.get_exception_types()]),
+        )
         self.assertIsInstance(
             aes.exceptions[0],
             MultiplePeakGroupRepresentation,

@@ -66,6 +66,7 @@ from DataRepo.utils.exceptions import (
     AllMissingTreatments,
     AllMultiplePeakGroupRepresentations,
     AllUnexpectedLabels,
+    AllUnskippedBlanks,
     AnimalsWithoutSamples,
     AnimalsWithoutSerumSamples,
     AnimalWithoutSamples,
@@ -91,6 +92,7 @@ from DataRepo.utils.exceptions import (
     RecordDoesNotExist,
     UnexpectedLabels,
     UnknownStudyDocVersion,
+    UnskippedBlanks,
 )
 from DataRepo.utils.file_utils import (
     datetime_to_string,
@@ -347,6 +349,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
         self.missing_study_record_exceptions = []
         self.missing_sample_record_exceptions = []
         self.no_sample_record_exceptions = []
+        self.unskipped_blank_record_exceptions = []
         self.missing_tissue_record_exceptions = []
         self.missing_treatment_record_exceptions = []
         self.unexpected_labels_exceptions = []
@@ -1014,6 +1017,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
             (MissingStudies, self.missing_study_record_exceptions),
             (MissingSamples, self.missing_sample_record_exceptions),
             (NoSamples, self.no_sample_record_exceptions),
+            (UnskippedBlanks, self.unskipped_blank_record_exceptions),
             (MissingTissues, self.missing_tissue_record_exceptions),
             (MissingTreatments, self.missing_treatment_record_exceptions),
             (MissingCompounds, self.missing_compound_record_exceptions),
@@ -1030,8 +1034,8 @@ class StudyLoader(ConvertedTableLoader, ABC):
             self.multiple_pg_reps_exceptions.extend(mpgr_exc.exceptions)
 
         # Unexpected labels exceptions
-        uel_excs = aes.modify_exception_type(
-            UnexpectedLabels, is_fatal=False, is_error=False
+        uel_excs = aes.get_exception_type(
+            UnexpectedLabels, attr_name="is_error", attr_val=False
         )
         uel_exc: UnexpectedLabels
         for uel_exc in uel_excs:
@@ -1054,9 +1058,8 @@ class StudyLoader(ConvertedTableLoader, ABC):
         Returns:
             None
         """
-        mrecs_excs = aes.modify_exception_type(
-            missing_class, is_fatal=False, is_error=False
-        )
+        aes.modify_exception_type(missing_class, is_fatal=False, is_error=False)
+        mrecs_excs = aes.get_exception_type(missing_class)
         for mrecs_exc in mrecs_excs:
             buffer.extend(mrecs_exc.exceptions)
 
@@ -1087,6 +1090,13 @@ class StudyLoader(ConvertedTableLoader, ABC):
                 AllMissingSamples,
                 self.no_sample_record_exceptions,
                 "Peak Annotation Samples Check",
+                True,
+                None,
+            ),
+            (
+                AllUnskippedBlanks,
+                self.unskipped_blank_record_exceptions,
+                "Peak Annotation Blanks Check",
                 True,
                 None,
             ),
