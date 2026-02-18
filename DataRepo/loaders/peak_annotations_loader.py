@@ -522,7 +522,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             # If the peak annotation details sheet was provided (the enclosing conditional), but nothing was retrieved
             # for this peak annotations file, buffer a NoPeakAnnotationDetails error and track the missing file.
             if len(self.msrun_sample_dict.keys()) == 0:
-                self.missing_annot_file_details[self.msrunsloader.friendly_file] = True
+                self.missing_annot_file_details[self.get_friendly_filename()] = True
                 self.aggregated_errors_object.buffer_warning(
                     NoPeakAnnotationDetails(
                         self.get_friendly_filename(),  # Peak annot file
@@ -1704,10 +1704,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                 )
 
         if len(possible_blank_dnes) > 0:
-            if (
-                self.msrunsloader.friendly_file
-                in self.missing_annot_file_details.keys()
-            ):
+            if self.get_friendly_filename() in self.missing_annot_file_details.keys():
                 suggestion = (
                     "Either a peak annotation details file(/sheet in a study doc) was not supplied of this file "
                     f"'{self.msrunsloader.friendly_file}' is not in the peak annotation details sheet.  This sheet "
