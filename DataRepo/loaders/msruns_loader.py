@@ -666,7 +666,6 @@ class MSRunsLoader(TableLoader):
                 # Exception handling was handled in get_or_create_*
                 # Continue processing rows to find more errors
                 pass
-        print(f"AAA self.mzxml_dict_by_header: {self.mzxml_dict_by_header}")
 
         # 2. Traverse the infile
         #    - create MSRunSample records
@@ -1179,8 +1178,10 @@ class MSRunsLoader(TableLoader):
                 # If mzXML files are available, check that sheet mzXMLs with supplied paths exist.
                 # NOTE: This always checks all files, even if a subset is explicitly supplied.
                 if len(self.mzxml_files) > 0:
-                    norm_mzxml_dir = os.path.normpath(
-                        os.path.relpath(dr, self.mzxml_dir)
+                    norm_mzxml_dir = (
+                        ""
+                        if dr == ""
+                        else os.path.normpath(os.path.relpath(dr, self.mzxml_dir))
                     )
                     head, _ = os.path.split(norm_mzxml_dir)
                     has_subdir = head not in ("", ".", os.curdir)
@@ -1262,16 +1263,14 @@ class MSRunsLoader(TableLoader):
             if rec is None and not Sample.is_a_blank(unexpected_sample_header):
                 unmapped_samples.append(unexpected_sample_header)
 
-        if (
-            len(unmapped_samples) > 0
-            and not self.aggregated_errors_object.should_raise()
-        ):
+        if len(unmapped_samples) > 0:
             stop_with_error = True
-            self.aggregated_errors_object.buffer_error(
-                ProgrammingError(
-                    f"Samples matching the following mzXML files were not found: {unmapped_samples}."
+            if not self.aggregated_errors_object.should_raise():
+                self.aggregated_errors_object.buffer_error(
+                    ProgrammingError(
+                        f"Samples matching the following mzXML files were not found: {unmapped_samples}."
+                    )
                 )
-            )
 
         if stop_with_error:
             # Give up looking for more errors and exit early, because loading mzXML files is too expensive.

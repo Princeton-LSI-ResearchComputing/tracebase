@@ -4917,7 +4917,9 @@ class MultiplePeakGroupRepresentation(SummarizableError):
                 )
 
             filenames = [new_rec.peak_annotation_file.filename]
-            filenames.extend([r.peak_annotation_file.filename for r in existing_recs.all()])
+            filenames.extend(
+                [r.peak_annotation_file.filename for r in existing_recs.all()]
+            )
             files_str = "\n\t".join(filenames)
 
             message = (

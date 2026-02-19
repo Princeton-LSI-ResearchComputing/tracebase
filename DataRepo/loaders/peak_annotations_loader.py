@@ -1112,10 +1112,6 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
 
             self.msrun_sample_dict[sample_header]["seen"] = True
 
-            print(
-                f"SSS self.msrun_sample_dict[{sample_header}]: {self.msrun_sample_dict[sample_header]}"
-            )
-
             # TODO: Consolidate the strategy.  I had made a quick change to the SKIP value coming from the file due to a
             # pandas quirk about dtype and empty excel cells, but the value returned by
             # self.msrunsloader.get_loaded_msrun_sample_dict is converted to a boolean.  This can lead to confusion, so
@@ -1133,16 +1129,10 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             if self.msrun_sample_dict[sample_header][MSRunSample.__name__] is not None:
                 return self.msrun_sample_dict[sample_header][MSRunSample.__name__]
 
-            print(
-                f"TTT self.msrun_sample_dict[{sample_header}]: {self.msrun_sample_dict[sample_header]}"
-            )
-
         # 2. The second way (if a Peak Annotation Details sheet was not provided, or doesn't list a value for this
         #    sample header) is to start searching using the sample header to look for an exact matching sample name.  If
         #    there is more than 1 match, we can try to whittle it down using what we've been provided in the way of the
         #    default sequence data.
-
-        debug_save = self.msrun_sample_dict.copy()
 
         # Initialize the entry in the msrun_sample_dict so we can avoid this code block if we encounter the header again
         self.msrun_sample_dict[sample_header] = {}
