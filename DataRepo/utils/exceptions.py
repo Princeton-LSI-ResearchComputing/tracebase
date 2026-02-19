@@ -4012,7 +4012,10 @@ class MzxmlSampleHeaderMismatch(InfileError):
         message = (
             f"The sample header does not match the base name of the mzXML file [{mzxml_file}], as listed in %s:\n"
             f"\tSample header:       [{header}]\n"
-            f"\tmzXML Base Filename: [{mzxml_basename}]"
+            f"\tmzXML Base Filename: [{mzxml_basename}]\n"
+            "Sample headers automatically adopt the mzXML file name.  The fact that they differ could suggest that the "
+            "wrong mzXML has been associated with the wrong abundance correction analysis/peak annotation file.  If "
+            "this mapping is correct, you may ignore this issue."
         )
         super().__init__(message, **kwargs)
         self.header = header
@@ -4118,8 +4121,9 @@ class AmbiguousMzxmlSampleMatches(Exception):
                     file=exc.file,
                     sheet=exc.sheet,
                 )
-                matches_by_annot_file[loc].append(exc)
-            for loc, exc_list in sorted(
+                samples = ", ".join(sorted(exc.sample_names))
+                matches_by_annot_file[loc][samples].extend(exc.mzxml_paths)
+            for loc, samples_dict in sorted(
                 matches_by_annot_file.items(), key=lambda tpl: tpl[0]
             ):
                 tmp_message.append(f"\t{loc}\n")
@@ -4177,7 +4181,7 @@ class AmbiguousMzxmlSampleMatch(InfileError, SummarizableError):
 
     Args:
         sample_names (List[str]): A list of 2 or more sample names that an mzXML file is ambiguously associated with.
-        mzxml_name (str): An mzXML file name (with optional path) that ambiguously maps to multiple samples.
+        mzxml_paths (List[str]): An mzXML file name (with optional path) that ambiguously maps to multiple samples.
         kwargs (dict): See InfileError.
     Attributes:
         Class:
@@ -4185,14 +4189,22 @@ class AmbiguousMzxmlSampleMatch(InfileError, SummarizableError):
                 summarizes their content.
         Instance:
             sample_names (List[str])
-            mzxml_name (str)
+            mzxml_paths (List[str])
     """
 
     SummarizerExceptionClass = AmbiguousMzxmlSampleMatches
 
     def __init__(
-        self, sample_names: List[str], mzxml_name: str, inferred_match=False, **kwargs
+        self,
+        sample_names: List[str],
+        mzxml_paths: List[str],
+        inferred_match=False,
+        **kwargs,
     ):
+        if not isinstance(mzxml_paths, list):
+            raise TypeError(
+                f"mzxml_paths must be a list (of strings), not {type(mzxml_paths).__name__}."
+            )
         inferred_message = (
             ""
             if not inferred_match
@@ -4201,15 +4213,17 @@ class AmbiguousMzxmlSampleMatch(InfileError, SummarizableError):
                 "explicitly mapped to multiple samples.) "
             )
         )
+        mzxmls_str = "\n\t".join(mzxml_paths)
         message = (
-            f"mzXML file '{mzxml_name}' could not be mapped to a single sample. {inferred_message} Each mzXML must be "
-            "associated with an MSRunSample, which links to a Sample record, so knowing which sample an mzXML is "
-            "associated with is required.  To resolve this, add a row for every mzXML file with this name, including "
-            f"its path relative from the study directory, to %s.  Potential sample matches include: {sample_names}."
+            f"mzXML file(s):\n\t{mzxmls_str}\ncould not be mapped to a single sample. {inferred_message} Each mzXML "
+            "must be associated with an MSRunSample, which links to a Sample record, so knowing which sample an mzXML "
+            "is associated with is required.  To resolve this, add a row for every mzXML file with this name, "
+            "including its path relative from the study directory, to %s.  Potential sample matches include: "
+            f"{sample_names}."
         )
         super().__init__(message, **kwargs)
         self.sample_names = sample_names
-        self.mzxml_name = mzxml_name
+        self.mzxml_paths = mzxml_paths
 
 
 class UnmatchedMzXMLs(Exception):
