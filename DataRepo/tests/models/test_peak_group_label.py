@@ -21,6 +21,7 @@ from DataRepo.models import (
     Sample,
     Tissue,
 )
+from DataRepo.models.animal_label import AnimalLabel
 from DataRepo.models.hier_cached_model import set_cache
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import NoCommonLabel
@@ -223,6 +224,19 @@ class PeakGroupLabelMultiLabelTests(TracebaseTestCase):
         self.assertEqual(pg.labels.count(), 2)
         self.assertAlmostEqual(expectedc, pgc)
         self.assertAlmostEqual(expectedn, pgn)
+
+    @MaintainedModel.no_autoupdates()
+    def test_normalized_labeling_2_elems_divbyzero(self):
+        pg = PeakGroup.objects.filter(msrun_sample__sample__name="xzl5_panc").get(
+            name="glutamine"
+        )
+        # TODO: CREATE A PEAK GROUP WHOSE FRACTIONS SUM TO 0.
+        pgc = pg.labels.get(element__exact="C").normalized_labeling
+        with self.assertWarns(UserWarning):
+            pgn = pg.labels.get(element__exact="N").normalized_labeling
+        expectedc = 0.06287501342027346
+        self.assertAlmostEqual(expectedc, pgc)
+        self.assertIsNone(pgn)
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
