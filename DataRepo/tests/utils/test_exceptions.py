@@ -1898,15 +1898,15 @@ class ExceptionTests(TracebaseTestCase):
     def test_AmbiguousMzxmlSampleMatch(self):
         amsm = AmbiguousMzxmlSampleMatch(
             ["sample1", "sample1other"],
-            "sample1.mzXML",
+            ["sample1.mzXML"],
             file="study.xlsx",
             sheet="Peak Annotation Details",
         )
         # Defines the problem
         self.assertIn(
-            "mzXML file 'sample1.mzXML' could not be mapped to a single sample.",
-            str(amsm),
+            "sample1.mzXML\ncould not be mapped to a single sample", str(amsm)
         )
+        self.assertIn("['sample1', 'sample1other']", str(amsm))
         # Explains the reason
         self.assertIn(
             "Each mzXML must be associated with an MSRunSample, which links to a Sample",
@@ -1924,11 +1924,11 @@ class ExceptionTests(TracebaseTestCase):
     def test_AmbiguousMzxmlSampleMatches(self):
         amsm1 = AmbiguousMzxmlSampleMatch(
             ["sample1", "sample1other"],
-            "sample1.mzXML",
+            ["sample1.mzXML"],
         )
         amsm2 = AmbiguousMzxmlSampleMatch(
             ["sample2", "sample2other"],
-            "sample2.mzXML",
+            ["sample2.mzXML"],
         )
         amsm_summary = AmbiguousMzxmlSampleMatches([amsm1, amsm2])
         # Defines the problem
@@ -1943,17 +1943,17 @@ class ExceptionTests(TracebaseTestCase):
         )
         # Supplies resolution/fix suggestion
         self.assertIn(
-            "add a row for every mzXML file with the indicated name, including their path",
+            "add every mzXML (with its path) to an existing row or new row",
             str(amsm_summary),
         )
         self.assertIn("to the Peak Annotation Details sheet", str(amsm_summary))
         # Supplies the data necessary to implement the suggestion
         self.assertIn(
-            "'sample1.mzXML' matches samples: ['sample1', 'sample1other']",
+            "samples: sample1, sample1other\n\t\tsample1.mzXML",
             str(amsm_summary),
         )
         self.assertIn(
-            "'sample2.mzXML' matches samples: ['sample2', 'sample2other']",
+            "samples: sample2, sample2other\n\t\tsample2.mzXML",
             str(amsm_summary),
         )
 

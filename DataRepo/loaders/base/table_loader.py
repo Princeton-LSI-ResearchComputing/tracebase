@@ -2903,20 +2903,26 @@ class TableLoader(ABC):
             file = exception.file
         else:
             file = self.friendly_file
+
         if hasattr(exception, "sheet") and exception.sheet is not None:
             sheet = exception.sheet
-        else:
+        elif self.sheet is not None:
             sheet = self.sheet
+        else:
+            sheet = self.DataSheetName
+
         if (
             hasattr(exception, "column")
             and exception.column is not None
             and column is None
         ):
             column = exception.column
+
         if hasattr(exception, "rownum") and exception.rownum is not None:
             rownum = exception.rownum
         else:
             rownum = self.rownum
+
         if (
             hasattr(exception, "suggestion")
             and exception.suggestion is not None
