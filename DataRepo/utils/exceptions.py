@@ -22,6 +22,7 @@ from DataRepo.utils.text_utils import indent
 
 if TYPE_CHECKING:
     from DataRepo.models.animal import Animal
+    from DataRepo.models.archive_file import ArchiveFile
     from DataRepo.models.msrun_sequence import MSRunSequence
     from DataRepo.models.peak_group import PeakGroup
     from DataRepo.models.peak_group_label import PeakGroupLabel
@@ -4915,10 +4916,18 @@ class MultiplePeakGroupRepresentation(SummarizableError):
                     [f"{k}: {v}" for k, v in existing_dicts[0].items()]
                 )
 
+            filenames = [new_rec.peak_annotation_file.filename]
+            filenames.extend(
+                [r.peak_annotation_file.filename for r in existing_recs.all()]
+            )
+            files_str = "\n\t".join(filenames)
+
             message = (
                 "Multiple representations of this peak group compound were encountered:\n"
                 f"\tNew:\n\t\t{new_str}\n"
                 f"\tExisting:\n\t\t{existing_str}\n"
+                "Each peak group originated from:\n"
+                f"\t{files_str}\n"
                 "Only 1 representation of a compound per sample is allowed."
             )
 
@@ -5833,6 +5842,50 @@ class DuplicatePeakAnnotationFileName(Exception):
         message = f"Peak annotation filenames must be unique.  Filename {filename} was encountered multiple times."
         super().__init__(message)
         self.filename = filename
+
+
+class PeakAnnotationFileConflict(Exception):
+    """The submitted peak annotation file was previously loaded, but the previously loaded version differs from the new
+    version submitted.
+
+    After an initial load, sometimes users submit new data to an existing study, and it's necessary to rerun the
+    submission start page to create a new study doc template (from which data will be copied to update the existing/
+    polished study doc) because the submission start interface has error checks to ensure the new data does not
+    introduce errors relating to the previously loaded data.
+
+    For example, newly picked peaks from an existing sample can introduce multiple representation errors.  The validate
+    page cannot catch these errors, because it knows only sample and animal metadata, not the peak data.
+
+    However, sometimes during the submission of new data, a researcher may find a mistake in old data and attempt to
+    make a correction to the previously loaded peak annotation file.
+
+    This is a problem because it will create a new ArchiveFile database record for the distinct version.  Edited/new
+    peak groups will link to this new version while unchanged peak groups will still link to the old version.
+
+    That means that which peak annotation file version you get depends on how you encounter it on the site.
+
+    There's nothing a researcher can do to fix this, other than refraining from making unnecessary file edits.  If the
+    edits are necessary, a curator will need to perform a database migration to delete and reload all data associated
+    with the modified file.  The user is informed of this with this exception as a warning.
+    """
+
+    def __init__(
+        self, peak_annot_filename: str, differing_annot_files: List[ArchiveFile]
+    ):
+        timestamps_str = "\n\t".join(
+            [str(f.imported_timestamp) for f in differing_annot_files]
+        )
+        message = "".join(
+            f"{len(differing_annot_files)} differing version of a peak annotation file with the same name, "
+            f"'{peak_annot_filename}', was previously loaded on:\n\n\t"
+            f"{timestamps_str}\n\n"
+            "If the edits are intentional/necessary and some contained peak data, compound names, or sample names need "
+            "to be changed, a curator must be notified so that they can make updates to the existing data, so that the "
+            "old file version can be removed from the database.\n"
+            "If the edits were unintentional or superficial (e.g. changing column widths in excel), notify the "
+            "curation team that the original file must be used in the load of your supplemental data submission."
+        )
+        super().__init__(message)
 
 
 class InvalidStudyDocVersion(Exception):

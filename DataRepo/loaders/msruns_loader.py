@@ -1102,19 +1102,23 @@ class MSRunsLoader(TableLoader):
 
     def check_mzxml_files(self):
         """Reviews all of the mzXML files against the Peak Annotation Details sheet (if provided).  If any mzXML files
-        are totally unexpected, self.aggregated_errors_object is raised.
+        are totally unexpected or any unskipped mzXMLs provided with paths do not exist, self.aggregated_errors_object
+        is raised, because the load of mzXMLs is expensive, and if we know we will fail with one of these errors, we
+        want to skip the load to fix the problem to avoid multiple long reruns.
 
         Limitations:
-            1. This method only looks for mzXML files that appear to reference unloaded sample records.  It does not
-            check that there exists precisely 1 row for each mzXML file in the Peak Annotation Details sheet.
+            1. This method only looks for 2 problems: mzXML files that appear to reference unknown sample records and
+               mzXML files with path information that do not exist.  It does not check that there exists precisely 1 row
+               for each mzXML file in the Peak Annotation Details sheet.
         Assumptions:
             1. The directory paths supplied for mzXML files in the Peak Annotation Details sheets are relative to
-            self.mzxml_dir.
+               self.mzxml_dir.
         Args:
             None
         Exceptions:
             Buffers:
-                None
+                FileFromInputNotFound
+                ProgrammingError
             Raises:
                 AggregatedErrors
         Returns:
@@ -1127,6 +1131,7 @@ class MSRunsLoader(TableLoader):
         expected_samples = []
         unexpected_sample_headers = defaultdict(list)
         explicitly_skipped_rel_mzxmls = []
+        stop_with_error = False
 
         # Take an accounting of all expected samples and mzXML files.  Note that in the absence of an explicitly entered
         # mzXML file, the sample header is used as a stand-in for the mzXML file's name (minus extension).
@@ -1169,6 +1174,25 @@ class MSRunsLoader(TableLoader):
                 dr = os.path.dirname(mzxml_name_with_opt_path)
                 fn = os.path.basename(mzxml_name_with_opt_path)
                 sh = os.path.splitext(fn)[0]
+
+                # If mzXML files are available, check that sheet mzXMLs with supplied paths exist.
+                # NOTE: This always checks all files, even if a subset is explicitly supplied.
+                if len(self.mzxml_files) > 0:
+                    norm_mzxml_dir = (
+                        ""
+                        if dr == ""
+                        else os.path.normpath(os.path.relpath(dr, self.mzxml_dir))
+                    )
+                    head, _ = os.path.split(norm_mzxml_dir)
+                    has_subdir = head not in ("", ".", os.curdir)
+
+                    # If this (unskipped) mzXML file from the sheet was provided with a path (relative to the study
+                    # directory) does not exist, buffer an error.
+                    if has_subdir and not os.path.exists(mzxml_name_with_opt_path):
+                        stop_with_error = True
+                        self.buffer_infile_exception(
+                            FileFromInputNotFound(mzxml_name_with_opt_path)
+                        )
 
             modded_sh = sh
             if mzxml_name_with_opt_path is not None and not self.exact_mode:
@@ -1240,13 +1264,15 @@ class MSRunsLoader(TableLoader):
                 unmapped_samples.append(unexpected_sample_header)
 
         if len(unmapped_samples) > 0:
+            stop_with_error = True
             if not self.aggregated_errors_object.should_raise():
                 self.aggregated_errors_object.buffer_error(
                     ProgrammingError(
-                        "Unexpected failure.  There were no errors, but samples matching the following were not "
-                        f"found: {unmapped_samples}."
+                        f"Samples matching the following mzXML files were not found: {unmapped_samples}."
                     )
                 )
+
+        if stop_with_error:
             # Give up looking for more errors and exit early, because loading mzXML files is too expensive.
             raise self.aggregated_errors_object
 
@@ -1822,18 +1848,22 @@ class MSRunsLoader(TableLoader):
             mzxml_filename = None
             if mzxml_path is not None:
                 mzxml_dir, mzxml_filename = os.path.split(mzxml_path)
-                if (
-                    mzxml_dir != ""
-                    and not os.path.samefile(mzxml_dir, self.mzxml_dir)
-                    and not os.path.exists(mzxml_path)
-                ):
-                    self.errored(MSRunSample.__name__)
-                    self.buffer_infile_exception(FileFromInputNotFound(mzxml_path))
-                    return rec, False
+
+                # Validate mode does not handle mzXML files - only the study doc validation, so we can only check the
+                # paths provided in the mzXML File Name column if we are not in validate mode
+                if not self.validate:
+                    norm_mzxml_dir = os.path.normpath(mzxml_dir)
+                    head, _ = os.path.split(norm_mzxml_dir)
+                    has_subdir = head not in ("", ".", os.curdir)
+                    if has_subdir and not os.path.exists(mzxml_path):
+                        self.errored(MSRunSample.__name__)
+                        self.buffer_infile_exception(FileFromInputNotFound(mzxml_path))
+                        return rec, False
 
             if skip is True:
                 self.skipped(MSRunSample.__name__)
                 if mzxml_path is not None:
+                    mzxml_dir, mzxml_filename = os.path.split(mzxml_path)
                     if os.path.isabs(mzxml_dir):
                         mzxml_dir = os.path.relpath(mzxml_dir, self.mzxml_dir)
                     mzxml_name = self.make_sample_header_from_mzxml_name(mzxml_filename)
@@ -2250,6 +2280,8 @@ class MSRunsLoader(TableLoader):
                 # The mzXMLs need to be iterated to create or `UnmatchedMzXML` or `UnmatchedBlankMzXML` exceptions for
                 # each file so that this script doesn't need to be run multiple times to add files to the 'Peak
                 # Annotation Details' sheet
+                # TODO: Neither the warning nor the error in this for loop should be buffered if the mzXML is in the
+                # details sheet and marked as skip.
                 for from_mzxml in from_mzxmls:
                     if Sample.is_a_blank(sample_name):
                         # This warning may already exist from the check_mzxml_files method.  This is different from the
