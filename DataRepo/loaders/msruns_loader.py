@@ -1396,6 +1396,8 @@ class MSRunsLoader(TableLoader):
                         "will not be attempted.  Fix the existing errors and retry to proceed."
                     )
                 )
+
+        if stop_with_error:
             # Give up looking for more errors and exit early, because loading mzXML files is too expensive.
             raise self.aggregated_errors_object
 
