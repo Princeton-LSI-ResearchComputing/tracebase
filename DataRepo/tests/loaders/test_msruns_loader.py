@@ -36,8 +36,10 @@ from DataRepo.utils.exceptions import (
     MutuallyExclusiveArgs,
     MzxmlColocatedWithMultipleAnnot,
     MzxmlNotColocatedWithAnnot,
+    MzxmlSampleHeaderMismatch,
     NoSamples,
     PossibleDuplicateSample,
+    PossibleDuplicateSamples,
     RecordDoesNotExist,
     RequiredColumnValue,
     RequiredColumnValues,
@@ -178,19 +180,19 @@ class MSRunsLoaderTests(TracebaseTestCase):
             med_rt=2.0,
         )
 
-        bat_mzxml_file = (
+        cls.bat_mzxml_file = (
             "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/"
             "BAT-xz971.mzXML"
         )
         with path.open(mode="rb") as f:
-            BAT_xz971_mz_af = ArchiveFile.objects.create(
+            cls.BAT_xz971_mz_af = ArchiveFile.objects.create(
                 filename="BAT-xz971.mzXML",
-                checksum=ArchiveFile.hash_file(Path(bat_mzxml_file)),
+                checksum=ArchiveFile.hash_file(Path(cls.bat_mzxml_file)),
                 file_location=File(f, name=path.name),
                 data_type=DataType.objects.get(code="ms_data"),
                 data_format=DataFormat.objects.get(code="mzxml"),
             )
-        BAT_xz971_raw_af = ArchiveFile.objects.create(
+        cls.BAT_xz971_raw_af = ArchiveFile.objects.create(
             filename="BAT-xz971.raw",
             checksum="uniquerawhash4",
             data_type=DataType.objects.get(code="ms_data"),
@@ -270,8 +272,8 @@ class MSRunsLoaderTests(TracebaseTestCase):
                         "polarity": "positive",
                         "mz_min": 100.9,
                         "mz_max": 502.9,
-                        "mzaf_record": BAT_xz971_mz_af,
-                        "rawaf_record": BAT_xz971_raw_af,
+                        "mzaf_record": cls.BAT_xz971_mz_af,
+                        "rawaf_record": cls.BAT_xz971_raw_af,
                         "mzxml_filename": "BAT-xz971.mzXML",
                         "mzxml_dir": "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls",
                     }
@@ -309,7 +311,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         described in the infile because they weren't used in the production of a peak annotation file).
         """
         msrl = MSRunsLoader()
-        msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
+        msrl.mzxml_dict_by_header = deepcopy(self.MOCK_MZXML_DICT)
         self.assertTrue(msrl.unpaired_mzxml_files_exist())
 
     def test_leftover_mzxml_files_exist_false(self):
@@ -317,8 +319,8 @@ class MSRunsLoaderTests(TracebaseTestCase):
         described in the infile because they weren't used in the production of a peak annotation file).
         """
         msrl = MSRunsLoader()
-        msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
-        msrl.mzxml_dict["BAT_xz971"][
+        msrl.mzxml_dict_by_header = deepcopy(self.MOCK_MZXML_DICT)
+        msrl.mzxml_dict_by_header["BAT_xz971"][
             "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
         ][0]["added"] = True
         self.assertFalse(msrl.unpaired_mzxml_files_exist())
@@ -420,27 +422,26 @@ class MSRunsLoaderTests(TracebaseTestCase):
         warning."""
         msrl = MSRunsLoader()
         msrl.set_row_index(2)
-        msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
+        msrl.mzxml_dict_by_header = deepcopy(self.MOCK_MZXML_DICT)
         mzxml_metadata, mult_matches = msrl.get_matching_mzxml_metadata(
             "mysample1",  # Sample name - does not match
             "mysample1_neg_pos_scan2",  # Sample header - does not match (because of the "1")
             "mysample1_edited_filename.mzXML",  # file name without path will match multiple
         )
-        self.assertDictEqual(
-            {
-                "polarity": None,
-                "mz_min": None,
-                "mz_max": None,
-                "raw_file_name": None,
-                "raw_file_sha1": None,
-                "mzaf_record": None,
-                "rawaf_record": None,
-                "mzxml_dir": None,
-                "mzxml_filename": None,
-                "added": False,
-            },
-            mzxml_metadata,
-        )
+        expected = {
+            "polarity": None,
+            "mz_min": None,
+            "mz_max": None,
+            "raw_file_name": None,
+            "raw_file_sha1": None,
+            "mzaf_record": None,
+            "rawaf_record": None,
+            "mzxml_dir": None,
+            "mzxml_filename": None,
+            "added": False,
+            "sample_name": None,
+        }
+        self.assertDictEqual(expected, mzxml_metadata)
         self.assertEqual(1, len(msrl.aggregated_errors_object.exceptions))
         self.assertEqual(1, msrl.aggregated_errors_object.num_warnings)
         self.assertEqual(0, msrl.aggregated_errors_object.num_errors)
@@ -463,7 +464,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         a path to the mzXML Name column in the --infile."""
         msrl = MSRunsLoader()
         msrl.set_row_index(2)
-        msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
+        msrl.mzxml_dict_by_header = deepcopy(self.MOCK_MZXML_DICT)
         mzxml_metadata, mult_matches = msrl.get_matching_mzxml_metadata(
             "mysample1",  # Sample name - does not match
             "mysample1_neg_pos_scan2",  # Sample header - does not match (because of the "1")
@@ -480,7 +481,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
     def test_get_matching_mzxml_metadata_header_matches_uniquely(self):
         msrl = MSRunsLoader()
         msrl.set_row_index(2)
-        msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
+        msrl.mzxml_dict_by_header = deepcopy(self.MOCK_MZXML_DICT)
         expected = self.MOCK_MZXML_DICT["Br_xz971"][
             "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
         ][0]
@@ -639,7 +640,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
             ][0]
         )
 
-        msrl.mzxml_dict = self.MOCK_MZXML_DICT
+        msrl.mzxml_dict_by_header = self.MOCK_MZXML_DICT
 
         # Test create
         rec, created = msrl.get_or_create_msrun_sample_from_mzxml(
@@ -682,7 +683,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
             ][0]
         )
 
-        msrl.mzxml_dict = self.MOCK_MZXML_DICT
+        msrl.mzxml_dict_by_header = self.MOCK_MZXML_DICT
 
         rec, created = msrl.get_or_create_msrun_sample_from_mzxml(
             sample,  # Make sure this isn't necessary in edge cases
@@ -836,7 +837,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
 
         # Set up the loader object
         msrl = MSRunsLoader()
-        msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
+        msrl.mzxml_dict_by_header = deepcopy(self.MOCK_MZXML_DICT)
 
         # The row data we will attempt to load
         row = pd.Series(
@@ -877,7 +878,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
 
         # Set up the loader object
         msrl = MSRunsLoader()
-        msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
+        msrl.mzxml_dict_by_header = deepcopy(self.MOCK_MZXML_DICT)
 
         # Assure no placeholder exists (i.e. make sure the test will be valid)
         self.assertEqual(
@@ -939,7 +940,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
 
         # Set up the loader object
         msrl = MSRunsLoader()
-        msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
+        msrl.mzxml_dict_by_header = deepcopy(self.MOCK_MZXML_DICT)
 
         # The row data we will attempt to load
         row = pd.Series(
@@ -1011,7 +1012,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
 
         # Set up the loader object
         msrl = MSRunsLoader()
-        msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
+        msrl.mzxml_dict_by_header = deepcopy(self.MOCK_MZXML_DICT)
 
         # The row data we will attempt to load
         row = pd.Series(
@@ -1079,7 +1080,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
 
         # Set up the loader object
         msrl = MSRunsLoader()
-        msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
+        msrl.mzxml_dict_by_header = deepcopy(self.MOCK_MZXML_DICT)
 
         # The row data we will attempt to load
         row = pd.Series(
@@ -1172,7 +1173,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
 
         # Set up the loader object
         msrl = MSRunsLoader()
-        msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
+        msrl.mzxml_dict_by_header = deepcopy(self.MOCK_MZXML_DICT)
 
         ph_id = self.msr.id
 
@@ -1246,7 +1247,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
 
         # Set up the loader object
         msrl = MSRunsLoader()
-        msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
+        msrl.mzxml_dict_by_header = deepcopy(self.MOCK_MZXML_DICT)
 
         ph_id = self.msr.id
 
@@ -1296,7 +1297,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
 
         # Set up the loader object
         msrl = MSRunsLoader()
-        msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
+        msrl.mzxml_dict_by_header = deepcopy(self.MOCK_MZXML_DICT)
 
         ph_id = self.msr.id
 
@@ -1348,7 +1349,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
 
         # Set up the loader object
         msrl = MSRunsLoader()
-        msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
+        msrl.mzxml_dict_by_header = deepcopy(self.MOCK_MZXML_DICT)
 
         # Create a concrete MSRunSample record (i.e. it has an mzXML file and no peak groups link to it)
         concrete_mzxml_dict = self.MOCK_MZXML_DICT["BAT_xz971"][
@@ -1513,29 +1514,29 @@ class MSRunsLoaderTests(TracebaseTestCase):
 
     def test_get_sample_header_from_mzxml_name(self):
         msrl1 = MSRunsLoader()
-        name1 = msrl1.get_sample_header_from_mzxml_name(
+        name1 = msrl1.make_sample_header_from_mzxml_name(
             "path/file-with-dashes_and_underscrore.mzXML"
         )
         self.assertEqual("file_with_dashes_and_underscrore", name1)
-        name2 = msrl1.get_sample_header_from_mzxml_name(
+        name2 = msrl1.make_sample_header_from_mzxml_name(
             "file-with-dashes_and_underscrore.mzXML"
         )
         self.assertEqual("file_with_dashes_and_underscrore", name2)
-        name3 = msrl1.get_sample_header_from_mzxml_name(
+        name3 = msrl1.make_sample_header_from_mzxml_name(
             "file-with-dashes_and_underscrore"
         )
         self.assertEqual("file_with_dashes_and_underscrore", name3)
 
         msrl2 = MSRunsLoader(exact_mode=True)
-        name4 = msrl2.get_sample_header_from_mzxml_name(
+        name4 = msrl2.make_sample_header_from_mzxml_name(
             "path/file-with-dashes_and_underscrore.mzXML"
         )
         self.assertEqual("file-with-dashes_and_underscrore", name4)
-        name5 = msrl2.get_sample_header_from_mzxml_name(
+        name5 = msrl2.make_sample_header_from_mzxml_name(
             "file-with-dashes_and_underscrore.mzXML"
         )
         self.assertEqual("file-with-dashes_and_underscrore", name5)
-        name6 = msrl2.get_sample_header_from_mzxml_name(
+        name6 = msrl2.make_sample_header_from_mzxml_name(
             "file-with-dashes_and_underscrore"
         )
         self.assertEqual("file-with-dashes_and_underscrore", name6)
@@ -2259,6 +2260,259 @@ class MSRunsLoaderTests(TracebaseTestCase):
         )
         self.assertIsNone(msruns_loader.mzxml_dir)
         self.assertEqual([], msruns_loader.mzxml_files)
+
+    def test_load_data_ambiguous_match(self):
+        """This tests loading 4 mzxml files that have the same name.  In the details sheet, 2 are assigned a peak
+        annotation file, each mapping to different samples, but also there are 2 extra mzXML files with the same name in
+        different directories that initially lead to a misleading `PossibleDuplicateSamples` warning.  Another warning
+        about assigning a sequence suggests adding the sequences to the details sheet.  The expected outcome is that an
+        AmbiguousMzxmlSampleMatch error is buffered and no PossibleDuplicateSamples is buffered.
+
+        Normally, this would happen due to unanalyzed mzXML files that mapped to different samples in the details sheet
+        via *different* mzXML files that loaded fine.  E.g. There are 2 biological samples, each with 2 mzXML files.
+        One of each pair was used in a peak annotation file (e.g. the neg scan one), but the other was not.  However
+        this scenario will be simulated by manually populating the data structures to produce the expected result.
+
+        Test Design:
+            Create an MSRunsLoader object that supplies:
+                A df that has 2 samples, sample headers, the mzXML paths, and annot files (that have no need to exist)
+                mzxml_files that includes the 2 in the df, plus two extras, all with the same name
+                A default sequence
+            Call load_data, expecting an AggregatedErrors exception to be raised
+            Test that load_data buffers AmbiguousMzxmlSampleMatch
+        """
+
+        MSRunSequence.objects.create(
+            researcher="L.C. McMethod",
+            date=datetime.strptime("2024-05-06", "%Y-%m-%d"),
+            instrument="QE2",
+            lc_method=LCMethod.objects.get(name__exact="polar-HILIC-25-min"),
+        )
+        MSRunSequence.objects.create(
+            researcher="L.C. McMethod",
+            date=datetime.strptime("2024-05-08", "%Y-%m-%d"),
+            instrument="QE2",
+            lc_method=LCMethod.objects.get(name__exact="polar-HILIC-25-min"),
+        )
+        Sample.objects.create(
+            name="BAT_xz971",
+            tissue=self.tsu,
+            animal=self.anml,
+            researcher="John Doe",
+            date=datetime.now(),
+        )
+        Sample.objects.create(
+            name="BAT_xz971_SCFA",
+            tissue=self.tsu,
+            animal=self.anml,
+            researcher="John Doe",
+            date=datetime.now(),
+        )
+
+        df = pd.DataFrame.from_dict(
+            {
+                # The _SCFA append is based on the real world data where this issue came up.  The assumption is that the
+                # user was trying to differentiate 2 different biological samples.
+                "Sample Name": ["BAT_xz971", "BAT_xz971_SCFA"],
+                # One from a pos annot file and one from neg, but different biological samples with the same mzXML name
+                # The user manually edited the header
+                "Sample Data Header": ["BAT-xz971", "BAT-xz971_SCFA"],
+                "mzXML File Name": [
+                    (
+                        "DataRepo/data/tests/small_obob_mzxmls_ambiguous/small_obob_maven_6eaas_inf_lactate_neg_mzxmls/"
+                        "BAT-xz971.mzXML"
+                    ),
+                    (
+                        "DataRepo/data/tests/small_obob_mzxmls_ambiguous/small_obob_maven_6eaas_inf_lactate_pos_mzxmls/"
+                        "BAT-xz971.mzXML"
+                    ),
+                ],
+                "Peak Annotation File Name": ["annot_neg.xlsx", "annot_pos.xlsx"],
+                "Sequence": [
+                    "L.C. McMethod, polar-HILIC-25-min, QE2, 2024-05-06",
+                    "L.C. McMethod, polar-HILIC-25-min, QE2, 2024-05-08",
+                ],
+            },
+        )
+
+        # Set up the loader object
+        msrl = MSRunsLoader(
+            df=df,
+            mzxml_dir="DataRepo/data/tests/small_obob_mzxmls_ambiguous/",
+            mzxml_files=[
+                # A sample in the sheet
+                (
+                    "DataRepo/data/tests/small_obob_mzxmls_ambiguous/small_obob_maven_6eaas_inf_lactate_neg_mzxmls/"
+                    "BAT-xz971.mzXML"
+                ),
+                (
+                    "DataRepo/data/tests/small_obob_mzxmls_ambiguous/small_obob_maven_6eaas_inf_lactate_pos_mzxmls/"
+                    "BAT-xz971.mzXML"
+                ),
+                # 2 different files with the same name, mapped to different samples in mzxml_to_sample_name
+                (
+                    "DataRepo/data/tests/small_obob_mzxmls_ambiguous/small_obob_maven_6eaas_inf_glucose_mzxmls/"
+                    "BAT-xz971.mzXML"
+                ),
+                (
+                    "DataRepo/data/tests/small_obob_mzxmls_ambiguous/small_obob_maven_6eaas_inf_lactate_mzxmls/"
+                    "BAT-xz971.mzXML"
+                ),
+            ],
+            operator="L.C. McMethod",
+            date="2024-05-06",
+            instrument="QE2",
+            lc_protocol_name="polar-HILIC-25-min",
+        )
+
+        with self.assertRaises(AggregatedErrors):
+            # This is the method we're testing
+            msrl.load_data()
+
+        # This coincidentally exists as an exception/warning
+        self.assertTrue(
+            msrl.aggregated_errors_object.exception_type_exists(
+                MzxmlSampleHeaderMismatch
+            )
+        )
+        self.assertFalse(
+            msrl.aggregated_errors_object.exception_type_exists(
+                PossibleDuplicateSamples
+            )
+        )
+
+        # BUG: There is a bug in PR #1714 that prevents this test from passing.  It will be fixed in the next PR.
+        # BUG: See the BUG comment here for details: DataRepo.loaders.msruns_loader.MSRunsLoader
+        # BUG: .get_matching_mzxml_metadata
+        # BUG: Uncomment these when the bug is fixed in the next PR
+        # self.assertEqual(2, len(msrl.aggregated_errors_object.exceptions))
+        # self.assertIsInstance(msrl.aggregated_errors_object.exceptions[0], AmbiguousMzxmlSampleMatch)
+
+    def test_set_mzxml_metadata(self):
+        # Set up the loader object
+        msrl = MSRunsLoader()
+
+        msrl.set_mzxml_metadata(
+            None,  # mzxml_metadata: Optional[dict],
+            self.bat_mzxml_file,
+            self.BAT_xz971_mz_af,
+            self.BAT_xz971_raw_af,
+        )
+
+        expected = {
+            "BAT_xz971": {
+                "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls": [
+                    {
+                        "added": False,
+                        "mzxml_dir": "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls",
+                        "mzxml_filepath": self.bat_mzxml_file,
+                        "polarity": None,
+                        "mzxml_filename": "BAT-xz971.mzXML",
+                        "raw_file_sha1": None,
+                        "mz_min": None,
+                        "mzaf_record": self.BAT_xz971_mz_af,
+                        "mz_max": None,
+                        "raw_file_name": None,
+                        "rawaf_record": self.BAT_xz971_raw_af,
+                        "sample_name": None,
+                    },
+                ],
+            },
+        }
+
+        self.assertEquivalent(expected, msrl.mzxml_dict_by_header)
+
+    # BUG: This is fixed in PR: #1718.  This change (to get_or_create_msrun_sample_from_row) was made in PR #1714.  Once
+    # BUG: I get to #1718, uncomment and/or adjust this test.
+    # def test_mzxml_file_does_not_exist_caught(self):
+    #     """Assert that mzXML files provided in the details that don't actually exist, are gracefully handled using
+    #     FileFromInputNotFound.
+    #
+    #     Test Design:
+    #         Supply a row to get_or_create_msrun_sample_from_row that contains an mzXML with a path to a file that does
+    #             not exist
+    #         Assert that FileFromInputNotFound is buffered
+    #     """
+    #
+    #     # Set up the loader object
+    #     msrl = MSRunsLoader()
+    #
+    #     row = pd.Series(
+    #         {
+    #             MSRunsLoader.DataHeaders.SEQNAME: self.seqname,
+    #             MSRunsLoader.DataHeaders.SAMPLENAME: self.sample_with_no_msr.name,
+    #             MSRunsLoader.DataHeaders.SAMPLEHEADER: f"{self.sample_with_no_msr.name}_pos",
+    #             MSRunsLoader.DataHeaders.MZXMLNAME: "does_not_exist/does_not_exist.mzXML",
+    #             MSRunsLoader.DataHeaders.ANNOTNAME: "accucor_file.xlsx",
+    #         }
+    #     )
+    #
+    #     with self.assertRaises(AggregatedErrors):
+    #         msrl.get_or_create_msrun_sample_from_row(row)
+    #
+    #     self.assertEqual(1, len(msrl.aggregated_errors_object.exceptions))
+    #     self.assertIsInstance(msrl.aggregated_errors_object.exceptions[0], FileFromInputNotFound)
+
+    def test_get_matching_mzxml_metadata_matches_with_sample_and_path(self):
+        """Assert that get_matching_mzxml_metadata works when provided with just the sample name and mzXML path (no
+        sample data header)
+
+        Test Design:
+            Set self.mzxml_dict_by_header to include an entry
+            Call get_matching_mzxml_metadata and only supply the sample name and mzXML path
+            Assert that the correct metadata dict is returned
+        """
+        msrl = MSRunsLoader()
+        msrl.mzxml_dict_by_header = deepcopy(self.MOCK_MZXML_DICT)
+        expected = self.MOCK_MZXML_DICT["Br_xz971"][
+            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
+        ][0]
+        mzxml_metadata, mult_matches = msrl.get_matching_mzxml_metadata(
+            "Sample Name",  # Sample name - does match
+            None,  # Sample header
+            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/Br-xz971.mzXML",
+        )
+        self.assertDictEqual(expected, mzxml_metadata)
+        self.assertEqual(0, len(msrl.aggregated_errors_object.exceptions))
+        self.assertFalse(mult_matches)
+
+    def test_get_matching_mzxml_metadata_no_match_with_sample_and_path_returns_placeholder(
+        self,
+    ):
+        """Assert that get_matching_mzxml_metadata works when provided with just the sample name and mzXML path (no
+        sample data header)
+
+        Test Design:
+            Set self.mzxml_dict_by_header to an empty dict
+            Call get_matching_mzxml_metadata and only supply the sample name and mzXML path
+            Assert that (placeholder_mzxml_metadata, True) is returned
+            Assert that a ValueError was buffered
+        """
+        msrl = MSRunsLoader()
+        msrl.mzxml_dict_by_header = {}
+        mzxml_metadata, mult_matches = msrl.get_matching_mzxml_metadata(
+            "Sample Name",  # Sample name - does match
+            None,  # Sample header
+            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/Br-xz971.mzXML",
+        )
+
+        expected_placeholder = {
+            "added": False,
+            "mz_max": None,
+            "mz_min": None,
+            "mzaf_record": None,
+            "mzxml_dir": None,
+            "mzxml_filename": None,
+            "polarity": None,
+            "raw_file_name": None,
+            "raw_file_sha1": None,
+            "rawaf_record": None,
+            "sample_name": None,
+        }
+
+        self.assertDictEqual(expected_placeholder, mzxml_metadata)
+        self.assertEqual(0, len(msrl.aggregated_errors_object.exceptions))
+        self.assertFalse(mult_matches)
 
 
 class MSRunsLoaderArchiveTests(TracebaseArchiveTestCase):

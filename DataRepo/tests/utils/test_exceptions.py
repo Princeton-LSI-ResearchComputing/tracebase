@@ -5,6 +5,8 @@ from DataRepo.models.utilities import get_model_by_name
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
+    AmbiguousMzxmlSampleMatch,
+    AmbiguousMzxmlSampleMatches,
     AnimalsWithoutSamples,
     AnimalsWithoutSerumSamples,
     AnimalWithoutSamples,
@@ -1879,3 +1881,65 @@ class ExceptionTests(TracebaseTestCase):
         self.assertIn("conflicts with 2 existing database records", str(mcvm))
         self.assertIn("database: [s1]\n\t\t\tfile: [s3]", str(mcvm))
         self.assertIn("database: [s2]\n\t\t\tfile: [s3]", str(mcvm))
+
+    def test_AmbiguousMzxmlSampleMatch(self):
+        amsm = AmbiguousMzxmlSampleMatch(
+            ["sample1", "sample1other"],
+            "sample1.mzXML",
+            file="study.xlsx",
+            sheet="Peak Annotation Details",
+        )
+        # Defines the problem
+        self.assertIn(
+            "mzXML file 'sample1.mzXML' could not be mapped to a single sample.",
+            str(amsm),
+        )
+        # Explains the reason
+        self.assertIn(
+            "Each mzXML must be associated with an MSRunSample, which links to a Sample",
+            str(amsm),
+        )
+        # Supplies resolution/fix suggestion
+        self.assertIn(
+            "add a row for every mzXML file with this name, including its path",
+            str(amsm),
+        )
+        self.assertIn("to sheet [Peak Annotation Details] in study.xlsx", str(amsm))
+        # Supplies the data necessary to implement the suggestion
+        self.assertIn("sample matches include: ['sample1', 'sample1other']", str(amsm))
+
+    def test_AmbiguousMzxmlSampleMatches(self):
+        amsm1 = AmbiguousMzxmlSampleMatch(
+            ["sample1", "sample1other"],
+            "sample1.mzXML",
+        )
+        amsm2 = AmbiguousMzxmlSampleMatch(
+            ["sample2", "sample2other"],
+            "sample2.mzXML",
+        )
+        amsm_summary = AmbiguousMzxmlSampleMatches([amsm1, amsm2])
+        # Defines the problem
+        self.assertIn(
+            "The following mzXML files could not be mapped to a single sample",
+            str(amsm_summary),
+        )
+        # Explains the reason
+        self.assertIn(
+            "Each mzXML must be associated with an MSRunSample, which links to a Sample",
+            str(amsm_summary),
+        )
+        # Supplies resolution/fix suggestion
+        self.assertIn(
+            "add a row for every mzXML file with the indicated name, including their path",
+            str(amsm_summary),
+        )
+        self.assertIn("to the Peak Annotation Details sheet", str(amsm_summary))
+        # Supplies the data necessary to implement the suggestion
+        self.assertIn(
+            "'sample1.mzXML' matches samples: ['sample1', 'sample1other']",
+            str(amsm_summary),
+        )
+        self.assertIn(
+            "'sample2.mzXML' matches samples: ['sample2', 'sample2other']",
+            str(amsm_summary),
+        )

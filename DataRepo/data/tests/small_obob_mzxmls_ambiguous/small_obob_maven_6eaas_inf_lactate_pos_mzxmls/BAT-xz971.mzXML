@@ -5,7 +5,7 @@
   <msRun scanCount="929" startTime="PT60.2854S" endTime="PT1200.72S">
     <parentFile fileName="file:///C:\XCalibur\data\MDN\210902_exp027d_batch4 serum/BAT-xz971_neg.raw"
                 fileType="RAWData"
-                fileSha1="31bc554534cf9f1e568529d110caa85f1fd0a8c7"/>
+                fileSha1="31bc554534cf9f1e568529d110caa85f1fd0a8c4"/>
     <scan num="1"
           lowMz="1"
           highMz="100.9"
