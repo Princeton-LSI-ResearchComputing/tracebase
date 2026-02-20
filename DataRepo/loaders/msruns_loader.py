@@ -1834,6 +1834,7 @@ class MSRunsLoader(TableLoader):
                 RollbackException
             Buffers:
                 RecordDoesNotExist
+                FileFromInputNotFound
         Returns:
             rec (Optional[MSRunSample])
             created (boolean)
