@@ -610,6 +610,7 @@ class MSRunsLoader(TableLoader):
 
         # This will contain the sample header mapped to the sample name in the database.
         self.header_to_sample_name = defaultdict(lambda: defaultdict(list))
+
         # This will contain the mzXML basename mapped to the sample name in the database.  It will only be used to map
         # multiple leftover mzXML files with the same name to a sample (when they could not be mapped to a specific row,
         # but all map to the same sample).  Filling in the mzXML File Name column is optional.  When it is empty, the
@@ -858,6 +859,7 @@ class MSRunsLoader(TableLoader):
                     # The self.mzxml_dict_by_header has the sample name recorded in it.  Let's filter out the ones that
                     # have already been processed and grab the sample names that are left over, in a potentially non-
                     # unique list.
+                    # This gets the unmapped samples
                     leftover_samples = [
                         mz_file_dict["sample_name"]
                         for dir_key in self.mzxml_dict_by_header[
@@ -869,8 +871,7 @@ class MSRunsLoader(TableLoader):
                         if not mz_file_dict["added"]
                     ]
 
-                    # BUG: NOTE: This problem was broken up into 2 PRs.  This block does not work in this PR.  It is
-                    # BUG: fixed in the next PR.  See the BUG description in the comment in get_matching_mzxml_data
+                    # This gets the previously mapped samples
                     potentially_matching_samples = [
                         mz_file_dict["sample_name"]
                         for dir_key in self.mzxml_dict_by_header[
@@ -882,7 +883,7 @@ class MSRunsLoader(TableLoader):
                         if mz_file_dict["added"]
                     ]
 
-                    # Now let's make that list of sample names unique
+                    # Now let's make that unmapped list of sample names unique
                     infer_match = False
                     unique_leftover_samples = []
                     for smplnm in leftover_samples:
@@ -891,11 +892,11 @@ class MSRunsLoader(TableLoader):
                         if smplnm is not None and smplnm not in unique_leftover_samples:
                             unique_leftover_samples.append(smplnm)
 
-                    # BUG: NOTE: This problem was broken up into 2 PRs.  This block does not work in this PR.  It is
-                    # BUG: fixed in the next PR.  See the BUG description in the comment in get_matching_mzxml_data
                     # If any of the leftovers could not assign a sample name, assume that other files by the same name
                     # that WERE added, because they were included in the peak annotation details sheet, are the matching
                     # samples, and add them as an ambiguous match.
+                    # This compares the mapped and unmapped samples and generates a unique list of potential sample
+                    # matches
                     if infer_match and len(potentially_matching_samples) > 0:
                         for potential_match in potentially_matching_samples:
                             if potential_match not in unique_leftover_samples:
@@ -908,16 +909,23 @@ class MSRunsLoader(TableLoader):
                         # All have already been loaded, so we can move on
                         continue
                     else:
-                        # BUG: NOTE: This problem was broken up into 2 PRs.  This block does is not executed in this PR.
-                        # BUG: It is fixed in the next PR.  See the BUG description in the comment in
-                        # BUG: get_matching_mzxml_data
-                        # BUG: Once it's fixed, this test needs to be updated: DataRepo.tests.loaders.test_msruns_loader
-                        # BUG: .MSRunsLoaderTests.test_load_data_ambiguous_match
+                        # Obtain all the mzXML paths to report in the AmbiguousMzxmlSampleMatch error
+                        leftover_mzxmls = [
+                            mz_file_dict["mzxml_filepath"]
+                            for dir_key in self.mzxml_dict_by_header[
+                                mzxml_name_no_ext
+                            ].keys()
+                            for mz_file_dict in self.mzxml_dict_by_header[
+                                mzxml_name_no_ext
+                            ][dir_key]
+                            if not mz_file_dict["added"]
+                        ]
+
                         # We have an ambiguous mzXML sample mapping, so buffer an error
                         self.buffer_infile_exception(
                             AmbiguousMzxmlSampleMatch(
                                 unique_leftover_samples,
-                                mzxml_name_no_ext,
+                                leftover_mzxmls,
                                 infer_match,
                             ),
                             is_error=True,
@@ -1102,19 +1110,23 @@ class MSRunsLoader(TableLoader):
 
     def check_mzxml_files(self):
         """Reviews all of the mzXML files against the Peak Annotation Details sheet (if provided).  If any mzXML files
-        are totally unexpected, self.aggregated_errors_object is raised.
+        are totally unexpected or any unskipped mzXMLs provided with paths do not exist, self.aggregated_errors_object
+        is raised, because the load of mzXMLs is expensive, and if we know we will fail with one of these errors, we
+        want to skip the load to fix the problem to avoid multiple long reruns.
 
         Limitations:
-            1. This method only looks for mzXML files that appear to reference unloaded sample records.  It does not
-            check that there exists precisely 1 row for each mzXML file in the Peak Annotation Details sheet.
+            1. This method only looks for 2 problems: mzXML files that appear to reference unknown sample records and
+               mzXML files with path information that do not exist.  It does not check that there exists precisely 1 row
+               for each mzXML file in the Peak Annotation Details sheet.
         Assumptions:
             1. The directory paths supplied for mzXML files in the Peak Annotation Details sheets are relative to
-            self.mzxml_dir.
+               self.mzxml_dir.
         Args:
             None
         Exceptions:
             Buffers:
-                None
+                FileFromInputNotFound
+                ProgrammingError
             Raises:
                 AggregatedErrors
         Returns:
@@ -1127,6 +1139,7 @@ class MSRunsLoader(TableLoader):
         expected_samples = []
         unexpected_sample_headers = defaultdict(list)
         explicitly_skipped_rel_mzxmls = []
+        stop_with_error = False
 
         # Take an accounting of all expected samples and mzXML files.  Note that in the absence of an explicitly entered
         # mzXML file, the sample header is used as a stand-in for the mzXML file's name (minus extension).
@@ -1169,6 +1182,24 @@ class MSRunsLoader(TableLoader):
                 dr = os.path.dirname(mzxml_name_with_opt_path)
                 fn = os.path.basename(mzxml_name_with_opt_path)
                 sh = os.path.splitext(fn)[0]
+
+                # If mzXML files are available, check that sheet mzXMLs with supplied paths exist.
+                # NOTE: This always checks all files, even if a subset is explicitly supplied.
+                if len(self.mzxml_files) > 0:
+                    norm_mzxml_dir = (
+                        ""
+                        if dr == ""
+                        else os.path.normpath(os.path.relpath(dr, self.mzxml_dir))
+                    )
+                    has_subdir = norm_mzxml_dir not in ("", ".", os.curdir)
+
+                    # If this (unskipped) mzXML file from the sheet was provided with a path (relative to the study
+                    # directory) does not exist, buffer an error.
+                    if has_subdir and not os.path.exists(mzxml_name_with_opt_path):
+                        stop_with_error = True
+                        self.buffer_infile_exception(
+                            FileFromInputNotFound(mzxml_name_with_opt_path)
+                        )
 
             modded_sh = sh
             if mzxml_name_with_opt_path is not None and not self.exact_mode:
@@ -1240,13 +1271,16 @@ class MSRunsLoader(TableLoader):
                 unmapped_samples.append(unexpected_sample_header)
 
         if len(unmapped_samples) > 0:
+            stop_with_error = True
             if not self.aggregated_errors_object.should_raise():
                 self.aggregated_errors_object.buffer_error(
                     ProgrammingError(
-                        "Unexpected failure.  There were no errors, but samples matching the following were not "
-                        f"found: {unmapped_samples}."
+                        "There were no errors, but samples matching the the inferred mzXML-derived sample headers were "
+                        f"not found: {unmapped_samples}."
                     )
                 )
+
+        if stop_with_error:
             # Give up looking for more errors and exit early, because loading mzXML files is too expensive.
             raise self.aggregated_errors_object
 
@@ -1793,6 +1827,7 @@ class MSRunsLoader(TableLoader):
                 RollbackException
             Buffers:
                 RecordDoesNotExist
+                FileFromInputNotFound
         Returns:
             rec (Optional[MSRunSample])
             created (boolean)
@@ -1822,18 +1857,21 @@ class MSRunsLoader(TableLoader):
             mzxml_filename = None
             if mzxml_path is not None:
                 mzxml_dir, mzxml_filename = os.path.split(mzxml_path)
-                if (
-                    mzxml_dir != ""
-                    and not os.path.samefile(mzxml_dir, self.mzxml_dir)
-                    and not os.path.exists(mzxml_path)
-                ):
-                    self.errored(MSRunSample.__name__)
-                    self.buffer_infile_exception(FileFromInputNotFound(mzxml_path))
-                    return rec, False
+
+                # Validate mode does not handle mzXML files - only the study doc validation, so we can only check the
+                # paths provided in the mzXML File Name column if we are not in validate mode
+                if not self.validate:
+                    norm_mzxml_dir = os.path.normpath(mzxml_dir)
+                    has_subdir = norm_mzxml_dir not in ("", ".", os.curdir)
+                    if has_subdir and not os.path.exists(mzxml_path):
+                        self.errored(MSRunSample.__name__)
+                        self.buffer_infile_exception(FileFromInputNotFound(mzxml_path))
+                        return rec, False
 
             if skip is True:
                 self.skipped(MSRunSample.__name__)
                 if mzxml_path is not None:
+                    mzxml_dir, mzxml_filename = os.path.split(mzxml_path)
                     if os.path.isabs(mzxml_dir):
                         mzxml_dir = os.path.relpath(mzxml_dir, self.mzxml_dir)
                     mzxml_name = self.make_sample_header_from_mzxml_name(mzxml_filename)
@@ -2250,6 +2288,8 @@ class MSRunsLoader(TableLoader):
                 # The mzXMLs need to be iterated to create or `UnmatchedMzXML` or `UnmatchedBlankMzXML` exceptions for
                 # each file so that this script doesn't need to be run multiple times to add files to the 'Peak
                 # Annotation Details' sheet
+                # TODO: Neither the warning nor the error in this for loop should be buffered if the mzXML is in the
+                # details sheet and marked as skip.
                 for from_mzxml in from_mzxmls:
                     if Sample.is_a_blank(sample_name):
                         # This warning may already exist from the check_mzxml_files method.  This is different from the
@@ -2795,12 +2835,16 @@ class MSRunsLoader(TableLoader):
             mzxml_string_dir, mzxml_filename = os.path.split(mzxml_path)
             mzxml_basename = (os.path.splitext(mzxml_filename))[0]
 
-            # BUG: This is getting the wrong multiple_mzxml_dict, or rather that dict does not include same-named mzxmls
-            # BUG: in directories where the sample header differs (i.e. has been edited).  This issue is separate from
-            # BUG: the inaccurate possible dupe samples issue, so I will fix this in a separate PR and delete this
-            # BUG: comment.  The problem is that the keys in self.mzxml_dict_by_header are not the actual file name -
-            # BUG: they are the sample data headers (or the best guess at what it is).  That's why this calls
-            # BUG: make_sample_header_from_mzxml_name.
+            # The mzXML path might be (but shouldn't be) an absolute path, or relative to the current directory (though
+            # it's recommended to run from the study directory).  But just in case, we will make sure it is relative to
+            # the study directory.  NOTE: There are some tests that are effectively run from a different directory, so
+            # this is necessary to pass the tests.
+            rel_mzxml_string_dir = (
+                ""
+                if mzxml_string_dir == ""
+                else os.path.relpath(mzxml_string_dir, self.mzxml_dir)
+            )
+
             # I need to be looking at self.mzxml_files.  That's just a list, so I'll need to figure out how to get the
             # metadata...
             mzxml_name = self.make_sample_header_from_mzxml_name(mzxml_filename)
@@ -2808,11 +2852,11 @@ class MSRunsLoader(TableLoader):
 
             # Identify the mzxml metadata by matching the mzxml path that was explicitly supplied in the peak annotation
             # details sheet.  If there is a match, return it.
-            if multiple_mzxml_dict is not None and mzxml_string_dir != "":
+            if multiple_mzxml_dict is not None and rel_mzxml_string_dir != "":
                 # Check for an exact match
                 for dir in multiple_mzxml_dict.keys():
                     if len(multiple_mzxml_dict[dir]) == 1 and os.path.normpath(
-                        mzxml_string_dir
+                        rel_mzxml_string_dir
                     ) == os.path.normpath(dir):
                         return multiple_mzxml_dict[dir][0], False
 

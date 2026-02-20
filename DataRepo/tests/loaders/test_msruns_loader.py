@@ -30,7 +30,9 @@ from DataRepo.tests.tracebase_test_case import (
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     AllMzxmlSequenceUnknown,
+    AmbiguousMzxmlSampleMatches,
     ConditionallyRequiredArgs,
+    FileFromInputNotFound,
     InfileError,
     MissingSamples,
     MutuallyExclusiveArgs,
@@ -2266,7 +2268,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         annotation file, each mapping to different samples, but also there are 2 extra mzXML files with the same name in
         different directories that initially lead to a misleading `PossibleDuplicateSamples` warning.  Another warning
         about assigning a sequence suggests adding the sequences to the details sheet.  The expected outcome is that an
-        AmbiguousMzxmlSampleMatch error is buffered and no PossibleDuplicateSamples is buffered.
+        AmbiguousMzxmlSampleMatches error is buffered and no PossibleDuplicateSamples is buffered.
 
         Normally, this would happen due to unanalyzed mzXML files that mapped to different samples in the details sheet
         via *different* mzXML files that loaded fine.  E.g. There are 2 biological samples, each with 2 mzXML files.
@@ -2279,7 +2281,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
                 mzxml_files that includes the 2 in the df, plus two extras, all with the same name
                 A default sequence
             Call load_data, expecting an AggregatedErrors exception to be raised
-            Test that load_data buffers AmbiguousMzxmlSampleMatch
+            Test that load_data buffers AmbiguousMzxmlSampleMatches
         """
 
         MSRunSequence.objects.create(
@@ -2381,12 +2383,14 @@ class MSRunsLoaderTests(TracebaseTestCase):
             )
         )
 
-        # BUG: There is a bug in PR #1714 that prevents this test from passing.  It will be fixed in the next PR.
-        # BUG: See the BUG comment here for details: DataRepo.loaders.msruns_loader.MSRunsLoader
-        # BUG: .get_matching_mzxml_metadata
-        # BUG: Uncomment these when the bug is fixed in the next PR
-        # self.assertEqual(2, len(msrl.aggregated_errors_object.exceptions))
-        # self.assertIsInstance(msrl.aggregated_errors_object.exceptions[0], AmbiguousMzxmlSampleMatch)
+        expected_exc_types = set(
+            [AmbiguousMzxmlSampleMatches.__name__, MzxmlSampleHeaderMismatch.__name__]
+        )
+        exc_types = set(
+            [e.__name__ for e in msrl.aggregated_errors_object.get_exception_types()]
+        )
+        self.assertEqual(expected_exc_types, exc_types)
+        self.assertEqual(2, len(msrl.aggregated_errors_object.exceptions))
 
     def test_set_mzxml_metadata(self):
         # Set up the loader object
@@ -2422,36 +2426,39 @@ class MSRunsLoaderTests(TracebaseTestCase):
 
         self.assertEquivalent(expected, msrl.mzxml_dict_by_header)
 
-    # BUG: This is fixed in PR: #1718.  This change (to get_or_create_msrun_sample_from_row) was made in PR #1714.  Once
-    # BUG: I get to #1718, uncomment and/or adjust this test.
-    # def test_mzxml_file_does_not_exist_caught(self):
-    #     """Assert that mzXML files provided in the details that don't actually exist, are gracefully handled using
-    #     FileFromInputNotFound.
-    #
-    #     Test Design:
-    #         Supply a row to get_or_create_msrun_sample_from_row that contains an mzXML with a path to a file that does
-    #             not exist
-    #         Assert that FileFromInputNotFound is buffered
-    #     """
-    #
-    #     # Set up the loader object
-    #     msrl = MSRunsLoader()
-    #
-    #     row = pd.Series(
-    #         {
-    #             MSRunsLoader.DataHeaders.SEQNAME: self.seqname,
-    #             MSRunsLoader.DataHeaders.SAMPLENAME: self.sample_with_no_msr.name,
-    #             MSRunsLoader.DataHeaders.SAMPLEHEADER: f"{self.sample_with_no_msr.name}_pos",
-    #             MSRunsLoader.DataHeaders.MZXMLNAME: "does_not_exist/does_not_exist.mzXML",
-    #             MSRunsLoader.DataHeaders.ANNOTNAME: "accucor_file.xlsx",
-    #         }
-    #     )
-    #
-    #     with self.assertRaises(AggregatedErrors):
-    #         msrl.get_or_create_msrun_sample_from_row(row)
-    #
-    #     self.assertEqual(1, len(msrl.aggregated_errors_object.exceptions))
-    #     self.assertIsInstance(msrl.aggregated_errors_object.exceptions[0], FileFromInputNotFound)
+    def test_mzxml_file_does_not_exist_caught(self):
+        """Assert that mzXML files provided in the details that don't actually exist, are gracefully handled using
+        FileFromInputNotFound.
+
+        Test Design:
+            Supply a row to get_or_create_msrun_sample_from_row that contains an mzXML with a path to a file that does
+                not exist
+            Assert that FileFromInputNotFound is buffered
+        """
+
+        # Set up the loader object and supply it a real mzXML file that does not match the row we will process
+        msrl = MSRunsLoader(
+            mzxml_files=[
+                "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML"
+            ]
+        )
+
+        row = pd.Series(
+            {
+                MSRunsLoader.DataHeaders.SEQNAME: self.seqname,
+                MSRunsLoader.DataHeaders.SAMPLENAME: self.sample_with_no_msr.name,
+                MSRunsLoader.DataHeaders.SAMPLEHEADER: "does_not_exist",
+                MSRunsLoader.DataHeaders.MZXMLNAME: "does_not_exist/does_not_exist.mzXML",
+                MSRunsLoader.DataHeaders.ANNOTNAME: "accucor_file.xlsx",
+            }
+        )
+
+        msrl.get_or_create_msrun_sample_from_row(row)
+
+        self.assertEqual(1, len(msrl.aggregated_errors_object.exceptions))
+        self.assertIsInstance(
+            msrl.aggregated_errors_object.exceptions[0], FileFromInputNotFound
+        )
 
     def test_get_matching_mzxml_metadata_matches_with_sample_and_path(self):
         """Assert that get_matching_mzxml_metadata works when provided with just the sample name and mzXML path (no
