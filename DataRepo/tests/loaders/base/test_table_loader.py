@@ -30,6 +30,7 @@ from DataRepo.utils.exceptions import (
     DuplicateValueErrors,
     DuplicateValues,
     InfileDatabaseError,
+    InfileError,
     MultipleConflictingValueMatches,
     NoLoadData,
     RequiredColumnValue,
@@ -2331,6 +2332,32 @@ class TableLoaderTests(TracebaseTestCase):
                     "UFTWO": "UsersDumbFieldTwoHeader",
                 }
             ).get_column_types(),
+        )
+
+    def test_buffer_infile_exception(self):
+        """This test asserts that buffer_infile_exception adds the file context to an exception derived from
+        InfileError, such as the infile name, the sheet, and the row.  Note, it has no way to add the column.
+        """
+
+        class MyInfileError(InfileError):
+            pass
+
+        infile = "study.xlsx"
+        row_index = 5
+
+        tl = self.test_loader_class(file=infile)
+        tl.set_row_index(row_index)
+
+        # This is what's being tested
+        tl.buffer_infile_exception(MyInfileError("My error from %s"))
+
+        self.assertEqual(1, len(tl.aggregated_errors_object.exceptions))
+        self.assertIsInstance(tl.aggregated_errors_object.exceptions[0], MyInfileError)
+        self.assertIn(tl.DataSheetName, str(tl.aggregated_errors_object.exceptions[0]))
+        self.assertIn(infile, str(tl.aggregated_errors_object.exceptions[0]))
+        # Row numbers are reported where the first row is row 1 for the headers
+        self.assertIn(
+            str(row_index + 2), str(tl.aggregated_errors_object.exceptions[0])
         )
 
 

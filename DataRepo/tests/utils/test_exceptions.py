@@ -64,6 +64,7 @@ from DataRepo.utils.exceptions import (
     NoTracerLabeledElements,
     ObservedIsotopeUnbalancedError,
     OptionsNotAvailable,
+    PeakAnnotationFileConflict,
     PossibleDuplicateSample,
     PossibleDuplicateSamples,
     ProhibitedCompoundName,
@@ -2248,3 +2249,33 @@ class ExceptionTests(TracebaseTestCase):
         )
         self.assertIn("blank", str(exc))
         self.assertIn("Test suggestion", str(exc))
+
+    def test_PeakAnnotationFileConflict(self):
+        from DataRepo.models import ArchiveFile, DataFormat, DataType
+
+        # Prepare to create an "edited" file (loaded and being loaded)
+        ms_peak_annotation = DataType.objects.get(code="ms_peak_annotation")
+        accucor_format = DataFormat.objects.get(code="accucor")
+
+        filename = "file_that_should_not_change.xlsx"
+
+        orig_peak_annotation_file = ArchiveFile.objects.create(
+            filename=filename,
+            file_location=None,
+            checksum="558ea654d7f2914ca4527580edf4fac11bd151d0",
+            data_type=ms_peak_annotation,
+            data_format=accucor_format,
+        )
+
+        exc = PeakAnnotationFileConflict(filename, [orig_peak_annotation_file])
+
+        self.assertIn("1 differing version", str(exc))
+        self.assertIn(
+            "'file_that_should_not_change.xlsx', was previously loaded", str(exc)
+        )
+        # This checks that the imported_timestamp is included in the error, by asserting that the date is present
+        self.assertIn(str(datetime.now().date()), str(exc))
+        self.assertIn("If the edits are intentional/necessary", str(exc))
+        self.assertIn("old file version can be removed", str(exc))
+        self.assertIn("If the edits were unintentional or superficial", str(exc))
+        self.assertIn("notify the curation team", str(exc))
