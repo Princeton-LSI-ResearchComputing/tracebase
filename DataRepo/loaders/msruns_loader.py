@@ -1191,8 +1191,7 @@ class MSRunsLoader(TableLoader):
                         if dr == ""
                         else os.path.normpath(os.path.relpath(dr, self.mzxml_dir))
                     )
-                    head, _ = os.path.split(norm_mzxml_dir)
-                    has_subdir = head not in ("", ".", os.curdir)
+                    has_subdir = norm_mzxml_dir not in ("", ".", os.curdir)
 
                     # If this (unskipped) mzXML file from the sheet was provided with a path (relative to the study
                     # directory) does not exist, buffer an error.
@@ -1276,7 +1275,8 @@ class MSRunsLoader(TableLoader):
             if not self.aggregated_errors_object.should_raise():
                 self.aggregated_errors_object.buffer_error(
                     ProgrammingError(
-                        f"Samples matching the following mzXML files were not found: {unmapped_samples}."
+                        "There were no errors, but samples matching the the inferred mzXML-derived sample headers were "
+                        f"not found: {unmapped_samples}."
                     )
                 )
 
