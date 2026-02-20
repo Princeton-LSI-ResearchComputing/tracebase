@@ -1689,13 +1689,20 @@ class MSRunsLoader(TableLoader):
         appended to the list stored in self.mzxml_dict_by_header[mzxml_name][mzxml_dir].
 
         self.mzxml_dict_by_header[mzxml_name][mzxml_dir] (List[dict]): Each dict contains:
-            mzaf_record (ArchiveFile): To be added to a concrete MSRunSample record
-            rawaf_record (ArchiveFile): To be added to a concrete MSRunSample record
-            mzxml_dir (str): The relative path up to but not including the mzXML file.
-            mzxml_filename (str): The unmodified name of the mzXML file.
-            mzxml_filepath (str): Path relative to the study doc to the mzXML files.
-            sample_name (Optional[str]): Initialized to None.  Set elsewhere.
-            added (bool): This tracks whether the corresponding concrete MSRunSample record has been created or not.
+            mzXML metadata parsed from the file:
+                polarity (Optional[float])
+                mz_min (Optional[float])
+                mz_max (Optional[float])
+                raw_file_name (Optional[str])
+                raw_file_sha1 (Optional[str])
+            metadata regarding the MSRunSample record that will be created and linked to the ArchiveFile record:
+                mzaf_record (ArchiveFile): To be added to a concrete MSRunSample record
+                rawaf_record (ArchiveFile): To be added to a concrete MSRunSample record
+                mzxml_dir (str): The relative path up to but not including the mzXML file.
+                mzxml_filename (str): The unmodified name of the mzXML file.
+                mzxml_filepath (str): Path relative to the study doc to the mzXML files.
+                sample_name (Optional[str]): Initialized to None.  Set elsewhere.
+                added (bool): This tracks whether the corresponding concrete MSRunSample record has been created or not.
 
         This is a helper method to get_or_create_mzxml_and_raw_archive_files.
 
