@@ -81,10 +81,14 @@ class FCirc(MaintainedModel, HierCachedModel):
         # Now save the updated values
         super().save(*args, **kwargs)
 
+    # No need to propagate up to Sample.  No change here affects any change elsewhere.  However, the deprecated
+    # generation argument has not been removed yet and when it is not 0, a parent field name is required.  It shouldn't
+    # matter though because propagation should stop at Sample and if a trigger came in from sample, it does not
+    # propagate back.
     @MaintainedModel.setter(
         generation=2,
         update_field_name="is_last",
-        parent_field_name="serum_sample",
+        parent_field_name="serum_sample",  # See above comment
         update_label="fcirc_calcs",
     )
     def is_last_serum_peak_group(self):
