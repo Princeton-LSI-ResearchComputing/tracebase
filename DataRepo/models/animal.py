@@ -150,7 +150,10 @@ class Animal(MaintainedModel, HierCachedModel):
 
     @MaintainedModel.setter(
         generation=0,
-        # child_field_names=["samples"],  # No need to propagate down.  This change does not affect any change below.
+        # If there is a new or deleted last serum sample tracer PeakGroup (added to or deleted from the PeakGroup model,
+        # fcirc.is_last for the new or formerly last FCirc record needs to be updated, so we propagate down to Sample so
+        # it can propagate to the other FCirc records).
+        child_field_names=["samples"],
         update_label="fcirc_calcs",
         update_field_name="last_serum_sample",
     )
