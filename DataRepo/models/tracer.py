@@ -67,7 +67,6 @@ class TracerQuerySet(models.QuerySet):
 @MaintainedModel.relation(
     generation=1,
     parent_field_name="compound",
-    # child_field_names=["infusates"],  # A change here does not affect any tracer_stat value in infusates.
     update_label="tracer_stat",
 )
 class Tracer(MaintainedModel, ElementLabel):

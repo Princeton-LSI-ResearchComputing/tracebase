@@ -132,7 +132,6 @@ class InfusateQuerySet(models.QuerySet):
 @MaintainedModel.relation(
     generation=2,
     parent_field_name="tracers",
-    # child_field_names=["animals"],  # A change here does not affect any change in linked animals.
     update_label="tracer_stat",
 )
 class Infusate(MaintainedModel, HierCachedModel):
