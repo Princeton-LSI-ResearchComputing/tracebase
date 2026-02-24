@@ -69,7 +69,7 @@ class MaintainedModelCoordinator:
 
         # These allow the user to turn on or off specific groups of auto-updates.
         label_filters = kwargs.pop("label_filters", [])
-        self.default_label_filters = label_filters
+        self.default_label_filters = sorted(label_filters)
 
         filter_in = kwargs.pop("filter_in", True)
         self.default_filter_in = filter_in
@@ -256,7 +256,9 @@ class MaintainedModelCoordinator:
                 # the filters in both cases), but given the possibility that update order may depend on the update of
                 # related records, it's better to be on the safe side and do each auto-update, so...
                 # If this is the same object but a different set of fields will be updated...
-                # Note, Django model object equivalence (obj1 == obj2) compares primary key values
+                # NOTE: Django model object equivalence (obj1 == obj2) compares primary key values, so even though the
+                # object attributes "filter_in" and "label_filters" may differ in the object, we still have to
+                # explicitly check them.
                 for same_obj in [bo for bo in self.update_buffer if bo == mdl_obj]:
                     if (
                         same_obj.filter_in != mdl_obj.filter_in
@@ -318,8 +320,8 @@ class MaintainedModelCoordinator:
             updater_dicts = buffer_item.get_my_updaters()
 
             if use_object_label_filters:
-                label_filters = buffer_item.get_my_update_labels()
-                filter_in = True
+                label_filters = self.label_filters
+                filter_in = self.filter_in
                 if label_filters is None:
                     label_filters = self.default_label_filters
                     filter_in = self.default_filter_in
@@ -343,7 +345,6 @@ class MaintainedModelCoordinator:
                     # repeated updates of the same record.
                     buffer_item.save(mass_updates=True)
 
-                    print(f"PROPAGATING BECAUSE LABELS: use_object_label_filters: {use_object_label_filters} no_filters: {no_filters} label_filters: {label_filters} filter_in: {filter_in}")
                     # Propagate the changes (if necessary), keeping track of what is updated and what's not.
                     # Note: all the manual changes are assumed to have been made already, so auto-updates only need to
                     # be issued once per record
@@ -551,11 +552,22 @@ class MaintainedModel(Model):
         # the update will be buffered, to be manually triggered later (e.g. upon completion of loading), which
         # mitigates repeated updates to the same record
         if not coordinator.are_autoupdates_enabled():
-            # If autoupdates are happening (and it's not a mass-autoupdate (assumed because mass_updates
-            # can only be true if immediate_updates is False)), set the label filters based on the currently set global
-            # conditions so that only fields matching the filters will be updated.
-            self.label_filters = coordinator.default_label_filters
-            self.filter_in = coordinator.default_filter_in
+            # If autoupdates are happening (and it's not a mass-autoupdate (assumed because mass_updates can only be
+            # true if immediate_updates is False)), set the label filters based on the currently set global conditions
+            # so that only fields matching the filters will be updated.  An explicit setting of the label_filters in the
+            # coordinator overrides the update_label of the decorators applied in the model.  This is so a specific mass
+            # update can be manually achieved via a targeted script.  If there is not label_filters set in the
+            # coordinator, it falls back to the update_labels belonging to the model class's decorators, and propagation
+            # will only follow those paths.
+            if (
+                coordinator.default_label_filters is None
+                or len(coordinator.default_label_filters) == 0
+            ):
+                self.label_filters = self.get_my_update_labels()
+                self.filter_in = True
+            else:
+                self.label_filters = coordinator.default_label_filters
+                self.filter_in = coordinator.default_filter_in
 
             if not mass_updates:
                 # Set the changed value triggering this update
@@ -631,9 +643,11 @@ class MaintainedModel(Model):
         # since updater methods SHOULD NOT rely on maintained fields, there is no change in a query that should affect
         # other maintained fields.
         if coordinator.are_immediate_updates_enabled() and propagate:
-            # Percolate (non-maintained field) record changes up to the related models so they can change their
-            # maintained fields whose values are dependent on this record's non-maintained fields
-            self.call_dfs_related_updaters(label_filters=self.get_my_update_labels(), filter_in=True)
+            # Percolate (non-maintained field) record changes to the related models so they can change their maintained
+            # fields whose values are dependent on this record's non-maintained fields
+            self.call_dfs_related_updaters(
+                label_filters=self.get_my_update_labels(), filter_in=True
+            )
 
     def delete(self, *args, **kwargs):
         """
@@ -660,13 +674,21 @@ class MaintainedModel(Model):
             coordinator.are_immediate_updates_enabled() is False
             and mass_updates is False
         ):
-            if hasattr(self, "label_filters"):
-                print(f"OBJECT self.label_filters: {self.label_filters}")
+            # If autoupdates are happening (and it's not a mass-autoupdate), set the label filters based on the
+            # currently set global conditions so that only fields matching the filters will be updated.  An explicit
+            # setting of the label_filters in the coordinator overrides the update_label of the decorators applied in
+            # the model.  This is so a specific mass update can be manually achieved via a targeted script.  If there is
+            # not label_filters set in the coordinator, it falls back to the update_labels belonging to the model
+            # class's decorators, and propagation will only follow those paths.
+            if (
+                coordinator.default_label_filters is None
+                or len(coordinator.default_label_filters) == 0
+            ):
+                self.label_filters = self.get_my_update_labels()
+                self.filter_in = True
             else:
-                print(f"GLOBAL self.label_filters: {coordinator.default_label_filters}")
-            # When buffering only, apply the global label filters, to be remembered during mass autoupdate
-            self.label_filters = coordinator.default_label_filters
-            self.filter_in = coordinator.default_filter_in
+                self.label_filters = coordinator.default_label_filters
+                self.filter_in = coordinator.default_filter_in
 
             if coordinator.buffering:
                 parents = self.get_parent_instances()
@@ -679,11 +701,22 @@ class MaintainedModel(Model):
 
             return retval
         elif coordinator.are_immediate_updates_enabled():
-            # If autoupdates are happening (and it's not a mass-autoupdate (assumed because mass_updates
-            # can only be true if immediate_updates is False)), set the label filters based on the currently set global
-            # conditions so that only fields matching the filters will be updated.
-            self.label_filters = coordinator.default_label_filters
-            self.filter_in = coordinator.default_filter_in
+            # If autoupdates are happening (and it's not a mass-autoupdate (assumed because mass_updates can only be
+            # true if immediate_updates is False)), set the label filters based on the currently set global conditions
+            # so that only fields matching the filters will be updated.  An explicit setting of the label_filters in the
+            # coordinator overrides the update_label of the decorators applied in the model.  This is so a specific mass
+            # update can be manually achieved via a targeted script.  If there is not label_filters set in the
+            # coordinator, it falls back to the update_labels belonging to the model class's decorators, and propagation
+            # will only follow those paths.
+            if (
+                coordinator.default_label_filters is None
+                or len(coordinator.default_label_filters) == 0
+            ):
+                self.label_filters = self.get_my_update_labels()
+                self.filter_in = True
+            else:
+                self.label_filters = coordinator.default_label_filters
+                self.filter_in = coordinator.default_filter_in
         # Otherwise, we are performing a mass auto-update and want to update the previously set filter conditions
 
         # Delete the record triggering this update.  In the event we were buffering, we had to do that above and return.
@@ -691,7 +724,10 @@ class MaintainedModel(Model):
         retval = super().delete(*args, **kwargs)  # Call the "real" delete() method.
 
         if coordinator.are_immediate_updates_enabled() and propagate:
-            # Percolate changes up to the parents (if any) and mark the deleted record as updated
+            # Percolate changes up to the parents (if any) and mark the deleted record as updated.  Here, we ignore any
+            # label_filters set by the coordinator, because that's only for mass autoupdates, and supply the
+            # update_labels explicitly present in the model for the label_filters argument (and defaulting filter_in to
+            # True).
             self.call_dfs_related_updaters(
                 updated=[self_sig],
                 label_filters=self.get_my_update_labels(),
@@ -997,7 +1033,7 @@ class MaintainedModel(Model):
         we can propagate the changes.
         """
         obj: MaintainedModel = kwargs.pop("instance", None)
-        act = kwargs.pop("action", None)
+        act: str = kwargs.pop("action", "")
 
         # Retrieve the current coordinator
         coordinator = cls.get_coordinator()
@@ -1007,14 +1043,21 @@ class MaintainedModel(Model):
             and isinstance(obj, MaintainedModel)
             and coordinator.are_immediate_updates_enabled()
         ):
-            obj.call_dfs_related_updaters(label_filters=obj.get_my_update_labels(), filter_in=True)
+            # Percolate (non-maintained field) record changes to the related models so they can change their maintained
+            # fields whose values are dependent on this record's non-maintained fields.  Here, we ignore any
+            # label_filters set by the coordinator, because that's only for mass autoupdates, and supply the
+            # update_labels explicitly present in the model for the label_filters argument (and defaulting filter_in to
+            # True).
+            obj.call_dfs_related_updaters(
+                label_filters=obj.get_my_update_labels(), filter_in=True
+            )
 
     @classmethod
-    def get_coordinator(cls):
+    def get_coordinator(cls) -> MaintainedModelCoordinator:
         return cls._get_current_coordinator()
 
     @classmethod
-    def _get_current_coordinator(cls):
+    def _get_current_coordinator(cls) -> MaintainedModelCoordinator:
         coordinator_stack = cls._get_coordinator_stack()
         if len(coordinator_stack) > 0:
             # Get the current coordinator
@@ -1797,10 +1840,13 @@ class MaintainedModel(Model):
         parents = self.get_parent_instances()
         parent_inst: MaintainedModel
         for parent_inst in parents:
-            if label_filters is not None and not parent_inst.updater_list_has_matching_labels(
-                parent_inst.get_my_updaters(), label_filters, filter_in
+            # Only follow propagation paths that have update_labels that match the active label_filters
+            if (
+                label_filters is not None
+                and not parent_inst.updater_list_has_matching_labels(
+                    parent_inst.get_my_updaters(), label_filters, filter_in
+                )
             ):
-                print(f"SKIPPING PARENT {parent_inst.__class__.__name__} PROPAGATION BECAUSE NOT A LABEL FILTER {label_filters} MATCH")
                 continue
             # If the current instance's update was triggered - and was triggered by the same parent instance whose
             # update we're about to trigger
@@ -1926,10 +1972,13 @@ class MaintainedModel(Model):
         children = self.get_child_instances()
         child_inst: MaintainedModel
         for child_inst in children:
-            if label_filters is not None and not child_inst.updater_list_has_matching_labels(
-                child_inst.get_my_updaters(), label_filters, filter_in
+            # Only follow propagation paths that have update_labels that match the active label_filters
+            if (
+                label_filters is not None
+                and not child_inst.updater_list_has_matching_labels(
+                    child_inst.get_my_updaters(), label_filters, filter_in
+                )
             ):
-                print(f"SKIPPING CHILD {child_inst.__class__.__name__} PROPAGATION BECAUSE NOT A LABEL FILTER {label_filters} MATCH")
                 continue
             # If the current instance's update was triggered - and was triggered by the same child instance whose
             # update we're about to trigger
@@ -1951,7 +2000,7 @@ class MaintainedModel(Model):
                     updated=updated,
                     mass_updates=mass_updates,
                     label_filters=label_filters,
-                    filter_in=filter_in
+                    filter_in=filter_in,
                 )
 
         return updated
@@ -2064,11 +2113,14 @@ class MaintainedModel(Model):
         """
         update_labels: List[str] = []
         if cls.__name__ in cls.updater_list.keys():
-            update_labels = [updater_dict["update_label"] for updater_dict in cls.updater_list[cls.__name__]]
+            update_labels = [
+                updater_dict["update_label"]
+                for updater_dict in cls.updater_list[cls.__name__]
+            ]
         else:
             raise NoDecorators(cls.__name__)
 
-        return update_labels
+        return sorted(update_labels)
 
     class Meta:
         abstract = True
