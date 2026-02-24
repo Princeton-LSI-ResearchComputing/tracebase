@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import importlib
 import warnings
 from collections import defaultdict
@@ -68,14 +70,14 @@ class MaintainedModelCoordinator:
         self.overridden = False
 
         # These allow the user to turn on or off specific groups of auto-updates.
-        label_filters = kwargs.pop("label_filters", [])
+        label_filters = kwargs.pop("label_filters", []) or []
         self.default_label_filters = sorted(label_filters)
 
         filter_in = kwargs.pop("filter_in", True)
         self.default_filter_in = filter_in
 
         self.nondefault_filtering_exists = not (
-            (label_filters is None or len(label_filters) == 0) and filter_in is True
+            len(label_filters) == 0 and filter_in is True
         )
 
         # This is for buffering a large quantity of auto-updates in order to get speed improvements during loading
@@ -160,16 +162,16 @@ class MaintainedModelCoordinator:
         if filter_in is None:
             filter_in = True
         if label_filters is None:
-            label_filters = (
-                []
-            )  # Clear everything by default, regardless of default filters
+            # Clear everything by default, regardless of default filters
+            label_filters = []
             filter_in = True
-        if generation is None and (label_filters is None or len(label_filters) == 0):
+        if generation is None and len(label_filters) == 0:
             self.update_buffer = []
             return
 
         new_buffer = []
         gen_warns = 0
+        buffered_item: MaintainedModel
         for buffered_item in self.update_buffer:
             # Buffered items are entire model objects.  We are going to filter model objects when they DO match the
             # filtering criteria.  A model object matches the filtering criteria based on whether ANY of its updaters
@@ -207,7 +209,7 @@ class MaintainedModelCoordinator:
 
         if gen_warns > 0:
             label_str = ""
-            if label_filters is not None and len(label_filters) > 0:
+            if len(label_filters) > 0:
                 label_str = f"with labels: [{', '.join(label_filters)}] "
             print(
                 f"WARNING: {gen_warns} records {label_str}in the buffer are younger than the generation supplied: "
@@ -221,7 +223,7 @@ class MaintainedModelCoordinator:
     def _peek_update_buffer(self, index=0):
         return self.update_buffer[index]
 
-    def buffer_update(self, mdl_obj):
+    def buffer_update(self, mdl_obj: MaintainedModel):
         """
         This is called when MaintainedModel.save (or delete) is called (if immediate_updates is False), so that
         maintained fields can be updated after loading code finishes (by calling the global method:
@@ -259,10 +261,11 @@ class MaintainedModelCoordinator:
                 # NOTE: Django model object equivalence (obj1 == obj2) compares primary key values, so even though the
                 # object attributes "filter_in" and "label_filters" may differ in the object, we still have to
                 # explicitly check them.
+                same_obj: MaintainedModel
                 for same_obj in [bo for bo in self.update_buffer if bo == mdl_obj]:
                     if (
                         same_obj.filter_in != mdl_obj.filter_in
-                        or same_obj.label_filters != same_obj.label_filters
+                        or same_obj.label_filters != mdl_obj.label_filters
                     ):
                         self.update_buffer.append(mdl_obj)
                         break
@@ -299,7 +302,7 @@ class MaintainedModelCoordinator:
         # If filters were explicitly supplied
         if label_filters is not None:
             use_object_label_filters = False
-            if self.filter_in is None:
+            if filter_in is None:
                 filter_in = self.default_filter_in
         # Else - the filters will be set at each iteration of the buffered item loop below
 
@@ -320,8 +323,8 @@ class MaintainedModelCoordinator:
             updater_dicts = buffer_item.get_my_updaters()
 
             if use_object_label_filters:
-                label_filters = self.label_filters
-                filter_in = self.filter_in
+                label_filters = buffer_item.label_filters
+                filter_in = buffer_item.filter_in
                 if label_filters is None:
                     label_filters = self.default_label_filters
                     filter_in = self.default_filter_in
@@ -528,14 +531,6 @@ class MaintainedModel(Model):
         # fields_to_autoupdate: List of fields to auto-update. - default None = update all maintained fields
         fields_to_autoupdate = kwargs.pop("fields_to_autoupdate", None)
 
-        # If the object is None, then what has happened is, there was a call to create an object off of the class.  That
-        # means that __init__ was not called, so we are going to handle the initialization of MaintainedModel (including
-        # the setting of the coordinator and the disallowing of setting values for maintained fields with a call to
-        # _maintained_model_setup).
-        if self is None:
-            # The coordinator keeps track of the running mode, buffer and filters in use
-            self._maintained_model_setup(**kwargs)
-
         # Retrieve the current coordinator
         coordinator = self.get_coordinator()
 
@@ -674,25 +669,27 @@ class MaintainedModel(Model):
             coordinator.are_immediate_updates_enabled() is False
             and mass_updates is False
         ):
-            # If autoupdates are happening (and it's not a mass-autoupdate), set the label filters based on the
-            # currently set global conditions so that only fields matching the filters will be updated.  An explicit
-            # setting of the label_filters in the coordinator overrides the update_label of the decorators applied in
-            # the model.  This is so a specific mass update can be manually achieved via a targeted script.  If there is
-            # not label_filters set in the coordinator, it falls back to the update_labels belonging to the model
-            # class's decorators, and propagation will only follow those paths.
-            if (
-                coordinator.default_label_filters is None
-                or len(coordinator.default_label_filters) == 0
-            ):
-                self.label_filters = self.get_my_update_labels()
-                self.filter_in = True
-            else:
-                self.label_filters = coordinator.default_label_filters
-                self.filter_in = coordinator.default_filter_in
-
             if coordinator.buffering:
                 parents = self.get_parent_instances()
+                parent_inst: MaintainedModel
                 for parent_inst in parents:
+                    # If autoupdates are happening (and it's not a mass-autoupdate), set the label filters based on the
+                    # currently set global conditions so that only fields matching the filters will be updated.  An
+                    # explicit setting of the label_filters in the coordinator overrides the update_label of the
+                    # decorators applied in the model.  This is so a specific mass update can be manually achieved via a
+                    # targeted script.  If there is not label_filters set in the coordinator, it falls back to the
+                    # update_labels belonging to the model class's decorators, and propagation will only follow those
+                    # paths.
+                    if (
+                        coordinator.default_label_filters is None
+                        or len(coordinator.default_label_filters) == 0
+                    ):
+                        parent_inst.label_filters = parent_inst.get_my_update_labels()
+                        parent_inst.filter_in = True
+                    else:
+                        parent_inst.label_filters = coordinator.default_label_filters
+                        parent_inst.filter_in = coordinator.default_filter_in
+
                     coordinator.buffer_update(parent_inst)
 
             # Delete the record triggering this update after having buffered the parents (because the parent could be a
@@ -700,23 +697,6 @@ class MaintainedModel(Model):
             retval = super().delete(*args, **kwargs)  # Call the "real" delete() method.
 
             return retval
-        elif coordinator.are_immediate_updates_enabled():
-            # If autoupdates are happening (and it's not a mass-autoupdate (assumed because mass_updates can only be
-            # true if immediate_updates is False)), set the label filters based on the currently set global conditions
-            # so that only fields matching the filters will be updated.  An explicit setting of the label_filters in the
-            # coordinator overrides the update_label of the decorators applied in the model.  This is so a specific mass
-            # update can be manually achieved via a targeted script.  If there is not label_filters set in the
-            # coordinator, it falls back to the update_labels belonging to the model class's decorators, and propagation
-            # will only follow those paths.
-            if (
-                coordinator.default_label_filters is None
-                or len(coordinator.default_label_filters) == 0
-            ):
-                self.label_filters = self.get_my_update_labels()
-                self.filter_in = True
-            else:
-                self.label_filters = coordinator.default_label_filters
-                self.filter_in = coordinator.default_filter_in
         # Otherwise, we are performing a mass auto-update and want to update the previously set filter conditions
 
         # Delete the record triggering this update.  In the event we were buffering, we had to do that above and return.
@@ -1032,6 +1012,7 @@ class MaintainedModel(Model):
         MaintainedModel has an M:M field that has been added to.  That causes this method to be called, and from here
         we can propagate the changes.
         """
+        # TODO: Make this able to buffer in deferred mode
         obj: MaintainedModel = kwargs.pop("instance", None)
         act: str = kwargs.pop("action", "")
 
@@ -1068,12 +1049,12 @@ class MaintainedModel(Model):
             return cls._get_default_coordinator()
 
     @classmethod
-    def _get_default_coordinator(cls):
+    def _get_default_coordinator(cls) -> MaintainedModelCoordinator:
         cls._check_set_coordinator_thread_data()
         return cls.data.default_coordinator
 
     @classmethod
-    def _get_coordinator_stack(cls):
+    def _get_coordinator_stack(cls) -> List[MaintainedModelCoordinator]:
         """
         Checks that the coodrinator thread data is initialized and returns the coordinator_stack list
         """
@@ -1165,7 +1146,7 @@ class MaintainedModel(Model):
     @contextmanager
     def custom_coordinator(
         cls,
-        coordinator,
+        coordinator: MaintainedModelCoordinator,
         pre_mass_update_func=None,  # Only used for deferred coordinators
         post_mass_update_func=None,  # Only used for deferred coordinators
     ):
@@ -1614,6 +1595,7 @@ class MaintainedModel(Model):
             # For every generation from the youngest leaves/children to root/parent
             for gen in sorted(range(youngest_generation + 1), reverse=True):
                 # For every MaintainedModel derived class with decorated functions
+                mdl_cls: Type[MaintainedModel]
                 for mdl_cls in cls._get_classes(
                     gen,
                     label_filters,
@@ -1915,6 +1897,7 @@ class MaintainedModel(Model):
                             if tmp_parent_inst.count() > 0 and isinstance(
                                 tmp_parent_inst.first(), MaintainedModel
                             ):
+                                mm_parent_inst: MaintainedModel
                                 for mm_parent_inst in tmp_parent_inst.all():
                                     # We check "exists_in_db" in case these updates are propagated due to a delete, and
                                     # any relation we are traversing, could have been deleted via a cascade
@@ -2044,6 +2027,7 @@ class MaintainedModel(Model):
                         if tmp_child_inst.count() > 0 and isinstance(
                             tmp_child_inst.first(), MaintainedModel
                         ):
+                            mm_child_inst: MaintainedModel
                             for mm_child_inst in tmp_child_inst.all():
                                 # We check "exists_in_db" in case these updates are propagated due to a delete, and any
                                 # relation we are traversing, could have been deleted via a cascade
@@ -2087,7 +2071,7 @@ class MaintainedModel(Model):
         ]
 
     @classmethod
-    def get_my_updaters(cls):
+    def get_my_updaters(cls) -> List[dict]:
         """
         Retrieves all the updater information of each decorated function of the calling model from the global
         updater_list variable.
