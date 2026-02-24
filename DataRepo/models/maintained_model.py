@@ -1819,7 +1819,9 @@ class MaintainedModel(Model):
         Returns:
             updated (List[str]): A list of model object signatures that were updated.
         """
-        parents = self.get_parent_instances()
+        parents = self.get_parent_instances(
+            label_filters=label_filters, filter_in=filter_in
+        )
         parent_inst: MaintainedModel
         for parent_inst in parents:
             # Only follow propagation paths that have update_labels that match the active label_filters
@@ -1857,7 +1859,11 @@ class MaintainedModel(Model):
 
         return updated
 
-    def get_parent_instances(self):
+    def get_parent_instances(
+        self,
+        label_filters: Optional[List[str]] = None,
+        filter_in=True,
+    ):
         """
         Returns a list of parent records to the current record (self) (and the parent relationship is stored in the
         updater_list global variable, indexed by class name) based on the parent keys indicated in every decorated
@@ -1868,9 +1874,29 @@ class MaintainedModel(Model):
         fields, they will only ever update when the through model object is specifically saved and will not be updated
         when their "child" object changes.  This will have to be modified to return through model instances if such
         updates come to be required.
+
+        Args:
+            label_filters (Optional[List[str]]): A list of update_labels that define the propagation path(s) that should
+                be followed.
+            filter_in (bool) [True]: When True, label_filters contains the labels where propagation should proceed.
+                When False, label_filters are the paths that should be avoided.
+        Exceptions:
+            NotMaintained
+            ProgrammingError
+        Returns:
+            parents (List[MaintainedModel])
         """
         parents = []
         for updater_dict in self.get_my_updaters():
+            # If label_filters were supplied, only obtain the parent instances that meet the filtering criteria
+            if label_filters is not None:
+                match = (
+                    updater_dict["update_label"] is not None
+                    and updater_dict["update_label"] in label_filters
+                )
+                if filter_in is not match:
+                    continue
+
             parent_fld = updater_dict["parent_field"]
 
             # If there is a parent that should update based on this change
@@ -1952,7 +1978,9 @@ class MaintainedModel(Model):
         Returns:
             updated (List[str]): A list of model object signatures that were updated.
         """
-        children = self.get_child_instances()
+        children = self.get_child_instances(
+            label_filters=label_filters, filter_in=filter_in
+        )
         child_inst: MaintainedModel
         for child_inst in children:
             # Only follow propagation paths that have update_labels that match the active label_filters
@@ -1988,7 +2016,11 @@ class MaintainedModel(Model):
 
         return updated
 
-    def get_child_instances(self):
+    def get_child_instances(
+        self,
+        label_filters: Optional[List[str]] = None,
+        filter_in=True,
+    ):
         """Returns a list of child records to the current record (self) (and the child relationship is stored in the
         updater_list global variable, indexed by class name) based on the child keys indicated in every decorated
         updater method.
@@ -1998,10 +2030,30 @@ class MaintainedModel(Model):
         fields, they will only ever update when the through model object is specifically saved and will not be updated
         when their "child" object changes.  This will have to be modified to return through model instances if such
         updates come to be required.
+
+        Args:
+            label_filters (Optional[List[str]]): A list of update_labels that define the propagation path(s) that should
+                be followed.
+            filter_in (bool) [True]: When True, label_filters contains the labels where propagation should proceed.
+                When False, label_filters are the paths that should be avoided.
+        Exceptions:
+            NotMaintained
+            ProgrammingError
+        Returns:
+            parents (List[MaintainedModel])
         """
         children = []
         updaters = self.get_my_updaters()
         for updater_dict in updaters:
+            # If label_filters were supplied, only obtain the child instances that meet the filtering criteria
+            if label_filters is not None:
+                match = (
+                    updater_dict["update_label"] is not None
+                    and updater_dict["update_label"] in label_filters
+                )
+                if filter_in is not match:
+                    continue
+
             child_flds = updater_dict["child_fields"]
 
             # If there is a child that should update based on this change
