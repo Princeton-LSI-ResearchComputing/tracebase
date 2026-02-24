@@ -3,7 +3,7 @@ import warnings
 from collections import defaultdict
 from contextlib import contextmanager
 from threading import local
-from typing import Dict, List, Type
+from typing import Dict, List, Optional, Type
 
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
@@ -313,12 +313,13 @@ class MaintainedModelCoordinator:
         no_filters = label_filters is None or len(label_filters) == 0
 
         # For each record in the buffer
+        buffer_item: MaintainedModel
         for buffer_item in self.update_buffer:
             updater_dicts = buffer_item.get_my_updaters()
 
             if use_object_label_filters:
-                label_filters = buffer_item.label_filters
-                filter_in = buffer_item.filter_in
+                label_filters = buffer_item.get_my_update_labels()
+                filter_in = True
                 if label_filters is None:
                     label_filters = self.default_label_filters
                     filter_in = self.default_filter_in
@@ -342,11 +343,15 @@ class MaintainedModelCoordinator:
                     # repeated updates of the same record.
                     buffer_item.save(mass_updates=True)
 
+                    print(f"PROPAGATING BECAUSE LABELS: use_object_label_filters: {use_object_label_filters} no_filters: {no_filters} label_filters: {label_filters} filter_in: {filter_in}")
                     # Propagate the changes (if necessary), keeping track of what is updated and what's not.
                     # Note: all the manual changes are assumed to have been made already, so auto-updates only need to
                     # be issued once per record
                     updated = buffer_item.call_dfs_related_updaters(
-                        updated=updated, mass_updates=True
+                        updated=updated,
+                        mass_updates=True,
+                        label_filters=label_filters,
+                        filter_in=filter_in,
                     )
 
                 elif key not in updated and buffer_item not in new_buffer:
@@ -628,7 +633,7 @@ class MaintainedModel(Model):
         if coordinator.are_immediate_updates_enabled() and propagate:
             # Percolate (non-maintained field) record changes up to the related models so they can change their
             # maintained fields whose values are dependent on this record's non-maintained fields
-            self.call_dfs_related_updaters()
+            self.call_dfs_related_updaters(label_filters=self.get_my_update_labels(), filter_in=True)
 
     def delete(self, *args, **kwargs):
         """
@@ -655,6 +660,10 @@ class MaintainedModel(Model):
             coordinator.are_immediate_updates_enabled() is False
             and mass_updates is False
         ):
+            if hasattr(self, "label_filters"):
+                print(f"OBJECT self.label_filters: {self.label_filters}")
+            else:
+                print(f"GLOBAL self.label_filters: {coordinator.default_label_filters}")
             # When buffering only, apply the global label filters, to be remembered during mass autoupdate
             self.label_filters = coordinator.default_label_filters
             self.filter_in = coordinator.default_filter_in
@@ -683,7 +692,11 @@ class MaintainedModel(Model):
 
         if coordinator.are_immediate_updates_enabled() and propagate:
             # Percolate changes up to the parents (if any) and mark the deleted record as updated
-            self.call_dfs_related_updaters(updated=[self_sig])
+            self.call_dfs_related_updaters(
+                updated=[self_sig],
+                label_filters=self.get_my_update_labels(),
+                filter_in=True,
+            )
 
         return retval
 
@@ -983,7 +996,7 @@ class MaintainedModel(Model):
         MaintainedModel has an M:M field that has been added to.  That causes this method to be called, and from here
         we can propagate the changes.
         """
-        obj = kwargs.pop("instance", None)
+        obj: MaintainedModel = kwargs.pop("instance", None)
         act = kwargs.pop("action", None)
 
         # Retrieve the current coordinator
@@ -994,7 +1007,7 @@ class MaintainedModel(Model):
             and isinstance(obj, MaintainedModel)
             and coordinator.are_immediate_updates_enabled()
         ):
-            obj.call_dfs_related_updaters()
+            obj.call_dfs_related_updaters(label_filters=obj.get_my_update_labels(), filter_in=True)
 
     @classmethod
     def get_coordinator(cls):
@@ -1716,25 +1729,79 @@ class MaintainedModel(Model):
             return None
         return f"{self.__class__.__name__}.{self.pk}"
 
-    def call_dfs_related_updaters(self, updated=None, mass_updates=False):
+    def call_dfs_related_updaters(
+        self,
+        updated=None,
+        mass_updates=False,
+        label_filters: Optional[List[str]] = None,
+        filter_in=True,
+    ):
+        """This is a recursive method that propagates triggered updates both up and down the propagation path defined by
+        each setter and relation decorator's child and parent fields.
+
+        Args:
+            updated (Optional[List[str]]): A list of model object signatures used to prevent repeated updates.
+            mass_updates (bool) [False]: Whether we're in mass auto-update mode.
+            label_filters (Optional[List[str]]): A list of update_labels that define the propagation path(s) that should
+                be followed.
+            filter_in (bool) [True]: When True, label_filters contains the labels where propagation should proceed.
+                When False, label_filters are the paths that should be avoided.
+        Exceptions:
+            None
+        Returns:
+            updated (List[str]): A list of model object signatures that were updated.
+        """
         # Assume I've been called after I've been updated, so add myself to the updated list
         if updated is None:
             updated = []
         self_sig = self.get_record_signature()
         if self_sig is not None and self_sig not in updated:
             updated.append(self_sig)
-        updated = self.call_child_updaters(updated=updated, mass_updates=mass_updates)
-        updated = self.call_parent_updaters(updated=updated, mass_updates=mass_updates)
+        updated = self.call_child_updaters(
+            updated=updated,
+            mass_updates=mass_updates,
+            label_filters=label_filters,
+            filter_in=filter_in,
+        )
+        updated = self.call_parent_updaters(
+            updated=updated,
+            mass_updates=mass_updates,
+            label_filters=label_filters,
+            filter_in=filter_in,
+        )
         return updated
 
-    def call_parent_updaters(self, updated, mass_updates=False):
-        """
-        This calls parent record's `save` method to trigger updates to their maintained fields (if any) and further
+    def call_parent_updaters(
+        self,
+        updated,
+        mass_updates=False,
+        label_filters: Optional[List[str]] = None,
+        filter_in=True,
+    ):
+        """This calls parent record's `save` method to trigger updates to their maintained fields (if any) and further
         propagate those changes up the hierarchy (if those records have parents). It skips triggering a parent's update
         if that child was the object that triggered its update, to avoid looped repeated updates.
+
+        Args:
+            updated (List[str]): A list of model object signatures used to prevent repeated updates.
+            mass_updates (bool) [False]: Whether we're in mass auto-update mode.
+            label_filters (Optional[List[str]]): A list of update_labels that define the propagation path(s) that should
+                be followed.
+            filter_in (bool) [True]: When True, label_filters contains the labels where propagation should proceed.
+                When False, label_filters are the paths that should be avoided.
+        Exceptions:
+            None
+        Returns:
+            updated (List[str]): A list of model object signatures that were updated.
         """
         parents = self.get_parent_instances()
+        parent_inst: MaintainedModel
         for parent_inst in parents:
+            if label_filters is not None and not parent_inst.updater_list_has_matching_labels(
+                parent_inst.get_my_updaters(), label_filters, filter_in
+            ):
+                print(f"SKIPPING PARENT {parent_inst.__class__.__name__} PROPAGATION BECAUSE NOT A LABEL FILTER {label_filters} MATCH")
+                continue
             # If the current instance's update was triggered - and was triggered by the same parent instance whose
             # update we're about to trigger
             parent_sig = parent_inst.get_record_signature()
@@ -1754,7 +1821,10 @@ class MaintainedModel(Model):
 
                 # Propagate manually
                 updated = parent_inst.call_dfs_related_updaters(
-                    updated=updated, mass_updates=mass_updates
+                    updated=updated,
+                    mass_updates=mass_updates,
+                    label_filters=label_filters,
+                    filter_in=filter_in,
                 )
 
         return updated
@@ -1829,14 +1899,38 @@ class MaintainedModel(Model):
 
         return parents
 
-    def call_child_updaters(self, updated, mass_updates=False):
+    def call_child_updaters(
+        self,
+        updated,
+        mass_updates=False,
+        label_filters: Optional[List[str]] = None,
+        filter_in=True,
+    ):
         """
         This calls child record's `save` method to trigger updates to their maintained fields (if any) and further
         propagate those changes up the hierarchy (if those records have parents). It skips triggering a child's update
         if that child was the object that triggered its update, to avoid looped repeated updates.
+
+        Args:
+            updated (List[str]): A list of model object signatures used to prevent repeated updates.
+            mass_updates (bool) [False]: Whether we're in mass auto-update mode.
+            label_filters (Optional[List[str]]): A list of update_labels that define the propagation path(s) that should
+                be followed.
+            filter_in (bool) [True]: When True, label_filters contains the labels where propagation should proceed.
+                When False, label_filters are the paths that should be avoided.
+        Exceptions:
+            None
+        Returns:
+            updated (List[str]): A list of model object signatures that were updated.
         """
         children = self.get_child_instances()
+        child_inst: MaintainedModel
         for child_inst in children:
+            if label_filters is not None and not child_inst.updater_list_has_matching_labels(
+                child_inst.get_my_updaters(), label_filters, filter_in
+            ):
+                print(f"SKIPPING CHILD {child_inst.__class__.__name__} PROPAGATION BECAUSE NOT A LABEL FILTER {label_filters} MATCH")
+                continue
             # If the current instance's update was triggered - and was triggered by the same child instance whose
             # update we're about to trigger
             child_sig = child_inst.get_record_signature()
@@ -1856,6 +1950,8 @@ class MaintainedModel(Model):
                 updated = child_inst.call_dfs_related_updaters(
                     updated=updated,
                     mass_updates=mass_updates,
+                    label_filters=label_filters,
+                    filter_in=filter_in
                 )
 
         return updated
@@ -1954,6 +2050,25 @@ class MaintainedModel(Model):
             raise NoDecorators(cls.__name__)
 
         return updaters
+
+    @classmethod
+    def get_my_update_labels(cls):
+        """Returns a list of 'update_label's from each decorated function of the calling model.
+
+        Args:
+            None
+        Exceptions:
+            NoDecorators
+        Returns:
+            update_labels (List[str])
+        """
+        update_labels: List[str] = []
+        if cls.__name__ in cls.updater_list.keys():
+            update_labels = [updater_dict["update_label"] for updater_dict in cls.updater_list[cls.__name__]]
+        else:
+            raise NoDecorators(cls.__name__)
+
+        return update_labels
 
     class Meta:
         abstract = True
