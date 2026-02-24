@@ -67,7 +67,6 @@ class TracerQuerySet(models.QuerySet):
 @MaintainedModel.relation(
     generation=1,
     parent_field_name="compound",
-    child_field_names=["infusates"],
     update_label="tracer_stat",
 )
 class Tracer(MaintainedModel, ElementLabel):
@@ -127,6 +126,14 @@ class Tracer(MaintainedModel, ElementLabel):
         update_label="label_combo",
     )
     def _label_combo(self):
+        """Generates a string to populate the label_combo field.
+
+        The update of this record is triggered when the record is saved.  NOTE: TracerLabel record changes trigger
+        updates here, but they do so from the update_label 'name'.
+
+        TODO: Create a separate trigger/label or add the ability for the same label to be applied to multiple methods.
+
+        Updates here trigger label_combo updates to linked Infusate records."""
         return self.LABELS_COMBO_DELIMITER.join(
             [str(label.element) for label in self.labels.order_by("element")]
         )
