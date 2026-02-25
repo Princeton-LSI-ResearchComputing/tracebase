@@ -257,6 +257,51 @@ class MaintainedModelTests(MaintainedModelTestBase):
         labels = Animal.get_my_update_labels()
         self.assertEqual(sorted(["fcirc_calcs", "label_combo", "tracer_stat"]), labels)
 
+    def test_get_child_instances(self):
+        # Load a study with animals and samples
+        Study.objects.create(name="Small OBOB")
+        Infusate.objects.get_or_create_infusate(
+            parse_infusate_name_with_concs("lysine-[13C6][23.2]")
+        )
+        call_command(
+            "load_animals",
+            infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table_blank_sample.xlsx",
+        )
+        call_command(
+            "load_samples",
+            infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table_blank_sample.xlsx",
+        )
+
+        # Test get_child_instances with and without the label_filters and filter_in arguments
+        animal: MaintainedModel = Animal.objects.first()
+        samples = list(animal.samples.all())
+        all_parents = animal.get_child_instances()
+        self.assertEqual(samples, all_parents)
+        name_parents = animal.get_child_instances(label_filters=["name"])
+        self.assertEqual([], name_parents)
+        non_name_parents = animal.get_child_instances(
+            label_filters=["name"], filter_in=False
+        )
+        self.assertEqual(samples, non_name_parents)
+
+    def test_get_parent_instances(self):
+        # Load an infusate with supporting records, obtaining the expected records from the tests
+        infusate1, infusate2 = create_infusate_records()
+        tracer: MaintainedModel = infusate1.tracers.filter(
+            compound__name="glucose"
+        ).first()
+        compound = tracer.compound
+
+        # Test get_parent_instances with and without the label_filters and filter_in arguments
+        all_parents = tracer.get_parent_instances()
+        self.assertEqual(set([infusate1, infusate2, compound]), set(all_parents))
+        name_parents = tracer.get_parent_instances(label_filters=["name"])
+        self.assertEqual(set([infusate1, infusate2]), set(name_parents))
+        non_name_parents = tracer.get_parent_instances(
+            label_filters=["name", "label_combo"], filter_in=False
+        )
+        self.assertEqual(set([compound]), set(non_name_parents))
+
 
 class MaintainedModelThreadTests(TracebaseTransactionTestCase):
     def create_tracer(self):
