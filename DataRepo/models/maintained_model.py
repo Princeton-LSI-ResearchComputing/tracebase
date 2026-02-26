@@ -1672,8 +1672,9 @@ class MaintainedModel(Model):
         the current filter conditions.  One exception of the refresh, is if performing a mass auto-update, in which
         case the filters the were in effect during buffering are used.
         """
-        changed = False
+        anything_changed = False
         for updater_dict in self.get_my_updaters():
+            changed = False
             update_fld = updater_dict["update_field"]
             update_label = updater_dict["update_label"]
 
@@ -1742,6 +1743,7 @@ class MaintainedModel(Model):
                 setattr(self, update_fld, new_val)
 
                 if old_val != new_val:
+                    anything_changed = True
                     changed = True
 
                 # Report the auto-update
@@ -1750,8 +1752,8 @@ class MaintainedModel(Model):
 
                 if changed:
                     print(
-                        f"Auto-updated {self.__class__.__name__}.{update_fld} in {self.__class__.__name__}.{self.pk} "
-                        f"using {update_fun.__qualname__} from [{old_val}] to [{new_val}]."
+                        f"Auto-update of {self.__class__.__name__}.{update_fld} in {self.__class__.__name__}.{self.pk} "
+                        f"using {update_fun.__qualname__} resulted in a change from [{old_val}] to [{new_val}]."
                     )
                 else:
                     print(
@@ -1759,7 +1761,7 @@ class MaintainedModel(Model):
                         f"using {update_fun.__qualname__} resulted in the same value: [{new_val}]."
                     )
 
-        return changed
+        return anything_changed
 
     def get_record_signature(self):
         if self.pk is None:
