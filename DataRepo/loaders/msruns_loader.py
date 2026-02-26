@@ -1762,7 +1762,7 @@ class MSRunsLoader(TableLoader):
         # to a sample by the user and the other is via a directory walk (to catch unaccounted for files, and to make it
         # unnecessary for the user to have to fill in the optional mzXML File Name column, which is a huge reduction in
         # labor required by the user).  The thing that makes this setting useful is that there are almost always files
-        # by the same name and they almost always are incompletely represented in the Peka Annotation Details sheet for
+        # by the same name and they almost always are incompletely represented in the Peak Annotation Details sheet for
         # multiple reasons.  Knowing which were added by the sheet and which are left over is what this value is for.
         if "added" not in mzxml_metadata.keys():
             mzxml_metadata["added"] = False
