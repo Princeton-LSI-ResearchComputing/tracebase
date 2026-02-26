@@ -168,7 +168,7 @@ class Animal(MaintainedModel, HierCachedModel):
         last_serum_sample = (
             self.samples.filter(Tissue.serum_q_expression("tissue__name"))
             .extra(**extra_args)
-            .order_by(f"-{is_null_field}", "time_collected")
+            .order_by(f"-{is_null_field}", "time_collected", "name")
             .last()
         )
 
