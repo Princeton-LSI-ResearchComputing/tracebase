@@ -166,7 +166,7 @@ class AnimalLabel(HierCachedModel):
                     f"groups for 1 or more tracer compounds with element {self.element} for animal {self.animal}: "
                     f"{msg}"
                 )
-                return None
+                tracers_enrichment_fraction = None
 
         return tracers_enrichment_fraction
 
