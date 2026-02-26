@@ -497,8 +497,8 @@ class TableLoaderTests(TracebaseTestCase):
         erec2.full_clean()
 
         # Supplying ["opt_val": None] is technically unsupported by the TableLoader when using get_or_create, but that
-        # is the one condition I found that would trigger the multiple unique constrain match issue.  There are probably
-        # other ways to trigger it.
+        # is the one condition I found that would trigger the multiple unique constraint match issue.  There are
+        # probably other ways to trigger it.
         newrecdict = {"name": "a", "file": 1, "opt_val": None}
 
         # Send a simulated IntegrityError to handle_load_db_errors

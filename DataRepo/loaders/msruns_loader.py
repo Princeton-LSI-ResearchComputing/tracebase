@@ -32,9 +32,11 @@ from DataRepo.models.hier_cached_model import (
 )
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
+    AmbiguousMzxmlSampleMatch,
     AssumedMzxmlSampleMatch,
     ConditionallyRequiredArgs,
     DefaultSequenceNotFound,
+    FileFromInputNotFound,
     InfileError,
     InvalidMSRunName,
     MissingSamples,
@@ -600,13 +602,20 @@ class MSRunsLoader(TableLoader):
         self.exact_mode = exact_mode
 
         # This will contain metadata parsed from the mzXML files (and the created ArchiveFile records to be added to
-        # MSRunSample records)
-        self.mzxml_dict = defaultdict(lambda: defaultdict(list))
+        # MSRunSample records).  It's first key is the sample header (not necessarily the mzXML basename) and the second
+        # key is the relative directory path from the study directory (which can be can be '', to mean *any* directory
+        # under which a file of this name can be found).  This is explicitly to allow entry of the file names (which is
+        # very labor intensive) to be optional.
+        self.mzxml_dict_by_header = defaultdict(lambda: defaultdict(list))
 
-        # This will contain the sample header mapped to the sample name in the database.  It will be used to map
-        # multiple mzXML files with the same name to a sample (because mzXML files with the same name could not be
-        # mapped to a specific row, but they should all map to the same sample).
+        # This will contain the sample header mapped to the sample name in the database.
         self.header_to_sample_name = defaultdict(lambda: defaultdict(list))
+        # This will contain the mzXML basename mapped to the sample name in the database.  It will only be used to map
+        # multiple leftover mzXML files with the same name to a sample (when they could not be mapped to a specific row,
+        # but all map to the same sample).  Filling in the mzXML File Name column is optional.  When it is empty, the
+        # Sample Data Header is used, as it is assumed to be the same.  The mzXML File Name should be filled in when it
+        # differs.
+        self.mzxml_to_sample_name = defaultdict(lambda: defaultdict(list))
 
         # This will prevent creation of MSRunSample records for mzXMLs associated with (e.g.) blanks when leftover
         # mzXMLs are handled (a leftover being an mzXML unassociated with an MSRunSample record).
@@ -644,7 +653,7 @@ class MSRunsLoader(TableLoader):
         # 1. Traverse the supplied mzXML files
         #    - create ArchiveFile records.
         #    - Extract data from the mzxML files
-        #    - store extracted metadata and ArchiveFile record objects in self.mzxml_dict, a 4D dict:
+        #    - store extracted metadata and ArchiveFile record objects in self.mzxml_dict_by_header, a 4D dict:
         #      {mzXML_name: {mzXML_dir: [{**metadata},...]}}
         # We need the directory to match the mzXML in the infile with the MSRunSequence name on the same row.  mzXML
         # files can easily have the same name and all users can reasonably be expected to know their location and the
@@ -724,7 +733,7 @@ class MSRunsLoader(TableLoader):
                 )
                 # Otherwise, we errored about it not being found already
 
-            for mzxml_name_no_ext in self.mzxml_dict.keys():
+            for mzxml_name_no_ext in self.mzxml_dict_by_header.keys():
 
                 # We will skip creating MSRunSample records for rows marked with 'skip' (e.g. blanks), because to have
                 # an MSRunSample record, you need a Sample record, and we don't create those for blank samples.
@@ -733,12 +742,12 @@ class MSRunsLoader(TableLoader):
                     # we check each dir to see if it is present among the skipped files
                     dirs = [
                         dir
-                        for dir in self.mzxml_dict[mzxml_name_no_ext].keys()
+                        for dir in self.mzxml_dict_by_header[mzxml_name_no_ext].keys()
                         if dir
                         not in self.skip_msrunsample_by_mzxml[mzxml_name_no_ext].keys()
                     ]
                 else:
-                    dirs = list(self.mzxml_dict[mzxml_name_no_ext].keys())
+                    dirs = list(self.mzxml_dict_by_header[mzxml_name_no_ext].keys())
 
                 if mzxml_name_no_ext in self.skip_msrunsample_by_mzxml.keys():
                     if len(dirs) == 0:
@@ -764,8 +773,8 @@ class MSRunsLoader(TableLoader):
                         continue
                     elif "" in self.skip_msrunsample_by_mzxml[mzxml_name_no_ext].keys():
                         skip_files = []
-                        for dr in self.mzxml_dict[mzxml_name_no_ext].keys():
-                            for dct in self.mzxml_dict[mzxml_name_no_ext][dr]:
+                        for dr in self.mzxml_dict_by_header[mzxml_name_no_ext].keys():
+                            for dct in self.mzxml_dict_by_header[mzxml_name_no_ext][dr]:
                                 skip_files.append(
                                     os.path.join(dr, dct["mzxml_filename"])
                                 )
@@ -815,25 +824,104 @@ class MSRunsLoader(TableLoader):
                 # guess_sample_name
                 if not self.exact_mode:
                     # All of the file names should be the same, so we're going to arbitrarily grab the first one
-                    arbitrary_key = next(iter(self.mzxml_dict[mzxml_name_no_ext]))
-                    mzxml_filename = self.mzxml_dict[mzxml_name_no_ext][arbitrary_key][
-                        0
-                    ]["mzxml_filename"]
+                    arbitrary_key = next(
+                        iter(self.mzxml_dict_by_header[mzxml_name_no_ext])
+                    )
+                    mzxml_filename = self.mzxml_dict_by_header[mzxml_name_no_ext][
+                        arbitrary_key
+                    ][0]["mzxml_filename"]
                     exact_sample_header_from_mzxml = (os.path.splitext(mzxml_filename))[
                         0
                     ]
 
-                # If the mzXML name was recorded in the infile as 1 or more peak annot file headers and it(/they) only
-                # map(s) to 1 sample name (i.e. there are multiple files with the same filename/annot-header, but they
-                # are all for the same sample)
+                sample_name = None
+
+                # If the mzXML name was recorded in the infile as mapping to multiple different peak annot file headers
+                # and it only maps to 1 sample name (i.e. there are multiple files with the same filename/annot-header,
+                # but they are all for the same sample)
                 if (
-                    mzxml_name_no_ext in self.header_to_sample_name.keys()
-                    and len(self.header_to_sample_name[mzxml_name_no_ext].keys()) == 1
+                    mzxml_name_no_ext in self.mzxml_to_sample_name.keys()
+                    and len(self.mzxml_to_sample_name[mzxml_name_no_ext].keys()) == 1
                 ):
                     # Get the sample name from the infile/sheet
                     sample_name = next(
-                        iter(self.header_to_sample_name[mzxml_name_no_ext])
+                        iter(self.mzxml_to_sample_name[mzxml_name_no_ext])
                     )
+                elif (
+                    mzxml_name_no_ext in self.mzxml_to_sample_name.keys()
+                    and len(self.mzxml_to_sample_name[mzxml_name_no_ext].keys()) > 1
+                ):
+                    # There may be multiple mzXMLs with the same name that map to different samples.  We need to
+                    # determine if they have been explicitly mapped to different samples in the peak annotation details
+                    # sheet.
+
+                    # The self.mzxml_dict_by_header has the sample name recorded in it.  Let's filter out the ones that
+                    # have already been processed and grab the sample names that are left over, in a potentially non-
+                    # unique list.
+                    leftover_samples = [
+                        mz_file_dict["sample_name"]
+                        for dir_key in self.mzxml_dict_by_header[
+                            mzxml_name_no_ext
+                        ].keys()
+                        for mz_file_dict in self.mzxml_dict_by_header[
+                            mzxml_name_no_ext
+                        ][dir_key]
+                        if not mz_file_dict["added"]
+                    ]
+
+                    # BUG: NOTE: This problem was broken up into 2 PRs.  This block does not work in this PR.  It is
+                    # BUG: fixed in the next PR.  See the BUG description in the comment in get_matching_mzxml_data
+                    potentially_matching_samples = [
+                        mz_file_dict["sample_name"]
+                        for dir_key in self.mzxml_dict_by_header[
+                            mzxml_name_no_ext
+                        ].keys()
+                        for mz_file_dict in self.mzxml_dict_by_header[
+                            mzxml_name_no_ext
+                        ][dir_key]
+                        if mz_file_dict["added"]
+                    ]
+
+                    # Now let's make that list of sample names unique
+                    infer_match = False
+                    unique_leftover_samples = []
+                    for smplnm in leftover_samples:
+                        if smplnm is None:
+                            infer_match = True
+                        if smplnm is not None and smplnm not in unique_leftover_samples:
+                            unique_leftover_samples.append(smplnm)
+
+                    # BUG: NOTE: This problem was broken up into 2 PRs.  This block does not work in this PR.  It is
+                    # BUG: fixed in the next PR.  See the BUG description in the comment in get_matching_mzxml_data
+                    # If any of the leftovers could not assign a sample name, assume that other files by the same name
+                    # that WERE added, because they were included in the peak annotation details sheet, are the matching
+                    # samples, and add them as an ambiguous match.
+                    if infer_match and len(potentially_matching_samples) > 0:
+                        for potential_match in potentially_matching_samples:
+                            if potential_match not in unique_leftover_samples:
+                                unique_leftover_samples.append(potential_match)
+
+                    if len(unique_leftover_samples) == 1:
+                        # We have narrowed it down to 1 sample by process of elimination
+                        sample_name = unique_leftover_samples[0]
+                    elif len(unique_leftover_samples) == 0:
+                        # All have already been loaded, so we can move on
+                        continue
+                    else:
+                        # BUG: NOTE: This problem was broken up into 2 PRs.  This block does is not executed in this PR.
+                        # BUG: It is fixed in the next PR.  See the BUG description in the comment in
+                        # BUG: get_matching_mzxml_data
+                        # BUG: Once it's fixed, this test needs to be updated: DataRepo.tests.loaders.test_msruns_loader
+                        # BUG: .MSRunsLoaderTests.test_load_data_ambiguous_match
+                        # We have an ambiguous mzXML sample mapping, so buffer an error
+                        self.buffer_infile_exception(
+                            AmbiguousMzxmlSampleMatch(
+                                unique_leftover_samples,
+                                mzxml_name_no_ext,
+                                infer_match,
+                            ),
+                            is_error=True,
+                        )
                 else:
                     # We going to guess the sample name based on the mzXML filename (without the extension)
                     sample_name = self.guess_sample_name(exact_sample_header_from_mzxml)
@@ -844,20 +932,38 @@ class MSRunsLoader(TableLoader):
                 # attempt to create an 'MSRunSample' record, for which a corresponding sample is required.
                 mzxml_filepaths = [
                     fldct["mzxml_filepath"]
-                    for pathkey in self.mzxml_dict[mzxml_name_no_ext].keys()
-                    for fldct in self.mzxml_dict[mzxml_name_no_ext][pathkey]
+                    for pathkey in self.mzxml_dict_by_header[mzxml_name_no_ext].keys()
+                    for fldct in self.mzxml_dict_by_header[mzxml_name_no_ext][pathkey]
                 ]
-                sample = self.get_sample_by_name(
-                    sample_name, from_mzxmls=mzxml_filepaths
-                )
+                sample = None
+                if sample_name is not None:
+                    sample = self.get_sample_by_name(
+                        sample_name, from_mzxmls=mzxml_filepaths
+                    )
 
-                # NOTE: The directory content of self.mzxml_dict is based on the actual supplied mzXML files, not on the
-                # content of the mzxml filename column in the infile.
+                # NOTE: The directory content of self.mzxml_dict_by_header is based on the actual supplied mzXML files,
+                # not on the content of the mzxml filename column in the infile.
                 for mzxml_dir in dirs:
-                    for mzxml_metadata in self.mzxml_dict[mzxml_name_no_ext][mzxml_dir]:
+                    mzxml_metadata: dict
+                    for mzxml_metadata in self.mzxml_dict_by_header[mzxml_name_no_ext][
+                        mzxml_dir
+                    ]:
+                        # It's possible that sample is None here.  If it is, we will try to get the sample using the
+                        # sample_name saved in the mzXML dict.
+                        tmp_sample = sample
+                        if (
+                            sample_name is None
+                            and "sample_name" in mzxml_metadata.keys()
+                            and mzxml_metadata["sample_name"] is not None
+                        ):
+                            tmp_sample = self.get_sample_by_name(
+                                mzxml_metadata["sample_name"],
+                                from_mzxmls=mzxml_filepaths,
+                            )
+
                         try:
                             self.get_or_create_msrun_sample_from_mzxml(
-                                sample,
+                                tmp_sample,
                                 mzxml_name_no_ext,
                                 mzxml_dir,
                                 mzxml_metadata,
@@ -1432,7 +1538,8 @@ class MSRunsLoader(TableLoader):
 
     @transaction.atomic
     def get_or_create_mzxml_and_raw_archive_files(self, mzxml_file):
-        """Get or create ArchiveFile records for an mzXML file and a record for its raw file.  Updates self.mzxml_dict.
+        """Get or create ArchiveFile records for an mzXML file and a record for its raw file.  Updates
+        self.mzxml_dict_by_header (via self.set_mzxml_metadata).
 
         Args:
             mzxml_file (str or Path object)
@@ -1448,7 +1555,6 @@ class MSRunsLoader(TableLoader):
             rawaf_rec (Optional[ArchiveFile])
             rawaf_created (boolean)
         """
-        print(f"Archiving mzXML: '{mzxml_file}'", flush=True)
 
         # Set the row index / rownum to None.  We haven't started reading the sheet yet, so clear the index so that
         # buffer_infile_exception does not inaccurately report row numbers.
@@ -1457,6 +1563,7 @@ class MSRunsLoader(TableLoader):
         # Parse out the polarity, mz_min, mz_max, raw_file_name, and raw_file_sha1
         default_suggestion = "The mzXML file will be skipped."
         raised = False
+        mzxml_metadata = None
         errs: AggregatedErrors
         try:
             mzxml_metadata, errs = self.parse_mzxml(mzxml_file)
@@ -1464,6 +1571,13 @@ class MSRunsLoader(TableLoader):
             self.buffer_infile_exception(fnfe)
             raised = True
         except NoScans as ns:
+            # There's no MSRunSample to load, but the mzXML_metadata is used for metadata other than just the polarity
+            # and scan range, so this fills in that data before the eventual return.  A call to this method is made
+            # below, but this exception will cause a return before it gets there.  Filling this data in will prevent bad
+            # lookups of actual samples/files, because the user may have added this file to the peak annotation details
+            # sheet.
+            self.set_mzxml_metadata(mzxml_metadata, mzxml_file)
+
             self.buffer_infile_exception(
                 ns, is_error=False, suggestion=default_suggestion
             )
@@ -1521,12 +1635,6 @@ class MSRunsLoader(TableLoader):
             self.skipped(ArchiveFile.__name__)  # Skipping raw file below
             raise RollbackException()
 
-        mzxml_dir, mzxml_filename = os.path.split(mzxml_file)
-
-        abs_mzxml_dir = os.path.abspath(mzxml_dir)
-        # Make the mzxml_dir be relative to self.mzxml_dir
-        mzxml_dir = os.path.relpath(abs_mzxml_dir, self.mzxml_dir)
-
         # Get or create an ArchiveFile record for a raw file
         try:
             raw_rec_dict = {
@@ -1553,22 +1661,12 @@ class MSRunsLoader(TableLoader):
             self.errored(ArchiveFile.__name__)
             raise RollbackException()
 
-        # Add in the ArchiveFile record objects
-        mzxml_metadata["mzaf_record"] = mzaf_rec
-        mzxml_metadata["rawaf_record"] = rawaf_rec
-        # And we'll use this for error reporting
-        mzxml_metadata["mzxml_dir"] = mzxml_dir
-        mzxml_metadata["mzxml_filename"] = mzxml_filename
-        # Set a filepath relative to the mzXML dir
-        mzxml_metadata["mzxml_filepath"] = os.path.relpath(mzxml_file, self.mzxml_dir)
-
-        # We will use this to know when to add leftovers that were not in the infile
-        mzxml_metadata["added"] = False
-
-        # Save the metadata by mzxml name (which may not be unique, so we're using the record ID as a second key, so
-        # that we can later associate a sample header (with the same non-unique issue) to its multiple mzXMLs).
-        mzxml_name = self.get_sample_header_from_mzxml_name(mzxml_filename)
-        self.mzxml_dict[mzxml_name][mzxml_dir].append(mzxml_metadata)
+        self.set_mzxml_metadata(
+            mzxml_metadata,
+            mzxml_file,
+            mzaf_rec=mzaf_rec,
+            rawaf_rec=rawaf_rec,
+        )
 
         return (
             mzaf_rec,
@@ -1577,6 +1675,105 @@ class MSRunsLoader(TableLoader):
             rawaf_created,
         )
 
+    def set_mzxml_metadata(
+        self,
+        mzxml_metadata: Optional[dict],
+        mzxml_file: str,
+        mzaf_rec: Optional[ArchiveFile] = None,
+        rawaf_rec: Optional[ArchiveFile] = None,
+    ):
+        """Updates mzxml_metadata and adds it to self.mzxml_dict_by_header.
+
+        If the mzxml_metadata hasn't been fully populated (such as would be the case if the mzXML file had no scans, it
+        initializes the keys with None values.  It also adds extra metadata to the mzxml_metadata dict that will be
+        appended to the list stored in self.mzxml_dict_by_header[mzxml_name][mzxml_dir].
+
+        self.mzxml_dict_by_header[mzxml_name][mzxml_dir] (List[dict]): Each dict contains:
+            mzXML metadata parsed from the file:
+                polarity (Optional[float])
+                mz_min (Optional[float])
+                mz_max (Optional[float])
+                raw_file_name (Optional[str])
+                raw_file_sha1 (Optional[str])
+            metadata regarding the MSRunSample record that will be created and linked to the ArchiveFile record:
+                mzaf_record (ArchiveFile): To be added to a concrete MSRunSample record
+                rawaf_record (ArchiveFile): To be added to a concrete MSRunSample record
+                mzxml_dir (str): The relative path up to but not including the mzXML file.
+                mzxml_filename (str): The unmodified name of the mzXML file.
+                mzxml_filepath (str): Path relative to the study doc to the mzXML files.
+                sample_name (Optional[str]): Initialized to None.  Set elsewhere.
+                added (bool): This tracks whether the corresponding concrete MSRunSample record has been created or not.
+
+        This is a helper method to get_or_create_mzxml_and_raw_archive_files.
+
+        Args:
+            mzxml_metadata (Optional[dict]): A dict obtained by parsing the mzXML file, but supplemented with other
+                metadata.  See above.
+            mzxml_file (str)
+            mzaf_rec (Optional[ArchiveFile])
+            rawaf_rec (Optional[ArchiveFile])
+        Exceptions:
+            None
+        Returns:
+            None
+        """
+
+        mzxml_dir, mzxml_filename = os.path.split(mzxml_file)
+
+        abs_mzxml_dir = os.path.abspath(mzxml_dir)
+        # Make the mzxml_dir be relative to self.mzxml_dir
+        mzxml_dir = os.path.relpath(abs_mzxml_dir, self.mzxml_dir)
+
+        if mzxml_metadata is None:
+            mzxml_metadata = {}
+
+        # Carefully initialize with None values when the keys do not yet exist in the dict passed in
+        if "raw_file_name" not in mzxml_metadata.keys():
+            mzxml_metadata["raw_file_name"] = None
+        if "raw_file_sha1" not in mzxml_metadata.keys():
+            mzxml_metadata["raw_file_sha1"] = None
+        if "polarity" not in mzxml_metadata.keys():
+            mzxml_metadata["polarity"] = None
+        if "mz_min" not in mzxml_metadata.keys():
+            mzxml_metadata["mz_min"] = None
+        if "mz_max" not in mzxml_metadata.keys():
+            mzxml_metadata["mz_max"] = None
+
+        # Add in the ArchiveFile record objects, if supplied (and not already set)
+        if "mzaf_record" not in mzxml_metadata.keys() or mzaf_rec is not None:
+            mzxml_metadata["mzaf_record"] = mzaf_rec
+        if "rawaf_record" not in mzxml_metadata.keys() or rawaf_rec is not None:
+            mzxml_metadata["rawaf_record"] = rawaf_rec
+
+        # These are safe to always set.  We are assuming this won't change and that this method is called only when they
+        # need to be set.  These values are primarily used for error reporting.
+        mzxml_metadata["mzxml_dir"] = mzxml_dir
+        mzxml_metadata["mzxml_filename"] = mzxml_filename
+        # Set a filepath relative to the mzXML dir
+        mzxml_metadata["mzxml_filepath"] = os.path.relpath(mzxml_file, self.mzxml_dir)
+
+        # No sample from the input file is associated with this mzXML (yet)
+        if "sample_name" not in mzxml_metadata.keys():
+            mzxml_metadata["sample_name"] = None
+
+        # We will use this to know when to add leftovers that were not in the infile.  There are 2 methods by which the
+        # files are processed and this is the means by which those processes don't step on each other's toes.  The 2
+        # methods are via processing the Peak Annotation Details sheet where the mzXML File has been explicitly assigned
+        # to a sample by the user and the other is via a directory walk (to catch unaccounted for files, and to make it
+        # unnecessary for the user to have to fill in the optional mzXML File Name column, which is a huge reduction in
+        # labor required by the user).  The thing that makes this setting useful is that there are almost always files
+        # by the same name and they almost always are incompletely represented in the Peak Annotation Details sheet for
+        # multiple reasons.  Knowing which were added by the sheet and which are left over is what this value is for.
+        if "added" not in mzxml_metadata.keys():
+            mzxml_metadata["added"] = False
+
+        # Save the metadata by mzxml name (which may not be unique, so we're using the record ID as a second key, so
+        # that we can later associate a sample header (with the same non-unique issue) to its multiple mzXMLs).
+        mzxml_name = self.make_sample_header_from_mzxml_name(mzxml_filename)
+
+        # This is the end goal of this method, to add the metadata to self.mzxml_dict_by_header
+        self.mzxml_dict_by_header[mzxml_name][mzxml_dir].append(mzxml_metadata)
+
     @transaction.atomic
     def get_or_create_msrun_sample_from_row(self, row):
         """Takes a row from the Peak Annotation Details sheet/file and gets or creates MSRunSample records.
@@ -1584,12 +1781,14 @@ class MSRunsLoader(TableLoader):
         Calls check_reassign_peak_groups, which shuffles PeakGroups around and potentially deletes placeholder
         MSRunSample records whose PeakGroups have been reassigned to a concrete MSRunSample record.
 
-        Updates self.mzxml_dict (via get_matching_mzxml_metadata) to denote which mzXML files were included in
+        Updates self.mzxml_dict_by_header (via get_matching_mzxml_metadata) to denote which mzXML files were included in
         MSRunSample records identified from the row data.  This is later used to process leftover mzXML files that were
         not denoted in the peak annotation details file/sheet.
 
-        Updates self.header_to_sample_name, which is used to associate mzXML files with the samples they belong to (when
-        they could be assigned to a specific row of the infile, due to multiple files with the same name).
+        Updates self.header_to_sample_name, which is used to check for possible duplicate samples.
+
+        Also updates self.mzxml_to_sample_name, which is used to associate mzXML files with the samples they belong to
+        (when they could be assigned to a specific row of the infile, due to multiple files with the same name).
 
         Args:
             row (pandas dataframe row)
@@ -1599,7 +1798,7 @@ class MSRunsLoader(TableLoader):
             Buffers:
                 RecordDoesNotExist
         Returns:
-            rec (MSRunSample)
+            rec (Optional[MSRunSample])
             created (boolean)
         """
         created = False
@@ -1620,13 +1819,28 @@ class MSRunsLoader(TableLoader):
             # Annotation file name is not used in the load of this data.  It is only used when the PeakAnnotationsLoader
             # retrieves metadata for a particular peak annotations file by calling get_loaded_msrun_sample_dict.
 
+            # Check the mzXML path, if one is given and contains a subfolder.  If the mzXML File Name column value
+            # contains a path (which can be supplied to resolve file name collisions that map to different samples) and
+            # the actual file doesn't exist, buffer an error and abort the lookup.
+            mzxml_dir = None
+            mzxml_filename = None
+            if mzxml_path is not None:
+                mzxml_dir, mzxml_filename = os.path.split(mzxml_path)
+                if (
+                    mzxml_dir != ""
+                    and not os.path.samefile(mzxml_dir, self.mzxml_dir)
+                    and not os.path.exists(mzxml_path)
+                ):
+                    self.errored(MSRunSample.__name__)
+                    self.buffer_infile_exception(FileFromInputNotFound(mzxml_path))
+                    return rec, False
+
             if skip is True:
                 self.skipped(MSRunSample.__name__)
                 if mzxml_path is not None:
-                    mzxml_dir, mzxml_filename = os.path.split(mzxml_path)
                     if os.path.isabs(mzxml_dir):
                         mzxml_dir = os.path.relpath(mzxml_dir, self.mzxml_dir)
-                    mzxml_name = self.get_sample_header_from_mzxml_name(mzxml_filename)
+                    mzxml_name = self.make_sample_header_from_mzxml_name(mzxml_filename)
                     self.skip_msrunsample_by_mzxml[mzxml_name][mzxml_dir].append(
                         self.rownum
                     )
@@ -1665,28 +1879,31 @@ class MSRunsLoader(TableLoader):
             sample = self.get_sample_by_name(sample_name)
             msrun_sequence = self.get_msrun_sequence(name=sequence_name)
 
-            if mzxml_path is not None:
-                mzxml_name = self.get_sample_header_from_mzxml_name(
+            if mzxml_path is None:
+                # Assume that the mzXML name matches the sample header (as it would only differ if the user explicitly
+                # edited it).  This is safe to assume because we're only going to use it if we could not pair up an
+                # mzXML file with a row of the peak annotation details sheet, in which case the user would get an error
+                # and be instructed to add the file to the appropriate row manually.
+                self.mzxml_to_sample_name[sample_header][sample_name].append(
+                    self.rownum
+                )
+            else:
+                mzxml_name = self.make_sample_header_from_mzxml_name(
                     os.path.basename(mzxml_path)
                 )
 
-                # NOTE: Intentionally treating sample_header (an Optional[str]) as a bool.
-                if mzxml_name[0].isdigit() and (
-                    not sample_header or sample_header != mzxml_name
-                ):
-                    # The leftover mzXMLs code uses self.header_to_sample_name to lookup the DB sample name.  The peak
-                    # correction software does not allow sample names to start with a number, and we don't want that
-                    # lookup to fail and raise an error, so we're going to throw it in there.  It doesn't matter that
-                    # the sample header version was already set.  It differs from the mzxml name.
-                    self.header_to_sample_name[mzxml_name][sample_name].append(
-                        self.rownum
-                    )
+                # The leftover mzXMLs code uses self.mzxml_to_sample_name to lookup the DB sample name.  NOTE: The peak
+                # correction software does not allow sample names to start with a number, so even though the sample data
+                # header is usually identical to the mzXML basename, this mapping is tracked separately.  This is
+                # maintained separately from self.header_to_sample_name also in case the headers distinctly map
+                # intentionally to different samples, but the mzXML names do not.
+                self.mzxml_to_sample_name[mzxml_name][sample_name].append(self.rownum)
 
                 if sample_header is not None:
                     # We're going to check to see if the sample_header and mzxml_name differ and issue a warning for
                     # users to double-check things in case they accidentally mismatches an mzXML and a sample header in
                     # the peak annotation details sheet.
-                    sample_header_name = self.get_sample_header_from_mzxml_name(
+                    sample_header_name = self.make_sample_header_from_mzxml_name(
                         sample_header
                     )
                     if sample_header_name != mzxml_name and (
@@ -1728,6 +1945,8 @@ class MSRunsLoader(TableLoader):
             #    retrieval and/or creation may fail below [which will buffer an error that eventually will be raised],
             #    because the point is that we don't try and get or create it again as a "leftover" from the infile)
             mzxml_metadata["added"] = True
+            # The input file has explicitly associated this sample name with this mzXML file
+            mzxml_metadata["sample_name"] = sample_name
 
             # 4. Create a record dict to be used for creating an MSRunSample record
             msrs_rec_dict = {
@@ -1913,7 +2132,9 @@ class MSRunsLoader(TableLoader):
                 )[0]
 
                 # Let's see if this is a "dash" issue
-                sample_name_nodash = self.get_sample_header_from_mzxml_name(sample_name)
+                sample_name_nodash = self.make_sample_header_from_mzxml_name(
+                    sample_name
+                )
                 if sample_name_nodash != sample_name:
                     try:
                         return Sample.objects.get(name=sample_name_nodash)
@@ -2157,6 +2378,7 @@ class MSRunsLoader(TableLoader):
             self.errored(MSRunSample.__name__)
             return rec, created
 
+        msrs_rec_dict = {}
         try:
             msrs_rec_dict = {
                 "msrun_sequence": msrun_sequence,
@@ -2172,6 +2394,7 @@ class MSRunsLoader(TableLoader):
 
             # Update the fact this one has been handled
             mzxml_metadata["added"] = True
+            mzxml_metadata["sample_name"] = sample.name
 
             if created:
                 self.created(MSRunSample.__name__)
@@ -2538,7 +2761,8 @@ class MSRunsLoader(TableLoader):
         available (matching) paths (this will be all files with the same name if no path was supplied).  The user is
         then instructed to edit the mzXML name on the indicated row to include one of the displayed file paths.
 
-        Uses self.mzxml_dict, which contains data parsed from mzXML files indexes by mzXML basename and directory.
+        Uses self.mzxml_dict_by_header, which contains data parsed from mzXML files indexed by mzXML basename and
+        directory.
 
         Args:
             sample_name (str): Name of a sample in the database.
@@ -2547,7 +2771,7 @@ class MSRunsLoader(TableLoader):
         Exceptions:
             None
         Returns:
-            (dict): A single dict of mzXML metadata from self.mzxml_dict[mzxml basename][mzxml dir]
+            (dict): A single dict of mzXML metadata from self.mzxml_dict_by_header[mzxml basename][mzxml dir]
             (bool): Whether there were multiple matching mzXML files
         """
         mzxml_string_dir = ""
@@ -2567,25 +2791,45 @@ class MSRunsLoader(TableLoader):
             "mzxml_dir": None,
             "mzxml_filename": None,
             "added": False,
+            "sample_name": None,
         }
 
         # If we have an mzXML filename, that trumps any mzxml we might match using the sample header
         if mzxml_path is not None:
             mzxml_string_dir, mzxml_filename = os.path.split(mzxml_path)
             mzxml_basename = (os.path.splitext(mzxml_filename))[0]
-            mzxml_name = self.get_sample_header_from_mzxml_name(mzxml_filename)
-            multiple_mzxml_dict = self.mzxml_dict.get(mzxml_name)
+
+            # BUG: This is getting the wrong multiple_mzxml_dict, or rather that dict does not include same-named mzxmls
+            # BUG: in directories where the sample header differs (i.e. has been edited).  This issue is separate from
+            # BUG: the inaccurate possible dupe samples issue, so I will fix this in a separate PR and delete this
+            # BUG: comment.  The problem is that the keys in self.mzxml_dict_by_header are not the actual file name -
+            # BUG: they are the sample data headers (or the best guess at what it is).  That's why this calls
+            # BUG: make_sample_header_from_mzxml_name.
+            # I need to be looking at self.mzxml_files.  That's just a list, so I'll need to figure out how to get the
+            # metadata...
+            mzxml_name = self.make_sample_header_from_mzxml_name(mzxml_filename)
+            multiple_mzxml_dict = self.mzxml_dict_by_header.get(mzxml_name)
+
+            # Identify the mzxml metadata by matching the mzxml path that was explicitly supplied in the peak annotation
+            # details sheet.  If there is a match, return it.
+            if multiple_mzxml_dict is not None and mzxml_string_dir != "":
+                # Check for an exact match
+                for dir in multiple_mzxml_dict.keys():
+                    if len(multiple_mzxml_dict[dir]) == 1 and os.path.normpath(
+                        mzxml_string_dir
+                    ) == os.path.normpath(dir):
+                        return multiple_mzxml_dict[dir][0], False
 
         # If we have a sample_header, that trumps any mzxml we might match using the sample name
-        if multiple_mzxml_dict is None:
-            multiple_mzxml_dict = self.mzxml_dict.get(sample_header)
+        if multiple_mzxml_dict is None and sample_header is not None:
+            multiple_mzxml_dict = self.mzxml_dict_by_header.get(sample_header)
             mzxml_name = str(sample_header)
             if mzxml_path is None:
                 mzxml_basename = mzxml_name
 
         # As a last resort, we use the sample name itself
         if multiple_mzxml_dict is None:
-            multiple_mzxml_dict = self.mzxml_dict.get(sample_name)
+            multiple_mzxml_dict = self.mzxml_dict_by_header.get(sample_name)
             mzxml_name = str(sample_name)
             if mzxml_path is None:
                 mzxml_basename = mzxml_name
@@ -2636,6 +2880,17 @@ class MSRunsLoader(TableLoader):
             # 'get_or_create_msrun_sample_from_row'.  The method 'get_or_create_msrun_sample_from_mzxml' (called
             # in a loop from 'load_data') will create the leftover MSRunSample records in 'matches' that we are not
             # returning here.
+            return placeholder_mzxml_metadata, True
+
+        if len(matches) == 0:
+            self.buffer_infile_exception(
+                ValueError(
+                    "Unable to find mzXML metadata that matches the values on this row of the peak annotation details "
+                    f"sheet: sample_name: {sample_name} sample_header: {sample_header} mzxml_path: {mzxml_path}"
+                ),
+                is_error=True,
+                is_fatal=True,
+            )
             return placeholder_mzxml_metadata, True
 
         return matches[0], False
@@ -2887,9 +3142,10 @@ class MSRunsLoader(TableLoader):
         }, errs_buffer
 
     def unpaired_mzxml_files_exist(self):
-        """Traverse self.mzxml_dict and return True if any mzXML files have not yet been added to an MSRunSample record
-        (meaning, it was not listed in the Peak Annotation Details sheet/file or there were multiple files with the same
-        name, not all paths were provided in the input file, and thus, the file could not be paired with a row).
+        """Traverse self.mzxml_dict_by_header and return True if any mzXML files have not yet been added to an
+        MSRunSample record (meaning, it was not listed in the Peak Annotation Details sheet/file or there were multiple
+        files with the same name, not all paths were provided in the input file, and thus, the file could not be paired
+        with a row).
 
         This method exists in order to avoid errors when trying to retrieve default values, if they are not needed, e.g.
         when the infile is complete and all mzXMLs were included in it.
@@ -2901,9 +3157,9 @@ class MSRunsLoader(TableLoader):
         Returns
             boolean
         """
-        for mzxml_name in self.mzxml_dict.keys():
-            for mzxml_dir in self.mzxml_dict[mzxml_name].keys():
-                for mzxml_metadata in self.mzxml_dict[mzxml_name][mzxml_dir]:
+        for mzxml_name in self.mzxml_dict_by_header.keys():
+            for mzxml_dir in self.mzxml_dict_by_header[mzxml_name].keys():
+                for mzxml_metadata in self.mzxml_dict_by_header[mzxml_name][mzxml_dir]:
                     if mzxml_metadata["added"] is False and (
                         # TODO: Also check if a skip exists without the directory having been added.
                         mzxml_name not in self.skip_msrunsample_by_mzxml.keys()
@@ -3041,7 +3297,7 @@ class MSRunsLoader(TableLoader):
 
         return delstats
 
-    def get_sample_header_from_mzxml_name(self, mzxml_name: str):
+    def make_sample_header_from_mzxml_name(self, mzxml_name: str):
         """This turns an mzxml file- or base-name into a sample header.  Uses self.exact_mode to decide whether to
         replace dashes with underscores.
 

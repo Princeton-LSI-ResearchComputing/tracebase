@@ -3255,7 +3255,7 @@ class UnexpectedLabel(InfileError, SummarizableError):
 
     SummarizerExceptionClass = UnexpectedLabels
 
-    def __init__(self, unexpected, possible, **kwargs):
+    def __init__(self, unexpected: List[str], possible: List[str], **kwargs):
         message = (
             f"One or more observed peak labels were not among the label(s) in the tracer(s):\n"
             f"\tObserved: {unexpected}\n"
@@ -3265,6 +3265,25 @@ class UnexpectedLabel(InfileError, SummarizableError):
         super().__init__(message, **kwargs)
         self.possible = possible
         self.unexpected = unexpected
+
+        bad_unexpected = self.check_type(unexpected)
+        if len(bad_unexpected) > 0:
+            raise TypeError(
+                f"unexpected argument must be a List[str].  These types were found: {bad_unexpected}"
+            )
+        bad_possible = self.check_type(possible)
+        if len(bad_possible) > 0:
+            raise TypeError(
+                f"possible argument must be a List[str].  These types were found: {bad_possible}"
+            )
+
+    def check_type(self, lst: list) -> list:
+        """Returns a unique list of non-str type names found in lst."""
+        bad_type_names = []
+        for elem in lst:
+            if not isinstance(elem, str) and type(elem).__name__ not in bad_type_names:
+                bad_type_names.append(type(elem).__name__)
+        return bad_type_names
 
 
 class NoCommonLabel(Exception):
@@ -3986,6 +4005,129 @@ class AssumedMzxmlSampleMatch(InfileError, SummarizableError):
         self.sample_name = sample_name
         self.mzxml_name = mzxml_name
         self.mzxml_file = mzxml_file
+
+
+class AmbiguousMzxmlSampleMatches(Exception):
+    """Summary of `AmbiguousMzxmlSampleMatch` exceptions.
+
+    DEV_SECTION - Everything above this delimiter is user-facing.  See TraceBaseDocs/README.md
+
+    Args:
+        exceptions (List[AmbiguousMzxmlSampleMatch])
+        message (Optional[str])
+    Attributes:
+        Class:
+            None
+        Instance:
+            exceptions (List[AmbiguousMzxmlSampleMatch])
+    """
+
+    def __init__(self, exceptions: List[AmbiguousMzxmlSampleMatch], message=None):
+        if message is None:
+            message = (
+                "The following mzXML files could not be mapped to a single sample.  Each mzXML must be associated with "
+                "an MSRunSample, which links to a Sample record, so knowing which sample an mzXML is associated with "
+                "is required.  To resolve this, add a row for every mzXML file with the indicated name, including "
+                "their paths relative to the study directory, to the Peak Annotation Details sheet."
+            )
+            matches_by_annot_file = defaultdict(list)
+            exc: AmbiguousMzxmlSampleMatch
+            for exc in exceptions:
+                loc = generate_file_location_string(
+                    file=exc.file,
+                    sheet=exc.sheet,
+                )
+                matches_by_annot_file[loc].append(exc)
+            for loc, exc_list in sorted(
+                matches_by_annot_file.items(), key=lambda tpl: tpl[0]
+            ):
+                message += f"\t{loc}\n"
+                for exc in sorted(exc_list, key=lambda e: e.mzxml_name):
+                    message += (
+                        f"\t\t'{exc.mzxml_name}' matches samples: {exc.sample_names}\n"
+                    )
+        super().__init__(message)
+        self.exceptions = exceptions
+
+
+class AmbiguousMzxmlSampleMatch(InfileError, SummarizableError):
+    """An mzXML file could not be unambiguously mapped to a single sample record.
+
+    Each mzXML must be associated with a single Sample record.  The link between the mzXML and the Sample is indirect.
+    The link is via an MSRunSample record, which links to the Sample.  Knowing which sample an mzXML is associated with
+    is thus required.
+
+    Sometimes this is due to mzXML name collisions that the user explicitly mapped to different samples, but the
+    association was not explicitly made for each mzXML file because there exist leftover, unaccounted-for mzXML files
+    that were not involved in abundance correction.  For example, there could exist an unanalyzed positive scan or scan-
+    range mzXML.  To ensure comprehensive saving of all mzXML files, the loading code looks at all files in the study
+    directory and tries to automatically associate them with a sequence and a sample, and there are multiple routes that
+    can result in an ambiguous match.
+
+    To resolve this ambiguous match, the mzXML file with ambiguous name, including its path relative from the study
+    directory, must be added to the Peak Annotation Details sheet.  The error will include all the potentially matching
+    sample names.  Decide which one is the correct biological sample from which the mzXML was derived and do one of two
+    things:
+
+    1. If the mzXML was analyzed (i.e. included in an abundance correction analysis), there should exist a row already
+       in the Peak Annotation Details sheet.  You must find that row and add the relative path from the study directory
+       to the mzXML file to the "mzXML File Name" column on the row containing the corresponding Sample and the peak
+       annotation file.
+    2. If the mzXML was *not* analyzed (i.e. it was not used for peak picking and natural abundance correct), there will
+       not exist a row in the Peak Annotation Details sheet.  (NOTE: Sometimes, this may be simply due to the fact that
+       the mzXML contains no scan data.)  You must add a row to the Peak Annotation Details sheet that contains only~
+       the Sample, mzXML File Name (including the relative path from the study directory), and "skip" in the Skip
+       column.  Skip indicates only that there will be no peak group data and that an MSRunSample record does not need
+       to be created to link it.  But note that this will not prevent later adding peak data to the study in the future.
+       This should be done even for the mzXML files that do not contain scan data.  And it only needs to be done for
+       those files affected by an ambiguous match.^
+
+    ~ NOTE: The blue column headers in the Peak Annotation Details sheet indicate the required columns, but they are
+      only for the common case (when there exists a peak annotation file and PeakGroup data).  The required columns are
+      actually case-conditional.  In this case, where there is no peak annotation file, only the Sample and mzXML File
+      Name columns are required.  In fact, the "skip" is in the Skip column, no columns are required.
+    ^ There may be warnings associated with some files such as those associated with blank samples, no scans, or
+      ambiguous sequence assignments.  Adding those to the Peak Annotation Details sheet will silence the warnings, but
+      as long as the warnings don't indicate a data problem and that the automatic handling is accurate, the warnings
+      are harmless.
+
+    DEV_SECTION - Everything above this delimiter is user-facing.  See TraceBaseDocs/README.md
+
+    Args:
+        sample_names (List[str]): A list of 2 or more sample names that an mzXML file is ambiguously associated with.
+        mzxml_name (str): An mzXML file name (with optional path) that ambiguously maps to multiple samples.
+        kwargs (dict): See InfileError.
+    Attributes:
+        Class:
+            SummarizerExceptionClass (Exception): The exception class that takes a list of objects from this class and
+                summarizes their content.
+        Instance:
+            sample_names (List[str])
+            mzxml_name (str)
+    """
+
+    SummarizerExceptionClass = AmbiguousMzxmlSampleMatches
+
+    def __init__(
+        self, sample_names: List[str], mzxml_name: str, inferred_match=False, **kwargs
+    ):
+        inferred_message = (
+            ""
+            if not inferred_match
+            else (
+                " (The ambigous sample match for this mzXML file was inferred via mzXML files of the same name "
+                "explicitly mapped to multiple samples.) "
+            )
+        )
+        message = (
+            f"mzXML file '{mzxml_name}' could not be mapped to a single sample. {inferred_message} Each mzXML must be "
+            "associated with an MSRunSample, which links to a Sample record, so knowing which sample an mzXML is "
+            "associated with is required.  To resolve this, add a row for every mzXML file with this name, including "
+            f"its path relative from the study directory, to %s.  Potential sample matches include: {sample_names}."
+        )
+        super().__init__(message, **kwargs)
+        self.sample_names = sample_names
+        self.mzxml_name = mzxml_name
 
 
 class UnmatchedMzXMLs(Exception):
@@ -5702,7 +5844,7 @@ class MultipleConflictingValueMatches(InfileError, SummarizableError):
     unique constraint.
 
     The other option would be to modify the unique constraints to make the file record's values not match one of the
-    unique constrains.
+    unique constraints.
     """
 
     SummarizerExceptionClass = MultipleConflictingValueMatchesSummary
