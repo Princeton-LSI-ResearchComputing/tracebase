@@ -224,6 +224,69 @@ class PeakGroupLabelMultiLabelTests(TracebaseTestCase):
         self.assertAlmostEqual(expectedc, pgc)
         self.assertAlmostEqual(expectedn, pgn)
 
+    @MaintainedModel.no_autoupdates()
+    def test_normalized_labeling_2_elems_divbyzero(self):
+        """This test asserts that a ZeroDivisionError is caught in PeakDataLabel.normalized_labeling and that it issues
+        a warning and returns None."""
+        call_command(
+            "load_peak_annotations",
+            infile="DataRepo/data/tests/multiple_labels/glnfasted1_cor.xlsx",
+        )
+        # This loads a serum sample only (dependent on animal_sample_table_v3.xlsx having already been loaded) - so that
+        # we can hit the ZeroDivisionError and not a Sample.DoesNotExist error.
+        call_command(
+            "load_study",
+            infile="DataRepo/data/tests/multiple_labels/animal_sample_table_v3_serum.xlsx",
+            exclude_sheets=["Peak Annotation Files"],
+        )
+        # This loads a serum tracer peak group in the 1 serum sample whose corrected abundances are all 0 (except for
+        # the C12 PARENT, which I set to 0.001 to avoid a ZeroDivisionError in PeakData.fraction), to cause a
+        # ZeroDivisionError in PeakDataLabel.normalized_labeling
+        call_command(
+            "load_peak_annotations",
+            infile="DataRepo/data/tests/multiple_labels/glnfasted1_cor_serum0.xlsx",
+        )
+
+        pg = PeakGroup.objects.filter(msrun_sample__sample__name="xzl1_brain").get(
+            name="glutamine"
+        )
+
+        with self.assertWarns(UserWarning) as awc:
+            pgnlc = pg.labels.get(element__exact="C").normalized_labeling
+
+        self.assertEqual(1, len(awc.warnings))
+        self.assertIn(
+            "Unable to compute normalized_labeling", str(awc.warnings[0].message)
+        )
+        self.assertIn(
+            "element 'C' in peak group glutamine of sample xzl1_brain",
+            str(awc.warnings[0].message),
+        )
+        self.assertIn(
+            "serum tracer enrichment fraction for the 1 tracer(s) infused in animal xzl1 is 0.",
+            str(awc.warnings[0].message),
+        )
+
+        self.assertIsNone(pgnlc)
+
+        with self.assertWarns(UserWarning) as awn:
+            pgnln = pg.labels.get(element__exact="N").normalized_labeling
+
+        self.assertEqual(1, len(awn.warnings))
+        self.assertIn(
+            "Unable to compute normalized_labeling", str(awn.warnings[0].message)
+        )
+        self.assertIn(
+            "element 'N' in peak group glutamine of sample xzl1_brain",
+            str(awn.warnings[0].message),
+        )
+        self.assertIn(
+            "serum tracer enrichment fraction for the 1 tracer(s) infused in animal xzl1 is 0.",
+            str(awn.warnings[0].message),
+        )
+
+        self.assertIsNone(pgnln)
+
 
 @override_settings(CACHES=settings.TEST_CACHES)
 class PeakGroupLabelPropertyTests(TracebaseTestCase):
