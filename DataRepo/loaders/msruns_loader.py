@@ -1751,6 +1751,8 @@ class MSRunsLoader(TableLoader):
         mzxml_metadata["mzxml_filename"] = mzxml_filename
         # Set a filepath relative to the mzXML dir
         mzxml_metadata["mzxml_filepath"] = os.path.relpath(mzxml_file, self.mzxml_dir)
+        # No sample from the input file is associated with this mzXML (yet)
+        mzxml_metadata["sample_name"] = None
 
         # No sample from the input file is associated with this mzXML (yet)
         if "sample_name" not in mzxml_metadata.keys():

@@ -157,7 +157,7 @@ class LoadSamplesSmallObob2Tests(TracebaseTestCase):
         self.assertIn("Han Solo", str(cves[0]))
         self.assertEqual(1, len(cves))
         # There are 5 ConflictingValueErrors expected (Same samples with different researcher: Han Solo)
-        self.assertEqual(5, len(cves[0].conflicting_value_errors))
+        self.assertEqual(5, len(cves[0].exceptions))
         self.assertEqual(2, len(aes.exceptions))
         self.assertEqual(1, aes.num_warnings)
         self.assertIn(

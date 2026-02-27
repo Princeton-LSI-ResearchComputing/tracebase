@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from DataRepo.models.researcher import UnknownResearcherError
 from DataRepo.models.utilities import get_model_by_name
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
@@ -11,6 +13,8 @@ from DataRepo.utils.exceptions import (
     AnimalsWithoutSerumSamples,
     AnimalWithoutSamples,
     AnimalWithoutSerumSamples,
+    ComplexPeakGroupDuplicate,
+    ComplexPeakGroupDuplicates,
     CompoundDoesNotExist,
     DateParseError,
     DBFieldVsFileColDeveloperWarning,
@@ -18,6 +22,8 @@ from DataRepo.utils.exceptions import (
     DefaultSequenceNotFound,
     DeveloperWarning,
     DuplicateCompoundIsotopes,
+    DuplicatePeakGroup,
+    DuplicatePeakGroups,
     DuplicateValueErrors,
     DuplicateValues,
     EmptyColumns,
@@ -71,6 +77,8 @@ from DataRepo.utils.exceptions import (
     SheetMergeError,
     SummarizableError,
     SummarizedInfileError,
+    TechnicalPeakGroupDuplicate,
+    TechnicalPeakGroupDuplicates,
     UnequalColumnGroups,
     UnexpectedLabel,
     UnexpectedSamples,
@@ -534,6 +542,8 @@ class SummarizableErrorTests(TracebaseTestCase):
 
 
 class ExceptionTests(TracebaseTestCase):
+    fixtures = ["lc_methods.yaml", "data_types.yaml", "data_formats.yaml"]
+
     def assert_aggregated_exception_states(
         self,
         aes,
@@ -1943,3 +1953,250 @@ class ExceptionTests(TracebaseTestCase):
             "'sample2.mzXML' matches samples: ['sample2', 'sample2other']",
             str(amsm_summary),
         )
+
+    def create_quick_msrunsample(self):
+        from DataRepo.models import (
+            Animal,
+            LCMethod,
+            MSRunSample,
+            MSRunSequence,
+            Sample,
+            Tissue,
+        )
+
+        # Some quick data setup.  We only need an MSRunSample record, but to create it, we need this stuff...
+        animal = Animal.objects.create(name="test1", genotype="WT")
+        tissue = Tissue.objects.create(name="liver")
+        sample = Sample.objects.create(
+            name="test1",
+            date=datetime.now(),
+            researcher="Paul",
+            tissue=tissue,
+            animal=animal,
+        )
+        lcm = LCMethod.objects.first()
+        msrun_sequence = MSRunSequence.objects.create(
+            researcher="John Doe",
+            date=datetime.now(),
+            instrument=MSRunSequence.INSTRUMENT_CHOICES[0][0],
+            lc_method=lcm,
+        )
+        return MSRunSample.objects.create(sample=sample, msrun_sequence=msrun_sequence)
+
+    def test_ComplexPeakGroupDuplicate(self):
+        """This exception is for PeakGroups that are duplicated due to an edited peak annotation file (and the data in
+        the PeakGroup DID change).  Also tests the summary exception.
+        """
+        from DataRepo.models import (
+            ArchiveFile,
+            DataFormat,
+            DataType,
+            PeakGroup,
+        )
+
+        msrun_sample = self.create_quick_msrunsample()
+
+        # Prepare to create an "edited" file (loaded and being loaded)
+        ms_peak_annotation = DataType.objects.get(code="ms_peak_annotation")
+        accucor_format = DataFormat.objects.get(code="accucor")
+
+        # This is the technical duplicate component (an edited file). The differing record content is the formula change
+        orig_peak_annotation_file = ArchiveFile.objects.create(
+            filename="test_data_file",
+            file_location=None,
+            checksum="558ea654d7f2914ca4527580edf4fac11bd151c3",
+            data_type=ms_peak_annotation,
+            data_format=accucor_format,
+        )
+        new_peak_annotation_file = ArchiveFile.objects.create(
+            filename="test_data_file",
+            file_location=None,
+            checksum="558ea654d7f2914ca4527580edf4fac11bd151c2",
+            data_type=ms_peak_annotation,
+            data_format=accucor_format,
+        )
+
+        pg = PeakGroup(
+            name="testname",
+            formula="C2H4O1",
+            msrun_sample=msrun_sample,
+            peak_annotation_file=orig_peak_annotation_file,
+        )
+
+        exc = ComplexPeakGroupDuplicate(
+            pg,
+            {
+                "formula": {"orig": "C2H6", "new": "C2H4O1"},
+                "peak_annotation_file": {
+                    "orig": orig_peak_annotation_file,
+                    "new": new_peak_annotation_file,
+                },
+            },
+            rec_dict={
+                "name": "testname",
+                "formula": "C2H4O1",
+                "msrun_sample": msrun_sample,
+                "peak_annotation_file": new_peak_annotation_file,
+            },
+        )
+        self.assertIn("Conflicting field values encountered", str(exc))
+        self.assertIn("formula in\n\t\tdatabase: [C2H6]\n\t\tfile: [C2H4O1]", str(exc))
+        self.assertIn(
+            (
+                "peak_annotation_file in\n\t\tdatabase: [test_data_file (558ea654d7f2914ca4527580edf4fac11bd151c3)]\n"
+                "\t\tfile: [test_data_file (558ea654d7f2914ca4527580edf4fac11bd151c2)]"
+            ),
+            str(exc),
+        )
+        self.assertIn("There are 3 likely cases causing this error", str(exc))
+
+        cpgds = ComplexPeakGroupDuplicates([exc])
+        self.assertIn("C2H6", str(cpgds))
+        self.assertIn("C2H4O1", str(cpgds))
+        self.assertIn(
+            "test_data_file (558ea654d7f2914ca4527580edf4fac11bd151c3)", str(cpgds)
+        )
+        self.assertIn(
+            "test_data_file (558ea654d7f2914ca4527580edf4fac11bd151c2)", str(cpgds)
+        )
+
+    def test_TechnicalPeakGroupDuplicate(self):
+        """This exception is for PeakGroups that are duplicated due to an edited peak annotation file (and the data in
+        the PeakGroup DID NOT change).  Also tests the summary exception.
+        """
+        from DataRepo.models import (
+            ArchiveFile,
+            DataFormat,
+            DataType,
+            PeakGroup,
+        )
+
+        msrun_sample = self.create_quick_msrunsample()
+
+        # Prepare to create an "edited" file (loaded and being loaded)
+        ms_peak_annotation = DataType.objects.get(code="ms_peak_annotation")
+        accucor_format = DataFormat.objects.get(code="accucor")
+
+        # This is the technical duplicate component (an edited file). The differing record content is the formula change
+        orig_peak_annotation_file = ArchiveFile.objects.create(
+            filename="test_data_file",
+            file_location=None,
+            checksum="558ea654d7f2914ca4527580edf4fac11bd151c3",
+            data_type=ms_peak_annotation,
+            data_format=accucor_format,
+        )
+        new_peak_annotation_file = ArchiveFile.objects.create(
+            filename="test_data_file",
+            file_location=None,
+            checksum="558ea654d7f2914ca4527580edf4fac11bd151c2",
+            data_type=ms_peak_annotation,
+            data_format=accucor_format,
+        )
+
+        new_pg = PeakGroup(
+            name="testname",
+            formula="C2H4O1",
+            msrun_sample=msrun_sample,
+            peak_annotation_file=new_peak_annotation_file,
+        )
+        PeakGroup(
+            name="testname",
+            formula="C2H4O1",
+            msrun_sample=msrun_sample,
+            peak_annotation_file=orig_peak_annotation_file,
+        ).save()
+
+        exc = TechnicalPeakGroupDuplicate(
+            new_pg,
+            PeakGroup.objects.filter(
+                peak_annotation_file__checksum="558ea654d7f2914ca4527580edf4fac11bd151c3"
+            ),
+        )
+        self.assertIn("Duplicate PeakGroup record created", str(exc))
+        self.assertIn("edit of the peak annotation file", str(exc))
+        self.assertIn(
+            (
+                "Compound: testname\n\tSample: test1\nEdited Peak Annotation Files:\n\tNew: test_data_file "
+                "(558ea654d7f2914ca4527580edf4fac11bd151c2)"
+            ),
+            str(exc),
+        )
+        self.assertIn(
+            "Existing: test_data_file (558ea654d7f2914ca4527580edf4fac11bd151c3)",
+            str(exc),
+        )
+
+        tpgds = TechnicalPeakGroupDuplicates([exc])
+        self.assertIn("test_data_file (1 peak groups)", str(tpgds))
+
+    def test_DuplicatePeakGroup(self):
+        """This exception is for PeakGroups that are duplicated due to a change in business rules relating to whether
+        PeakGroup records link to concrete MSRunSample records or placeholder records.  Also tests the summary
+        exception.
+        """
+        from DataRepo.models import (
+            ArchiveFile,
+            DataFormat,
+            DataType,
+            MSRunSample,
+            PeakGroup,
+        )
+
+        msrun_sample = self.create_quick_msrunsample()
+
+        # Prepare to create an "edited" file (loaded and being loaded)
+        ms_peak_annotation = DataType.objects.get(code="ms_peak_annotation")
+        accucor_format = DataFormat.objects.get(code="accucor")
+
+        # This is the technical duplicate component (an edited file). The differing record content is the formula change
+        peak_annotation_file = ArchiveFile.objects.create(
+            filename="test_data_file",
+            file_location=None,
+            checksum="558ea654d7f2914ca4527580edf4fac11bd151c3",
+            data_type=ms_peak_annotation,
+            data_format=accucor_format,
+        )
+
+        mz_file = ArchiveFile.objects.create(
+            filename="test_mz_file",
+            file_location=None,
+            checksum="2345678901",
+            data_type=DataType.objects.get(code="ms_data"),
+            data_format=DataFormat.objects.get(code="mzxml"),
+        )
+
+        concrete_msrun_sample = MSRunSample.objects.create(
+            sample=msrun_sample.sample,
+            msrun_sequence=msrun_sample.msrun_sequence,
+            ms_data_file=mz_file,
+        )
+
+        PeakGroup(
+            name="testname",
+            formula="C2H4O1",
+            msrun_sample=concrete_msrun_sample,
+            peak_annotation_file=peak_annotation_file,
+        ).save()
+
+        new_pg = PeakGroup(
+            name="testname",
+            formula="C2H4O1",
+            msrun_sample=msrun_sample,
+            peak_annotation_file=peak_annotation_file,
+        )
+        exc = DuplicatePeakGroup(
+            new_pg, PeakGroup.objects.filter(msrun_sample=concrete_msrun_sample)
+        )
+        self.assertIn("Duplicate PeakGroup record created", str(exc))
+        self.assertIn(
+            "Compound: testname\n\tPeak Annotation File: test_data_file", str(exc)
+        )
+        self.assertIn("MSRunSamples:\n\tNew: test1 run by John Doe", str(exc))
+        self.assertIn("Existing: [<MSRunSample: test1 run by John Doe on ", str(exc))
+        self.assertIn(
+            "duplicate PeakGroup records are linked to different MSRunSample records",
+            str(exc),
+        )
+
+        dpgs = DuplicatePeakGroups([exc])
+        self.assertIn("test_data_file\n\t\ttestname", str(dpgs))
