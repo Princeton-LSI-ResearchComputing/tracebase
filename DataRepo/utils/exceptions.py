@@ -1122,8 +1122,18 @@ class AllMissingSamples(MissingModelRecordsByFile):
 
 
 class AllUnskippedBlanks(MissingModelRecordsByFile):
-    """Summary of samples likely not expected to exist in the database (because they contain "blank" in their name) that
-    were not found."""
+    """Summary of blank samples that were searched for (because they were not skipped or did not exist in the "Peak
+    Annotation Details" sheet) and not found (because there was not a corresponding row in the Samples sheet).  Given
+    that these samples contain "blank" in their name, the likely solution is to ensure that the corresponding row in the
+    "Peak Annotation Details" sheet exists and is marked as "skip".
+
+    DEV_SECTION - Everything above this delimiter is user-facing.  See TraceBaseDocs/README.md
+
+    NOTE: Even though this class inherits from MissingModelRecordsByFile, it is only referred to as "Missing" because a
+    record search produced no result.  In the case of blanks, which are automatically skipped (when analyzed, i.e.
+    there's no mechanism to automatically skip unlisted files), this is not treated as a case of adding a missing
+    record, but rather "skipping" a record that intentionally does not exist.
+    """
 
     ModelName = "Sample"
     RecordName = ModelName
@@ -1132,7 +1142,7 @@ class AllUnskippedBlanks(MissingModelRecordsByFile):
         if suggestion is None:
             suggestion = (
                 "Note that the unskipped blank sample names can be the same in multiple files.  If this exception is "
-                "accompanied by a NoPeakAnnotationDetails exception, the reported unskipped blanks are likelt "
+                "accompanied by a NoPeakAnnotationDetails exception, the reported unskipped blanks are likely "
                 "associated with one of those peak annotation files.  Follow its suggestion and you can ignore this "
                 "exception."
             )

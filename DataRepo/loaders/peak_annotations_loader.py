@@ -521,7 +521,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
 
             # If the peak annotation details sheet was provided (the enclosing conditional), but nothing was retrieved
             # for this peak annotations file, buffer a NoPeakAnnotationDetails error and track the missing file.
-            if len(self.msrun_sample_dict.keys()) == 0:
+            if not self.msrun_sample_dict:
                 self.missing_annot_file_details[self.get_friendly_filename()] = True
                 self.aggregated_errors_object.buffer_warning(
                     NoPeakAnnotationDetails(
@@ -1027,7 +1027,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                 # Each sample is only allowed a single version of every peak group.
                 # We are skipping this peak group for this sample because the user selected a different file to load it
                 # from.
-                if conflicting_pgrecs.count() == 0:
+                if not conflicting_pgrecs.exists():
                     self.skipped(PeakGroup.__name__)
 
                 is_selected = False
@@ -1142,7 +1142,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         # First, we will check the Sample table directly, so we can report the most relevant error if it's missing
         query_dict = {"name": sample_header}
         samples = Sample.objects.filter(**query_dict)
-        if samples.count() == 0:
+        if not samples.exists():
 
             self.aggregated_errors_object.buffer_error(
                 RecordDoesNotExist(
@@ -1165,7 +1165,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         msrun_samples = MSRunSample.objects.filter(**query_dict)
 
         # Check if there were too few or exactly 1 results.
-        if msrun_samples.count() == 0:
+        if not msrun_samples.exists():
             self.aggregated_errors_object.buffer_error(
                 RecordDoesNotExist(
                     MSRunSample,
@@ -1248,7 +1248,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             msrun_samples = msrun_samples.filter(**query_dict)
 
         # Check if there were too few or too many results.
-        if msrun_samples.count() == 0:
+        if not msrun_samples.exists():
             query_dict["sample__name"] = sample_header
             self.aggregated_errors_object.buffer_error(
                 RecordDoesNotExist(
@@ -1468,7 +1468,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         possible_isotope_observations = None
         num_possible_isotope_observations = 1
         if pgrec is not None:
-            if pgrec.compounds.count() == 0:
+            if not pgrec.compounds.exists():
                 # There had to have been errors when trying to retrieve compounds to link, which means that this error
                 # is unnecessary (i.e. fixing the previous error would make this error go away), but just to be safe,
                 # error if there have been no errors buffered.

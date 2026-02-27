@@ -351,43 +351,43 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
 
         self.load_glucose_data()
 
-        adl = AccucorLoader()
+        acc_ldr = AccucorLoader()
         # Get the first PeakGroup, and collect attributes
         peak_group = PeakGroup.objects.first()
 
         row = pd.Series(
             {
-                adl.headers.SAMPLEHEADER: peak_group.msrun_sample.sample.name,
-                adl.headers.FORMULA: peak_group.formula,
+                acc_ldr.headers.SAMPLEHEADER: peak_group.msrun_sample.sample.name,
+                acc_ldr.headers.FORMULA: peak_group.formula,
             }
         )
         data_type = DataType.objects.get(code="ms_peak_annotation")
         data_format = DataFormat.objects.get(code="accucor")
-        paf = ArchiveFile(
+        paf_arch_fl = ArchiveFile(
             checksum="1234567890",
             filename="peak_annotation_filename.tsv",
             data_type=data_type,
             data_format=data_format,
         )
-        paf.save()
-        crd = {peak_group.name: peak_group.compounds.first()}
+        paf_arch_fl.save()
+        cmpd_rec_dict = {peak_group.name: peak_group.compounds.first()}
         # Test the instance method "get_or_create_peak_group" buffers an error
         # when inserting an exact duplicate PeakGroup
         with self.assertRaises(RollbackException):
-            adl.get_or_create_peak_group(row, paf, crd)
+            acc_ldr.get_or_create_peak_group(row, paf_arch_fl, cmpd_rec_dict)
 
-        aes = adl.aggregated_errors_object
+        agg_ers = acc_ldr.aggregated_errors_object
         self.assertEqual(
             1,
-            len(aes.exceptions),
-            msg=", ".join([e.__name__ for e in aes.get_exception_types()]),
+            len(agg_ers.exceptions),
+            msg=", ".join([e.__name__ for e in agg_ers.get_exception_types()]),
         )
         self.assertIsInstance(
-            aes.exceptions[0],
+            agg_ers.exceptions[0],
             MultiplePeakGroupRepresentation,
             msg=(
-                f"MultiplePeakGroupRepresentation expected. Got [{type(aes.exceptions[0]).__name__}: "
-                f"{aes.exceptions[0]}]."
+                f"MultiplePeakGroupRepresentation expected. Got [{type(agg_ers.exceptions[0]).__name__}: "
+                f"{agg_ers.exceptions[0]}]."
             ),
         )
 

@@ -2205,35 +2205,44 @@ class ExceptionTests(TracebaseTestCase):
         self.assertIn("test_data_file\n\t\ttestname", str(dpgs))
 
     def test_NoPeakAnnotationDetails(self):
-        npad = NoPeakAnnotationDetails(
+        no_pk_ann_deets = NoPeakAnnotationDetails(
             "annot.xlsx",
             file="study.xlsx",
             sheet="Peak Annotation Details",
             column="Peak Annot File",
         )
         self.assertIn(
-            "No sample headers for peak annotation file 'annot.xlsx'", str(npad)
+            "No sample headers for peak annotation file 'annot.xlsx'",
+            str(no_pk_ann_deets),
         )
         self.assertIn(
             "column [Peak Annot File] of sheet [Peak Annotation Details] in study.xlsx",
-            str(npad),
+            str(no_pk_ann_deets),
         )
-        self.assertIn("populating the Peak Annotation Details sheet", str(npad))
-        self.assertIn("use the submission start page to generate this data", str(npad))
+        self.assertIn(
+            "populating the Peak Annotation Details sheet", str(no_pk_ann_deets)
+        )
+        self.assertIn(
+            "use the submission start page to generate this data", str(no_pk_ann_deets)
+        )
 
         # Test its summary exception
-        npades = NoPeakAnnotationDetailsErrors([npad])
+        no_pk_ann_deets_ers = NoPeakAnnotationDetailsErrors([no_pk_ann_deets])
         self.assertIn(
-            "No sample headers for the following peak annotation files", str(npades)
+            "No sample headers for the following peak annotation files",
+            str(no_pk_ann_deets_ers),
         )
-        self.assertIn("found in the Peak Annotation Details sheet", str(npades))
-        self.assertIn("annot.xlsx", str(npades))
+        self.assertIn(
+            "found in the Peak Annotation Details sheet", str(no_pk_ann_deets_ers)
+        )
+        self.assertIn("annot.xlsx", str(no_pk_ann_deets_ers))
         self.assertIn(
             "associate them by populating the Peak Annotation Details sheet",
-            str(npades),
+            str(no_pk_ann_deets_ers),
         )
         self.assertIn(
-            "use the submission start page to generate this data", str(npades)
+            "use the submission start page to generate this data",
+            str(no_pk_ann_deets_ers),
         )
 
     def test_AllUnskippedBlanks(self):

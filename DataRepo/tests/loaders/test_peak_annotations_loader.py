@@ -349,19 +349,19 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
     def test_initialize_msrun_data_annot_file_absent(self):
         """This test asserts that NoPeakAnnotationDetails errors get buffered when the peak_annotation_details_df
         argument is set and the file being loaded is not in that sheet."""
-        al = AccucorLoader(
+        acc_ldr = AccucorLoader(
             peak_annotation_details_df=self.peak_annotation_details_df,
             file="annot_file_not_present_in_details.xlsx",
         )
-        al.msrun_sample_dict = {}
-        al.initialize_msrun_data()
+        acc_ldr.msrun_sample_dict = {}
+        acc_ldr.initialize_msrun_data()
         # There are 2 rows, so there are 2 buffered instances
-        self.assertEqual(2, len(al.aggregated_errors_object.exceptions))
+        self.assertEqual(2, len(acc_ldr.aggregated_errors_object.exceptions))
         self.assertIsInstance(
-            al.aggregated_errors_object.exceptions[0], NoPeakAnnotationDetails
+            acc_ldr.aggregated_errors_object.exceptions[0], NoPeakAnnotationDetails
         )
         self.assertIsInstance(
-            al.aggregated_errors_object.exceptions[1], NoPeakAnnotationDetails
+            acc_ldr.aggregated_errors_object.exceptions[1], NoPeakAnnotationDetails
         )
 
     def test_load_data(self):
@@ -991,16 +991,16 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
     def test_report_discrepant_headers_blank_with_missing_annot(self):
         """This test asserts that the suggestion in the UnskippedBlanks exception is specific to the peak annotation
         file being absent from the details sheet"""
-        al = AccucorLoader()
-        al.msrun_sample_dict["s1"] = {}
-        al.msrun_sample_dict["s1"]["seen"] = True
-        al.msrun_sample_dict["s1"]["MSRunSample"] = None
-        al.friendly_file = "accucor.xlsx"
-        al.msrunsloader = MSRunsLoader()
-        al.msrunsloader.friendly_file = "study.xlsx"
+        acc_ldr = AccucorLoader()
+        acc_ldr.msrun_sample_dict["s1"] = {}
+        acc_ldr.msrun_sample_dict["s1"]["seen"] = True
+        acc_ldr.msrun_sample_dict["s1"]["MSRunSample"] = None
+        acc_ldr.friendly_file = "accucor.xlsx"
+        acc_ldr.msrunsloader = MSRunsLoader()
+        acc_ldr.msrunsloader.friendly_file = "study.xlsx"
 
         # Buffer errors aboud having search for, but not found Sample records
-        al.aggregated_errors_object.buffer_error(
+        acc_ldr.aggregated_errors_object.buffer_error(
             RecordDoesNotExist(
                 Sample,
                 {"name": "blank5"},
@@ -1011,29 +1011,29 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         )
 
         # Test the case where the peak annot file is missing from the details sheet
-        al.missing_annot_file_details["accucor.xlsx"] = True
-        al.report_discrepant_headers()
+        acc_ldr.missing_annot_file_details["accucor.xlsx"] = True
+        acc_ldr.report_discrepant_headers()
         self.assertTrue(
-            al.aggregated_errors_object.exception_type_exists(UnskippedBlanks)
+            acc_ldr.aggregated_errors_object.exception_type_exists(UnskippedBlanks)
         )
         self.assertIn(
             "must be populated with the sample headers",
-            str(al.aggregated_errors_object.exceptions[0]),
+            str(acc_ldr.aggregated_errors_object.exceptions[0]),
         )
 
     def test_report_discrepant_headers_blank_with_present_annot(self):
         """This test asserts that the suggestion in the UnskippedBlanks exception is specific to the peak annotation
         file being present in the details sheet"""
-        al = AccucorLoader()
-        al.msrun_sample_dict["s1"] = {}
-        al.msrun_sample_dict["s1"]["seen"] = True
-        al.msrun_sample_dict["s1"]["MSRunSample"] = None
-        al.friendly_file = "accucor.xlsx"
-        al.msrunsloader = MSRunsLoader()
-        al.msrunsloader.friendly_file = "study.xlsx"
+        acc_ldr = AccucorLoader()
+        acc_ldr.msrun_sample_dict["s1"] = {}
+        acc_ldr.msrun_sample_dict["s1"]["seen"] = True
+        acc_ldr.msrun_sample_dict["s1"]["MSRunSample"] = None
+        acc_ldr.friendly_file = "accucor.xlsx"
+        acc_ldr.msrunsloader = MSRunsLoader()
+        acc_ldr.msrunsloader.friendly_file = "study.xlsx"
 
         # Buffer errors aboud having search for, but not found Sample records
-        al.aggregated_errors_object.buffer_error(
+        acc_ldr.aggregated_errors_object.buffer_error(
             RecordDoesNotExist(
                 Sample,
                 {"name": "blank5"},
@@ -1044,13 +1044,14 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         )
 
         # Test the case where the peak annot file is missing from the details sheet
-        al.missing_annot_file_details = {}
-        al.report_discrepant_headers()
+        acc_ldr.missing_annot_file_details = {}
+        acc_ldr.report_discrepant_headers()
         self.assertTrue(
-            al.aggregated_errors_object.exception_type_exists(UnskippedBlanks)
+            acc_ldr.aggregated_errors_object.exception_type_exists(UnskippedBlanks)
         )
         self.assertIn(
-            "add the missing sample(s)", str(al.aggregated_errors_object.exceptions[0])
+            "add the missing sample(s)",
+            str(acc_ldr.aggregated_errors_object.exceptions[0]),
         )
 
     def test_PeakAnnotationsLoader_conflicting_peak_group_resolutions(self):
