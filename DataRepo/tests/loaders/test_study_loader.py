@@ -241,23 +241,23 @@ class StudyLoaderTests(TracebaseTestCase):
         file = (
             "DataRepo/data/tests/submission_v3/multitracer_v3/study_missing_data.xlsx"
         )
-        sl = StudyV3Loader(
+        stdy_ldr = StudyV3Loader(
             df=read_from_file(file, sheet=None),
             file=file,
         )
-        sl.missing_sample_record_exceptions = [
+        stdy_ldr.missing_sample_record_exceptions = [
             RecordDoesNotExist(Sample, {"name": "s1"})
         ]
-        sl.missing_compound_record_exceptions = [
+        stdy_ldr.missing_compound_record_exceptions = [
             RecordDoesNotExist(Compound, {"name": "titanium"})
         ]
         # Create a RecordDoesNotExist exception for a blank sample that is a warning
         blank_exc = RecordDoesNotExist(Sample, {"name": "blank6"})
         blank_exc.is_error = False
         blank_exc.is_fatal = True
-        sl.unskipped_blank_record_exceptions = [blank_exc]
+        stdy_ldr.unskipped_blank_record_exceptions = [blank_exc]
 
-        sl.create_grouped_exceptions()
+        stdy_ldr.create_grouped_exceptions()
 
         expected_status_keys = set(
             [
@@ -276,20 +276,20 @@ class StudyLoaderTests(TracebaseTestCase):
 
         self.assertEqual(
             expected_status_keys,
-            set(sl.load_statuses.statuses.keys()),
+            set(stdy_ldr.load_statuses.statuses.keys()),
         )
         self.assertTrue(
-            sl.load_statuses.statuses["Samples Check"][
+            stdy_ldr.load_statuses.statuses["Samples Check"][
                 "aggregated_errors"
             ].exception_type_exists(AllMissingSamples)
         )
         self.assertTrue(
-            sl.load_statuses.statuses["Compounds Check"][
+            stdy_ldr.load_statuses.statuses["Compounds Check"][
                 "aggregated_errors"
             ].exception_type_exists(AllMissingCompounds)
         )
         self.assertTrue(
-            sl.load_statuses.statuses["Peak Annotation Blanks Check"][
+            stdy_ldr.load_statuses.statuses["Peak Annotation Blanks Check"][
                 "aggregated_errors"
             ].exception_type_exists(AllUnskippedBlanks)
         )
