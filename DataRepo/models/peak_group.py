@@ -274,8 +274,8 @@ class PeakGroup(HierCachedModel, MaintainedModel):
         dupes = conflicts.filter(
             formula=self.formula,
             peak_annotation_file=self.peak_annotation_file,
-        ).exclude(msrun_sample__pk=self.msrun_sample.pk)
-        if dupes.count() > 0:
+        ).exclude(msrun_sample=self.msrun_sample)
+        if dupes.exists():
             # NOTE: This DuplicatePeakGroup exception occludes the MultiplePeakGroupRepresentation exception.  That's
             # because if it's from the same peak annotation file, it is handled differently: as a warning, and skipped.
             raise DuplicatePeakGroup(self, dupes)
