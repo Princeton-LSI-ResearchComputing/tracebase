@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 from django.db import ProgrammingError
 
+from DataRepo.loaders.msruns_loader import MSRunsLoader
 from DataRepo.loaders.peak_annotations_loader import (
     AccucorLoader,
     IsoautocorrLoader,
@@ -39,6 +40,7 @@ from DataRepo.utils.exceptions import (
     MissingCompounds,
     MissingSamples,
     MultiplePeakGroupRepresentation,
+    NoPeakAnnotationDetails,
     NoSamples,
     ProhibitedCompoundName,
     RecordDoesNotExist,
@@ -315,7 +317,7 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         )
         super().setUpTestData()
 
-    def test_initialize_msrun_data(self):
+    def test_initialize_msrun_data_success(self):
         al = AccucorLoader(
             peak_annotation_details_df=self.peak_annotation_details_df,
             file="accucor1.xlsx",
@@ -343,6 +345,24 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
             }
         }
         self.assertDictEqual(expected_msrun_sample_dict, al.msrun_sample_dict)
+
+    def test_initialize_msrun_data_annot_file_absent(self):
+        """This test asserts that NoPeakAnnotationDetails errors get buffered when the peak_annotation_details_df
+        argument is set and the file being loaded is not in that sheet."""
+        acc_ldr = AccucorLoader(
+            peak_annotation_details_df=self.peak_annotation_details_df,
+            file="annot_file_not_present_in_details.xlsx",
+        )
+        acc_ldr.msrun_sample_dict = {}
+        acc_ldr.initialize_msrun_data()
+        # There are 2 rows, so there are 2 buffered instances
+        self.assertEqual(2, len(acc_ldr.aggregated_errors_object.exceptions))
+        self.assertIsInstance(
+            acc_ldr.aggregated_errors_object.exceptions[0], NoPeakAnnotationDetails
+        )
+        self.assertIsInstance(
+            acc_ldr.aggregated_errors_object.exceptions[1], NoPeakAnnotationDetails
+        )
 
     def test_load_data(self):
         peak_annotation_details_df = pd.DataFrame.from_dict(
@@ -968,6 +988,72 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
             al.aggregated_errors_object.get_exception_type(NoSamples)[0].search_terms,
         )
 
+    def test_report_discrepant_headers_blank_with_missing_annot(self):
+        """This test asserts that the suggestion in the UnskippedBlanks exception is specific to the peak annotation
+        file being absent from the details sheet"""
+        acc_ldr = AccucorLoader()
+        acc_ldr.msrun_sample_dict["s1"] = {}
+        acc_ldr.msrun_sample_dict["s1"]["seen"] = True
+        acc_ldr.msrun_sample_dict["s1"]["MSRunSample"] = None
+        acc_ldr.friendly_file = "accucor.xlsx"
+        acc_ldr.msrunsloader = MSRunsLoader()
+        acc_ldr.msrunsloader.friendly_file = "study.xlsx"
+
+        # Buffer errors aboud having search for, but not found Sample records
+        acc_ldr.aggregated_errors_object.buffer_error(
+            RecordDoesNotExist(
+                Sample,
+                {"name": "blank5"},
+                rownum=4,
+                column="Sample Header",
+                file="accucor.xlsx",
+            )
+        )
+
+        # Test the case where the peak annot file is missing from the details sheet
+        acc_ldr.missing_annot_file_details["accucor.xlsx"] = True
+        acc_ldr.report_discrepant_headers()
+        self.assertTrue(
+            acc_ldr.aggregated_errors_object.exception_type_exists(UnskippedBlanks)
+        )
+        self.assertIn(
+            "must be populated with the sample headers",
+            str(acc_ldr.aggregated_errors_object.exceptions[0]),
+        )
+
+    def test_report_discrepant_headers_blank_with_present_annot(self):
+        """This test asserts that the suggestion in the UnskippedBlanks exception is specific to the peak annotation
+        file being present in the details sheet"""
+        acc_ldr = AccucorLoader()
+        acc_ldr.msrun_sample_dict["s1"] = {}
+        acc_ldr.msrun_sample_dict["s1"]["seen"] = True
+        acc_ldr.msrun_sample_dict["s1"]["MSRunSample"] = None
+        acc_ldr.friendly_file = "accucor.xlsx"
+        acc_ldr.msrunsloader = MSRunsLoader()
+        acc_ldr.msrunsloader.friendly_file = "study.xlsx"
+
+        # Buffer errors aboud having search for, but not found Sample records
+        acc_ldr.aggregated_errors_object.buffer_error(
+            RecordDoesNotExist(
+                Sample,
+                {"name": "blank5"},
+                rownum=4,
+                column="Sample Header",
+                file="accucor.xlsx",
+            )
+        )
+
+        # Test the case where the peak annot file is missing from the details sheet
+        acc_ldr.missing_annot_file_details = {}
+        acc_ldr.report_discrepant_headers()
+        self.assertTrue(
+            acc_ldr.aggregated_errors_object.exception_type_exists(UnskippedBlanks)
+        )
+        self.assertIn(
+            "add the missing sample(s)",
+            str(acc_ldr.aggregated_errors_object.exceptions[0]),
+        )
+
     def test_PeakAnnotationsLoader_conflicting_peak_group_resolutions(self):
         """This tests a case where the user had to have manipulated the Peak Group Conflicts data (in
         conflicting_resolutions.tsv) where they duplicated a row and selected multiple conflicting peak annotation files
@@ -1014,6 +1100,9 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
             (
                 il.aggregated_errors_object.num_errors,
                 il.aggregated_errors_object.num_warnings,
+            ),
+            msg=", ".join(
+                e.__name__ for e in il.aggregated_errors_object.get_exception_types()
             ),
         )
         dpgrs = il.aggregated_errors_object.get_exception_type(
@@ -1124,16 +1213,14 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
             ),
             file="DataRepo/data/tests/multiple_representations/resolution_handling/poshigh_cor.xlsx",
             peak_group_conflicts_file=(
-                "DataRepo/data/tests/multiple_representations/"
-                "resolution_handling/poshigh_resolution.tsv"
+                "DataRepo/data/tests/multiple_representations/resolution_handling/poshigh_resolution.tsv"
             ),
             peak_group_conflicts_sheet="Peak Group Conflicts",
             peak_group_conflicts_df=read_from_file(
-                "DataRepo/data/tests/multiple_representations/resolution_handling/poshigh_resolution.tsv",
+                "DataRepo/data/tests/multiple_representations/resolution_handling/poshigh_resolution.tsv"
             ),
             peak_annotation_details_file=(
-                "DataRepo/data/tests/multiple_representations/"
-                "resolution_handling/prereqs.xlsx"
+                "DataRepo/data/tests/multiple_representations/resolution_handling/prereqs.xlsx"
             ),
             peak_annotation_details_sheet="Peak Annotation Details",
             peak_annotation_details_df=dfdict["Peak Annotation Details"],
@@ -1144,6 +1231,9 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
             (
                 il2.aggregated_errors_object.num_errors,
                 il2.aggregated_errors_object.num_warnings,
+            ),
+            msg=", ".join(
+                e.__name__ for e in il2.aggregated_errors_object.get_exception_types()
             ),
         )
         rpgrs = il2.aggregated_errors_object.get_exception_type(
