@@ -22,6 +22,7 @@ from DataRepo.utils.text_utils import indent
 
 if TYPE_CHECKING:
     from DataRepo.models.animal import Animal
+    from DataRepo.models.archive_file import ArchiveFile
     from DataRepo.models.msrun_sequence import MSRunSequence
     from DataRepo.models.peak_group import PeakGroup
     from DataRepo.models.peak_group_label import PeakGroupLabel
@@ -4017,7 +4018,10 @@ class MzxmlSampleHeaderMismatch(InfileError):
         message = (
             f"The sample header does not match the base name of the mzXML file [{mzxml_file}], as listed in %s:\n"
             f"\tSample header:       [{header}]\n"
-            f"\tmzXML Base Filename: [{mzxml_basename}]"
+            f"\tmzXML Base Filename: [{mzxml_basename}]\n"
+            "Sample headers automatically adopt the mzXML file name.  The fact that they differ could suggest that the "
+            "wrong mzXML has been associated with the wrong abundance correction analysis/peak annotation file.  If "
+            "this mapping is correct, you may ignore this issue."
         )
         super().__init__(message, **kwargs)
         self.header = header
@@ -4111,25 +4115,36 @@ class AmbiguousMzxmlSampleMatches(Exception):
             message = (
                 "The following mzXML files could not be mapped to a single sample.  Each mzXML must be associated with "
                 "an MSRunSample, which links to a Sample record, so knowing which sample an mzXML is associated with "
-                "is required.  To resolve this, add a row for every mzXML file with the indicated name, including "
-                "their paths relative to the study directory, to the Peak Annotation Details sheet."
+                "is required.\n"
             )
-            matches_by_annot_file = defaultdict(list)
+            matches_by_annot_file: Dict[str, Dict[str, List[str]]] = defaultdict(
+                lambda: defaultdict(list)
+            )
             exc: AmbiguousMzxmlSampleMatch
             for exc in exceptions:
                 loc = generate_file_location_string(
                     file=exc.file,
                     sheet=exc.sheet,
                 )
-                matches_by_annot_file[loc].append(exc)
-            for loc, exc_list in sorted(
+                samples = ", ".join(sorted(exc.sample_names))
+                matches_by_annot_file[loc][samples].extend(exc.mzxml_paths)
+            for loc, samples_dict in sorted(
                 matches_by_annot_file.items(), key=lambda tpl: tpl[0]
             ):
-                message += f"\t{loc}\n"
-                for exc in sorted(exc_list, key=lambda e: e.mzxml_name):
-                    message += (
-                        f"\t\t'{exc.mzxml_name}' matches samples: {exc.sample_names}\n"
-                    )
+                message += f"{loc}\n"
+                for samples_str, mzxml_list in sorted(
+                    samples_dict.items(), key=lambda t: t[0]
+                ):
+                    message += f"\tmzXML(s) that map to samples: {samples_str}\n"
+                    for mzxml in sorted(mzxml_list):
+                        message += f"\t\t{mzxml}\n"
+            message += (
+                "To resolve this, either add every mzXML (with its path) to an existing row or new row, each "
+                "associated with a single sample to the Peak Annotation Details sheet.  Paths should be relative to "
+                "the study directory.  Set the row to be skipped if the mzXML was not used in an abundance correction "
+                "analysis.  Every mzXML in the study directory must be accounted for in the Peak Annotation Details "
+                "sheet."
+            )
         super().__init__(message)
         self.exceptions = exceptions
 
@@ -4179,7 +4194,7 @@ class AmbiguousMzxmlSampleMatch(InfileError, SummarizableError):
 
     Args:
         sample_names (List[str]): A list of 2 or more sample names that an mzXML file is ambiguously associated with.
-        mzxml_name (str): An mzXML file name (with optional path) that ambiguously maps to multiple samples.
+        mzxml_paths (List[str]): An mzXML file name (with optional path) that ambiguously maps to multiple samples.
         kwargs (dict): See InfileError.
     Attributes:
         Class:
@@ -4187,14 +4202,22 @@ class AmbiguousMzxmlSampleMatch(InfileError, SummarizableError):
                 summarizes their content.
         Instance:
             sample_names (List[str])
-            mzxml_name (str)
+            mzxml_paths (List[str])
     """
 
     SummarizerExceptionClass = AmbiguousMzxmlSampleMatches
 
     def __init__(
-        self, sample_names: List[str], mzxml_name: str, inferred_match=False, **kwargs
+        self,
+        sample_names: List[str],
+        mzxml_paths: List[str],
+        inferred_match=False,
+        **kwargs,
     ):
+        if not isinstance(mzxml_paths, list):
+            raise TypeError(
+                f"mzxml_paths must be a list (of strings), not {type(mzxml_paths).__name__}."
+            )
         inferred_message = (
             ""
             if not inferred_match
@@ -4203,15 +4226,17 @@ class AmbiguousMzxmlSampleMatch(InfileError, SummarizableError):
                 "explicitly mapped to multiple samples.) "
             )
         )
+        mzxmls_str = "\n\t".join(mzxml_paths)
         message = (
-            f"mzXML file '{mzxml_name}' could not be mapped to a single sample. {inferred_message} Each mzXML must be "
-            "associated with an MSRunSample, which links to a Sample record, so knowing which sample an mzXML is "
-            "associated with is required.  To resolve this, add a row for every mzXML file with this name, including "
-            f"its path relative from the study directory, to %s.  Potential sample matches include: {sample_names}."
+            f"mzXML file(s):\n\t{mzxmls_str}\ncould not be mapped to a single sample. {inferred_message} Each mzXML "
+            "must be associated with an MSRunSample, which links to a Sample record, so knowing which sample an mzXML "
+            "is associated with is required.  To resolve this, add a row for every mzXML file with this name, "
+            "including its path relative from the study directory, to %s.  Potential sample matches include: "
+            f"{sample_names}."
         )
         super().__init__(message, **kwargs)
         self.sample_names = sample_names
-        self.mzxml_name = mzxml_name
+        self.mzxml_paths = mzxml_paths
 
 
 class UnmatchedMzXMLs(Exception):
@@ -4925,10 +4950,18 @@ class MultiplePeakGroupRepresentation(SummarizableError):
                     [f"{k}: {v}" for k, v in existing_dicts[0].items()]
                 )
 
+            filenames = [new_rec.peak_annotation_file.filename]
+            filenames.extend(
+                [r.peak_annotation_file.filename for r in existing_recs.all()]
+            )
+            files_str = "\n\t".join(filenames)
+
             message = (
                 "Multiple representations of this peak group compound were encountered:\n"
                 f"\tNew:\n\t\t{new_str}\n"
                 f"\tExisting:\n\t\t{existing_str}\n"
+                "Each peak group originated from:\n"
+                f"\t{files_str}\n"
                 "Only 1 representation of a compound per sample is allowed."
             )
 
@@ -5843,6 +5876,50 @@ class DuplicatePeakAnnotationFileName(Exception):
         message = f"Peak annotation filenames must be unique.  Filename {filename} was encountered multiple times."
         super().__init__(message)
         self.filename = filename
+
+
+class PeakAnnotationFileConflict(Exception):
+    """The submitted peak annotation file was previously loaded, but the previously loaded version differs from the new
+    version submitted.
+
+    After an initial load, sometimes users submit new data to an existing study, and it's necessary to rerun the
+    submission start page to create a new study doc template (from which data will be copied to update the existing/
+    polished study doc) because the submission start interface has error checks to ensure the new data does not
+    introduce errors relating to the previously loaded data.
+
+    For example, newly picked peaks from an existing sample can introduce multiple representation errors.  The validate
+    page cannot catch these errors, because it knows only sample and animal metadata, not the peak data.
+
+    However, sometimes during the submission of new data, a researcher may find a mistake in old data and attempt to
+    make a correction to the previously loaded peak annotation file.
+
+    This is a problem because it will create a new ArchiveFile database record for the distinct version.  Edited/new
+    peak groups will link to this new version while unchanged peak groups will still link to the old version.
+
+    That means that which peak annotation file version you get depends on how you encounter it on the site.
+
+    There's nothing a researcher can do to fix this, other than refraining from making unnecessary file edits.  If the
+    edits are necessary, a curator will need to perform a database migration to delete and reload all data associated
+    with the modified file.  The user is informed of this with this exception as a warning.
+    """
+
+    def __init__(
+        self, peak_annot_filename: str, differing_annot_files: List[ArchiveFile]
+    ):
+        timestamps_str = "\n\t".join(
+            [str(f.imported_timestamp) for f in differing_annot_files]
+        )
+        message = "".join(
+            f"{len(differing_annot_files)} differing version of a peak annotation file with the same name, "
+            f"'{peak_annot_filename}', was previously loaded on:\n\n\t"
+            f"{timestamps_str}\n\n"
+            "If the edits are intentional/necessary and some contained peak data, compound names, or sample names need "
+            "to be changed, a curator must be notified so that they can make updates to the existing data, so that the "
+            "old file version can be removed from the database.\n"
+            "If the edits were unintentional or superficial (e.g. changing column widths in excel), notify the "
+            "curation team that the original file must be used in the load of your supplemental data submission."
+        )
+        super().__init__(message)
 
 
 class InvalidStudyDocVersion(Exception):
