@@ -4,6 +4,7 @@ from warnings import warn
 
 from django.conf import settings
 from django.core.cache import cache
+from django.db import connection
 from django.db.models import Model
 
 caching_retrievals = True
@@ -170,6 +171,23 @@ def enable_caching_errors():
     """
     global throw_cache_errors
     throw_cache_errors = True
+
+
+def get_cache_table_size():
+    with connection.cursor() as cursor:
+        cursor.execute(f"SELECT count(*) FROM {settings.CACHE_TABLE_NAME}")
+        row = cursor.fetchone()
+        count = int(row[0])
+
+    if count / settings.CACHE_MAX_ENTRIES >= 0.9:
+        pcnt = int(count / settings.CACHE_MAX_ENTRIES * 100)
+        warn(
+            f"Cache table {settings.CACHE_TABLE_NAME} is {pcnt}% full (there are {count} entries out of a max of "
+            f"{settings.CACHE_MAX_ENTRIES} allowed entries).  The caching strategy is persistant and values are "
+            "updated only when they change.  Increase environment variable CACHE_MAX_ENTRIES."
+        )
+
+    return count
 
 
 class HierCachedModel(Model):
