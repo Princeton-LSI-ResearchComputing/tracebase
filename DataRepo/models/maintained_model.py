@@ -10,7 +10,7 @@ from typing import Dict, List, Optional, Type
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import ProgrammingError, transaction
-from django.db.models import Model
+from django.db.models import Model, Q
 from django.db.models.signals import m2m_changed
 
 
@@ -951,7 +951,7 @@ class MaintainedModel(Model):
                         f"{parent_field_name}"
                     )
                 if parent_field_name is not None and len(child_field_names) > 0:
-                    msg += " and "
+                    msg += " and"
                 if child_field_names is not None and len(child_field_names) > 0:
                     msg += (
                         f" trigger updates to children: "
@@ -1650,6 +1650,45 @@ class MaintainedModel(Model):
                         except Exception as e:
                             raise AutoUpdateFailed(rec, e, updater_dicts)
 
+    @classmethod
+    def _get_nulls(cls, label_filters=None, filter_in=True, models_path=None):
+        """This class method constructs a 2-dimensional dict keyed on model name and maintained field name that contains
+        querysets for maintained model records that contain maintained fields whose values are None/null.
+
+        This method was primarily made for testing, but could also be used for targeted updating after loading with the
+        no_autoupdates decorator.
+
+        Args:
+            label_filters (Optional[List[str]]): A list of update_labels to limit the returned null model records to
+                fields with those labels.
+            filter_in (bool) [True]: When False, excludes the label_filters.
+            models_path (Optional[str]): A string like "DataRepo.models".  Only required if called before any of the
+                model classes have been instantiated and after the decorators have registered.
+        Exceptions:
+            None
+        Returns:
+            null_querysets_by_model_and_field (Dict[str, Dict[str, QuerySet]]): dict keyed on model name and maintained
+                field name that contains querysets for maintained model records that contain maintained fields whose
+                values are None/null.
+        """
+        null_querysets_by_model_and_field = defaultdict(lambda: defaultdict(object))
+        mdl_cls: Type[MaintainedModel]
+        for mdl_cls in cls._get_classes(
+            None,
+            label_filters,
+            filter_in,
+            models_path=models_path,
+        ):
+            for fld in mdl_cls.get_my_update_fields(
+                label_filters=label_filters, filter_in=filter_in
+            ):
+                q_exp = Q(**{f"{fld}__isnull": True})
+                null_querysets_by_model_and_field[mdl_cls.__name__][fld] = (
+                    mdl_cls.objects.filter(q_exp)
+                )
+
+        return null_querysets_by_model_and_field
+
     def update_decorated_fields(self, fields_to_autoupdate=None):
         """
         Updates every field identified in each MaintainedModel.setter decorator using the decorated function that
@@ -2112,16 +2151,37 @@ class MaintainedModel(Model):
         return children
 
     @classmethod
-    def get_my_update_fields(cls):
-        """
-        Returns a list of update_fields of the current model that are marked via the MaintainedModel.setter
+    def get_my_update_fields(
+        cls, label_filters: Optional[List[str]] = None, filter_in=True
+    ):
+        """Returns a list of update_fields of the current model that are marked via the MaintainedModel.setter
         decorators in the model.  Returns an empty list if there are none (e.g. if the only decorator in the model is
         the relation decorator on the class).
+
+        Args:
+            label_filters (Optional[List[str]]): A list of update_labels to limit the returned null model records to
+                fields with those labels.
+            filter_in (bool) [True]: When False, excludes the label_filters.
+        Exceptions:
+            None
+        Returns:
+            (List[str]): A list of update_fields of the current model.
         """
         return [
             updater_dict["update_field"]
             for updater_dict in cls.get_my_updaters()
-            if "update_field" in updater_dict.keys() and updater_dict["update_field"]
+            if (
+                "update_field" in updater_dict.keys()
+                and updater_dict["update_field"]
+                and (
+                    label_filters is None
+                    or (filter_in and updater_dict["update_label"] in label_filters)
+                    or (
+                        not filter_in
+                        and updater_dict["update_label"] not in label_filters
+                    )
+                )
+            )
         ]
 
     @classmethod

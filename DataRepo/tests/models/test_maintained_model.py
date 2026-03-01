@@ -1,5 +1,6 @@
 import time
 from copy import deepcopy
+from typing import Type
 
 from django.core.management import call_command
 from django.test import tag
@@ -188,6 +189,22 @@ class MaintainedModelTests(MaintainedModelTestBase):
         self.assert_names_are_unupdated(False)
         self.assert_fcirc_data_is_unupdated(False)
         self.assert_coordinator_state_is_initialized()
+
+        # Check all the maintained fields
+        expected = {}
+        cls: Type[MaintainedModel]
+        for cls in MaintainedModel._get_classes(None, None, True):
+            for fld in cls.get_my_update_fields():
+                if cls.__name__ not in expected.keys():
+                    expected[cls.__name__] = {fld: cls.objects.none()}
+                else:
+                    expected[cls.__name__][fld] = cls.objects.none()
+
+        # This casts the defaultdicts to dicts for easy comparison if the assertion fails
+        null_maintained_field__querysets = dict(
+            (key, dict(val)) for key, val in MaintainedModel._get_nulls().items()
+        )
+        self.assertEquivalent(expected, null_maintained_field__querysets)
 
     def assert_no_names_to_start(self):
         num_orig_infusates = Infusate.objects.count()
