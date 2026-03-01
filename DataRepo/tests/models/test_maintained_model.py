@@ -1,4 +1,6 @@
 import time
+from copy import deepcopy
+from typing import Type
 
 from django.core.management import call_command
 from django.test import tag
@@ -188,6 +190,22 @@ class MaintainedModelTests(MaintainedModelTestBase):
         self.assert_fcirc_data_is_unupdated(False)
         self.assert_coordinator_state_is_initialized()
 
+        # Check all the maintained fields
+        expected = {}
+        cls: Type[MaintainedModel]
+        for cls in MaintainedModel._get_classes(None, None, True):
+            for fld in cls.get_my_update_fields():
+                if cls.__name__ not in expected.keys():
+                    expected[cls.__name__] = {fld: cls.objects.none()}
+                else:
+                    expected[cls.__name__][fld] = cls.objects.none()
+
+        # This casts the defaultdicts to dicts for easy comparison if the assertion fails
+        null_maintained_field__querysets = dict(
+            (key, dict(val)) for key, val in MaintainedModel._get_nulls().items()
+        )
+        self.assertEquivalent(expected, null_maintained_field__querysets)
+
     def assert_no_names_to_start(self):
         num_orig_infusates = Infusate.objects.count()
         self.assertEqual(0, num_orig_infusates)
@@ -251,6 +269,55 @@ class MaintainedModelTests(MaintainedModelTestBase):
             # Test some is_last are not the default (i.e. True)
             num_nondefault_fcircs = FCirc.objects.filter(is_last=False).count()
             self.assertGreater(num_nondefault_fcircs, 0)
+
+    def test_get_my_update_labels(self):
+        labels = Animal.get_my_update_labels()
+        self.assertEqual(sorted(["fcirc_calcs", "label_combo", "tracer_stat"]), labels)
+
+    def test_get_child_instances(self):
+        # Load a study with animals and samples
+        Study.objects.create(name="Small OBOB")
+        Infusate.objects.get_or_create_infusate(
+            parse_infusate_name_with_concs("lysine-[13C6][23.2]")
+        )
+        call_command(
+            "load_animals",
+            infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table_blank_sample.xlsx",
+        )
+        call_command(
+            "load_samples",
+            infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table_blank_sample.xlsx",
+        )
+
+        # Test get_child_instances with and without the label_filters and filter_in arguments
+        animal: MaintainedModel = Animal.objects.first()
+        samples = list(animal.samples.all())
+        all_parents = animal.get_child_instances()
+        self.assertEqual(samples, all_parents)
+        name_parents = animal.get_child_instances(label_filters=["name"])
+        self.assertEqual([], name_parents)
+        non_name_parents = animal.get_child_instances(
+            label_filters=["name"], filter_in=False
+        )
+        self.assertEqual(samples, non_name_parents)
+
+    def test_get_parent_instances(self):
+        # Load an infusate with supporting records, obtaining the expected records from the tests
+        infusate1, infusate2 = create_infusate_records()
+        tracer: MaintainedModel = infusate1.tracers.filter(
+            compound__name="glucose"
+        ).first()
+        compound = tracer.compound
+
+        # Test get_parent_instances with and without the label_filters and filter_in arguments
+        all_parents = tracer.get_parent_instances()
+        self.assertEqual(set([infusate1, infusate2, compound]), set(all_parents))
+        name_parents = tracer.get_parent_instances(label_filters=["name"])
+        self.assertEqual(set([infusate1, infusate2]), set(name_parents))
+        non_name_parents = tracer.get_parent_instances(
+            label_filters=["name", "label_combo"], filter_in=False
+        )
+        self.assertEqual(set([compound]), set(non_name_parents))
 
 
 class MaintainedModelThreadTests(TracebaseTransactionTestCase):
@@ -509,6 +576,81 @@ class MaintainedModelDeferredTests(TracebaseTestCase):
             io_again = Infusate.objects.get(id__exact=io.id)
             self.assertIsNone(io_again.name)
 
+    def test_deferred_sets_label_filters_in_buffered_objects_when_no_default(self):
+        tmp_coordinator = MaintainedModelCoordinator("deferred")
+        with MaintainedModel.custom_coordinator(tmp_coordinator):
+            create_infusate_records()
+
+            io: MaintainedModel = tmp_coordinator._peek_update_buffer(0)
+            self.assertIsInstance(io, Tracer)
+            self.assertEqual(
+                sorted(["label_combo", "name", "tracer_stat"]), io.label_filters
+            )
+            self.assertTrue(io.filter_in)
+
+            io2: MaintainedModel = tmp_coordinator._peek_update_buffer(1)
+            self.assertIsInstance(io2, TracerLabel)
+            self.assertEqual(sorted(["name"]), io2.label_filters)
+            self.assertTrue(io2.filter_in)
+
+    def test_deferred_sets_default_label_filters_in_buffered_objects(self):
+        """This asserts that the only autoupdates that are buffered are those that have the label_filters that were
+        set.
+        """
+        tmp_coordinator = MaintainedModelCoordinator("deferred")
+        tmp_coordinator.default_label_filters = ["name"]
+        with MaintainedModel.custom_coordinator(tmp_coordinator):
+            create_infusate_records()
+
+            buffered_item: MaintainedModel
+            for buffered_item in tmp_coordinator.update_buffer:
+                self.assertEqual(["name"], buffered_item.label_filters)
+                self.assertTrue(buffered_item.filter_in)
+
+    def test_deferred_only_buffers_matches(self):
+        """This asserts that the only autoupdates that are buffered are those that have the label_filters that were
+        set.
+        """
+        tmp_coordinator = MaintainedModelCoordinator("deferred")
+        tmp_coordinator.default_label_filters = ["irrelevant"]
+        with MaintainedModel.custom_coordinator(tmp_coordinator):
+            create_infusate_records()
+            self.assertEqual(0, len(tmp_coordinator.update_buffer))
+
+    def test_buffer_update_buffers_when_label_filters_differ(self):
+        """This asserts that a duplicate object with different label_filters gets buffered, so that both autoupdates are
+        performed, as specified in the label_filters attribute.
+        """
+        tmp_coordinator = MaintainedModelCoordinator("deferred")
+        tmp_coordinator.default_label_filters = ["tracer_stat"]
+        with MaintainedModel.custom_coordinator(tmp_coordinator):
+            # The first thing this buffers is a Tracer object
+            create_infusate_records()
+            buffered_tracer: MaintainedModel = tmp_coordinator._peek_update_buffer(0)
+
+            tracer_copy = deepcopy(buffered_tracer)
+            # This should cause the duplicate to buffer, because it performs other autoupdates.
+            tracer_copy.label_filters = ["name"]
+
+            # This won't buffer a duplicate object, but only when the label_filters are the same
+            tmp_coordinator.buffer_update(tracer_copy)
+            # The last buffered object should be the one we explicitly buffered
+            buffered_tracer_2 = tmp_coordinator._peek_update_buffer(-1)
+
+            self.assertEqual(buffered_tracer, buffered_tracer_2)
+
+    def test_delete_updates_label_filters(self):
+        """Assert that buffered parent instances have their label_filters set based on their decorators"""
+        infusate, _ = create_infusate_records()
+        tracer: MaintainedModel = infusate.tracers.first()
+        tmp_coordinator = MaintainedModelCoordinator("deferred")
+        with MaintainedModel.custom_coordinator(tmp_coordinator):
+            tracer.delete()
+            infusate: MaintainedModel = tmp_coordinator._peek_update_buffer(0)
+            self.assertEqual(
+                ["label_combo", "name", "tracer_stat"], infusate.label_filters
+            )
+
 
 @tag("load_study")
 class MaintainedModelImmediateTests(MaintainedModelTestBase):
@@ -593,7 +735,6 @@ class MaintainedModelImmediateTests(MaintainedModelTestBase):
 
     def test_error_when_buffer_not_clear(self):
         """Ensure that stale buffer contents before a load produces a helpful error"""
-        # with self.assertRaises(Exception) as ar:
         with self.assertRaisesRegex(AutoUpdateFailed, ".+clear_update_buffer.+"):
             # Create infusate records while auto updates are disabled, so that they buffer
             tmp_coordinator = MaintainedModelCoordinator("deferred")
