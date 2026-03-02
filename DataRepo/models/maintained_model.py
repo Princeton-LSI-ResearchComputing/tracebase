@@ -551,9 +551,9 @@ class MaintainedModel(Model):
             # true if immediate_updates is False)), set the label filters based on the currently set global conditions
             # so that only fields matching the filters will be updated.  An explicit setting of the label_filters in the
             # coordinator overrides the update_label of the decorators applied in the model.  This is so a specific mass
-            # update can be manually achieved via a targeted script.  If there is not label_filters set in the
-            # coordinator, it falls back to the update_labels belonging to the model class's decorators, and propagation
-            # will only follow those paths.
+            # update can be manually achieved via a targeted script.  If label_filters is not set in the coordinator, it
+            # falls back to the update_labels belonging to the model class's decorators, and propagation will only
+            # follow those paths.
             if (
                 coordinator.default_label_filters is None
                 or len(coordinator.default_label_filters) == 0
@@ -677,7 +677,7 @@ class MaintainedModel(Model):
                     # currently set global conditions so that only fields matching the filters will be updated.  An
                     # explicit setting of the label_filters in the coordinator overrides the update_label of the
                     # decorators applied in the model.  This is so a specific mass update can be manually achieved via a
-                    # targeted script.  If there is not label_filters set in the coordinator, it falls back to the
+                    # targeted script.  If label_filters is not set in the coordinator, it falls back to the
                     # update_labels belonging to the model class's decorators, and propagation will only follow those
                     # paths.
                     if (
