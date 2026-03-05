@@ -99,6 +99,9 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "TraceBase.wsgi.application"
 
+# Run mode (testing or not)
+# See: django-debug-toolbar.readthedocs.io/en/latest/installation.html#disable-the-toolbar-when-running-tests-optional
+TESTING = "test" in sys.argv
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
@@ -271,16 +274,21 @@ TEST_CACHES = {
     }
 }
 
-CACHES_SETTING = env.str("CACHES", default="PROD_CACHES")
+# This setting is "hidden".  It does not appear in the .env example file because it is handled automatically, but adding
+# it to .env will override the automatic handling.
+CACHES_SETTING = env.str("CACHES", default=None)
 
 CACHES: Dict[str, Dict] = PROD_CACHES
-if CACHES_SETTING == "TEST_CACHES":
+if CACHES_SETTING is not None:
+    if CACHES_SETTING == "TEST_CACHES":
+        CACHES = TEST_CACHES
+    elif CACHES_SETTING != "PROD_CACHES":
+        print(
+            f"Invalid CACHE_SETTINGS value: {CACHES_SETTING} in .env. Defaulting to PROD_CACHES. Valid values are "
+            "TEST_CACHES and PROD_CACHES."
+        )
+elif TESTING:
     CACHES = TEST_CACHES
-elif CACHES_SETTING != "PROD_CACHES":
-    print(
-        f"Invalid CACHE_SETTINGS value: {CACHES_SETTING} in .env. Defaulting to PROD_CACHES. Valid values are "
-        "TEST_CACHES and PROD_CACHES."
-    )
 
 # Define a custom test runner
 # https://docs.djangoproject.com/en/4.2/topics/testing/advanced/#using-different-testing-frameworks
@@ -327,7 +335,6 @@ MIDDLEWARE = [
 DEBUG_TOOLBAR_ENABLED = False
 DEBUG_TOOLBAR = env.bool("DEBUG_TOOLBAR", default=True)
 if DEBUG_TOOLBAR is True:
-    TESTING = "test" in sys.argv
     try:
         import debug_toolbar  # noqa: F401
 

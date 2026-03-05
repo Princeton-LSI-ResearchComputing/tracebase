@@ -113,7 +113,32 @@ def get_cache_key(rec, cache_func_name):
 
 
 def delete_all_caches():
-    cache.clear()
+    """Deletes either just the test caches or all caches (including the test caches).
+
+    Deletion of the test caches only is just to preserve production caches so that tests do not affect the production
+    entries.  The deletion of all caches regardless of prefix when not testing is simply due to the superior
+    performance of cache.clear().
+
+    Args:
+        None
+    Exceptions:
+        None
+    Returns:
+        None
+    """
+    if settings.TESTING:
+        # If we are testing, only delete the test caches
+        table_name = settings.CACHES["default"]["LOCATION"]
+        prefix = settings.CACHES["default"]["KEY_PREFIX"]
+
+        # This deletes everything with the current cache prefix from the cache table
+        sql = f"DELETE FROM {table_name} WHERE split_part(cache_key, '.', 1) LIKE '{prefix}:%';"
+
+        with connection.cursor() as cursor:
+            cursor.execute(sql)
+    else:
+        # This is faster.  It deletes everything in the cache table.
+        cache.clear()
 
 
 def get_cached_method_names():
@@ -173,18 +198,54 @@ def enable_caching_errors():
     throw_cache_errors = True
 
 
-def get_cache_table_size():
+def dump_cache_table_keys():
+    """This is a debugging function to see what is in the cache table regardless of prefix.
+
+    Args:
+        None
+    Exceptions:
+        None
+    Returns:
+        settings.CACHES (dict): The CACHES settings.
+        cache_keys_and_expires (List[Tuple[str, datetime]]): A list of cache_key and expires values from the cache table
+            (regardless of the cache prefix in settings).
+    """
+    table_name = settings.CACHES["default"]["LOCATION"]
+
     with connection.cursor() as cursor:
-        cursor.execute(f"SELECT count(*) FROM {settings.CACHE_TABLE_NAME}")
+        sql = f"SELECT cache_key, expires FROM {table_name};"
+        cursor.execute(sql)
+        cache_keys_and_expires = cursor.fetchall()
+
+    return settings.CACHES, cache_keys_and_expires
+
+
+def get_cache_table_size():
+    """Returns the number of rows from the cache table that match the CACHE settings prefix.
+
+    Args:
+        None
+    Exceptions:
+        None
+    Returns:
+        count (int): The number of rows containing the cache settings prefix.
+    """
+    table_name = settings.CACHES["default"]["LOCATION"]
+    max_entries = settings.CACHES["default"]["OPTIONS"]["MAX_ENTRIES"]
+    prefix = settings.CACHES["default"]["KEY_PREFIX"]
+
+    with connection.cursor() as cursor:
+        sql = f"SELECT count(*) FROM {table_name} WHERE cache_key like '{prefix}:%';"
+        cursor.execute(sql)
         row = cursor.fetchone()
         count = int(row[0])
 
-    if count / settings.CACHE_MAX_ENTRIES >= 0.9:
-        pcnt = int(count / settings.CACHE_MAX_ENTRIES * 100)
+    if count / max_entries >= 0.8:
+        pcnt = int(count / max_entries * 100)
         warn(
-            f"Cache table {settings.CACHE_TABLE_NAME} is {pcnt}% full (there are {count} entries out of a max of "
-            f"{settings.CACHE_MAX_ENTRIES} allowed entries).  The caching strategy is persistant and values are "
-            "updated only when they change.  Increase environment variable CACHE_MAX_ENTRIES."
+            f"Cache table {table_name} is {pcnt}% full (there are {count} entries out of a max of {max_entries} "
+            "allowed entries).  The caching strategy is persistant and values are updated only when they change.  "
+            "Increase environment variable CACHE_MAX_ENTRIES."
         )
 
     return count
@@ -321,20 +382,61 @@ class HierCachedModel(Model):
         else:
             return self
 
+    @staticmethod
+    def get_max_cached_pk(model_name: str):
+        """Given a model name, returns the max record primary key for that model that has a cache entry in the cache
+        table.
+
+        Args:
+            model_name (str): The name of a HierCachedModel that will be queried in the cache table to find the largest
+            primary key for that model present in the cache table.
+        Exceptions:
+            None
+        Returns:
+            max_pk (Optional[int]): The max primary key for the given model present in the cache table.  Returns None if
+                no cache entries exist for that model.
+        """
+        table_name = settings.CACHES["default"]["LOCATION"]
+        prefix = settings.CACHES["default"]["KEY_PREFIX"]
+
+        # This splits the cache key on dot (.) and takes the second value, which is the primary key of the record.  It
+        # is saved as an integer annotation and the max value among the model's cached values is returned
+        sql = (
+            f"SELECT MAX(split_part(cache_key, '.', 2)::int) AS {table_name}_pk FROM {table_name} WHERE cache_key LIKE "
+            f"%s ORDER BY {table_name}_pk;"
+        )
+
+        with connection.cursor() as cursor:
+            # Note, version is ignored, but the cache prefix and the dot after the model name are matched
+            regexp = f"{prefix}:%:%{model_name}\\.%"
+            cursor.execute(sql, [regexp])
+            row = cursor.fetchone()
+            max_pk = row[0]
+
+        return max_pk
+
     @classmethod
     def build_cached_fields(
         cls,
         model_names: Optional[List[str]] = None,
         func_names: Optional[List[str]] = None,
+        new_only=False,
     ):
         """Use this method to generate missing cached values.
 
+        Assumptions:
+            1. All cached_function decorated methods are also decorated as a property
         Limitations:
             1. Does not clear existing cached values.
-            2. Does not check validity of function names provided.  Quietly ignores invalid ones.
+            2. No way to limit cache updates to a particular study.
         Args:
             model_names (Optional[List[str]])
             func_names (Optional[List[str]])
+            new_only (bool) [False]: Only build cached_function values for model records whose primary key is greater
+                than the max key for that model in the cache table.  This is intended to be run immediately after a
+                study load, to only update cached values for the new data.  WARNING: Cache builds can happen randomly
+                (as data is displayed) if the new data is browsed on the site.  If that happens, note that this option
+                may not build caches for all the new data.
         Exceptions:
             None
         Returns:
@@ -355,8 +457,17 @@ class HierCachedModel(Model):
                     f"{[m.__name__ for m in models if not issubclass(m, __class__)]}."  # type: ignore[name-defined]
                 )
 
+        # This keeps track of the valid fcached function names that have been called
+        func_names_seen = []
+
         for model in models:
-            for rec in model.objects.order_by("pk"):
+            qs = model.objects.all()
+            if new_only:
+                max_pk = cls.get_max_cached_pk(model.__name__)
+                qs = qs.filter(pk__gt=max_pk)
+
+            for rec in qs.order_by("pk"):
+                # Populate cfunc_names with either all cached functions or the valid selected ones for this model
                 if func_names is None or len(func_names) == 0:
                     cfunc_names = func_name_lists[model.__name__]
                 else:
@@ -364,8 +475,15 @@ class HierCachedModel(Model):
                         fn for fn in func_name_lists[model.__name__] if fn in func_names
                     ]
 
+                # Keep track of what (valid) cached functions are being set so we can check for invalid ones at the end
+                for func_name in cfunc_names:
+                    if func_name not in func_names_seen:
+                        func_names_seen.append(func_name)
+
+                # Update the missing cached values
                 for cfunc_name in cfunc_names:
                     try:
+                        # Since cached_functions are properties, getting the cached_function sets the cache (if unset)
                         getattr(rec, cfunc_name)
                     except Exception as e:
                         if settings.DEBUG:
@@ -374,9 +492,31 @@ class HierCachedModel(Model):
                                 f"'{rec}': {type(e).__name__}: {e}"
                             )
 
+        # Check for invalid function names that were supplied.
+        if func_names and len(func_names) > 0:
+            invalid_func_names = list(set(func_names) - set(func_names_seen))
+            if len(invalid_func_names) > 0:
+                # These indent the valid cached function name list by class
+                nlt = "\n  "
+                nltt = "\n    "
+                valid_funcs_str = nlt.join(
+                    [
+                        f"{k}{nltt}{nltt.join(v)}"
+                        for k, v in get_cached_method_names().items()
+                    ]
+                )
+                raise InvalidCacheFunctions(
+                    "Caches were built for all supplied cache functions except the following invalid function names: "
+                    f"{invalid_func_names}.  Valid function names are:{nlt}{valid_funcs_str}"
+                )
+
     class Meta:
         abstract = True
 
 
 class CacheError(Exception):
+    pass
+
+
+class InvalidCacheFunctions(Exception):
     pass
