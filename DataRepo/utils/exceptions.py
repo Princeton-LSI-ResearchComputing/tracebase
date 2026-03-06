@@ -745,9 +745,9 @@ class MissingModelRecords(MissingRecords, ABC):
         pass
 
     @property
-    @abstractmethod
     def RecordName(self):  # pylint: disable=invalid-name
-        pass
+        """You can override this using a class attribute in a derived class."""
+        return self.ModelName
 
     def __init__(
         self,
@@ -824,9 +824,9 @@ class MissingModelRecordsByFile(MissingRecords, ABC):
         pass
 
     @property
-    @abstractmethod
     def RecordName(self):  # pylint: disable=invalid-name
-        pass
+        """You can override this using a class attribute in a derived class."""
+        return self.ModelName
 
     def __init__(
         self,
@@ -1113,7 +1113,6 @@ class MissingSamples(MissingModelRecords):
     """
 
     ModelName = "Sample"
-    RecordName = ModelName
 
 
 class AllMissingSamples(MissingModelRecordsByFile):
@@ -1121,7 +1120,6 @@ class AllMissingSamples(MissingModelRecordsByFile):
     input files."""
 
     ModelName = "Sample"
-    RecordName = ModelName
 
 
 class AllUnskippedBlanks(MissingModelRecordsByFile):
@@ -1139,7 +1137,6 @@ class AllUnskippedBlanks(MissingModelRecordsByFile):
     """
 
     ModelName = "Sample"
-    RecordName = ModelName
 
     def __init__(self, *args, suggestion=None, **kwargs):
         if suggestion is None:
@@ -1159,7 +1156,6 @@ class MissingCompounds(MissingModelRecords):
     """
 
     ModelName = "Compound"
-    RecordName = ModelName
 
 
 class AllMissingCompounds(MissingModelRecordsByFile):
@@ -1167,7 +1163,6 @@ class AllMissingCompounds(MissingModelRecordsByFile):
     input files."""
 
     ModelName = "Compound"
-    RecordName = ModelName
 
 
 class RequiredArgument(Exception):
@@ -3174,7 +3169,6 @@ class MissingTissues(MissingModelRecords):
     """
 
     ModelName = "Tissue"
-    RecordName = ModelName
 
 
 class AllMissingTissues(MissingModelRecordsByFile):
@@ -3182,7 +3176,6 @@ class AllMissingTissues(MissingModelRecordsByFile):
     input files."""
 
     ModelName = "Tissue"
-    RecordName = ModelName
 
 
 class MissingStudies(MissingModelRecords):
@@ -3192,7 +3185,6 @@ class MissingStudies(MissingModelRecords):
     """
 
     ModelName = "Study"
-    RecordName = ModelName
 
 
 class AllMissingStudies(MissingModelRecordsByFile):
@@ -3200,7 +3192,6 @@ class AllMissingStudies(MissingModelRecordsByFile):
     input files."""
 
     ModelName = "Study"
-    RecordName = ModelName
 
 
 class MissingTreatments(MissingModelRecords):

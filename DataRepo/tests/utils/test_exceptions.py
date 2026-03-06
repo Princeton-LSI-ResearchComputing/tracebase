@@ -2206,7 +2206,7 @@ class ExceptionTests(TracebaseTestCase):
         dpgs = DuplicatePeakGroups([exc])
         self.assertIn("test_data_file\n\t\ttestname", str(dpgs))
 
-    def test_NoPeakAnnotationDetails(self):
+    def test_no_peak_annotation_details(self):
         no_pk_ann_deets = NoPeakAnnotationDetails(
             "annot.xlsx",
             file="study.xlsx",
@@ -2247,7 +2247,7 @@ class ExceptionTests(TracebaseTestCase):
             str(no_pk_ann_deets_ers),
         )
 
-    def test_AllUnskippedBlanks(self):
+    def test_all_unskipped_blanks(self):
         from DataRepo.models import Sample
 
         exceptions = [RecordDoesNotExist(Sample, {"name": "blank"})]
