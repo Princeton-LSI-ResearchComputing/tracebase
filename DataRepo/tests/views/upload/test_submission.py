@@ -1334,12 +1334,26 @@ class BuildSubmissionViewTests2(TracebaseTransactionTestCase):
         self.assertEqual("AllMissingSamples", exceptions[groupkey][0]["type"])
         self.assertEqual(0, num_warnings[groupkey])
 
-        self.assertEqual(10, len(results.keys()), msg=f"Keys: {results.keys()}")
-        self.assertEqual(10, len(exceptions.keys()), msg=f"Keys: {exceptions.keys()}")
-        self.assertEqual(10, len(num_errors.keys()), msg=f"Keys: {num_errors.keys()}")
-        self.assertEqual(
-            10, len(num_warnings.keys()), msg=f"Keys: {num_warnings.keys()}"
+        expected_status_keys = set(
+            [
+                "small_obob_animal_and_sample_table.xlsx",
+                "Studies Check",
+                "Samples Check",
+                "Peak Annotation Samples Check",
+                "Peak Annotation Blanks Check",
+                "Tissues Check",
+                "Treatments Check",
+                "Compounds Check",
+                "Peak Groups Check",
+                "Contamination Check",
+                "small_obob_maven_6eaas_inf_req_prefix.xlsx",
+            ]
         )
+
+        self.assertEqual(expected_status_keys, set(results.keys()))
+        self.assertEqual(expected_status_keys, set(exceptions.keys()))
+        self.assertEqual(expected_status_keys, set(num_errors.keys()))
+        self.assertEqual(expected_status_keys, set(num_warnings.keys()))
 
         self.assertFalse(valid)
 
