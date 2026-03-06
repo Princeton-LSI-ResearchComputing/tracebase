@@ -799,7 +799,7 @@ class MissingModelRecords(MissingRecords, ABC):
                 ]
             )
             message = (
-                f"{len(self.exceptions_by_model_and_query[self.ModelName].keys())} {self.ModelName} records matching "
+                f"{len(self.exceptions_by_model_and_query[self.ModelName].keys())} {self.RecordName} records matching "
                 f"the following values in %s were not found in the database:{nltab}{summary}\n"
             )
 
@@ -877,17 +877,17 @@ class MissingModelRecordsByFile(MissingRecords, ABC):
                     break
             if succinct:
                 message = (
-                    f"{len(exceptions)} {self.ModelName} records matching the following values were not found in the "
+                    f"{len(exceptions)} {self.RecordName} records matching the following values were not found in the "
                     f"database while processing %s:{summary}"
                 )
                 if num_examples < len(
                     self.exceptions_by_model_query_and_loc[self.ModelName].keys()
                 ):
                     message += "\n\t..."
-                message += f"\nSee exceptions below for all missing {self.ModelName} record details."
+                message += f"\nSee exceptions below for all missing {self.RecordName} record details."
             else:
                 message = (
-                    f"{len(exceptions)} {self.ModelName} records matching the following values were not found in the "
+                    f"{len(exceptions)} {self.RecordName} records matching the following values were not found in the "
                     f"database:{summary}\nwhile processing %s."
                 )
 
