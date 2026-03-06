@@ -3,11 +3,11 @@ from DataRepo.tests.formats.formats_test_base import FormatsTestCase
 
 
 class FluxCircFormatTests(FormatsTestCase):
-    def test_FluxCircFormat(self):
+    def test_flux_circ_format(self):
         """Test FluxCircFormat.FluxCircFormat - no exception = successful test"""
         FluxCircFormat()
 
-    def test_getRootQuerySet(self):
-        """Test FluxCircFormat.getRootQuerySet"""
+    def test_get_root_query_set(self):
+        """Test FluxCircFormat.get_root_query_set"""
         fcf = FluxCircFormat()
-        fcf.getRootQuerySet()
+        fcf.get_root_query_set()

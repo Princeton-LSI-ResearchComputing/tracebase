@@ -58,7 +58,7 @@ class LoadInfusatesCommandTests(TracebaseTestCase):
         ],
     )
 
-    DUDERINO_INFUSATE_DATA = InfusateData(
+    duderino_infusate_data = InfusateData(
         unparsed_string="duderino{lysine-[13C6]}",
         infusate_name="duderino",
         tracers=[
@@ -118,7 +118,7 @@ class LoadInfusatesCommandTests(TracebaseTestCase):
             infile="DataRepo/data/tests/infusates/lysine_num_name_conc_only.tsv",
         )
         self.assertEqual(1, Infusate.objects.count())
-        self.assertIsNotNone(Infusate.objects.get_infusate(self.DUDERINO_INFUSATE_DATA))
+        self.assertIsNotNone(Infusate.objects.get_infusate(self.duderino_infusate_data))
 
     def test_names_concs_numbers_only_excel_ok(self):
         call_command(
@@ -126,21 +126,21 @@ class LoadInfusatesCommandTests(TracebaseTestCase):
             infile="DataRepo/data/tests/infusates/lysine_num_name_conc_only.xlsx",
         )
         self.assertEqual(1, Infusate.objects.count())
-        self.assertIsNotNone(Infusate.objects.get_infusate(self.DUDERINO_INFUSATE_DATA))
+        self.assertIsNotNone(Infusate.objects.get_infusate(self.duderino_infusate_data))
 
     def test_column_data_only_ok(self):
         call_command(
             "load_infusates",
             infile="DataRepo/data/tests/infusates/lysine_data_only.tsv",
         )
-        self.assertIsNotNone(Infusate.objects.get_infusate(self.DUDERINO_INFUSATE_DATA))
+        self.assertIsNotNone(Infusate.objects.get_infusate(self.duderino_infusate_data))
 
     def test_name_and_column_mix_ok(self):
         call_command(
             "load_infusates",
             infile="DataRepo/data/tests/infusates/lysine_full.tsv",
         )
-        self.assertIsNotNone(Infusate.objects.get_infusate(self.DUDERINO_INFUSATE_DATA))
+        self.assertIsNotNone(Infusate.objects.get_infusate(self.duderino_infusate_data))
 
     def test_name_with_multiple_numbers_error(self):
         """Since Infusate name, tracer, group name, and concentration must be unique, 1 infusate name with multiple
@@ -288,7 +288,7 @@ class LoadInfusatesCommandTests(TracebaseTestCase):
         because existing infusates should be consistently applied group names.  We should not have to modify existing
         records.  If a new name is desired to be applied, the existing record would have to be edited.
         """
-        GLUTAMINE_TRACER_DATA = TracerData(
+        glutamine_tracer_data = TracerData(
             unparsed_string="glutamine-[13C5]",
             compound_name="glutamine",
             isotopes=[
@@ -300,18 +300,18 @@ class LoadInfusatesCommandTests(TracebaseTestCase):
                 )
             ],
         )
-        NOGROUPNAME_INFUSATE_DATA = InfusateData(
+        nogroupname_infusate_data = InfusateData(
             unparsed_string="glutamine-[13C5]",
             infusate_name=None,
             tracers=[
                 InfusateTracerData(
-                    tracer=GLUTAMINE_TRACER_DATA,
+                    tracer=glutamine_tracer_data,
                     concentration=20,
                 ),
             ],
         )
         self.assertEqual(0, Infusate.objects.count())
-        Infusate.objects.get_or_create_infusate(NOGROUPNAME_INFUSATE_DATA)
+        Infusate.objects.get_or_create_infusate(nogroupname_infusate_data)
         self.assertEqual(1, Infusate.objects.count())
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
@@ -340,7 +340,7 @@ class LoadInfusatesCommandTests(TracebaseTestCase):
         infusate with the same tracers is desired to be applied without a group name, the existing record would have to
         be edited."""
         self.assertEqual(0, Infusate.objects.count())
-        Infusate.objects.get_or_create_infusate(self.DUDERINO_INFUSATE_DATA)
+        Infusate.objects.get_or_create_infusate(self.duderino_infusate_data)
         self.assertEqual(1, Infusate.objects.count())
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(

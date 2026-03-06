@@ -302,7 +302,7 @@ class PeakGroup(HierCachedModel, MaintainedModel):
         """
         from DataRepo.utils.exceptions import NoTracerLabeledElements
 
-        PeakGroupCompound = PeakGroup.compounds.through
+        PeakGroupCompound = PeakGroup.compounds.through  # pylint: disable=invalid-name
 
         # Error check the labeled elements shared between the peak group's compound(s) and the tracers before creating
         # the record

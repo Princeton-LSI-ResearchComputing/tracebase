@@ -20,8 +20,10 @@ class TracerQuerySet(models.QuerySet):
         tracer = self.get_tracer(tracer_data)
         created = False
         if tracer is None:
-            TracerLabel = get_model_by_name("TracerLabel")
-            Compound = get_model_by_name("Compound")
+            TracerLabel = get_model_by_name(  # pylint: disable=invalid-name
+                "TracerLabel"
+            )
+            Compound = get_model_by_name("Compound")  # pylint: disable=invalid-name
             compound = Compound.compound_matching_name_or_synonym(
                 tracer_data["compound_name"]
             )
@@ -38,7 +40,7 @@ class TracerQuerySet(models.QuerySet):
         matching_tracer = None
 
         # First, check if the compound is found
-        Compound = get_model_by_name("Compound")
+        Compound = get_model_by_name("Compound")  # pylint: disable=invalid-name
         try:
             compound = Compound.compound_matching_name_or_synonym(
                 tracer_data["compound_name"]

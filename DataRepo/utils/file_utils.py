@@ -21,7 +21,7 @@ from DataRepo.utils.exceptions import (
     InvalidHeaders,
 )
 
-date_format = "%Y-%m-%d"
+DATE_FORMAT = "%Y-%m-%d"
 
 
 def read_from_file(
@@ -626,10 +626,10 @@ def string_to_date(
 
 
 def datetime_to_string(date_in: datetime.datetime, format_str: Optional[str] = None):
-    format = date_format if format_str is None else format_str
+    format = DATE_FORMAT if format_str is None else format_str
     return date_in.strftime(format)
 
 
 def date_to_string(date_in: datetime.date, format_str: Optional[str] = None):
-    format = date_format if format_str is None else format_str
+    format = DATE_FORMAT if format_str is None else format_str
     return datetime.date.strftime(date_in, format)

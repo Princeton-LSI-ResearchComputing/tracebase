@@ -55,7 +55,7 @@ class BSTBaseColumnTests(TracebaseTestCase):
             BSTBaseFilterer.INPUT_METHODS.SELECT, bstbct.filterer.input_method
         )
 
-    def test_BSTBaseColumn(self):
+    def test_bst_base_column(self):
         bstbct1 = BSTBaseColumnTest("name", hidable=False, visible=False)
         self.assertFalse(bstbct1.hidable)
         self.assertTrue(bstbct1.visible)  # visible=False ignored, since not hidable

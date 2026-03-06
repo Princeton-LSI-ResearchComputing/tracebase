@@ -101,9 +101,15 @@ class BaseAdvSearchForm(Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.posprefix = self.format_class.id
-        self.fields["fld"].choices = self.advsrch_view_class.getAllSearchFieldChoices()
-        self.fields["ncmp"].choices = self.advsrch_view_class.getAllComparisonChoices()
-        self.fields["units"].choices = self.advsrch_view_class.getAllFieldUnitsChoices()
+        self.fields["fld"].choices = (
+            self.advsrch_view_class.get_all_search_field_choices()
+        )
+        self.fields["ncmp"].choices = (
+            self.advsrch_view_class.get_all_comparison_choices()
+        )
+        self.fields["units"].choices = (
+            self.advsrch_view_class.get_all_field_units_choices()
+        )
 
 
 class AdvSearchPeakGroupsForm(BaseAdvSearchForm):
@@ -207,11 +213,13 @@ class AdvSearchPageForm(Form):
         return self.cleaned_data
 
     def update(
-        self, page_id, rows_id, orderby_id, orderdir_id, rows_attrs={}, other_ids=None
+        self, page_id, rows_id, orderby_id, orderdir_id, rows_attrs=None, other_ids=None
     ):
         """
         Adds IDs and other attributes to form elements.
         """
+        if not rows_attrs:
+            rows_attrs = {}
         # Allow IDs for the inputs to be set for javascript to find the inputs and change them
         page = self.fields.get("page")
         rows = self.fields.get("rows")
@@ -326,7 +334,7 @@ class MultipleFileField(FileField):
         return result
 
 
-def create_BuildSubmissionForm() -> Type[Form]:
+def create_build_submission_form() -> Type[Form]:
     """This class works around a problem that raises an exception when migrations are created or checked and there exist
     database calls at the class level.  See: https://stackoverflow.com/a/56878154"""
 

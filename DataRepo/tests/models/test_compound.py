@@ -93,62 +93,62 @@ class CompoundTests(TracebaseTestCase):
 class CompoundSynonymTests(TracebaseTestCase):
     def setUp(self):
         super().setUp()
-        self.PRIMARY_COMPOUND = Compound.objects.create(
+        self.primary_compound = Compound.objects.create(
             name="hexadecanoic acid", formula="C16H32O2", hmdb_id="HMDB0000220"
         )
         # just the act of creating a compound (above) creates two synonyms for
         # it, in this case
-        self.ALIASES_SETUP_COUNT = 2
+        self.aliases_setup_count = 2
         aliases = ["palmitic acid", "C16:0"]
-        self.ALIASES_SETUP_COUNT += len(aliases)
-        self.PRIMARY_ALIASES = aliases
+        self.aliases_setup_count += len(aliases)
+        self.primary_aliases = aliases
         # make synonyms
         for alias in aliases:
-            CompoundSynonym.objects.create(name=alias, compound=self.PRIMARY_COMPOUND)
+            CompoundSynonym.objects.create(name=alias, compound=self.primary_compound)
 
-        self.SECONDARY_COMPOUND = Compound.objects.create(
+        self.secondary_compound = Compound.objects.create(
             name="alanine", formula="C3H7NO2", hmdb_id="HMDB0000161"
         )
 
     def test_compound_synonym_insertion1(self):
         #  validates all the aliases created during setUp
         self.assertTrue(
-            self.PRIMARY_COMPOUND.synonyms.filter(name="hexadecanoic acid").exists()
+            self.primary_compound.synonyms.filter(name="hexadecanoic acid").exists()
         )
         self.assertTrue(
-            self.PRIMARY_COMPOUND.synonyms.filter(name="Hexadecanoic acid").exists()
+            self.primary_compound.synonyms.filter(name="Hexadecanoic acid").exists()
         )
-        for alias in self.PRIMARY_ALIASES:
-            self.assertTrue(self.PRIMARY_COMPOUND.synonyms.filter(name=alias).exists())
+        for alias in self.primary_aliases:
+            self.assertTrue(self.primary_compound.synonyms.filter(name=alias).exists())
         # setup insertions count
         self.assertEqual(
-            len(self.PRIMARY_COMPOUND.synonyms.all()), self.ALIASES_SETUP_COUNT
+            len(self.primary_compound.synonyms.all()), self.aliases_setup_count
         )
 
     def test_compound_synonym_insertion2(self):
         # test CompoundSynonym's intrinsic class creation method
         alt_name = "Palmitate"
-        CompoundSynonym.objects.create(name=alt_name, compound=self.PRIMARY_COMPOUND)
-        self.assertTrue(self.PRIMARY_COMPOUND.synonyms.filter(name=alt_name).exists())
+        CompoundSynonym.objects.create(name=alt_name, compound=self.primary_compound)
+        self.assertTrue(self.primary_compound.synonyms.filter(name=alt_name).exists())
 
     def test_compound_synonym_insertion3(self):
         # test Compound's utility instance creation method
         alt_name = "Hexadecanoate"
-        self.PRIMARY_COMPOUND.get_or_create_synonym(alt_name)
-        self.assertTrue(self.PRIMARY_COMPOUND.synonyms.filter(name=alt_name).exists())
+        self.primary_compound.get_or_create_synonym(alt_name)
+        self.assertTrue(self.primary_compound.synonyms.filter(name=alt_name).exists())
 
     def test_compound_synonym_duplication1(self):
         # test that duplicate insertion fails
         with self.assertRaises(IntegrityError):
             CompoundSynonym.objects.create(
-                name=self.PRIMARY_ALIASES[0], compound=self.PRIMARY_COMPOUND
+                name=self.primary_aliases[0], compound=self.primary_compound
             )
 
     def test_compound_synonym_duplication2(self):
         # test that attempting to use the same synonym for multiple compounds fails
         with self.assertRaises(IntegrityError):
             CompoundSynonym.objects.create(
-                name=self.PRIMARY_ALIASES[0], compound=self.SECONDARY_COMPOUND
+                name=self.primary_aliases[0], compound=self.secondary_compound
             )
 
     def test_compound_deletion(self):
@@ -175,7 +175,7 @@ class CompoundSynonymTests(TracebaseTestCase):
     def test_prohibited_delimiters(self):
         with self.assertRaises(ProhibitedStringValue) as ar1:
             c = CompoundSynonym.objects.create(
-                name="hexadecanoic/acid", compound=self.PRIMARY_COMPOUND
+                name="hexadecanoic/acid", compound=self.primary_compound
             )
             c.full_clean()
         self.assertIn("(in 'hexadecanoic/acid')", str(ar1.exception))
@@ -186,7 +186,7 @@ class CompoundSynonymTests(TracebaseTestCase):
         )
         with self.assertRaises(ProhibitedStringValue) as ar2:
             c = CompoundSynonym.objects.create(
-                name="hexadecanoic;acid", compound=self.PRIMARY_COMPOUND
+                name="hexadecanoic;acid", compound=self.primary_compound
             )
             c.full_clean()
         self.assertIn("Prohibited character(s) [';'] encountered", str(ar2.exception))

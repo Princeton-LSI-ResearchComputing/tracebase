@@ -851,7 +851,7 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
             al.aggregated_errors_object.get_exception_type(NoSamples)[0].search_terms,
         )
 
-    def test_PeakAnnotationsLoader_conflicting_peak_group_resolutions(self):
+    def test_peak_annotations_loader_conflicting_peak_group_resolutions(self):
         """This tests a case where the user had to have manipulated the Peak Group Conflicts data (in
         conflicting_resolutions.tsv) where they duplicated a row and selected multiple conflicting peak annotation files
         (/'resolutions' for the conflict) for 1 compound/samples-combo combo.
@@ -965,7 +965,7 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         }
         self.assertDictEqual(expected, il.get_load_stats())
 
-    def test_PeakAnnotationsLoader_delete_existing_unselected_peak_group(self):
+    def test_peak_annotations_loader_delete_existing_unselected_peak_group(self):
         """This tests that a previously loaded peak group is not the selected peakgroup on a subsequent load, thus it is
         deleted.  It simulates that the user was presented with the detected conflict and chose the prefered data for
         that compound in the peak group conflicts sheet."""
@@ -1481,7 +1481,7 @@ class IsocorrLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         "absolte": pd.DataFrame.from_dict(ABSO_DICT),
     }
 
-    def test_IsocorrLoader(self):
+    def test_isocorr_loader(self):
         il = IsocorrLoader(df=self.DF_DICT, file="isocorr.xlsx")
         pd.testing.assert_frame_equal(
             self.get_converted_without_raw_df(), il.df, check_like=True
@@ -1524,7 +1524,7 @@ class IsocorrLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
 
 
 class AccucorLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
-    def test_AccucorLoader(self):
+    def test_accucor_loader(self):
         al = AccucorLoader(df=self.ACCUCOR_DF_DICT, file="accucor.xlsx")
         pd.testing.assert_frame_equal(
             self.get_converted_with_raw_df(),
@@ -1695,7 +1695,7 @@ class IsoautocorrLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         "cor_abs": pd.DataFrame.from_dict(CORR_DICT),
     }
 
-    def test_IsoautocorrLoader(self):
+    def test_isoautocorr_loader(self):
         il = IsoautocorrLoader(df=self.DF_DICT, file="isoautocorr.xlsx")
         pd.testing.assert_frame_equal(
             self.get_converted_with_raw_df(), il.df, check_like=True

@@ -16,8 +16,8 @@ class ConvertedTableLoaderTests(TracebaseTestCase):
     # these tests independent
 
     # These are initialized in setUpTestData()
-    TestConvertedLoader1 = None
-    TestConvertedLoader2 = None
+    test_converted_loader1 = None
+    test_converted_loader2 = None
 
     accucor_merge_dict = {
         "first_sheet": "Corrected",
@@ -102,8 +102,8 @@ class ConvertedTableLoaderTests(TracebaseTestCase):
         return TestTableLoader
 
     @classmethod
-    def generate_test_converted_loader1(cls, TestTableLoader):
-        class TestConvertedLoader1(TestTableLoader):
+    def generate_test_converted_loader1(cls, test_table_loader):
+        class TestConvertedLoader1(test_table_loader):
             merged_column_rename_dict = {
                 "formula": "Formula",
                 "medMz": "MedMz",
@@ -216,8 +216,8 @@ class ConvertedTableLoaderTests(TracebaseTestCase):
         return TestConvertedLoader1
 
     @classmethod
-    def generate_test_converted_loader2(cls, TestTableLoader):
-        class TestConvertedLoader2(TestTableLoader):
+    def generate_test_converted_loader2(cls, test_table_loader):
+        class TestConvertedLoader2(test_table_loader):
             merged_column_rename_dict = {
                 "formula": "Formula",
                 "medMz": "MedMz",
@@ -341,10 +341,10 @@ class ConvertedTableLoaderTests(TracebaseTestCase):
         super().setUp()
         mdl = self.generate_test_model()
         TestTableLoader = self.generate_test_table_loader(mdl)
-        self.TestConvertedLoader1 = self.generate_test_converted_loader1(
+        self.test_converted_loader1 = self.generate_test_converted_loader1(
             TestTableLoader
         )
-        self.TestConvertedLoader2 = self.generate_test_converted_loader2(
+        self.test_converted_loader2 = self.generate_test_converted_loader2(
             TestTableLoader
         )
 
@@ -362,7 +362,7 @@ class ConvertedTableLoaderTests(TracebaseTestCase):
         tmpdf = dict(
             (sheet, adf.copy(deep=True)) for sheet, adf in self.ACCUCOR_DF_DICT.items()
         )
-        self.TestConvertedLoader1().add_df_columns(  # pylint: disable=not-callable
+        self.test_converted_loader1().add_df_columns(  # pylint: disable=not-callable
             tmpdf
         )
         expected_df_dict = self.get_accucor_df_with_added_columns()
@@ -379,7 +379,7 @@ class ConvertedTableLoaderTests(TracebaseTestCase):
         tmpdf = dict(
             (sheet, adf.copy(deep=True)) for sheet, adf in self.ISOCORR_DF_DICT.items()
         )
-        self.TestConvertedLoader2().add_df_columns(  # pylint: disable=not-callable
+        self.test_converted_loader2().add_df_columns(  # pylint: disable=not-callable
             tmpdf
         )
         pd.testing.assert_frame_equal(
@@ -391,13 +391,11 @@ class ConvertedTableLoaderTests(TracebaseTestCase):
         indf = self.get_accucor_df_with_added_columns()
         # I'm being lazy by calling condense_columns to have data to test merge_df_sheets.  I really should be
         # generating the indf from scratch
-        indf = self.TestConvertedLoader1().condense_columns(  # pylint: disable=not-callable
+        indf = self.test_converted_loader1().condense_columns(  # pylint: disable=not-callable
             indf
         )
-        outdf = (
-            self.TestConvertedLoader1().merge_df_sheets(  # pylint: disable=not-callable
-                indf
-            )
+        outdf = self.test_converted_loader1().merge_df_sheets(  # pylint: disable=not-callable
+            indf
         )
 
         # We're going to massage the fully converted dict to back it up to partially converted (instead of declare a
@@ -450,10 +448,8 @@ class ConvertedTableLoaderTests(TracebaseTestCase):
         tmpdf = dict(
             (sheet, adf.copy(deep=True)) for sheet, adf in self.ISOCORR_DF_DICT.items()
         )
-        outdf = (
-            self.TestConvertedLoader2().merge_df_sheets(  # pylint: disable=not-callable
-                tmpdf
-            )
+        outdf = self.test_converted_loader2().merge_df_sheets(  # pylint: disable=not-callable
+            tmpdf
         )
         # We should get back the dataframe of the absolte sheet, unchanged
         pd.testing.assert_frame_equal(
@@ -590,7 +586,7 @@ class ConvertedTableLoaderTests(TracebaseTestCase):
         tmpdf = dict(
             (sheet, adf.copy(deep=True)) for sheet, adf in self.ACCUCOR_DF_DICT.items()
         )
-        outdf = self.TestConvertedLoader1(  # pylint: disable=not-callable
+        outdf = self.test_converted_loader1(  # pylint: disable=not-callable
             df=tmpdf
         ).convert_df()
         expected = self.get_converted_accucor_df()
@@ -603,7 +599,7 @@ class ConvertedTableLoaderTests(TracebaseTestCase):
         instance, grabs in from the compound record.  Note, this is just an example, written to test a
         ConvertedTableLoader feature (skip merging if the 1 required sheet is provided), independent of Tracebase, but
         this was also written to approximate what would happen in TraceBase."""
-        tcl = self.TestConvertedLoader1(  # pylint: disable=not-callable
+        tcl = self.test_converted_loader1(  # pylint: disable=not-callable
             df=self.ACCUCOR_DF_DICT["Corrected"]
         )
         tcl.convert_df()
@@ -612,7 +608,7 @@ class ConvertedTableLoaderTests(TracebaseTestCase):
 
     def test_convert_df_accucor_tsv_missingheaders(self):
         with self.assertRaises(AggregatedErrors) as ar:
-            self.TestConvertedLoader1(  # pylint: disable=not-callable
+            self.test_converted_loader1(  # pylint: disable=not-callable
                 df=self.ACCUCOR_DF_DICT["Original"].copy(deep=True)
             ).convert_df()
         aes = ar.exception
@@ -704,7 +700,7 @@ class ConvertedTableLoaderTests(TracebaseTestCase):
             (sheet, adf.copy(deep=True)) for sheet, adf in self.ISOCORR_DF_DICT.items()
         )
         expected = self.get_converted_isocorr_df()
-        outdf = self.TestConvertedLoader2(  # pylint: disable=not-callable
+        outdf = self.test_converted_loader2(  # pylint: disable=not-callable
             df=tmpdf
         ).convert_df()
         pd.testing.assert_frame_equal(expected, outdf, check_like=True)
@@ -712,7 +708,7 @@ class ConvertedTableLoaderTests(TracebaseTestCase):
     def test_convert_df_isocorr_tsv(self):
         tmpdf = self.ISOCORR_DF_DICT["absolte"].copy(deep=True)
         expected = self.get_converted_isocorr_df()
-        outdf = self.TestConvertedLoader2(  # pylint: disable=not-callable
+        outdf = self.test_converted_loader2(  # pylint: disable=not-callable
             df=tmpdf
         ).convert_df()
         pd.testing.assert_frame_equal(expected, outdf, check_like=True)
@@ -727,7 +723,7 @@ class ConvertedTableLoaderTests(TracebaseTestCase):
             "Corrected": pd.DataFrame.from_dict(tmpcorr),
         }
         expected = self.get_converted_accucor_df()
-        outdf = self.TestConvertedLoader1(  # pylint: disable=not-callable
+        outdf = self.test_converted_loader1(  # pylint: disable=not-callable
             df=tmpdf
         ).convert_df()
         pd.testing.assert_frame_equal(expected, outdf, check_like=True)
@@ -736,7 +732,7 @@ class ConvertedTableLoaderTests(TracebaseTestCase):
         tmpdict = self.CORR_DICT.copy()
         tmpdict["adductName"] = [0, 0, 0, 0]
         expected = self.get_converted_corrected_accucor_df()
-        outdf = self.TestConvertedLoader1(  # pylint: disable=not-callable
+        outdf = self.test_converted_loader1(  # pylint: disable=not-callable
             df=pd.DataFrame.from_dict(tmpdict)
         ).convert_df()
         pd.testing.assert_frame_equal(expected, outdf, check_like=True)
@@ -748,7 +744,7 @@ class ConvertedTableLoaderTests(TracebaseTestCase):
             "absolte": pd.DataFrame.from_dict(tmpabso),
         }
         expected = self.get_converted_isocorr_df()
-        outdf = self.TestConvertedLoader2(  # pylint: disable=not-callable
+        outdf = self.test_converted_loader2(  # pylint: disable=not-callable
             df=tmpdf
         ).convert_df()
         pd.testing.assert_frame_equal(expected, outdf, check_like=True)
@@ -758,13 +754,13 @@ class ConvertedTableLoaderTests(TracebaseTestCase):
         tmpabso["metaGroupId"] = [2, 2, 3, 3]
         tmpdf = pd.DataFrame.from_dict(tmpabso)
         expected = self.get_converted_isocorr_df()
-        outdf = self.TestConvertedLoader2(  # pylint: disable=not-callable
+        outdf = self.test_converted_loader2(  # pylint: disable=not-callable
             df=tmpdf
         ).convert_df()
         pd.testing.assert_frame_equal(expected, outdf, check_like=True)
 
     def test_constructor_conversion_merge_sheets(self):
-        al = self.TestConvertedLoader1(  # pylint: disable=not-callable
+        al = self.test_converted_loader1(  # pylint: disable=not-callable
             df=self.ACCUCOR_DF_DICT, file="test.xlsx"
         )
         outdf = al.df
@@ -772,7 +768,7 @@ class ConvertedTableLoaderTests(TracebaseTestCase):
         pd.testing.assert_frame_equal(expected, outdf, check_like=True)
 
     def test_constructor_conversion_single_sheet(self):
-        il = self.TestConvertedLoader2(  # pylint: disable=not-callable
+        il = self.test_converted_loader2(  # pylint: disable=not-callable
             df=self.ISOCORR_DF_DICT, file="test.xlsx"
         )
         outdf = il.df
@@ -780,7 +776,7 @@ class ConvertedTableLoaderTests(TracebaseTestCase):
         pd.testing.assert_frame_equal(expected, outdf, check_like=True)
 
     def test_check_output_dataframe_success(self):
-        il = self.TestConvertedLoader2(  # pylint: disable=not-callable
+        il = self.test_converted_loader2(  # pylint: disable=not-callable
             df=self.ISOCORR_DF_DICT, file="test.xlsx"
         )
         il.check_output_dataframe(il.df)
@@ -790,7 +786,7 @@ class ConvertedTableLoaderTests(TracebaseTestCase):
         # Create a df where the df is just totally wrong.  It will be missing final required headers.  Basically, it's
         # just unconverted.
         bad_isocorr_df = self.ISOCORR_DF_DICT["absolte"].copy(deep=True)
-        il = self.TestConvertedLoader2()  # pylint: disable=not-callable
+        il = self.test_converted_loader2()  # pylint: disable=not-callable
         il.orig_df = bad_isocorr_df
         with self.assertRaises(AggregatedErrors) as ar:
             il.check_output_dataframe(bad_isocorr_df)
@@ -815,7 +811,7 @@ class ConvertedTableLoaderTests(TracebaseTestCase):
         )
 
     def test_get_single_required_sheet(self):
-        il = self.TestConvertedLoader2()  # pylint: disable=not-callable
+        il = self.test_converted_loader2()  # pylint: disable=not-callable
         sheet = il.get_single_required_sheet()
         self.assertEqual("absolte", sheet)
 
@@ -830,7 +826,7 @@ class ConvertedTableLoaderTests(TracebaseTestCase):
             .drop(["adductName"], axis=1, errors="ignore"),
             "Corrected": self.ACCUCOR_DF_DICT["Corrected"].copy(deep=True),
         }
-        al = self.TestConvertedLoader1(  # pylint: disable=not-callable
+        al = self.test_converted_loader1(  # pylint: disable=not-callable
             df=modified_ac_df_dict,
         )
         current = al.get_existing_static_columns("Original", al.orig_df)
@@ -846,7 +842,7 @@ class ConvertedTableLoaderTests(TracebaseTestCase):
         self.assertNotIn("adductName", current)
 
     def test_revert_headers(self):
-        il = self.TestConvertedLoader2(  # pylint: disable=not-callable
+        il = self.test_converted_loader2(  # pylint: disable=not-callable
             df=self.ISOCORR_DF_DICT
         )
         current = il.revert_headers(["MedMz"])
@@ -854,7 +850,7 @@ class ConvertedTableLoaderTests(TracebaseTestCase):
         self.assertEqual(expected, current)
 
     def test_initialize_merge_dict(self):
-        al = self.TestConvertedLoader1()  # pylint: disable=not-callable
+        al = self.test_converted_loader1()  # pylint: disable=not-callable
         # Reset the already converted merge_dict:
         al.merge_dict = self.accucor_merge_dict
         al.initialize_merge_dict()
@@ -864,13 +860,13 @@ class ConvertedTableLoaderTests(TracebaseTestCase):
         self.assertIsNone(al.merge_dict["next_merge_dict"]["right_all_columns"])
 
     def test_get_required_sheets(self):
-        al = self.TestConvertedLoader1()  # pylint: disable=not-callable
+        al = self.test_converted_loader1()  # pylint: disable=not-callable
         sheets = al.get_required_sheets()
         expected = ["Corrected"]
         self.assertEqual(set(expected), set(sheets))
 
     def test_get_required_headers(self):
-        al = self.TestConvertedLoader1
+        al = self.test_converted_loader1
         rh = al.get_required_headers("Corrected")
         self.assertEqual(set(["Compound", "C_Label"]), set(rh))
         rh = al.get_required_headers(None)
@@ -885,7 +881,7 @@ class ConvertedTableLoaderTests(TracebaseTestCase):
         )
 
     def test_uses_only_one_sheet(self):
-        tcl = self.TestConvertedLoader1()
+        tcl = self.test_converted_loader1()
         self.assertFalse(tcl.uses_only_one_sheet())
         tcl.merge_dict["next_merge_dict"] = None
         self.assertTrue(tcl.uses_only_one_sheet())
@@ -893,23 +889,23 @@ class ConvertedTableLoaderTests(TracebaseTestCase):
     def test_get_single_supplied_sheet(self):
         """This tests the expected outputs from get_single_supplied_sheet, given different inputs."""
         # Returns None if there are multiple sheets in a df dict
-        tcl = self.TestConvertedLoader1(  # pylint: disable=not-callable
+        tcl = self.test_converted_loader1(  # pylint: disable=not-callable
             df=self.ACCUCOR_DF_DICT.copy()
         )
         self.assertIsNone(tcl.get_single_supplied_sheet())
         # Returns "Unnamed sheet" is a dataframe is provided
-        tcl = self.TestConvertedLoader2(  # pylint: disable=not-callable
+        tcl = self.test_converted_loader2(  # pylint: disable=not-callable
             df=self.ISOCORR_DF_DICT["absolte"]
         )
         self.assertEqual("Unnamed sheet", tcl.get_single_supplied_sheet())
         # Returns the name of the actual sheet if a df dict with 1 sheet is provided
-        tcl = self.TestConvertedLoader2(  # pylint: disable=not-callable
+        tcl = self.test_converted_loader2(  # pylint: disable=not-callable
             df={"absolte": self.ISOCORR_DF_DICT["absolte"]}
         )
         self.assertEqual("absolte", tcl.get_single_supplied_sheet())
 
     def test_get_column_types(self):
-        tcl = self.TestConvertedLoader2()
+        tcl = self.test_converted_loader2()
         self.assertDictEqual(
             {
                 "compound": str,

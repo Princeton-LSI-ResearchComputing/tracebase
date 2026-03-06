@@ -17,7 +17,7 @@ register = template.Library()
 
 
 @register.filter
-def getFormatName(qry, fmt):
+def getFormatName(qry, fmt):  # pylint: disable=invalid-name
     """
     Retrieves a format name, given a format
     """
@@ -25,21 +25,21 @@ def getFormatName(qry, fmt):
 
 
 @register.filter
-def durationToWeeks(td):
+def durationToWeeks(td):  # pylint: disable=invalid-name
     if td is None:
         return None
     return td.total_seconds() // 604800
 
 
 @register.filter
-def durationToMins(td):
+def durationToMins(td):  # pylint: disable=invalid-name
     if td is None:
         return None
     return td.total_seconds() // 60
 
 
 @register.filter
-def decimalPlaces(number, places):
+def decimalPlaces(number, places):  # pylint: disable=invalid-name
     if number is None:
         return None
     return floatformat(number, places)
@@ -112,7 +112,7 @@ def define(the_val):
 
 
 @register.filter
-def getClass(state):
+def getClass(state):  # pylint: disable=invalid-name
     styleclass = None
     if state is None:
         styleclass = ""
@@ -128,12 +128,14 @@ def getClass(state):
 
 
 @register.simple_tag
-def createDict():
+def createDict():  # pylint: disable=invalid-name
     return {}
 
 
 @register.simple_tag
-def addToDict(theDict: dict, theKey, theVal, overwrite=False):
+def addToDict(  # pylint: disable=invalid-name
+    theDict: dict, theKey, theVal, overwrite=False
+):
     if overwrite or (overwrite is False and theKey not in theDict.keys()):
         theDict[theKey] = theVal
     # We don't need to return the dict, because the one created by createDict is still in memory and will reflect this
@@ -142,25 +144,25 @@ def addToDict(theDict: dict, theKey, theVal, overwrite=False):
 
 
 @register.simple_tag
-def createCounter():
+def createCounter():  # pylint: disable=invalid-name
     return {"count": 0}
 
 
 @register.simple_tag
-def incrementCounter(countdict):
+def incrementCounter(countdict):  # pylint: disable=invalid-name
     countdict["count"] += 1
     return ""
 
 
 @register.simple_tag
-def getCount(countdict):
+def getCount(countdict):  # pylint: disable=invalid-name
     return countdict["count"]
 
 
 @register.simple_tag
-def getDownloadQrys():
+def getDownloadQrys():  # pylint: disable=invalid-name
     basv = SearchGroup()
-    return basv.getDownloadQryList()
+    return basv.get_download_qry_list()
 
 
 @register.simple_tag
@@ -352,7 +354,7 @@ def lte(x, y):
 
 
 @register.simple_tag
-def uniquify(retval, unused):
+def uniquify(retval, unused):  # pylint: disable=unused-argument
     """
     This is an htmlhint workaround so that the ID attribute appears unique to htmlhint when an HTML element is rendered
     differently in 2 parts of a conditional, but with the same ID.  Just supply a different value to unused.
@@ -376,7 +378,7 @@ def get_many_related_rec(qs, pk):
     associated with every root table record on its key path, this method essentially allows the template to reconstruct
     a full SQL joined table result by providing the many related record that was associated with the original left-join
     query, even if it was a M:M related table.  It uses an annotated version of the related table record's primary key
-    that was added to the root table record using getFullJoinAnnotations().
+    that was added to the root table record using get_full_join_annotations().
 
     It returns a list in each case so that full join can be turned off and on by simply toggling the `split_rows`
     boolean value in the Format class.

@@ -59,7 +59,9 @@ class ColumnReference:
         # - globals()["Foo"]  # When both are in the same file but reference one another (which is prohibited as well)
         # Below, I use the fact that both table_column.py and table_loader.py are in the same directory...
         table_loader_pypath = self.__module__.rsplit(".", 1)[0] + ".table_loader"
-        TableLoader = getattr(sys.modules[table_loader_pypath], "TableLoader")
+        TableLoader = getattr(  # pylint: disable=invalid-name
+            sys.modules[table_loader_pypath], "TableLoader"
+        )
         if loader_class is not None and not issubclass(loader_class, TableLoader):
             bases = ", ".join([bc.__name__ for bc in loader_class.__bases__])
             raise TypeError(

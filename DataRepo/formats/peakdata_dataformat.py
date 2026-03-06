@@ -1,8 +1,8 @@
 from DataRepo.formats.dataformat import Format
 from DataRepo.formats.dataformat_group_query import (
-    appendFilterToGroup,
-    createFilterCondition,
-    createFilterGroup,
+    append_filter_to_group,
+    create_filter_condition,
+    create_filter_group,
 )
 from DataRepo.models import Animal, ElementLabel, PeakData
 
@@ -38,9 +38,9 @@ class PeakDataFormat(Format):
         {
             "displayname": "Corrected Abundances",  # Append " > 0.1" based on filter
             "distincts": ["corrected_abundance"],
-            "filter": appendFilterToGroup(
-                createFilterGroup(),
-                createFilterCondition("corrected_abundance", "gt", 0.1, "identity"),
+            "filter": append_filter_to_group(
+                create_filter_group(),
+                create_filter_condition("corrected_abundance", "gt", 0.1, "identity"),
             ),
         },
         {

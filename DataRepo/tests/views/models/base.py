@@ -110,23 +110,23 @@ def create_null_tolerance_test_class(base_class):
         """
 
         @classmethod
-        def setUpTestData(cls):
+        def setUpTestData(cls):  # pylint: disable=invalid-name
             super().setUpTestData(disabled_coordinator=True)
 
         @classmethod
-        def setUpClass(self):
+        def setUpClass(self):  # pylint: disable=invalid-name
             # Silently dis-allow auto-updates by adding a disabled coordinator
             disabled_coordinator = MaintainedModelCoordinator("disabled")
             MaintainedModel._add_coordinator(disabled_coordinator)
             super().setUpClass()
 
-        def setUp(self):
+        def setUp(self):  # pylint: disable=invalid-name
             # Load data and buffer autoupdates before each test
             self.assert_coordinator_state_is_initialized()
             super().setUp()
 
         @classmethod
-        def tearDownClass(cls):
+        def tearDownClass(cls):  # pylint: disable=invalid-name
             super().tearDownClass()
             MaintainedModel._reset_coordinators()
 

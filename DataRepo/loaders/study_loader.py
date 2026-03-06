@@ -231,7 +231,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
     )
 
     # NOTE: The constructor copies this and adds to it
-    CustomLoaderKwargs = DataTableHeaders(
+    custom_loader_kwargs = DataTableHeaders(
         STUDY={},
         ANIMALS={},
         SAMPLES={},
@@ -337,12 +337,12 @@ class StudyLoader(ConvertedTableLoader, ABC):
         self.skip_mzxmls = kwargs.pop("skip_mzxmls", False)
         self.exclude_sheets = kwargs.pop("exclude_sheets", []) or []
 
-        clkwa = self.CustomLoaderKwargs._asdict()
+        clkwa = self.custom_loader_kwargs._asdict()
         clkwa["FILES"]["annot_files_dict"] = self.annot_files_dict
         clkwa["HEADERS"]["skip_mzxmls"] = self.skip_mzxmls
         # This occludes the CustomLoaderKwargs class attribute (which we copied and are leaving unchanged)
         # Just note that only the instance has annot_files_dict
-        self.CustomLoaderKwargs = self.DataTableHeaders(**clkwa)
+        self.custom_loader_kwargs = self.DataTableHeaders(**clkwa)
 
         self.missing_study_record_exceptions = []
         self.missing_sample_record_exceptions = []
@@ -621,7 +621,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
             if getattr(loader_classes, loader_key) is None:
                 continue
             sheet = getattr(sheet_names, loader_key)
-            custom_args = getattr(self.CustomLoaderKwargs, loader_key)
+            custom_args = getattr(self.custom_loader_kwargs, loader_key)
 
             if sheets_to_make is None or sheet in sheets_to_make:
 
@@ -667,7 +667,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
             if getattr(loader_classes, loader_key) is None:
                 continue
             sheet = getattr(sheet_names, loader_key)
-            custom_args = getattr(cls.CustomLoaderKwargs, loader_key)
+            custom_args = getattr(cls.custom_loader_kwargs, loader_key)
 
             if sheets_to_make is None or sheet in sheets_to_make:
                 # Create a loader instance (e.g. CompoundsLoader())
@@ -764,7 +764,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
                 display_order_spec.append([sheet_name, ["Errors"]])
             else:
                 loader_cls = getattr(cls.Loaders, sheet_key)
-                kwargs = getattr(cls.CustomLoaderKwargs, sheet_key)
+                kwargs = getattr(cls.custom_loader_kwargs, sheet_key)
                 loader = loader_cls(**kwargs)
 
                 display_order_spec.append(
@@ -1172,7 +1172,9 @@ class StudyLoader(ConvertedTableLoader, ABC):
                 }
         """
         matching_version_numbers: List[str] = []
-        CurrentStudyLoader: Optional[Type[StudyLoader]] = None
+        CurrentStudyLoader: Optional[  # pylint: disable=invalid-name
+            Type[StudyLoader]
+        ] = None
 
         # In order to provide useful feeback on why there was no (or multiple) matches...
         # version_match_data Example: {
@@ -1224,7 +1226,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
             # Sanity check to ensure that the CurrentStudyLoader is valid
             if subclass_name == cls.LatestLoaderName:
                 # This is the latest version, which is handled below
-                CurrentStudyLoader = study_loader_subcls
+                CurrentStudyLoader = study_loader_subcls  # pylint: disable=invalid-name
 
             if isinstance(df_dict, dict):
                 # "headers" (from TableLoader) are "sheets" in this loader, because it is overloaded.  This loader has

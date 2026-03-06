@@ -98,55 +98,55 @@ class TableLoader(ABC):
 
     @property
     @abstractmethod
-    def Models(self):
+    def Models(self):  # pylint: disable=invalid-name
         # list of Model classes that will be loaded
         pass
 
     @property
     @abstractmethod
-    def DataSheetName(self):
+    def DataSheetName(self):  # pylint: disable=invalid-name
         # str
         pass
 
     @property
     @abstractmethod
-    def DataTableHeaders(self):
+    def DataTableHeaders(self):  # pylint: disable=invalid-name
         # namedtuple spec
         pass
 
     @property
     @abstractmethod
-    def DataHeaders(self):
+    def DataHeaders(self):  # pylint: disable=invalid-name
         # namedtuple of strings
         pass
 
     @property
     @abstractmethod
-    def DataRequiredHeaders(self):
+    def DataRequiredHeaders(self):  # pylint: disable=invalid-name
         # N-dimensional list of strings.  See get_missing_headers for examples.
         pass
 
     @property
     @abstractmethod
-    def DataRequiredValues(self):
+    def DataRequiredValues(self):  # pylint: disable=invalid-name
         # N-dimensional list of strings.  See get_missing_headers for examples.
         pass
 
     @property
     @abstractmethod
-    def DataUniqueColumnConstraints(self):
+    def DataUniqueColumnConstraints(self):  # pylint: disable=invalid-name
         # list of lists of header keys (e.g. the values in DataTableHeaders)
         pass
 
     @property
     @abstractmethod
-    def FieldToDataHeaderKey(self):
+    def FieldToDataHeaderKey(self):  # pylint: disable=invalid-name
         # dict of model dicts of field names and header keys
         pass
 
     @property
     @abstractmethod
-    def DataColumnMetadata(self):
+    def DataColumnMetadata(self):  # pylint: disable=invalid-name
         # namedtuple of TableColumns
         pass
 
@@ -474,7 +474,9 @@ class TableLoader(ABC):
             )
 
         # Create a dict of database field keys to header names, from a dict of field name keys and header keys
-        self.FieldToHeader = defaultdict(lambda: defaultdict(str))
+        self.FieldToHeader = defaultdict(  # pylint: disable=invalid-name
+            lambda: defaultdict(str)
+        )
         for mdl in self.FieldToDataHeaderKey.keys():
             for fld, hk in self.FieldToDataHeaderKey[mdl].items():
                 self.FieldToHeader[mdl][fld] = getattr(self.headers, hk)

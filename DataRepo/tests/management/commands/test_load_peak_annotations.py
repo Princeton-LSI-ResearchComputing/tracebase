@@ -157,15 +157,15 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
             "load_peak_annotation_files",
             infile="DataRepo/data/tests/blank_samples/blanks1/blank_sample_skip_study.xlsx",
         )
-        SAMPLES_COUNT = 1
-        PEAKDATA_ROWS = 11
-        MEASURED_COMPOUNDS_COUNT = 2  # Glucose and lactate
+        samples_count = 1
+        peakdata_rows = 11
+        measured_compounds_count = 2  # Glucose and lactate
         self.assertEqual(
-            MEASURED_COMPOUNDS_COUNT * SAMPLES_COUNT,
+            measured_compounds_count * samples_count,
             PeakGroup.objects.count() - pre_peak_group,
         )
         self.assertEqual(
-            PEAKDATA_ROWS * SAMPLES_COUNT,
+            peakdata_rows * samples_count,
             PeakData.objects.all().count() - pre_peak_data,
         )
 
@@ -213,17 +213,17 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
             ].exception_type_exists(UnskippedBlanks),
         )
 
-        SAMPLES_COUNT = 1
-        PEAKDATA_ROWS = 11
-        MEASURED_COMPOUNDS_COUNT = 2  # Glucose and lactate
+        sampes_count = 1
+        peakdata_rows = 11
+        measured_compounds_count = 2  # Glucose and lactate
 
         # The one valid sample loaded
         self.assertEqual(
-            MEASURED_COMPOUNDS_COUNT * SAMPLES_COUNT,
+            measured_compounds_count * sampes_count,
             PeakGroup.objects.count() - pre_peak_group,
         )
         self.assertEqual(
-            PEAKDATA_ROWS * SAMPLES_COUNT,
+            peakdata_rows * sampes_count,
             PeakData.objects.all().count() - pre_peak_data,
         )
 
@@ -237,14 +237,14 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
                 "small_obob_peak_annot_deets_with_newsample.xlsx"
             ),
         )
-        SAMPLES_COUNT = 1
-        PEAKDATA_ROWS = 11
-        MEASURED_COMPOUNDS_COUNT = 2  # Glucose and lactate
+        samples_count = 1
+        peakdata_rows = 11
+        measured_compounds_count = 2  # Glucose and lactate
 
         self.assertEqual(
-            PeakGroup.objects.count(), MEASURED_COMPOUNDS_COUNT * SAMPLES_COUNT
+            PeakGroup.objects.count(), measured_compounds_count * samples_count
         )
-        self.assertEqual(PeakData.objects.all().count(), PEAKDATA_ROWS * SAMPLES_COUNT)
+        self.assertEqual(PeakData.objects.all().count(), peakdata_rows * samples_count)
 
     def test_accucor_load_sample_prefix_missing(self):
         """Loads an accucor with 1 sample, which is missing the prefix "PREFIX_" in the peak annot details sheet"""
@@ -481,14 +481,14 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
             "load_peak_annotations",
             infile="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate.xlsx",
         )
-        SAMPLES_COUNT = 2
-        PEAKDATA_ROWS = 11
-        MEASURED_COMPOUNDS_COUNT = 2  # Glucose and lactate
+        samples_count = 2
+        peakdata_rows = 11
+        measured_compounds_count = 2  # Glucose and lactate
 
         self.assertEqual(
-            PeakGroup.objects.count(), MEASURED_COMPOUNDS_COUNT * SAMPLES_COUNT
+            PeakGroup.objects.count(), measured_compounds_count * samples_count
         )
-        self.assertEqual(PeakData.objects.all().count(), PEAKDATA_ROWS * SAMPLES_COUNT)
+        self.assertEqual(PeakData.objects.all().count(), peakdata_rows * samples_count)
 
     def test_ambiguous_msruns_error(self):
         """
@@ -573,11 +573,11 @@ class LoadAccucorSmallObob2CommandTests(TracebaseTestCase):
             "load_compounds",
             infile="DataRepo/data/tests/small_obob2/compounds.tsv",
         )
-        cls.ALL_COMPOUNDS_COUNT = 20
+        cls.all_compounds_count = 20
 
         # initialize some sample-table-dependent counters
-        cls.ALL_SAMPLES_COUNT = 0
-        cls.ALL_ANIMALS_COUNT = 0
+        cls.all_samples_count = 0
+        cls.all_animals_count = 0
 
         call_command(
             "load_study",
@@ -586,10 +586,10 @@ class LoadAccucorSmallObob2CommandTests(TracebaseTestCase):
         )
 
         # from DataRepo/data/tests/small_obob2/obob_samples_table.tsv, not counting the header and BLANK samples
-        cls.ALL_SAMPLES_COUNT += 10
+        cls.all_samples_count += 10
         # not counting the header and the BLANK animal
-        cls.ALL_OBOB_ANIMALS_COUNT = 7
-        cls.ALL_ANIMALS_COUNT += cls.ALL_OBOB_ANIMALS_COUNT
+        cls.all_obob_animals_count = 7
+        cls.all_animals_count += cls.all_obob_animals_count
 
         call_command(
             "load_study",
@@ -597,9 +597,9 @@ class LoadAccucorSmallObob2CommandTests(TracebaseTestCase):
             # I removed the Peak Annotation Files sheet from this one, so no exclude_sheets argument is necessary
         )
         # from DataRepo/data/tests/small_obob2/serum_lactate_sample_table.tsv, not counting the header
-        cls.ALL_SAMPLES_COUNT += 5
+        cls.all_samples_count += 5
         # not counting the header
-        cls.ALL_ANIMALS_COUNT += 1
+        cls.all_animals_count += 1
 
     @MaintainedModel.no_autoupdates()
     def test_dupe_sample_load_fails(self):
@@ -743,21 +743,21 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
         )
         post_pg_load_count = PeakGroup.objects.count()
         # The number of samples in the isocorr csv file (not the samples file)
-        SAMPLES_COUNT = 3
-        PEAKDATA_ROWS = 6
-        MEASURED_COMPOUNDS_COUNT = 2
+        samples_count = 3
+        peakdata_rows = 6
+        measured_compounds_count = 2
 
         self.assertEqual(
             post_pg_load_count - pre_pg_load_count,
-            MEASURED_COMPOUNDS_COUNT * SAMPLES_COUNT,
-            msg=f"PeakGroup record count should be the number of compounds [{MEASURED_COMPOUNDS_COUNT}] times the "
-            f"number of samples [{SAMPLES_COUNT}] = [{MEASURED_COMPOUNDS_COUNT * SAMPLES_COUNT}].",
+            measured_compounds_count * samples_count,
+            msg=f"PeakGroup record count should be the number of compounds [{measured_compounds_count}] times the "
+            f"number of samples [{samples_count}] = [{measured_compounds_count * samples_count}].",
         )
         self.assertEqual(
             PeakData.objects.all().count(),
-            PEAKDATA_ROWS * SAMPLES_COUNT,
-            msg=f"PeakData record count should be the number of peakdata rows [{PEAKDATA_ROWS}] times the number of "
-            f"samples [{SAMPLES_COUNT}] = [{PEAKDATA_ROWS * SAMPLES_COUNT}].",
+            peakdata_rows * samples_count,
+            msg=f"PeakData record count should be the number of peakdata rows [{peakdata_rows}] times the number of "
+            f"samples [{samples_count}] = [{peakdata_rows * samples_count}].",
         )
 
     @MaintainedModel.no_autoupdates()
@@ -869,23 +869,23 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
 
     def assert_group_data_sample_counts(
         self,
-        SAMPLES_COUNT,
-        PEAKDATA_ROWS,
-        PARENT_REC_COUNT,
+        samples_count,
+        peakdata_rows,
+        parent_rec_count,
         pre_load_group_count,
         post_load_group_count,
     ):
         self.assertEqual(
             post_load_group_count - pre_load_group_count,
-            PARENT_REC_COUNT * SAMPLES_COUNT,
-            msg=f"PeakGroup record count should be the number of C12 PARENT lines [{PARENT_REC_COUNT}] times the "
-            f"number of samples [{SAMPLES_COUNT}] = [{PARENT_REC_COUNT * SAMPLES_COUNT}].",
+            parent_rec_count * samples_count,
+            msg=f"PeakGroup record count should be the number of C12 PARENT lines [{parent_rec_count}] times the "
+            f"number of samples [{samples_count}] = [{parent_rec_count * samples_count}].",
         )
         self.assertEqual(
             PeakData.objects.count(),
-            PEAKDATA_ROWS * SAMPLES_COUNT,
-            msg=f"PeakData record count should be the number of peakdata rows [{PEAKDATA_ROWS}] times the number of "
-            f"samples [{SAMPLES_COUNT}] = [{PEAKDATA_ROWS * SAMPLES_COUNT}].",
+            peakdata_rows * samples_count,
+            msg=f"PeakData record count should be the number of peakdata rows [{peakdata_rows}] times the number of "
+            f"samples [{samples_count}] = [{peakdata_rows * samples_count}].",
         )
 
     @MaintainedModel.no_autoupdates()
@@ -902,16 +902,16 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
         )
         post_load_group_count = PeakGroup.objects.count()
         # The number of samples in the isocorr xlsx file (not the samples file)
-        SAMPLES_COUNT = 2
+        samples_count = 2
         # There is no Nitrogen in the tracers, so 7 rows with N in the isotopeLabel do not load with a warning, leaving
         # 14 rows to load.  This was a bug in the accucor_data_loader that the peak annotations loader reveals.
         # PEAKDATA_ROWS = 21
-        PEAKDATA_ROWS_WITHOUT_NITROGEN = 14
-        PARENT_REC_COUNT = 3
+        peakdata_rows_without_nitrogen = 14
+        parent_rec_count = 3
         self.assert_group_data_sample_counts(
-            SAMPLES_COUNT,
-            PEAKDATA_ROWS_WITHOUT_NITROGEN,
-            PARENT_REC_COUNT,
+            samples_count,
+            peakdata_rows_without_nitrogen,
+            parent_rec_count,
             pre_load_group_count,
             post_load_group_count,
         )
@@ -930,13 +930,13 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
         )
         post_load_group_count = PeakGroup.objects.count()
         # The number of samples in the isocorr xlsx file (not the samples file)
-        SAMPLES_COUNT = 2
-        PEAKDATA_ROWS = 24
-        PARENT_REC_COUNT = 2
+        samples_count = 2
+        peakdata_rows = 24
+        parent_rec_count = 2
         self.assert_group_data_sample_counts(
-            SAMPLES_COUNT,
-            PEAKDATA_ROWS,
-            PARENT_REC_COUNT,
+            samples_count,
+            peakdata_rows,
+            parent_rec_count,
             pre_load_group_count,
             post_load_group_count,
         )
@@ -1083,9 +1083,9 @@ class LoadIsoautocorrCommandTests(TracebaseTestCase):
             infile="DataRepo/data/tests/isoautocorr/test-isoautocorr-study/test-isoautocorr-studydoc_v3.xlsx",
             # Loading the peak annot file too
         )
-        cls.SAMPLES_COUNT = 4
-        cls.PEAKDATA_ROWS = 14
-        cls.MEASURED_COMPOUNDS_COUNT = 2  # L-Serine and Glucose
+        cls.samples_count = 4
+        cls.peakdata_rows = 14
+        cls.measured_compounds_count = 2  # L-Serine and Glucose
 
         super().setUpTestData()
 
@@ -1094,10 +1094,10 @@ class LoadIsoautocorrCommandTests(TracebaseTestCase):
 
         self.assertEqual(
             PeakGroup.objects.count(),
-            self.MEASURED_COMPOUNDS_COUNT * self.SAMPLES_COUNT,
+            self.measured_compounds_count * self.samples_count,
         )
         self.assertEqual(
-            PeakData.objects.all().count(), self.PEAKDATA_ROWS * self.SAMPLES_COUNT
+            PeakData.objects.all().count(), self.peakdata_rows * self.samples_count
         )
 
     def test_isoautocorr_peakdatalabels(self):

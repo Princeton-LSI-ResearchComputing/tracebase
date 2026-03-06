@@ -125,7 +125,7 @@ class Command(LoadTableCommand):
                 and issubclass(ldr, TableLoader)
                 and ldr.DataSheetName in sheets
             ):
-                kwargs = getattr(StudyLoader.CustomLoaderKwargs, key, None)
+                kwargs = getattr(StudyLoader.custom_loader_kwargs, key, None)
                 headers = None
                 if kwargs is not None and "headers" in kwargs.keys():
                     headers = kwargs["headers"]

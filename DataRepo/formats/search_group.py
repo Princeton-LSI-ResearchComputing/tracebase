@@ -11,4 +11,4 @@ class SearchGroup(FormatGroup):
     """
 
     def __init__(self):
-        self.addFormats([PeakGroupsFormat(), PeakDataFormat(), FluxCircFormat()])
+        self.add_formats([PeakGroupsFormat(), PeakDataFormat(), FluxCircFormat()])

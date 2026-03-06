@@ -93,7 +93,7 @@ class BSTBaseDetailViewTests(TracebaseTestCase):
         BSTBLVAnimalTestModel.objects.create(name="A1", treatment=cls.tr)
         super().setUpTestData()
 
-    def test_BSTBaseDetailView(self):
+    def test_bst_base_detail_view(self):
         class TreatmentDetailView(BSTBaseDetailView):
             model = BSTBLVTreatmentTestModel
             exclude = ["animals"]

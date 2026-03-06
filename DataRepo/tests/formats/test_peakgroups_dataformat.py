@@ -7,7 +7,7 @@ from DataRepo.tests.formats.formats_test_base import FormatsTestCase
 
 class PeakgroupsDataformatMainTests(FormatsTestCase):
 
-    def test_PeakGroupsFormat(self):
+    def test_peak_groups_format(self):
         """Test __main__.PeakGroupsFormat - no exception = successful test"""
         PeakGroupsFormat()
 
@@ -15,25 +15,25 @@ class PeakgroupsDataformatMainTests(FormatsTestCase):
 class PeakGroupsFormatTests(FormatsTestCase):
 
     @parameterized.expand(FormatsTestCase.archive_file_instances)
-    def test_PeakGroupsFormat_getModelFromInstance(self, _, instance, model):
+    def test_peak_groups_format_get_model_from_instance(self, _, instance, model):
         pgsv = PeakGroupsFormat()
-        res = pgsv.getModelFromInstance(instance)
+        res = pgsv.get_model_from_instance(instance)
         self.assertEqual(res, model)
 
-    def test_getFKModelName(self):
+    def test_get_f_k_model_name(self):
         pgf = PeakGroupsFormat()
-        mdl_name = pgf.getFKModelName(CompoundSynonym(), "compound")
+        mdl_name = pgf.get_f_k_model_name(CompoundSynonym(), "compound")
         self.assertEqual("Compound", mdl_name)
 
-    def test_getOrderByFields_model(self):
+    def test_get_order_by_fields_model(self):
         pgf = PeakGroupsFormat()
         mdl = "Compound"
 
-        order_bys = pgf.getOrderByFields(model_name=mdl)
+        order_bys = pgf.get_order_by_fields(model_name=mdl)
         expected_order_bys = ["name"]
         self.assertEqual(expected_order_bys, order_bys)
 
-    def test_getOrderByFields_both(self):
+    def test_get_order_by_fields_both(self):
         pgsv = PeakGroupsFormat()
         mdl_inst = "MeasuredCompound"
         mdl = "Compound"
@@ -41,9 +41,9 @@ class PeakGroupsFormatTests(FormatsTestCase):
         with self.assertRaises(
             Exception, msg="mdl_inst_nm and model_name are mutually exclusive options."
         ):
-            pgsv.getOrderByFields(mdl_inst_nm=mdl_inst, model_name=mdl)
+            pgsv.get_order_by_fields(mdl_inst_nm=mdl_inst, model_name=mdl)
 
-    def test_getOrderByFields_neither(self):
+    def test_get_order_by_fields_neither(self):
         pgsv = PeakGroupsFormat()
         mdl_inst = "MeasuredCompound"
         mdl = "Compound"
@@ -51,24 +51,24 @@ class PeakGroupsFormatTests(FormatsTestCase):
         with self.assertRaises(
             Exception, msg="Either a model instance name or model name is required."
         ):
-            pgsv.getOrderByFields(mdl_inst_nm=mdl_inst, model_name=mdl)
+            pgsv.get_order_by_fields(mdl_inst_nm=mdl_inst, model_name=mdl)
 
-    def test_reRootFieldPath(self):
+    def test_re_root_field_path(self):
         fld = "msrun_sample__sample__animal__studies__name"
         reroot_instance_name = "CompoundSynonym"
         pgf = PeakGroupsFormat()
-        rerooted_fld = pgf.reRootFieldPath(fld, reroot_instance_name)
+        rerooted_fld = pgf.re_root_field_path(fld, reroot_instance_name)
         expected_fld = (
             "compound__peak_groups__msrun_sample__sample__animal__studies__name"
         )
         self.assertEqual(expected_fld, rerooted_fld)
 
-    def test_pathToModelInstanceName(self):
+    def test_path_to_model_instance_name(self):
         pgf = PeakGroupsFormat()
-        mi = pgf.pathToModelInstanceName("msrun_sample__sample__animal__studies")
+        mi = pgf.path_to_model_instance_name("msrun_sample__sample__animal__studies")
         self.assertEqual("Study", mi)
 
-    def test_getDistinctFields_split_all(self):
+    def test_get_distinct_fields_split_all(self):
         """
         Ensures that meta ordering fields are expanded to real database fields.  I.e. it tests that fields from every
         M:M model (WRT root) like "compounds__synonyms__compound" are dereferenced to the field from that model's
@@ -83,7 +83,7 @@ class PeakGroupsFormatTests(FormatsTestCase):
             CompoundSynonym._meta.__dict__["ordering"],
             msg="CompoundSynonym must have 'compound' in meta.ordering for the next assertion to be meaningful",
         )
-        distincts = pgf.getDistinctFields(split_all=True)
+        distincts = pgf.get_distinct_fields(split_all=True)
         # This includes fields expanded from every M:M model
         expected_distincts = [
             "name",
@@ -111,9 +111,9 @@ class PeakGroupsFormatTests(FormatsTestCase):
         ]
         self.assertEqual(expected_distincts, distincts)
 
-    def test_getStatsParams(self):
+    def test_get_stats_params(self):
         pgf = PeakGroupsFormat()
-        stats = pgf.getStatsParams()
+        stats = pgf.get_stats_params()
         got = stats[2]
         expected_i2 = {
             "displayname": "Measured Compounds",
