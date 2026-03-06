@@ -89,6 +89,8 @@ from DataRepo.utils.exceptions import (
     trace,
 )
 
+# TODO: GREATS-245 Exceptions file too large
+
 
 class MultiLoadStatusTests(TracebaseTestCase):
 
@@ -1983,7 +1985,7 @@ class ExceptionTests(TracebaseTestCase):
         )
         return MSRunSample.objects.create(sample=sample, msrun_sequence=msrun_sequence)
 
-    def test_ComplexPeakGroupDuplicate(self):
+    def test_complex_peakgroup_duplicate(self):
         """This exception is for PeakGroups that are duplicated due to an edited peak annotation file (and the data in
         the PeakGroup DID change).  Also tests the summary exception.
         """
@@ -2060,7 +2062,7 @@ class ExceptionTests(TracebaseTestCase):
             "test_data_file (558ea654d7f2914ca4527580edf4fac11bd151c2)", str(cpgds)
         )
 
-    def test_TechnicalPeakGroupDuplicate(self):
+    def test_technical_peakgroup_duplicate(self):
         """This exception is for PeakGroups that are duplicated due to an edited peak annotation file (and the data in
         the PeakGroup DID NOT change).  Also tests the summary exception.
         """
@@ -2129,7 +2131,7 @@ class ExceptionTests(TracebaseTestCase):
         tpgds = TechnicalPeakGroupDuplicates([exc])
         self.assertIn("test_data_file (1 peak groups)", str(tpgds))
 
-    def test_DuplicatePeakGroup(self):
+    def test_duplicate_peakgroup(self):
         """This exception is for PeakGroups that are duplicated due to a change in business rules relating to whether
         PeakGroup records link to concrete MSRunSample records or placeholder records.  Also tests the summary
         exception.

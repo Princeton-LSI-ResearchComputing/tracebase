@@ -28,6 +28,9 @@ if TYPE_CHECKING:
     from DataRepo.models.sample import Sample
 
 
+# TODO: GREATS-245 Exceptions file too large
+
+
 class InfileError(Exception):
     """An exception class to provide file location context to other exceptions (when used as a base class).
 
