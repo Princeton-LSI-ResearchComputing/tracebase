@@ -2389,6 +2389,8 @@ class MSRunsLoaderTests(TracebaseTestCase):
         # self.assertIsInstance(msrl.aggregated_errors_object.exceptions[0], AmbiguousMzxmlSampleMatch)
 
     def test_set_mzxml_metadata(self):
+        """This is a unit test for the MSRunsLoader.set_mzxml_metadata method.  It ensures that the mzxml_dict_by_header
+        instance member is correctly populated."""
         # Set up the loader object
         msrl = MSRunsLoader()
 

@@ -62,7 +62,7 @@ class InfusateTests(TracebaseTestCase):
         MaintainedModel._reset_coordinators()
         # INFUSATE1: ti {C16:0-[5,6-13C2,17O2][2];glucose-[2,3-13C2,4-17O1][1]}
         # INFUSATE2: C16:0-[5,6-13C2,17O2][4];glucose-[2,3-13C2,4-17O1][3]
-        self.INFUSATE1, self.INFUSATE2 = create_infusate_records()
+        self.infusate1, self.infusate2 = create_infusate_records()
 
     @classmethod
     def setUpTestData(cls):
@@ -84,11 +84,11 @@ class InfusateTests(TracebaseTestCase):
     def test_infusate_name_method(self):
         self.assertEqual(
             "ti {C16:0-[5,6-13C2,17O2][2];glucose-[2,3-13C2,4-17O1][1]}",
-            self.INFUSATE1._name(),
+            self.infusate1._name(),
         )
         self.assertEqual(
             "C16:0-[4,5,6-13C2,17O2][4];glucose-[2,3-13C2,4-17O1][3]",
-            self.INFUSATE2._name(),
+            self.infusate2._name(),
         )
 
     def test_name_not_settable(self):
@@ -113,7 +113,7 @@ class InfusateTests(TracebaseTestCase):
         """
         self.assertEqual(
             "C16:0-[4,5,6-13C2,17O2][4];glucose-[2,3-13C2,4-17O1][3]",
-            self.INFUSATE2.name,
+            self.infusate2.name,
         )
         # Throws DoesNotExist exception if not found
         Infusate.objects.get(
@@ -136,8 +136,8 @@ class InfusateTests(TracebaseTestCase):
         tl = TracerLabel.objects.get(name="2,3-13C2")
         tl.delete()
         # get fresh objects
-        i1 = Infusate.objects.get(id__exact=self.INFUSATE1.id)
-        i2 = Infusate.objects.get(id__exact=self.INFUSATE2.id)
+        i1 = Infusate.objects.get(id__exact=self.infusate1.id)
+        i2 = Infusate.objects.get(id__exact=self.infusate2.id)
         # The deletion affects the tracer name (which should have been autoupdated)
         self.assertEqual("glucose-[4-17O1]", tl.tracer.name)
         # The deletion also affects the names of both infusates that had that tracer
@@ -147,35 +147,35 @@ class InfusateTests(TracebaseTestCase):
     def test_name_and_concentrations(self):
         # self.INFUSATE1.name: ti {C16:0-[5,6-13C2,17O2][2];glucose-[2,3-13C2,4-17O1][1]}
         # name_and_concentrations returns a name without the concentrations, and a list of same-ordered concentrations
-        name, concs = self.INFUSATE1.name_and_concentrations()
+        name, concs = self.infusate1.name_and_concentrations()
         self.assertEqual("ti {C16:0-[5,6-13C2,17O2];glucose-[2,3-13C2,4-17O1]}", name)
         self.assertAlmostEqual([2.0, 1.0], concs)
 
     def test_infusate_name_equal(self):
         # self.INFUSATE1.name: ti {C16:0-[5,6-13C2,17O2][2];glucose-[2,3-13C2,4-17O1][1]}
         # name_and_concentrations returns a name without the concentrations, and a list of same-ordered concentrations
-        self.INFUSATE1.name_and_concentrations()
+        self.infusate1.name_and_concentrations()
         # Should be equal even though the order is reversed
         self.assertTrue(
-            self.INFUSATE1.infusate_name_equal(
+            self.infusate1.infusate_name_equal(
                 "ti {glucose-[2,3-13C2,4-17O1];C16:0-[5,6-13C2,17O2]}", [1.0, 2.0]
             )
         )
         # Should not be equal if only the tracer names are reversed (not the concentrations)
         self.assertFalse(
-            self.INFUSATE1.infusate_name_equal(
+            self.infusate1.infusate_name_equal(
                 "ti {glucose-[2,3-13C2,4-17O1];C16:0-[5,6-13C2,17O2]}", [2.0, 1.0]
             )
         )
         # Should not be equal if the number of concentrations does not match
         self.assertFalse(
-            self.INFUSATE1.infusate_name_equal(
+            self.infusate1.infusate_name_equal(
                 "ti {glucose-[2,3-13C2,4-17O1];C16:0-[5,6-13C2,17O2]}", [1.0]
             )
         )
         # Should be equal even though the order is reversed and the float concentrations are very slightly off
         self.assertTrue(
-            self.INFUSATE1.infusate_name_equal(
+            self.infusate1.infusate_name_equal(
                 "ti {glucose-[2,3-13C2,4-17O1];C16:0-[5,6-13C2,17O2]}",
                 [1.00000000001, 2.0],
             )
@@ -183,7 +183,7 @@ class InfusateTests(TracebaseTestCase):
 
     def test_tracer_labeled_elements(self):
         expected = ["C", "O"]
-        output = self.INFUSATE1.tracer_labeled_elements
+        output = self.infusate1.tracer_labeled_elements
         self.assertEqual(expected, output)
 
     def test_name_from_data(self):

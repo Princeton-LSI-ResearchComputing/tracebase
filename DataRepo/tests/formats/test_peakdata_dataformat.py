@@ -7,7 +7,7 @@ from DataRepo.tests.formats.formats_test_base import FormatsTestCase
 
 class PeakdataDataformatMainTests(FormatsTestCase):
 
-    def test_PeakDataFormat(self):
+    def test_peak_data_format(self):
         """Test __main__.PeakDataFormat - no exception = successful test"""
         PeakDataFormat()
 
@@ -15,12 +15,12 @@ class PeakdataDataformatMainTests(FormatsTestCase):
 class PeakDataFormatTests(FormatsTestCase):
 
     @parameterized.expand(FormatsTestCase.archive_file_instances)
-    def test_PeakDataFormat_getModelFromInstance(self, _, instance, model):
+    def test_peak_data_format_get_model_from_instance(self, _, instance, model):
         pgsv = PeakDataFormat()
-        res = pgsv.getModelFromInstance(instance)
+        res = pgsv.get_model_from_instance(instance)
         self.assertEqual(res, model)
 
-    def test_getOrderByFields_instance(self):
+    def test_get_order_by_fields_instance(self):
         pdf = PeakDataFormat()
         mdl_inst = "PeakData"
         mdl = get_model_by_name(mdl_inst)
@@ -35,6 +35,6 @@ class PeakDataFormatTests(FormatsTestCase):
                 "test is meaningful."
             ),
         )
-        order_bys = pdf.getOrderByFields(mdl_inst_nm=mdl_inst)
+        order_bys = pdf.get_order_by_fields(mdl_inst_nm=mdl_inst)
         expected_order_bys = ["peak_group__name", "corrected_abundance"]
         self.assertEqual(expected_order_bys, order_bys)

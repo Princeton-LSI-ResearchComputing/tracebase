@@ -296,7 +296,7 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
 
         self.assert_test_peak_annotations_loaded()
 
-    def test_PeakAnnotationFilesLoader_conflicting_peak_group_resolutions(self):
+    def test_peak_annotation_files_loader_conflicting_peak_group_resolutions(self):
         # Load all the prerequisites (everything but the Peak Annotation Files and Peak Group Conflicts)
         dfdict = read_from_file(
             "DataRepo/data/tests/multiple_representations/resolution_handling/prereqs.xlsx",

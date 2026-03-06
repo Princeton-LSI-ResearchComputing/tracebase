@@ -510,7 +510,7 @@ class SummarizableErrorTests(TracebaseTestCase):
             self.summarizer_class_factory().__qualname__,
         )
 
-    def test_SummarizedInfileError(self):
+    def test_summarized_infile_error(self):
         """This basically checks that the SummarizedInfileError constructor creates a file_dict instance variable
         containing exception lists keys by the file string that the exception is based on.
         """
@@ -736,7 +736,7 @@ class ExceptionTests(TracebaseTestCase):
         lstr = generate_file_location_string(column=2, rownum=3, file="animals.xlsx")
         self.assertEqual("column [2] on row [3] in animals.xlsx", lstr)
 
-    def test_DuplicateValueErrors(self):
+    def test_duplicate_value_errors(self):
         """Test that DuplicateValueErrors correctly summarizes a series of DuplicateValues exceptions"""
         dvs = [
             DuplicateValues({"x": [0, 1]}, ["col2"], sheet=None, file="loadme.txt"),
@@ -761,7 +761,7 @@ class ExceptionTests(TracebaseTestCase):
         )
         self.assertEqual(expected, str(dve))
 
-    def test_RequiredColumnValues(self):
+    def test_required_column_values(self):
         rcvs = [
             RequiredColumnValue("col2", rownum=5, sheet="Tissues", file="loadme.tsv"),
             RequiredColumnValue("col2", rownum=6, sheet="Tissues", file="loadme.tsv"),
@@ -778,7 +778,7 @@ class ExceptionTests(TracebaseTestCase):
         rcv2 = RequiredColumnValues(rcvs, suggestion="SUGGEST")
         self.assertIn("SUGGEST", str(rcv2))
 
-    def test_RequiredValueErrors(self):
+    def test_required_value_errors(self):
         rves = [
             RequiredValueError(
                 "Tissue Name",
@@ -832,7 +832,7 @@ class ExceptionTests(TracebaseTestCase):
         )
         self.assertIn("Fixing errors above this will fix this error.", str(rve))
 
-    def test_ExcelSheetsNotFound(self):
+    def test_excel_sheets_not_found(self):
         esnf = ExcelSheetsNotFound(
             unknowns={"x": [2, 3, 5]},
             all_sheets=["a", "b"],
@@ -850,7 +850,7 @@ class ExceptionTests(TracebaseTestCase):
             str(esnf),
         )
 
-    def test_InvalidHeaderCrossReferenceError(self):
+    def test_invalid_header_cross_reference_error(self):
         ihcre = InvalidHeaderCrossReferenceError(
             source_file="test.xlsx",
             source_sheet="Defaults",
@@ -871,22 +871,22 @@ class ExceptionTests(TracebaseTestCase):
             str(ihcre),
         )
 
-    def test_OptionsNotAvailable(self):
+    def test_options_not_available(self):
         ona = OptionsNotAvailable()
         self.assertEqual(
             "Cannot get command line option values until handle() has been called.",
             str(ona),
         )
 
-    def test_MutuallyExclusiveOptions(self):
+    def test_mutually_exclusive_options(self):
         meo = MutuallyExclusiveOptions("My message")
         self.assertEqual("My message", str(meo))
 
-    def test_NoLoadData(self):
+    def test_no_load_data(self):
         nld = NoLoadData("My message")
         self.assertEqual("My message", str(nld))
 
-    def test_InvalidDtypeDict(self):
+    def test_invalid_dtype_dict(self):
         idd = InvalidDtypeDict(
             {"Wrong": str, "WrongAgain": int},
             file="afile.xlsx",
@@ -901,7 +901,7 @@ class ExceptionTests(TracebaseTestCase):
             str(idd),
         )
 
-    def test_InvalidDtypeKeys(self):
+    def test_invalid_dtype_keys(self):
         idk = InvalidDtypeKeys(
             ["Wrong"],
             file="afile.xlsx",
@@ -916,7 +916,7 @@ class ExceptionTests(TracebaseTestCase):
             str(idk),
         )
 
-    def test_DateParseError(self):
+    def test_date_parse_error(self):
         ve = ValueError("unconverted data remains:  00:00:00")
         dpe = DateParseError("a date", ve, "a format")
         self.assertEqual(
@@ -924,7 +924,7 @@ class ExceptionTests(TracebaseTestCase):
             str(dpe),
         )
 
-    def test_InfileError_placeholder(self):
+    def test_infile_error_placeholder(self):
         ie = InfileError(
             "You did something weird here: %s. You shouldn't do that.",
             rownum=2,
@@ -940,7 +940,7 @@ class ExceptionTests(TracebaseTestCase):
             str(ie),
         )
 
-    def test_InfileError_no_placeholder(self):
+    def test_infile_error_no_placeholder(self):
         ie = InfileError(
             "You did something weird. You shouldn't do that.",
             rownum=2,
@@ -956,7 +956,7 @@ class ExceptionTests(TracebaseTestCase):
             str(ie),
         )
 
-    def test_InfileError_string_rownum(self):
+    def test_infile_error_string_rownum(self):
         ie = InfileError(
             "Tests that rownum can be a string.",
             rownum="record name",
@@ -972,7 +972,7 @@ class ExceptionTests(TracebaseTestCase):
             str(ie),
         )
 
-    def test_InfileError_set_formatted_message(self):
+    def test_infile_error_set_formatted_message(self):
         ie = InfileError("Test that location can be added to %s later.")
         self.assertEqual(
             "Test that location can be added to the load file data later.", str(ie)
@@ -991,7 +991,7 @@ class ExceptionTests(TracebaseTestCase):
             str(ie),
         )
 
-    def test_CompoundDoesNotExist(self):
+    def test_compound_does_not_exist(self):
         cdne = CompoundDoesNotExist(
             "compound x",
             rownum=2,
@@ -1007,7 +1007,7 @@ class ExceptionTests(TracebaseTestCase):
             str(cdne),
         )
 
-    def test_ExcelSheetNotFound(self):
+    def test_excel_sheet_not_found(self):
         esnf = ExcelSheetNotFound(
             sheet="Not Present", file="an_excel_file.xlsx", all_sheets=["A", "B"]
         )
@@ -1015,14 +1015,14 @@ class ExceptionTests(TracebaseTestCase):
         self.assertIn("in an_excel_file.xlsx", str(esnf))
         self.assertIn("Available sheets: ['A', 'B']", str(esnf))
 
-    def test_MissingDataAdded(self):
+    def test_missing_data_added(self):
         mda = MissingDataAdded(["5 sample names"], file="Study doc.xlsx")
         self.assertEqual(
             "Missing data ['5 sample names'] was added to Study doc.xlsx.",
             str(mda),
         )
 
-    def test_RecordDoesNotExist(self):
+    def test_record_does_not_exist(self):
         rdne = RecordDoesNotExist(
             model=get_model_by_name("Tissue"),
             query_obj={"name": "invalid"},
@@ -1032,15 +1032,15 @@ class ExceptionTests(TracebaseTestCase):
             str(rdne),
         )
 
-    def test_RequiredOptions(self):
+    def test_required_options(self):
         ro = RequiredOptions(["infile"])
         self.assertEqual("Missing required options: ['infile'].", str(ro))
 
-    def test_MissingColumnGroup(self):
+    def test_missing_column_group(self):
         mcg = MissingColumnGroup("Sample")
         self.assertIn("No Sample columns found", str(mcg))
 
-    def test_UnequalColumnGroups(self):
+    def test_unequal_column_groups(self):
         exc = UnequalColumnGroups("Sample", {"orig": ["A", "B"], "corr": ["A", "C"]})
         self.assertIn("sheets ['orig', 'corr'] differ", str(exc))
         self.assertIn(
@@ -1052,31 +1052,31 @@ class ExceptionTests(TracebaseTestCase):
             str(exc),
         )
 
-    def test_UnknownHeaderError(self):
+    def test_unknown_header_error(self):
         exc = UnknownHeader("C", ["A", "B"])
         self.assertEqual(
             "Unknown header encountered: [C] in the load file data.  Must be one of ['A', 'B'].",
             str(exc),
         )
 
-    def test_NewResearchers(self):
+    def test_new_researchers(self):
         nrs = [NewResearcher("George"), NewResearcher("Patty")]
         exc = NewResearchers(nrs)
         self.assertIn("New researchers encountered:", str(exc))
         self.assertIn("George", str(exc))
         self.assertIn("Patty", str(exc))
 
-    def test_NewResearcher(self):
+    def test_new_researcher(self):
         exc = NewResearcher("Thelma")
         self.assertIn("new researcher [Thelma] is being added", str(exc))
 
-    def test_RequiredArgument(self):
+    def test_required_argument(self):
         exc = RequiredArgument("val", methodname="do_stuff")
         self.assertEqual(
             "do_stuff requires a non-None value for argument 'val'.", str(exc)
         )
 
-    def test_EmptyColumns(self):
+    def test_empty_columns(self):
         exc = EmptyColumns(
             "Sample",
             ["A", "B"],
@@ -1091,7 +1091,7 @@ class ExceptionTests(TracebaseTestCase):
         self.assertIn("2 were unnamed.", str(exc))
         self.assertIn("They will be skipped.", str(exc))
 
-    def test_DuplicateCompoundIsotope(self):
+    def test_duplicate_compound_isotope(self):
         dvs = [
             DuplicateValues({"1": [1, 2]}, ["A", "B", "C"]),
             DuplicateValues({"2": [6, 9]}, ["A", "B", "C"]),
@@ -1101,19 +1101,19 @@ class ExceptionTests(TracebaseTestCase):
         self.assertIn("1 (rows*: 3-4)", str(exc))
         self.assertIn("2 (rows*: 8, 11)", str(exc))
 
-    def test_SheetMergeError(self):
+    def test_sheet_merge_error(self):
         exc = SheetMergeError([100, 102])
         self.assertIn("missing an Animal Name", str(exc))
         self.assertIn("empty rows: [100, 102]", str(exc))
 
-    def test_IsotopeStringDupe(self):
+    def test_isotope_string_dupe(self):
         exc = IsotopeStringDupe("C13N15C13-label-2-1-1", "C")
         self.assertIn(
             " match tracer labeled element (C) in the measured labeled element string: [C13N15C13-label-2-1-1]",
             str(exc),
         )
 
-    def test_ObservedIsotopeUnbalancedError(self):
+    def test_observed_isotope_unbalanced_error(self):
         exc = ObservedIsotopeUnbalancedError(
             ["C", "N"], [13, 15], [1, 2, 1], "13C15N-1-2-1"
         )
@@ -1122,7 +1122,7 @@ class ExceptionTests(TracebaseTestCase):
             str(exc),
         )
 
-    def test_UnexpectedLabels(self):
+    def test_unexpected_labels(self):
         exc = UnexpectedLabel(["D"], ["C", "N"])
         self.assertIn(
             "One or more observed peak labels were not among the label(s) in the tracer(s)",
@@ -1132,7 +1132,7 @@ class ExceptionTests(TracebaseTestCase):
         self.assertIn("Expected: ['C', 'N']", str(exc))
         self.assertIn("There may be contamination", str(exc))
 
-    def test_MzxmlSampleHeaderMismatch(self):
+    def test_mzxml_sample_header_mismatch(self):
         exc = MzxmlSampleHeaderMismatch("sample", "location/sample_neg.mzXML")
         self.assertIn("mzXML file [location/sample_neg.mzXML]", str(exc))
         self.assertIn("Sample header:       [sample]", str(exc))
@@ -1140,15 +1140,15 @@ class ExceptionTests(TracebaseTestCase):
 
     # NOTE: MultiplePeakGroupRepresentations is tested in the peak group tests, because it needs records
 
-    def test_RequiredHeadersError(self):
+    def test_required_headers_error(self):
         exc = RequiredHeadersError(["A"])
         self.assertIn("header(s) missing: ['A']", str(exc))
 
-    def test_NoTracerLabeledElements(self):
+    def test_no_tracer_labeled_elements(self):
         exc = NoTracerLabeledElements()
         self.assertIn("No tracer_labeled_elements.", str(exc))
 
-    def test_MissingCompounds(self):
+    def test_missing_compounds(self):
         from DataRepo.models import Compound
 
         excs = [
@@ -1177,7 +1177,7 @@ class ExceptionTests(TracebaseTestCase):
         self.assertIn("'lysine' from row(s): [5]", str(mcs))
         self.assertIn("'vibranium' from row(s): [19]", str(mcs))
 
-    def test_MissingRecords(self):
+    def test_missing_records(self):
         from DataRepo.models import Compound, MSRunSample
 
         excs = [
@@ -1236,25 +1236,25 @@ class ExceptionTests(TracebaseTestCase):
             ),
         ]
 
-    def test_MissingSamples(self):
+    def test_missing_samples(self):
         mss = MissingSamples(self.get_sample_dnes())
         self.assertIn("2 Sample records", str(mss))
         self.assertIn("'sample1' from row(s): [5]", str(mss))
         self.assertIn("'sample2' from row(s): [19]", str(mss))
         self.assertIn("column [Sample] of sheet [Corrected] in accucor.xlsx", str(mss))
 
-    def test_UnskippedBlanks(self):
+    def test_unskipped_blanks(self):
         usbs = UnskippedBlanks(self.get_sample_dnes())
         self.assertIn(
             "2 sample(s) from the load file data, that appear to possibly be blanks",
             str(usbs),
         )
 
-    def test_NoSamples(self):
+    def test_no_samples(self):
         nss = NoSamples(self.get_sample_dnes())
         self.assertIn("None of the 2 samples", str(nss))
 
-    def test_UnexpectedSamples(self):
+    def test_unexpected_samples(self):
         sample_names = ["sample1", "sample2"]
         uess = UnexpectedSamples(
             sample_names,
@@ -1270,7 +1270,7 @@ class ExceptionTests(TracebaseTestCase):
         self.assertIn("sheet [Corrected] in accucor.xlsx", str(uess))
         self.assertIn("['sample1', 'sample2']", str(uess))
 
-    def test_RecordDoesNotExist_get_failed_searches_dict(self):
+    def test_record_does_not_exist_get_failed_searches_dict(self):
         kwargs, stub, dct = RecordDoesNotExist.get_failed_searches_dict(
             self.get_sample_dnes()
         )
@@ -1280,17 +1280,17 @@ class ExceptionTests(TracebaseTestCase):
         self.assertEqual("name", stub)
         self.assertDictEqual({"sample1": [5], "sample2": [19]}, dct)
 
-    def test_RecordDoesNotExist_get_query_stub(self):
+    def test_record_does_not_exist_get_query_stub(self):
         sdnes = self.get_sample_dnes()
         stub = sdnes[0]._get_query_stub()
         self.assertEqual("name", stub)
 
-    def test_RecordDoesNotExist_get_query_values_str(self):
+    def test_record_does_not_exist_get_query_values_str(self):
         sdnes = self.get_sample_dnes()
         valstr = sdnes[0]._get_query_values_str()
         self.assertEqual("sample1", valstr)
 
-    def test_MzxmlNotColocatedWithAnnot(self):
+    def test_mzxml_not_colocated_with_annot(self):
         mncwa = MzxmlNotColocatedWithAnnot(
             file="/abs/path/to/file.mzXML",
             suggestion="Move a peak annot file to a point along the path.",
@@ -1301,7 +1301,7 @@ class ExceptionTests(TracebaseTestCase):
         )
         self.assertIn("Move a peak annot file to a point along the path.", str(mncwa))
 
-    def test_MzxmlNotColocatedWithAnnots(self):
+    def test_mzxml_not_colocated_with_annots(self):
         """Tests that the summary exception includes all the mzXMLs not colocated with a peak annotation file, that the
         exception describes this, and contains a suggestion of how to fix it."""
         exc1 = MzxmlNotColocatedWithAnnot(
@@ -1328,7 +1328,7 @@ class ExceptionTests(TracebaseTestCase):
             str(mncwas),
         )
 
-    def test_MzxmlColocatedWithMultipleAnnot(self):
+    def test_mzxml_colocated_with_multiple_annot(self):
         mcwma = MzxmlColocatedWithMultipleAnnot(
             ["name1", "name2"],
             "/abs/path/",
@@ -1338,7 +1338,7 @@ class ExceptionTests(TracebaseTestCase):
             "associated with different sequences:\n\tname1\n\tname2\n", str(mcwma)
         )
 
-    def test_MzxmlColocatedWithMultipleAnnots(self):
+    def test_mzxml_colocated_with_multiple_annots(self):
         """Tests that the summary exception includes:
 
         1. An explanation of the cause of the exception
@@ -1402,11 +1402,11 @@ class ExceptionTests(TracebaseTestCase):
         self.assertIn("['seqname1', 'seqname2']", str(mcwmas))
         self.assertIn("['seqnameA', 'seqnameB']", str(mcwmas))
 
-    def test_NoScans(self):
+    def test_no_scans(self):
         ns = NoScans("/abs/path/to/file.mzXML")
         self.assertIn("'/abs/path/to/file.mzXML' contains no scans", str(ns))
 
-    def test_DefaultSequenceNotFound(self):
+    def test_default_sequence_not_found(self):
         dsnf = DefaultSequenceNotFound(
             "Rob", "1972-11-24", "HILIC", "polar-HILIC-25-min"
         )
@@ -1415,14 +1415,14 @@ class ExceptionTests(TracebaseTestCase):
             str(dsnf),
         )
 
-    def test_MultipleDefaultSequencesFound(self):
+    def test_multiple_default_sequences_found(self):
         mdsf = MultipleDefaultSequencesFound("Rob", "1972-11-24", "QE", None)
         self.assertIn(
             "operator: Rob\n\tprotocol: None\n\tinstrument: QE\n\tdate: 1972-11-24",
             str(mdsf),
         )
 
-    def test_MissingC12ParentPeakErrors(self):
+    def test_missing_c12_parent_peak_errors(self):
         mcpp = MissingC12ParentPeak("lysine")
         mcppe = MissingC12ParentPeaks([mcpp])
         # Check problem described
@@ -1435,7 +1435,7 @@ class ExceptionTests(TracebaseTestCase):
             "ignore this error if the peak is below the detection threshold", str(mcppe)
         )
 
-    def test_MissingC12ParentPeak(self):
+    def test_missing_c12_parent_peak(self):
         mcpp = MissingC12ParentPeak("lysine", file="accucor.xlsx")
         # Check problem described
         self.assertIn(
@@ -1449,7 +1449,7 @@ class ExceptionTests(TracebaseTestCase):
         )
         self.assertIn("neglect to include the C12 PARENT peak", str(mcpp))
 
-    def test_PossibleDuplicateSamplesError(self):
+    def test_possible_duplicate_samples_error(self):
         pds = PossibleDuplicateSample("s1", ["s1_pos", "s1_neg"])
         pdse = PossibleDuplicateSamples([pds])
         # Check problem described
@@ -1461,7 +1461,7 @@ class ExceptionTests(TracebaseTestCase):
         # Check suggestion exists
         self.assertIn("associated with the same tracebase sample", str(pdse))
 
-    def test_DBFieldVsFileColDeveloperWarning(self):
+    def test_d_b_field_vs_file_col_developer_warning(self):
         """Tests developer warnings about database/file value type issues.
 
         Requirements tested (from GitHub issue #1662):
@@ -1518,7 +1518,7 @@ class ExceptionTests(TracebaseTestCase):
         self.assertIsInstance(exc, DeveloperWarning)
         self.assertIn("DeveloperWarning", type(exc).__name__)
 
-    def test_DBFieldVsFileColDeveloperWarnings(self):
+    def test_d_b_field_vs_file_col_developer_warnings(self):
         """Tests summary developer warnings about database/file value type issues.
 
         Requirements tested (from GitHub issue #1662):
@@ -1595,7 +1595,7 @@ class ExceptionTests(TracebaseTestCase):
         self.assertIsInstance(exc, DeveloperWarning)
         self.assertIn("DeveloperWarning", type(exc).__name__)
 
-    def test_MissingFCircCalculationValues(self):
+    def test_missing_f_circ_calculation_values(self):
         mfcv = MissingFCircCalculationValues(
             [
                 MissingFCircCalculationValue(
@@ -1628,7 +1628,7 @@ class ExceptionTests(TracebaseTestCase):
         self.assertIn("sheet [Samples] in myfile", str(mfcv))
         self.assertIn("'Collection Time' on row(s): ['20']", str(mfcv))
 
-    def test_MissingFCircCalculationValue(self):
+    def test_missing_f_circ_calculation_value(self):
         mfcv = MissingFCircCalculationValue(
             file="myfile",
             sheet="mysheet",
@@ -1651,7 +1651,7 @@ class ExceptionTests(TracebaseTestCase):
         )
         self.assertIn("inaccurate (if the sample collection time is missing", str(mfcv))
 
-    def test_ProhibitedCompoundNames(self):
+    def test_prohibited_compound_names(self):
         pcn1 = ProhibitedCompoundName(
             [";", "/"], file="file.txt", column="Compound", rownum=2
         )
@@ -1667,7 +1667,7 @@ class ExceptionTests(TracebaseTestCase):
         self.assertIn("'/' on row(s): ['2', '16']", str(e))
         self.assertIn("';' on row(s): ['2', '5']", str(e))
 
-    def test_ProhibitedStringValue(self):
+    def test_prohibited_string_value(self):
         e = ProhibitedStringValue([";"], disallowed=[";", "/"], value="test;1")
         self.assertIn("Prohibited character(s) [';'] encountered", str(e))
         self.assertIn("(in 'test;1')", str(e))
@@ -1675,7 +1675,7 @@ class ExceptionTests(TracebaseTestCase):
             "None of the following reserved substrings are allowed: [';', '/']", str(e)
         )
 
-    def test_ProhibitedCompoundName(self):
+    def test_prohibited_compound_name(self):
         with self.assertRaises(RequiredArgument):
             ProhibitedCompoundName(
                 [";", "/"], value="compound;test/name;/", fixed="compound_test_name__"
@@ -1703,7 +1703,7 @@ class ExceptionTests(TracebaseTestCase):
             str(e),
         )
 
-    def test_AnimalWithoutSamples(self):
+    def test_animal_without_samples(self):
         e = AnimalWithoutSamples(
             "George", file="doc.xlsx", sheet="Animals", column="Name", rownum=5
         )
@@ -1723,7 +1723,7 @@ class ExceptionTests(TracebaseTestCase):
         )
         self.assertIn("or remove the animal from the Animals sheet", str(e))
 
-    def test_AnimalsWithoutSamples(self):
+    def test_animals_without_samples(self):
         e1 = AnimalWithoutSamples(
             "George", file="doc.xlsx", sheet="Animals", column="Name", rownum=5
         )
@@ -1748,7 +1748,7 @@ class ExceptionTests(TracebaseTestCase):
         )
         self.assertIn("or remove the animals from the Animals sheet", str(e))
 
-    def test_AnimalWithoutSerumSamples(self):
+    def test_animal_without_serum_samples(self):
         e = AnimalWithoutSerumSamples(
             "Kramer", file="doc.xlsx", sheet="Animals", column="Name", rownum=10
         )
@@ -1774,7 +1774,7 @@ class ExceptionTests(TracebaseTestCase):
         )
         self.assertIn("or remove the animal from the Animals sheet", str(e))
 
-    def test_AnimalsWithoutSerumSamples(self):
+    def test_animals_without_serum_samples(self):
         e1 = AnimalWithoutSerumSamples(
             "Kramer", file="doc.xlsx", sheet="Animals", column="Name", rownum=10
         )
@@ -1810,7 +1810,7 @@ class ExceptionTests(TracebaseTestCase):
         self.assertIn("test_exceptions.py", trc, msg=f"trace() output:\n{trc}")
         self.assertNotIn("site-packages", trc, msg=f"trace() output:\n{trc}")
 
-    def test_MultipleConflictingValueMatchesSummary(self):
+    def test_multiple_conflicting_value_matches_summary(self):
         from DataRepo.models import Study
 
         # These will not cause an integrity error, but that's not important for this test
@@ -1856,7 +1856,7 @@ class ExceptionTests(TracebaseTestCase):
         self.assertIn("database: [s1]\n\t\t\t\tfile: [s4]", str(mcvms))
         self.assertIn("name\n\t\t\t\tdatabase: [s2]\n\t\t\t\tfile: [s4]", str(mcvms))
 
-    def test_MultipleConflictingValueMatches(self):
+    def test_multiple_conflicting_value_matches(self):
         from DataRepo.models import Study
 
         # These will not cause an integrity error, but that's not important for this test
@@ -1882,7 +1882,7 @@ class ExceptionTests(TracebaseTestCase):
         self.assertIn("database: [s1]\n\t\t\tfile: [s3]", str(mcvm))
         self.assertIn("database: [s2]\n\t\t\tfile: [s3]", str(mcvm))
 
-    def test_AmbiguousMzxmlSampleMatch(self):
+    def test_ambiguous_mzxml_sample_match(self):
         amsm = AmbiguousMzxmlSampleMatch(
             ["sample1", "sample1other"],
             "sample1.mzXML",
@@ -1908,7 +1908,7 @@ class ExceptionTests(TracebaseTestCase):
         # Supplies the data necessary to implement the suggestion
         self.assertIn("sample matches include: ['sample1', 'sample1other']", str(amsm))
 
-    def test_AmbiguousMzxmlSampleMatches(self):
+    def test_ambiguous_mzxml_sample_matches(self):
         amsm1 = AmbiguousMzxmlSampleMatch(
             ["sample1", "sample1other"],
             "sample1.mzXML",

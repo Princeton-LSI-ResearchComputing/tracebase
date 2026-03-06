@@ -46,15 +46,15 @@ def search_basic(request, mdl, fld, cmp, val, fmt, units=None):
     )
 
     format_template = "search/query.html"
-    fmtkey = basv_metadata.formatNameOrKeyToKey(fmt)
+    fmtkey = basv_metadata.format_name_or_key_to_key(fmt)
     if fmtkey is None:
-        names = basv_metadata.getFormatNames()
+        names = basv_metadata.get_format_names()
         raise Http404(
             f"Invalid format [{fmt}].  Must be one of: [{','.join(names.keys())},{','.join(names.values())}]"
         )
 
     try:
-        qry = basv_metadata.createNewBasicQuery(mdl, fld, cmp, val, fmtkey, units)
+        qry = basv_metadata.create_new_basic_query(mdl, fld, cmp, val, fmtkey, units)
     except (KeyError, ObjectDoesNotExist, ValidationError, FieldError) as e:
         raise Http404(e)
     download_forms = AdvancedSearchView().get_download_form_tuples(qry=qry)
@@ -67,7 +67,7 @@ def search_basic(request, mdl, fld, cmp, val, fmt, units=None):
         )
     )
 
-    res, tot, stats = basv_metadata.performQuery(
+    res, tot, stats = basv_metadata.perform_query(
         qry,
         qry["selectedtemplate"],
         limit=rows_per_page,
@@ -83,7 +83,7 @@ def search_basic(request, mdl, fld, cmp, val, fmt, units=None):
         tot=tot,
     )
 
-    root_group = basv_metadata.getRootGroup()
+    root_group = basv_metadata.get_root_group()
 
     return render(
         request,
@@ -99,9 +99,9 @@ def search_basic(request, mdl, fld, cmp, val, fmt, units=None):
             "root_group": root_group,
             "mode": "search",
             "default_format": basv_metadata.default_format,
-            "ncmp_choices": basv_metadata.getComparisonChoices(),
-            "fld_types": basv_metadata.getFieldTypes(),
-            "fld_choices": basv_metadata.getSearchFieldChoicesDict(),
-            "fld_units": basv_metadata.getFieldUnitsDict(),
+            "ncmp_choices": basv_metadata.get_comparison_choices(),
+            "fld_types": basv_metadata.get_field_types(),
+            "fld_choices": basv_metadata.get_search_field_choices_dict(),
+            "fld_units": basv_metadata.get_field_units_dict(),
         },
     )

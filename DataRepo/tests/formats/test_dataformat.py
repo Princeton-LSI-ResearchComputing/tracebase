@@ -16,35 +16,35 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 class DataformatMainTests(TracebaseTestCase):
     """Test class for DataRepo.formats.dataformat.__main__"""
 
-    def test_ConditionallyRequiredArgumentError(self):
+    def test_conditionally_required_argument_error(self):
         """Test __main__.ConditionallyRequiredArgumentError - no exception = successful test"""
         ConditionallyRequiredArgumentError()
 
-    def test_FieldPathError(self):
+    def test_field_path_error(self):
         """Test __main__.FieldPathError - no exception = successful test"""
         FieldPathError()
 
-    def test_MutuallyExclusiveArgumentsError(self):
+    def test_mutually_exclusive_arguments_error(self):
         """Test __main__.MutuallyExclusiveArgumentsError - no exception = successful test"""
         MutuallyExclusiveArgumentsError()
 
-    def test_TypeUnitsMismatch(self):
+    def test_type_units_mismatch(self):
         """Test __main__.TypeUnitsMismatch"""
         tum = TypeUnitsMismatch("atype")
         self.assertIn("atype", str(tum))
 
-    def test_UnknownComparison(self):
+    def test_unknown_comparison(self):
         """Test __main__.UnknownComparison - no exception = successful test"""
         UnknownComparison()
 
-    def test_orderByFieldToName(self):
-        fld = Format.orderByFieldToName(Upper(Lower(F("testfieldname"))).desc())
+    def test_order_by_field_to_name(self):
+        fld = Format.order_by_field_to_name(Upper(Lower(F("testfieldname"))).desc())
         self.assertEqual("testfieldname", fld)
 
 
 class FormatTests(FormatsTestCase):
 
-    def test_getAllComparisonChoices(self):
+    def test_get_all_comparison_choices(self):
         fmt = Format()
 
         all_ncmp_choices = (
@@ -65,4 +65,4 @@ class FormatTests(FormatsTestCase):
             ("iendswith", "ends with"),
             ("not_iendswith", "does not end with"),
         )
-        self.assertEqual(all_ncmp_choices, fmt.getAllComparisonChoices())
+        self.assertEqual(all_ncmp_choices, fmt.get_all_comparison_choices())

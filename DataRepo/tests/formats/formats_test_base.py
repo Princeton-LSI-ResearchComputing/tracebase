@@ -16,7 +16,7 @@ class FormatsTestCase(TracebaseTestCase):
         ["MZFile", "MZFile", "ArchiveFile"],
     ]
 
-    def getPdtemplateChoicesTuple(self):
+    def get_pdtemplate_choices_tuple(self):
         return (
             ("peak_group__msrun_sample__sample__animal__age", "Age"),
             ("peak_group__msrun_sample__sample__animal__name", "Animal"),
@@ -88,7 +88,7 @@ class FormatsTestCase(TracebaseTestCase):
             ("peak_group__msrun_sample__sample__animal__treatment__name", "Treatment"),
         )
 
-    def getPgtemplateChoicesTuple(self):
+    def get_pgtemplate_choices_tuple(self):
         return (
             ("msrun_sample__sample__animal__age", "Age"),
             ("msrun_sample__sample__animal__name", "Animal"),
@@ -134,7 +134,7 @@ class FormatsTestCase(TracebaseTestCase):
             ("msrun_sample__sample__animal__treatment__name", "Treatment"),
         )
 
-    def getFctemplateChoicesTuple(self):
+    def get_fctemplate_choices_tuple(self):
         return (
             ("serum_sample__animal__name", "Animal"),
             ("serum_sample__animal__age", "Animal Age"),
@@ -160,7 +160,7 @@ class FormatsTestCase(TracebaseTestCase):
             ("serum_sample__animal__treatment__name", "Treatment"),
         )
 
-    def getQueryObject(self):
+    def get_query_object(self):
         return {
             "selectedtemplate": "pgtemplate",
             "searches": {
@@ -188,8 +188,8 @@ class FormatsTestCase(TracebaseTestCase):
             },
         }
 
-    def getQueryObject2(self):
-        qry = deepcopy(self.getQueryObject())
+    def get_query_object2(self):
+        qry = deepcopy(self.get_query_object())
         qry["searches"]["pgtemplate"]["tree"]["queryGroup"].append(
             {
                 "type": "query",
@@ -311,7 +311,7 @@ class FormatsTestCase(TracebaseTestCase):
         )
         return qry
 
-    def getExpectedStats(self):
+    def get_expected_stats(self):
         return {
             "available": True,
             "based_on": None,

@@ -323,7 +323,7 @@ DEBUG_TOOLBAR = env.bool("DEBUG_TOOLBAR", default=True)
 if DEBUG_TOOLBAR is True:
     TESTING = "test" in sys.argv
     try:
-        import debug_toolbar  # noqa: F401
+        import debug_toolbar  # noqa: F401  # pylint: disable=unused-import
 
         DEBUG_TOOLBAR_INSTALLED = True
     except ImportError:

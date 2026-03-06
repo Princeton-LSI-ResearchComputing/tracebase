@@ -168,7 +168,7 @@ class PeakGroupTests(TracebaseTestCase):
         )
         return msr, accucor_file
 
-    def test_save_raises_MultiplePeakGroupRepresentations(self):
+    def test_save_raises_multiple_peak_group_representations(self):
         msr, accucor_file = self.prepare_peak_group_creation()
 
         # The save method should raise a MultiplePeakGroupRepresentation exception
@@ -180,7 +180,7 @@ class PeakGroupTests(TracebaseTestCase):
                 peak_annotation_file=accucor_file,
             )
 
-    def test_clean_raises_NoTracerLabeledElements(self):
+    def test_clean_raises_no_tracer_labeled_elements(self):
         msr, accucor_file = self.prepare_peak_group_creation()
         pg = PeakGroup.objects.create(
             name="water",

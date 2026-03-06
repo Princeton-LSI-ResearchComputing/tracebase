@@ -10,7 +10,7 @@ This document will serve to guide developers on implementing new code.
    - Copy and rename PeakGroupsFormat.py and make the following edits
       - Set a new ID and name.
       - Set a root model
-      - Determine the root queryset.  If you don't want the browse functionality to return all records of the root model (e.g. PeakData.objects.all()) (i.e. a filter is required), add a method to the class called getRootQuerySet() that overrides the base class version, and returns the filtered queryset.  See FluxCircFormat.py for an example.
+      - Determine the root queryset.  If you don't want the browse functionality to return all records of the root model (e.g. PeakData.objects.all()) (i.e. a filter is required), add a method to the class called get_root_query_set() that overrides the base class version, and returns the filtered queryset.  See FluxCircFormat.py for an example.
          - Note that if you want your pre-filter to be transparent to the user, you can alternatively override the base class's value for `static_filter`.  Any searches you set there, as the value of the `tree` member of the qry object (see the static_filter commented example), will show in the hierarchical search form, but will not be editable to the user.
       - Fill in the model_instances data: every model, it's path (from the root table to the current table), it's reverse_path (from the current table to the root table), and all its fields.
         (Note that paths (a.k.a. "key paths") use the foreign key names in the models or the "related_name" in the model being linked to.  The forward path does not include the root table and the reverse_path does not include the current table.)

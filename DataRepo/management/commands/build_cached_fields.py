@@ -3,9 +3,9 @@ from argparse import RawTextHelpFormatter
 from django.core.management import BaseCommand
 
 from DataRepo.models.hier_cached_model import (
+    CACHING_RETRIEVALS,
+    CACHING_UPDATES,
     HierCachedModel,
-    caching_retrievals,
-    caching_updates,
     delete_all_caches,
     disable_caching_retrievals,
     disable_caching_updates,
@@ -15,17 +15,17 @@ from DataRepo.models.hier_cached_model import (
 )
 
 # This builds a string to use in the help text when the user supplied -h
-nlt = "\n  "
-nltt = "\n    "
-funcs_str = nlt.join(
-    [f"{k}\n    {nltt.join(v)}" for k, v in get_cached_method_names().items()]
+NLT = "\n  "
+NLTT = "\n    "
+FUNCS_STR = NLT.join(
+    [f"{k}\n    {NLTT.join(v)}" for k, v in get_cached_method_names().items()]
 )
 
 
 class Command(BaseCommand):
     help = (
         "Builds missing cached values for all model fields with the following cached_functions:\n"
-        f"{nlt}{funcs_str}"
+        f"{NLT}{FUNCS_STR}"
     )
 
     def add_arguments(self, parser):
@@ -51,11 +51,11 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        save_retrievals = caching_retrievals
-        save_updates = caching_updates
-        if not caching_retrievals:
+        save_retrievals = CACHING_RETRIEVALS
+        save_updates = CACHING_UPDATES
+        if not CACHING_RETRIEVALS:
             enable_caching_retrievals()
-        if not caching_updates:
+        if not CACHING_UPDATES:
             enable_caching_updates()
 
         if options["clear"]:

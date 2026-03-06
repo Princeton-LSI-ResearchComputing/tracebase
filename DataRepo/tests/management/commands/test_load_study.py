@@ -88,14 +88,14 @@ class LoadStudyTests(TracebaseTestCase):
                 "small_obob_animal_and_sample_table_blank_sample.xlsx"
             ),
         )
-        COMPOUNDS_COUNT = 2
-        SAMPLES_COUNT = 14
-        PEAKDATA_ROWS = 11
+        compounds_count = 2
+        samples_count = 14
+        peakdata_rows = 11
 
         self.assertEqual(
-            PeakGroup.objects.all().count(), COMPOUNDS_COUNT * SAMPLES_COUNT
+            PeakGroup.objects.all().count(), compounds_count * samples_count
         )
-        self.assertEqual(PeakData.objects.all().count(), PEAKDATA_ROWS * SAMPLES_COUNT)
+        self.assertEqual(PeakData.objects.all().count(), peakdata_rows * samples_count)
 
     def test_get_dataframe(self):
         """Asserts that the '1' in the Label Positions column of the Tracers sheet is read in as a string and not an

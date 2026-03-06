@@ -20,7 +20,7 @@ class ArchiveFileListView(BSTListView):
 
     # The subquery strategy is multiple orders of magnitude faster for this model, given the multiple M:M relationships
     # between ArchiveFile and Study, and the numbers of those intermediate related records.
-    query_mode = QueryMode.subquery
+    query_mode = QueryMode.SUBQUERY
 
     column_ordering = [
         "filename",

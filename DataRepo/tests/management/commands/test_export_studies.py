@@ -18,7 +18,7 @@ class ExportStudiesTestBase(TracebaseTestCase):
         super().setUpClass()
 
     @classmethod
-    def tearDownClass(cls):
+    def tearDownClass(cls):  # pylint: disable=invalid-name
         cls.tmpdir_obj.cleanup()
         super().tearDownClass()
 

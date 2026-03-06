@@ -22,12 +22,15 @@ class Pager:
         orderby_input_id="pager-orderby-elem",
         orderdir_input_id="pager-orderdir-elem",
         form_id="custom-paging",
-        rows_attrs={
-            "class": "btn btn-primary dropdown-toggle",
-            "type": "button",
-            "data-bs-toggle": "dropdown",
-        },
+        rows_attrs=None,
     ):
+        if not rows_attrs:
+            rows_attrs = {
+                "class": "btn btn-primary dropdown-toggle",
+                "type": "button",
+                "data-bs-toggle": "dropdown",
+            }
+
         self.form_id_field = form_id_field
         self.action = action
         self.num_buttons = num_buttons

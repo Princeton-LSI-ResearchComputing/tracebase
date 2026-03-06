@@ -7,23 +7,23 @@ from django.db.models import CharField, F, Model, OrderBy, Transform, Value
 from pytimeparse.timeparse import timeparse
 
 from DataRepo.formats.dataformat_group_query import (
-    appendFilterToGroup,
-    createFilterCondition,
-    createFilterGroup,
-    extractFldPaths,
-    getChildren,
-    getComparison,
-    getField,
-    getFilterType,
-    getSearchTree,
-    getUnits,
-    getValue,
-    isAllGroup,
-    isQuery,
-    isQueryGroup,
-    setField,
-    splitCommon,
-    splitPathName,
+    append_filter_to_group,
+    create_filter_condition,
+    create_filter_group,
+    extract_fld_paths,
+    get_children,
+    get_comparison,
+    get_field,
+    get_filter_type,
+    get_search_tree,
+    get_units,
+    get_value,
+    is_all_group,
+    is_query,
+    is_query_group,
+    set_field,
+    split_common,
+    split_path_name,
 )
 from DataRepo.models.utilities import (
     dereference_field,
@@ -36,7 +36,7 @@ class Format:
     """
     This class holds common data/functions for search output formats.
 
-    Note that any comparison types added to ncmp_choices must also be implemented in meetsCondition().
+    Note that any comparison types added to ncmp_choices must also be implemented in meets_condition().
     """
 
     id = ""
@@ -217,9 +217,9 @@ class Format:
         },
     }
 
-    static_filter = appendFilterToGroup(
-        createFilterGroup(),
-        createFilterCondition("", "", "", ""),
+    static_filter = append_filter_to_group(
+        create_filter_group(),
+        create_filter_condition("", "", "", ""),
     )  # Same as qry['tree']
 
     # static_filter example WITH static=True (below).  Note that a non-static empty query must be present in a non-
@@ -257,34 +257,34 @@ class Format:
     # }
 
     @classmethod
-    def getSearchFieldChoices(self):
+    def get_search_field_choices(cls):
         """
         This generates the tuple to populate the select list choices for the AdvSearchForm fld field.
         """
 
         choices = ()
-        for mkey in self.model_instances.keys():
-            mpath = self.model_instances[mkey]["path"]
-            for fkey in self.model_instances[mkey]["fields"].keys():
+        for mkey in cls.model_instances.keys():
+            mpath = cls.model_instances[mkey]["path"]
+            for fkey in cls.model_instances[mkey]["fields"].keys():
                 # We only want it in the select list if it is both searchable and displayed
                 if (
-                    self.model_instances[mkey]["fields"][fkey]["searchable"] is True
-                    and self.model_instances[mkey]["fields"][fkey]["displayed"] is True
+                    cls.model_instances[mkey]["fields"][fkey]["searchable"] is True
+                    and cls.model_instances[mkey]["fields"][fkey]["displayed"] is True
                 ):
                     fpath = ""
                     if mpath != "":
                         fpath = mpath + "__"
                     fpath += fkey
-                    fname = self.model_instances[mkey]["fields"][fkey]["displayname"]
+                    fname = cls.model_instances[mkey]["fields"][fkey]["displayname"]
                     choices = choices + ((fpath, fname),)
         return tuple(sorted(choices, key=lambda x: x[1]))
 
-    def getFieldUnitsLookup(self):
+    def get_field_units_lookup(self):
         """
         This method is used in the backend to handle a user's search selections (i.e. it's main utility is to be used
         to call the correct convert function on the value the user entered in the val field to convert what they
         entered into the units/format that is recorded in the database, e.g. change "2" to "2 weeks").  This is
-        separate from the getFieldUnitsDict method because that method's return is sent to the view/template in json
+        separate from the get_field_units_dict method because that method's return is sent to the view/template in json
         format, and the convert function cannot be transmitted in that context.
 
         This creates a dict keyed on fld values (i.e. the path of each field included in a format, as indicated by the
@@ -343,13 +343,13 @@ class Format:
                     units_lookup[path_fld] = None
         return units_lookup
 
-    def getFieldUnitsDict(self):
+    def get_field_units_dict(self):
         """
         This method is used in the frontend to populate the search interface (i.e. it's main utility is to be used to
         create the units select list, update the val field's placeholder with a units example, and optionally provide
         an explanation of the units format in the form of a tooltip-linked info icon.  This is separate from the
-        getFieldUnitsLookup method because this method's return is sent to the view/template in json format, and the
-        convert function that is included in the getFieldUnitsLookup method's output cannot be transmitted in that
+        get_field_units_lookup method because this method's return is sent to the view/template in json format, and the
+        convert function that is included in the get_field_units_lookup method's output cannot be transmitted in that
         context.
 
         Returns a dict of
@@ -459,7 +459,7 @@ class Format:
 
         return unitsdict
 
-    def getAllFieldUnitsChoices(self):
+    def get_all_field_units_choices(self):
         """
         Returns the union of all unit_options, ignoring differences in the second value. This is mainly only for form
         validation because it only validates known values (the first value in each tuple) regardless of the particular
@@ -477,13 +477,13 @@ class Format:
                     all_unit_choices = all_unit_choices + ((opt_key, opt_name),)
         return all_unit_choices
 
-    def getComparisonChoices(self):
+    def get_comparison_choices(self):
         """
         Returns ncmp_choices (same for all derived classes)
         """
         return self.ncmp_choices
 
-    def getAllComparisonChoices(self):
+    def get_all_comparison_choices(self):
         """
         Returns the union of all ncmp_choices, ignoring differences in the second value. This is mainly only for form
         validation because it only validates known values (the first value in each tuple) regardless of the particular
@@ -498,13 +498,13 @@ class Format:
                     all_ncmp_choices = all_ncmp_choices + ((opt[0], opt[1]),)
         return all_ncmp_choices
 
-    def getKeyPathList(self, mdl):
+    def get_key_path_list(self, mdl):
         """
         Returns a list of foreign key names for a composite view from the root table to the supplied table.
         """
         return self.model_instances[mdl]["path"].split("__")
 
-    def getPrefetches(self):
+    def get_prefetches(self):
         """
         Returns a list of prefetch strings for a composite view from the root table to the supplied table.  It includes
         a unique set of "foreign key paths" that encompass all tables.
@@ -512,7 +512,7 @@ class Format:
         # This gets non-root model key paths (that are not "through" models) sorted in descending order of their length
         desc_len_sorted_paths = [
             self.model_instances[x]["path"]
-            for x in self.getModelInstances()
+            for x in self.get_model_instances()
             if (
                 self.model_instances[x]["path"] != ""
                 and (
@@ -537,7 +537,7 @@ class Format:
                 unique_paths.append(path)
         return unique_paths
 
-    def getTrueJoinPrefetchPathsAndQrys(self, qry):
+    def get_true_join_prefetch_paths_and_qrys(self, qry):
         """Takes a qry object (that maps the path version of fld [e.g. msrun_sample__sample__animal__age] to a dict that
         contains the units options, including most importantly, a convert function that is found via the selected units
         key recorded in the qry) and returns a list of prefetch paths related to the search.
@@ -564,22 +564,22 @@ class Format:
         # This is based on the assumption that prefetch filters work serially and are applied iteratively.  So if a
         # compound is filtered and then compound synonyms are filtered, the synonyms operate on the already filtered
         # compounds.  This might be a false assumption.
-        fld_paths = sorted(extractFldPaths(qry), key=len)
+        fld_paths = sorted(extract_fld_paths(qry), key=len)
 
-        new_units_lookup = deepcopy(self.getFieldUnitsLookup())
+        new_units_lookup = deepcopy(self.get_field_units_lookup())
 
         # Identify the fld paths that need a subquery in its prefetch and collect those paths associated with their
         # rerooted qry objects
         subquery_paths = []
         for srch_path_str in fld_paths:
-            srch_model_inst_name = self.pathToModelInstanceName(srch_path_str)
+            srch_model_inst_name = self.path_to_model_instance_name(srch_path_str)
             if (
                 self.model_instances[srch_model_inst_name]["manyrelated"]["manytomany"]
                 and self.model_instances[srch_model_inst_name]["manyrelated"][
                     "split_rows"
                 ]
             ):
-                new_qry = self.reRootQry(qry, srch_model_inst_name, new_units_lookup)
+                new_qry = self.re_root_qry(qry, srch_model_inst_name, new_units_lookup)
                 subquery_paths.append(
                     [
                         srch_path_str,
@@ -591,9 +591,9 @@ class Format:
 
         # If there are no subqueries necessary, just return all the prefetches
         if len(subquery_paths) == 0:
-            return self.getPrefetches()
+            return self.get_prefetches()
 
-        prefetches = self.getPrefetches()
+        prefetches = self.get_prefetches()
 
         # Create a dict to hold the more complex prefetch data so we know if we need queries on multiple nodes of a
         # path
@@ -641,7 +641,7 @@ class Format:
 
         return final_prefetches
 
-    def getFullJoinAnnotations(self):
+    def get_full_join_annotations(self):
         """
         This returns a list of dicts that, when expanded, can be supplied to .annotate().  It is intended to be used to
         distinguish between otherwise identical root table records that are returned because they link to many records
@@ -744,7 +744,7 @@ class Format:
 
         return annotations
 
-    def getModelInstances(self):
+    def get_model_instances(self):
         """
         Returns a list of all model instance names (keys of the model_instances datamember) containing fields that are
         in an output format.  This is generally the model name, but if a model has 2 different links in the composite
@@ -753,12 +753,12 @@ class Format:
         """
         return list(self.model_instances.keys())
 
-    def getModelInstance(self, mdl):
+    def get_model_instance(self, mdl):
         """
         Given a string that is either a model instance name or a model name, return the corresponding model instance
         name or report an error if it is ambiguous or not found.
         """
-        mdl_instance_names = self.getModelInstances()
+        mdl_instance_names = self.get_model_instances()
         if mdl not in mdl_instance_names:
             # Look through the actual model names (instead of the instance names) to see if there's a unique match.
             inst_names = []
@@ -777,12 +777,12 @@ class Format:
                 )
         return mdl
 
-    def getModelFromInstance(self, mdl_instance):
+    def get_model_from_instance(self, mdl_instance):
         """
         Despite the name, given a string that is either a model instance name or a model name, return the corresponding
         model name or report an error if it is ambiguous or not found.
         """
-        mdl_instance_names = self.getModelInstances()
+        mdl_instance_names = self.get_model_instances()
         matching_models = []
         matching_instance_models = []
         if mdl_instance in mdl_instance_names:
@@ -812,7 +812,7 @@ class Format:
                 f"[{','.join(matching_models)}]."
             )
 
-    def getFieldTypes(self):
+    def get_field_types(self):
         """
         Returns a dict of path__field -> {type -> field_type (number, string, enumeration), choices -> list of tuples}.
 
@@ -846,7 +846,7 @@ class Format:
 
         return typedict
 
-    def getSearchFields(self, mdl):
+    def get_search_fields(self, mdl):
         """
         Returns a dict of searchable fields for a given model/table whose keys are the field names and whose values are
         strings of the full foreign key path (delimited by dunderscores).
@@ -861,7 +861,7 @@ class Format:
                 fielddict[field] = path + field
         return fielddict
 
-    def getDisplayFields(self, mdl):
+    def get_display_fields(self, mdl):
         """
         Returns a dict of displayed fields for a given model/table whose keys are the field names and whose values are
         searchable field names in the same model/table that should be displayed in their stead.  The values of the
@@ -882,13 +882,13 @@ class Format:
                 fielddict[field] = field
         return fielddict
 
-    def getRootQuerySet(self):
+    def get_root_query_set(self):
         if self.rootmodel is not None:
             return self.rootmodel.objects.all()
         print("ERROR: rootmodel not set.")
         return None
 
-    def pathToModelInstanceName(self, fld_path):
+    def path_to_model_instance_name(self, fld_path):
         """
         Takes a model instance name (i.e. a key to the model_instances dict) and returns its key path
         """
@@ -896,49 +896,55 @@ class Format:
             if fld_path == self.model_instances[mdl]["path"]:
                 return mdl
         # This should raise an exception if we got here
-        self.checkPath(fld_path)
+        self.check_path(fld_path)
 
-    def reRootQry(self, qry, new_root_model_instance_name, units_lookup=None):
+    def re_root_qry(self, qry, new_root_model_instance_name, units_lookup=None):
         """
         This takes a qry object and the name of a model instance in the composite view and re-roots the fld values,
         making all the field paths come from a different model root.  It is intended to be used for prefetch
         subqueries.
         """
         ret_qry = deepcopy(qry)
-        self.reRootQryHelper(
-            getSearchTree(ret_qry, self.id), new_root_model_instance_name, units_lookup
+        self.re_root_qry_helper(
+            get_search_tree(ret_qry, self.id),
+            new_root_model_instance_name,
+            units_lookup,
         )
         return ret_qry
 
-    def reRootQryHelper(self, subtree, new_root_model_instance_name, units_lookup=None):
+    def re_root_qry_helper(
+        self, subtree, new_root_model_instance_name, units_lookup=None
+    ):
         """
-        Recursive helper to reRootQry
+        Recursive helper to re_root_qry
         """
-        if isQueryGroup(subtree):
-            for child in getChildren(subtree):
-                self.reRootQryHelper(child, new_root_model_instance_name, units_lookup)
-        elif isQuery(subtree):
-            old_fld = getField(subtree)
-            setField(
+        if is_query_group(subtree):
+            for child in get_children(subtree):
+                self.re_root_qry_helper(
+                    child, new_root_model_instance_name, units_lookup
+                )
+        elif is_query(subtree):
+            old_fld = get_field(subtree)
+            set_field(
                 subtree,
-                self.reRootFieldPath(old_fld, new_root_model_instance_name),
+                self.re_root_field_path(old_fld, new_root_model_instance_name),
             )
-            new_fld = getField(subtree)
+            new_fld = get_field(subtree)
             if units_lookup and old_fld != new_fld:
                 units_lookup[new_fld] = units_lookup[old_fld]
                 units_lookup.pop(old_fld)
         else:
-            type = getFilterType(subtree)
-            raise ValueError(f"Qry type: [{type}] must be either 'group' or 'query'.")
+            typ = get_filter_type(subtree)
+            raise ValueError(f"Qry type: [{typ}] must be either 'group' or 'query'.")
 
-    def reRootFieldPath(self, fld, reroot_instance_name):
+    def re_root_field_path(self, fld, reroot_instance_name):
         """
         Returns a modified fld path (derived from a qry object), re-rooted by using reroot_instance_name as the model
         instance name of the new root.  Essentially, it chops off the common path and prepends the reverse path of the
         fld's model.
         """
-        fld_path, fld_name = splitPathName(fld)
-        fld_instance_name = self.pathToModelInstanceName(fld_path)
+        fld_path, fld_name = split_path_name(fld)
+        fld_instance_name = self.path_to_model_instance_name(fld_path)
         if fld_instance_name == reroot_instance_name:
             return fld_name
         else:
@@ -947,7 +953,7 @@ class Format:
 
             # Determine the common path item(s) between reroot_path and fld_path (which could be none) and grab the
             # remainder of fld_path
-            common_path, fld_path_rem = splitCommon(fld_path, reroot_path)
+            common_path, fld_path_rem = split_common(fld_path, reroot_path)
             common_path_list = []
             if common_path != "":
                 common_path_list = common_path.split("__")
@@ -975,7 +981,7 @@ class Format:
 
             return fld_new_path
 
-    def checkPath(self, path):
+    def check_path(self, path):
         """
         Simply raises an exception if the path doesn't exist
         """
@@ -988,7 +994,7 @@ class Format:
                 f"Available paths are: [{', '.join(avail)}]."
             )
 
-    def getOrderByFields(self, mdl_inst_nm=None, model_name=None):
+    def get_order_by_fields(self, mdl_inst_nm=None, model_name=None):
         """
         Retrieves a model's default order by fields, given a model instance name.
         """
@@ -1015,7 +1021,7 @@ class Format:
         return []
 
     @classmethod
-    def orderByFieldToName(cls, order_by_field):
+    def order_by_field_to_name(cls, order_by_field):
         """Takes a str, OrderBy, and/or func like 'Lower' and returns the field name.  Recursive.
 
         Args:
@@ -1027,7 +1033,7 @@ class Format:
             (str): The name of a field in a model.
         """
         if isinstance(order_by_field, OrderBy):
-            return cls.orderByFieldToName(order_by_field.expression)
+            return cls.order_by_field_to_name(order_by_field.expression)
         elif isinstance(order_by_field, str):
             if order_by_field.startswith("-"):
                 # Chop off the negative sign to get the unmodified field name
@@ -1035,22 +1041,22 @@ class Format:
             else:
                 return order_by_field
         elif isinstance(order_by_field, Transform):
-            return cls.orderByFieldToName(order_by_field.lhs)
+            return cls.order_by_field_to_name(order_by_field.lhs)
         elif isinstance(order_by_field, F):
-            return cls.orderByFieldToName(order_by_field.name)
+            return cls.order_by_field_to_name(order_by_field.name)
         else:
             raise NotImplementedError(
                 f"OrderBy field type {type(order_by_field).__name__} not supported."
             )
 
-    def getFKModelName(self, mdl, field_ref_name):
+    def get_fk_model_name(self, mdl, field_ref_name):
         """
         Given a model class and the name of a foreign key field, this retrieves the name of the model the foreign key
         links to
         """
         return mdl._meta.get_field(field_ref_name).related_model._meta.model.__name__
 
-    def getDistinctFields(self, order_by=None, assume_distinct=True, split_all=False):
+    def get_distinct_fields(self, order_by=None, assume_distinct=True, split_all=False):
         """
         Puts together fields required by queryset.distinct() based on the value of each model instance's split_rows
         state (or if split_all is True).
@@ -1118,7 +1124,7 @@ class Format:
                 # Django's ordering fields are required when any field is provided to .distinct().  Otherwise, you
                 # get the error: `ProgrammingError: SELECT DISTINCT ON expressions must match initial ORDER BY
                 # expressions`
-                tmp_distincts = self.getOrderByFields(mdl_inst_nm)
+                tmp_distincts = self.get_order_by_fields(mdl_inst_nm)
                 for fld_nm in tmp_distincts:
                     # Remove potential loop added to the path when ordering_fields are dereferenced
                     # E.g. This changes "peak_data__labels__peak_data__peak_group__name" to
@@ -1153,7 +1159,7 @@ class Format:
         # of the root model
         if len(distinct_fields) > 0:
             distinct_fields.insert(0, "pk")
-            tmp_distincts = self.getOrderByFields(model_name=self.rootmodel.__name__)
+            tmp_distincts = self.get_order_by_fields(model_name=self.rootmodel.__name__)
             tmp_distincts.reverse()
             for fld_nm in tmp_distincts:
                 distinct_fields.insert(0, fld_nm)
@@ -1166,50 +1172,48 @@ class Format:
 
         return distinct_fields
 
-    def getStatsParams(self):
+    def get_stats_params(self):
         """Stats getter"""
         return deepcopy(self.stats)
 
-    def statsAvailable(self):
+    def stats_available(self):
         return self.stats is not None
 
-    def meetsAllConditionsByValList(self, rootrec, query, field_order):
+    def meets_all_conditions_by_val_list(self, rootrec, query, field_order):
         """
         This is a python-code version of a complex Q expression, necessary for checking filters in aggregate count
         annotations, because the Django ORM does not support .distinct(fields).annotate(Count) when duplicate root
         table records exist.
         """
-        if isQuery(query):
-            fld = getField(query)
-            val = getValue(query)
-            ncmp = getComparison(query)
-            units = getUnits(query)
+        if is_query(query):
+            fld = get_field(query)
+            val = get_value(query)
+            ncmp = get_comparison(query)
+            units = get_units(query)
             recval = rootrec[field_order.index(fld)]
-            searchterm = self.matchUnits(fld, val, units)
-            return self.meetsCondition(recval, ncmp, searchterm)
-        else:
-            if isAllGroup(query):
-                for subquery in getChildren(query):
-                    if not self.meetsAllConditionsByValList(
-                        rootrec, subquery, field_order
-                    ):
-                        return False
+            searchterm = self.match_units(fld, val, units)
+            return self.meets_condition(recval, ncmp, searchterm)
+        if is_all_group(query):
+            for subquery in get_children(query):
+                if not self.meets_all_conditions_by_val_list(
+                    rootrec, subquery, field_order
+                ):
+                    return False
+            return True
+        for subquery in get_children(query):
+            if self.meets_all_conditions_by_val_list(rootrec, subquery, field_order):
                 return True
-            else:
-                for subquery in getChildren(query):
-                    if self.meetsAllConditionsByValList(rootrec, subquery, field_order):
-                        return True
-                return False
+        return False
 
-    def matchUnits(self, fld, val, units):
+    def match_units(self, fld, val, units):
         """
         This is a python code version of matching units of the search term with the value returned from a query.  It
         takes the field path, the search term value, and the units, and returns the search term value in the units/
-        format that the database returns so that they can be compared in `self.meetsCondition()`.
+        format that the database returns so that they can be compared in `self.meets_condition()`.
 
         If
         """
-        units_lookup = self.getFieldUnitsLookup()
+        units_lookup = self.get_field_units_lookup()
         if fld in units_lookup.keys():
             if units_lookup[fld] is not None and units in units_lookup[fld].keys():
                 try:
@@ -1233,7 +1237,7 @@ class Format:
             )
         return val
 
-    def meetsCondition(self, recval, condition, searchterm):
+    def meets_condition(self, recval, condition, searchterm):
         """
         Determines whether the recval and search term match, given the matching condition.
         This is only useful for re-filtering records in a template when the qry includes a fld from a many-to-many
@@ -1242,40 +1246,39 @@ class Format:
         """
         if condition == "iexact":
             return recval.lower() == searchterm.lower()
-        elif condition == "not_iexact":
+        if condition == "not_iexact":
             return recval.lower() != searchterm.lower()
-        elif condition == "exact":
+        if condition == "exact":
             return recval == searchterm
-        elif condition == "not_exact":
+        if condition == "not_exact":
             return recval != searchterm
-        elif condition == "lt":
+        if condition == "lt":
             return recval < searchterm
-        elif condition == "lte":
+        if condition == "lte":
             return recval <= searchterm
-        elif condition == "gt":
+        if condition == "gt":
             return recval > searchterm
-        elif condition == "gte":
+        if condition == "gte":
             return recval >= searchterm
-        elif condition == "isnull":
+        if condition == "isnull":
             return recval is None
-        elif condition == "not_isnull":
+        if condition == "not_isnull":
             return recval is not None
-        elif condition == "icontains":
+        if condition == "icontains":
             return searchterm.lower() in recval.lower()
-        elif condition == "not_icontains":
+        if condition == "not_icontains":
             return searchterm.lower() not in recval.lower()
-        elif condition == "istartswith":
+        if condition == "istartswith":
             return recval.lower().startswith(searchterm.lower())
-        elif condition == "not_istartswith":
+        if condition == "not_istartswith":
             return not recval.lower().startswith(searchterm.lower())
-        elif condition == "iendswith":
+        if condition == "iendswith":
             return recval.lower().endswith(searchterm.lower())
-        elif condition == "not_iendswith":
+        if condition == "not_iendswith":
             return not recval.lower().endswith(searchterm.lower())
-        else:
-            raise UnknownComparison(
-                f"Unrecognized negatable comparison (ncmp) value: {condition}."
-            )
+        raise UnknownComparison(
+            f"Unrecognized negatable comparison (ncmp) value: {condition}."
+        )
 
 
 class UnknownComparison(Exception):
@@ -1283,13 +1286,13 @@ class UnknownComparison(Exception):
 
 
 class TypeUnitsMismatch(Exception):
-    def __init__(self, type):
+    def __init__(self, field_type):
         message = (
-            f"Unsupported combination of field type {type} and units.  Only fields of type 'number' can have unit "
-            "options."
+            f"Unsupported combination of field type {field_type} and units.  Only fields of type 'number' can have "
+            "unit options."
         )
         super().__init__(message)
-        self.type = type
+        self.type = field_type
 
 
 class ConditionallyRequiredArgumentError(Exception):

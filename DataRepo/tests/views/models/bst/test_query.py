@@ -98,7 +98,7 @@ class BSTDetailViewTests(TracebaseTestCase):
         BSTLVAnimalTestModel.objects.create(name="A1", treatment=cls.tr)
         super().setUpTestData()
 
-    def test_BSTDetailView(self):
+    def test_bst_detail_view(self):
         bdv = TreatmentDetailView()
         self.assertEquivalent(
             {"sample_count": Count("samples", output_field=IntegerField())},
@@ -207,14 +207,14 @@ class BSTListViewTests(TracebaseTestCase):
         self.assertEqual(1, len(aw.warnings))
         self.assertIn("get_absolute_url", str(aw.warnings[0].message))
 
-        self.assertEqual(QueryMode.iterate, slv1.query_mode)
+        self.assertEqual(QueryMode.ITERATE, slv1.query_mode)
 
         with self.assertWarns(DeveloperWarning) as aw:
-            slv2 = StudyLV(query_mode=QueryMode.subquery)
+            slv2 = StudyLV(query_mode=QueryMode.SUBQUERY)
         self.assertEqual(1, len(aw.warnings))
         self.assertIn("get_absolute_url", str(aw.warnings[0].message))
 
-        self.assertEqual(QueryMode.subquery, slv2.query_mode)
+        self.assertEqual(QueryMode.SUBQUERY, slv2.query_mode)
 
     @TracebaseTestCase.assertNotWarns()
     def test_init_search_cookie(self):

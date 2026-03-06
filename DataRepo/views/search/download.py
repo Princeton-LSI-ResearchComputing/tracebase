@@ -16,8 +16,8 @@ from django.template import loader
 from django.views.generic.edit import FormView
 
 from DataRepo.formats.dataformat_group_query import (
-    isQryObjValid,
-    isValidQryObjPopulated,
+    is_qry_obj_valid,
+    is_valid_qry_obj_populated,
 )
 from DataRepo.formats.search_group import SearchGroup
 from DataRepo.forms import AdvSearchDownloadForm, AdvSearchForm
@@ -65,16 +65,16 @@ class AdvancedSearchDownloadView(FormView):
         return qry
 
     def get_query_results(self, qry, **kwargs):
-        if not isQryObjValid(qry, self.basv_metadata.getFormatNames().keys()):
+        if not is_qry_obj_valid(qry, self.basv_metadata.get_format_names().keys()):
             print("ERROR: Invalid qry object: ", qry)
             raise Http404("Invalid json")
 
-        if isValidQryObjPopulated(qry):
-            res, tot, stats = self.basv_metadata.performQuery(
+        if is_valid_qry_obj_populated(qry):
+            res, tot, stats = self.basv_metadata.perform_query(
                 qry, qry["selectedtemplate"], **kwargs
             )
         else:
-            res, tot, stats = self.basv_metadata.getAllBrowseData(
+            res, tot, stats = self.basv_metadata.get_all_browse_data(
                 qry["selectedtemplate"], **kwargs
             )
 
@@ -122,12 +122,12 @@ class AdvancedSearchDownloadView(FormView):
                 "forms": AdvSearchForm().form_classes,
                 "qry": qry,
                 "debug": settings.DEBUG,
-                "root_group": self.basv_metadata.getRootGroup(),
+                "root_group": self.basv_metadata.get_root_group(),
                 "default_format": self.basv_metadata.default_format,
-                "ncmp_choices": self.basv_metadata.getComparisonChoices(),
-                "fld_types": self.basv_metadata.getFieldTypes(),
-                "fld_choices": self.basv_metadata.getSearchFieldChoicesDict(),
-                "fld_units": self.basv_metadata.getFieldUnitsDict(),
+                "ncmp_choices": self.basv_metadata.get_comparison_choices(),
+                "fld_types": self.basv_metadata.get_field_types(),
+                "fld_choices": self.basv_metadata.get_search_field_choices_dict(),
+                "fld_units": self.basv_metadata.get_field_units_dict(),
                 "error": (
                     "The download feature is malfunctioning.  Please report this error and click your browser's back "
                     "button."

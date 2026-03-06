@@ -232,7 +232,7 @@ class InfileError(Exception):
 class SummarizableError(Exception, ABC):
     @property
     @abstractmethod
-    def SummarizerExceptionClass(self):
+    def SummarizerExceptionClass(self):  # pylint: disable=invalid-name
         """An exception class that takes a list of Exceptions of derived exception classes of this class as the sole
         required positional argument to its constructor.  All keyword arguments are ignored (if they exist).
 
@@ -738,12 +738,12 @@ class MissingModelRecords(MissingRecords, ABC):
 
     @property
     @abstractmethod
-    def ModelName(self):
+    def ModelName(self):  # pylint: disable=invalid-name
         pass
 
     @property
     @abstractmethod
-    def RecordName(self):
+    def RecordName(self):  # pylint: disable=invalid-name
         pass
 
     def __init__(
@@ -817,12 +817,12 @@ class MissingModelRecordsByFile(MissingRecords, ABC):
 
     @property
     @abstractmethod
-    def ModelName(self):
+    def ModelName(self):  # pylint: disable=invalid-name
         pass
 
     @property
     @abstractmethod
-    def RecordName(self):
+    def RecordName(self):  # pylint: disable=invalid-name
         pass
 
     def __init__(
@@ -4024,12 +4024,14 @@ class AmbiguousMzxmlSampleMatches(Exception):
 
     def __init__(self, exceptions: List[AmbiguousMzxmlSampleMatch], message=None):
         if message is None:
-            message = (
-                "The following mzXML files could not be mapped to a single sample.  Each mzXML must be associated with "
-                "an MSRunSample, which links to a Sample record, so knowing which sample an mzXML is associated with "
-                "is required.  To resolve this, add a row for every mzXML file with the indicated name, including "
-                "their paths relative to the study directory, to the Peak Annotation Details sheet."
-            )
+            tmp_message = [
+                (
+                    "The following mzXML files could not be mapped to a single sample.  Each mzXML must be associated "
+                    "with an MSRunSample, which links to a Sample record, so knowing which sample an mzXML is "
+                    "associated with is required.  To resolve this, add a row for every mzXML file with the indicated "
+                    "name, including their paths relative to the study directory, to the Peak Annotation Details sheet."
+                )
+            ]
             matches_by_annot_file = defaultdict(list)
             exc: AmbiguousMzxmlSampleMatch
             for exc in exceptions:
@@ -4041,11 +4043,12 @@ class AmbiguousMzxmlSampleMatches(Exception):
             for loc, exc_list in sorted(
                 matches_by_annot_file.items(), key=lambda tpl: tpl[0]
             ):
-                message += f"\t{loc}\n"
+                tmp_message.append(f"\t{loc}\n")
                 for exc in sorted(exc_list, key=lambda e: e.mzxml_name):
-                    message += (
+                    tmp_message.append(
                         f"\t\t'{exc.mzxml_name}' matches samples: {exc.sample_names}\n"
                     )
+            message = "".join(tmp_message)
         super().__init__(message)
         self.exceptions = exceptions
 

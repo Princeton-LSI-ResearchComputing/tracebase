@@ -12,7 +12,7 @@ from DataRepo.views.utils import (
 
 class UtilsMainTests(TracebaseTestCase):
 
-    def test_GracefulPaginator(self):
+    def test_graceful_paginator(self):
         Study.objects.create(name="1")
         Study.objects.create(name="2")
         # 2 records, 1 record/row per page, makes 2 pages

@@ -39,8 +39,8 @@ from DataRepo.views.models.bst.column_setup import (
 class QueryMode(Enum):
     """This defines the query modes used to populate the many-related field values of a page of results"""
 
-    iterate = 1
-    subquery = 2
+    ITERATE = 1
+    SUBQUERY = 2
 
 
 class BSTQueryView:
@@ -69,7 +69,7 @@ class BSTQueryView:
         NOTE: Other class attributes are inherited, but re-declared for IDE functionality.
     """
 
-    query_mode = QueryMode.iterate
+    query_mode = QueryMode.ITERATE
 
     def __init__(self, query_mode: Optional[QueryMode] = None):
         # This assumes/requires that the self passed in has these instance attributes, which are (re-)declared here for
@@ -385,11 +385,11 @@ class BSTDetailView(BSTBaseDetailView, BSTQueryView):
                 # If this is a many-related column
                 if isinstance(column, BSTManyRelatedColumn):
 
-                    if self.query_mode == QueryMode.subquery:
+                    if self.query_mode == QueryMode.SUBQUERY:
                         subrecs = self.get_many_related_column_val_by_subquery(
                             object, column
                         )
-                    elif self.query_mode == QueryMode.iterate:
+                    elif self.query_mode == QueryMode.ITERATE:
                         subrecs = self.get_column_val_by_iteration(object, column)
                     else:
                         raise NotImplementedError(
@@ -739,11 +739,11 @@ class BSTListView(BSTBaseListView, BSTQueryView):
                     # If this is a many-related column
                     if isinstance(column, BSTManyRelatedColumn):
 
-                        if self.query_mode == QueryMode.subquery:
+                        if self.query_mode == QueryMode.SUBQUERY:
                             subrecs = self.get_many_related_column_val_by_subquery(
                                 rec, column
                             )
-                        elif self.query_mode == QueryMode.iterate:
+                        elif self.query_mode == QueryMode.ITERATE:
                             subrecs = self.get_column_val_by_iteration(rec, column)
                         else:
                             raise NotImplementedError(

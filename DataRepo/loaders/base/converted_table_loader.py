@@ -52,20 +52,20 @@ class ConvertedTableLoader(TableLoader, ABC):
 
     @property
     @abstractmethod
-    def OrigDataTableHeaders(self):
+    def OrigDataTableHeaders(self):  # pylint: disable=invalid-name
         # namedtuple spec that accounts for ALL headers from ALL sheets.  Needed for OrigData* attributes.
         pass
 
     @property
     @abstractmethod
-    def OrigDataHeaders(self):
+    def OrigDataHeaders(self):  # pylint: disable=invalid-name
         # namedtuple of strings - should include headers from ALL sheets that will be merged.  Needed for evaluating
         # suitability of input data and reverting new to old versions.
         pass
 
     @property
     @abstractmethod
-    def OrigDataColumnTypes(self) -> Optional[dict]:
+    def OrigDataColumnTypes(self) -> Optional[dict]:  # pylint: disable=invalid-name
         """A dict that sets the types of each original column (to be provided to read_from_file as its dtypes option).
 
         Example:
@@ -81,7 +81,7 @@ class ConvertedTableLoader(TableLoader, ABC):
 
     @property
     @abstractmethod
-    def OrigDataRequiredHeaders(self):
+    def OrigDataRequiredHeaders(self):  # pylint: disable=invalid-name
         # Dict of lists of header key strings keyed on sheet name.
         pass
 
