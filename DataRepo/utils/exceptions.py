@@ -4110,11 +4110,12 @@ class AmbiguousMzxmlSampleMatches(Exception):
                 (
                     "The following mzXML files could not be mapped to a single sample.  Each mzXML must be associated "
                     "with an MSRunSample, which links to a Sample record, so knowing which sample an mzXML is "
-                    "associated with is required.  To resolve this, add a row for every mzXML file with the indicated "
-                    "name, including their paths relative to the study directory, to the Peak Annotation Details sheet."
+                    "associated with is required.\n"
                 )
             ]
-            matches_by_annot_file = defaultdict(list)
+            matches_by_annot_file: Dict[str, Dict[str, List[str]]] = defaultdict(
+                lambda: defaultdict(list)
+            )
             exc: AmbiguousMzxmlSampleMatch
             for exc in exceptions:
                 loc = generate_file_location_string(
@@ -4127,10 +4128,22 @@ class AmbiguousMzxmlSampleMatches(Exception):
                 matches_by_annot_file.items(), key=lambda tpl: tpl[0]
             ):
                 tmp_message.append(f"\t{loc}\n")
-                for exc in sorted(exc_list, key=lambda e: e.mzxml_name):
+                for samples_str, mzxml_list in sorted(
+                    samples_dict.items(), key=lambda t: t[0]
+                ):
                     tmp_message.append(
-                        f"\t\t'{exc.mzxml_name}' matches samples: {exc.sample_names}\n"
+                        f"\t\tmzXML(s) that map to samples: {samples_str}\n"
                     )
+                    for mzxml in sorted(mzxml_list):
+                        tmp_message.append(f"\t\t\t{mzxml}\n")
+            tmp_message.append(
+                "To resolve this, either add every mzXML (with its path) to an existing row or new row, each "
+                "associated with a single sample to the Peak Annotation Details sheet.  Paths should be relative to "
+                "the study directory.  Set the row to be skipped if the mzXML was not used in an abundance correction "
+                "analysis.  Every mzXML in the study directory must be accounted for in the Peak Annotation Details "
+                "sheet."
+            )
+
             message = "".join(tmp_message)
         super().__init__(message)
         self.exceptions = exceptions

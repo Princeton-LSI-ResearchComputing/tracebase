@@ -910,14 +910,11 @@ class MSRunsLoader(TableLoader):
                         continue
                     else:
                         # Obtain all the mzXML paths to report in the AmbiguousMzxmlSampleMatch error
-                        leftover_mzxmls = [
+                        header_mzxml_map = self.mzxml_dict_by_header[mzxml_name_no_ext]
+                        leftover_mzxml_filepaths = [
                             mz_file_dict["mzxml_filepath"]
-                            for dir_key in self.mzxml_dict_by_header[
-                                mzxml_name_no_ext
-                            ].keys()
-                            for mz_file_dict in self.mzxml_dict_by_header[
-                                mzxml_name_no_ext
-                            ][dir_key]
+                            for mz_file_dict_list in header_mzxml_map.values()
+                            for mz_file_dict in mz_file_dict_list
                             if not mz_file_dict["added"]
                         ]
 
@@ -925,7 +922,7 @@ class MSRunsLoader(TableLoader):
                         self.buffer_infile_exception(
                             AmbiguousMzxmlSampleMatch(
                                 unique_leftover_samples,
-                                leftover_mzxmls,
+                                leftover_mzxml_filepaths,
                                 infer_match,
                             ),
                             is_error=True,

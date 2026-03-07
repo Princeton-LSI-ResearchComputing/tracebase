@@ -293,21 +293,6 @@ class StudyLoaderTests(TracebaseTestCase):
                 "aggregated_errors"
             ].exception_type_exists(AllUnskippedBlanks)
         )
-        self.assertTrue(
-            sl.load_statuses.statuses["Samples Check"][
-                "aggregated_errors"
-            ].exception_type_exists(AllMissingSamples)
-        )
-        self.assertTrue(
-            sl.load_statuses.statuses["Compounds Check"][
-                "aggregated_errors"
-            ].exception_type_exists(AllMissingCompounds)
-        )
-        self.assertTrue(
-            sl.load_statuses.statuses["Peak Annotation Blanks Check"][
-                "aggregated_errors"
-            ].exception_type_exists(AllUnskippedBlanks)
-        )
 
     def test_get_loader_instances(self):
         sl = StudyV3Loader(_validate=True)

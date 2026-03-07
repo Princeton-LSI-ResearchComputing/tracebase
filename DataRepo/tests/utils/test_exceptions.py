@@ -1952,11 +1952,11 @@ class ExceptionTests(TracebaseTestCase):
         self.assertIn("to the Peak Annotation Details sheet", str(amsm_summary))
         # Supplies the data necessary to implement the suggestion
         self.assertIn(
-            "samples: sample1, sample1other\n\t\tsample1.mzXML",
+            "samples: sample1, sample1other\n\t\t\tsample1.mzXML",
             str(amsm_summary),
         )
         self.assertIn(
-            "samples: sample2, sample2other\n\t\tsample2.mzXML",
+            "samples: sample2, sample2other\n\t\t\tsample2.mzXML",
             str(amsm_summary),
         )
 
@@ -2261,7 +2261,9 @@ class ExceptionTests(TracebaseTestCase):
         self.assertIn("blank", str(exc))
         self.assertIn("Test suggestion", str(exc))
 
-    def test_PeakAnnotationFileConflict(self):
+    def test_peak_annotation_file_conflict(self):
+        """Asserts that the content of the PeakAnnotationFileConflict exception describes the problem, its cause, a
+        suggested fix, and enough data to implement the fix."""
         from DataRepo.models import ArchiveFile, DataFormat, DataType
 
         # Prepare to create an "edited" file (loaded and being loaded)
