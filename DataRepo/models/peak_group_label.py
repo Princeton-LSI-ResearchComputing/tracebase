@@ -192,10 +192,19 @@ class PeakGroupLabel(HierCachedModel):
             else:
                 normalized_labeling = None
 
+        except ZeroDivisionError:
+            warnings.warn(
+                f"Unable to compute normalized_labeling for element '{self.element}' in peak group "
+                f"{self.peak_group.name} of sample {self.peak_group.msrun_sample.sample} because the serum tracer "
+                f"enrichment fraction for the {self.animal.infusate.tracers.count()} tracer(s) infused in animal "
+                f"{self.animal} is 0."
+            )
+            normalized_labeling = None
         except Sample.DoesNotExist:
             warnings.warn(
-                f"Unable to compute normalized_labelings for {self.peak_group.msrun_sample.sample}:{self}, associated "
-                "'serum' sample not found."
+                f"Unable to compute normalized_labeling for element '{self.element}' in peak group "
+                f"{self.peak_group.name} of sample {self.peak_group.msrun_sample.sample} because no serum sample could "
+                "be found."
             )
             normalized_labeling = None
 
@@ -474,7 +483,16 @@ class PeakGroupLabel(HierCachedModel):
         ):
             fraction += pdrec.fraction
 
-        return self.animal.infusion_rate * tracer_info["concentration"] / fraction
+        try:
+            result = self.animal.infusion_rate * tracer_info["concentration"] / fraction
+        except ZeroDivisionError:
+            warnings.warn(
+                f"PeakGroup {self.peak_group.name} - cannot compute intact tracer rate for element {self.element} when "
+                "its fraction (sum) is zero."
+            )
+            result = None
+
+        return result
 
     @property  # type: ignore
     @cached_function
@@ -546,8 +564,12 @@ class PeakGroupLabel(HierCachedModel):
                 * self.animal.infusion_rate
                 / self.enrichment_fraction
             )
-        except Exception as e:
-            raise e
+        except ZeroDivisionError:
+            warnings.warn(
+                f"PeakGroup {self.peak_group.name} - cannot compute average disappearance rate for element "
+                f"{self.element} when the enrichment fraction is zero."
+            )
+            result = None
 
         return result
 
