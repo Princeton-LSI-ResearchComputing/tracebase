@@ -30,6 +30,8 @@ jobs:
       statuses: write
 
     steps:
+      - name: Install pylint-django
+        run: pip install pylint-django
       # Checks out a copy of your repository on the ubuntu-latest machine
       - name: Checkout code
         uses: actions/checkout@v4
