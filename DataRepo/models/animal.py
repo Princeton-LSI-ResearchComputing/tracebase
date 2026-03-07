@@ -150,6 +150,9 @@ class Animal(MaintainedModel, HierCachedModel):
 
     @MaintainedModel.setter(
         generation=0,
+        # If there is a new or deleted last serum sample tracer PeakGroup (added to or deleted from the PeakGroup model,
+        # fcirc.is_last for the new or formerly last FCirc record needs to be updated, so we propagate down to Sample so
+        # it can propagate to the other FCirc records).
         child_field_names=["samples"],
         update_label="fcirc_calcs",
         update_field_name="last_serum_sample",
@@ -184,6 +187,10 @@ class Animal(MaintainedModel, HierCachedModel):
         update_label="label_combo",
     )
     def _label_combo(self):
+        """Generates a string to populate the label_combo field.
+
+        Updates here are triggered when an Infusate record is saved.
+        """
         return self.infusate._label_combo() if self.infusate is not None else None
 
     @property  # type: ignore

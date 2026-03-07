@@ -132,7 +132,6 @@ class InfusateQuerySet(models.QuerySet):
 @MaintainedModel.relation(
     generation=2,
     parent_field_name="tracers",
-    child_field_names=["animals"],
     update_label="tracer_stat",
 )
 class Infusate(MaintainedModel, HierCachedModel):
@@ -224,6 +223,11 @@ class Infusate(MaintainedModel, HierCachedModel):
         update_label="label_combo",
     )
     def _label_combo(self):
+        """Generates a string to populate the label_combo field.
+
+        Updates here are triggered when an InfusateTracer or Tracer record is saved.
+        Updates here trigger label_combo Animal record updates.
+        """
         unique_tracer_label_combos = sorted(
             reduce(
                 lambda ulst, val: ulst + [val] if val not in ulst else ulst,
