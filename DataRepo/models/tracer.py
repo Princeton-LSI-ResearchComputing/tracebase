@@ -128,12 +128,14 @@ class Tracer(MaintainedModel, ElementLabel):
     def _label_combo(self):
         """Generates a string to populate the label_combo field.
 
-        The update of this record is triggered when the record is saved.  NOTE: TracerLabel record changes trigger
-        updates here, but they do so from the update_label 'name'.
+        The update of this record is triggered when the record is saved.
 
-        TODO: Create a separate trigger/label or add the ability for the same label to be applied to multiple methods.
+        TODO: (GREATS-246) TracerLabel record changes trigger updates here, but they do so from the update_label 'name'.
+              Create a separate label_combo label in a relation decorator in TracerLabel, once autoupdate propagation
+              doesn't trigger intersecting paths (see PR #1725).
 
-        Updates here trigger label_combo updates to linked Infusate records."""
+        Updates here trigger label_combo updates to linked Infusate records.
+        """
         return self.LABELS_COMBO_DELIMITER.join(
             [str(label.element) for label in self.labels.order_by("element")]
         )
