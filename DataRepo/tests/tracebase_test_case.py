@@ -138,11 +138,17 @@ def test_case_class_factory(base_class: Type[T]) -> Type[T]:
                 "identity",
                 "_django_version",
                 "fields_cache",
+                "_lookup_joins",
+                "used_aliases",
             ]
             self.assertEqual(
                 set([k for k in d1.keys() if k not in ignores]),
                 set([k for k in d2.keys() if k not in ignores]),
-                msg=f"Object path: {_path} difference: keys differ",
+                msg=(
+                    f"Object path: {_path} difference: keys differ\n"
+                    f"In dict1 only: {list(set(d1.keys()) - set(d2.keys()))}\n"
+                    f"In dict2 only: {list(set(d2.keys()) - set(d1.keys()))}"
+                ),
             )
             for key, v1 in d1.items():
                 if key in ignores:
