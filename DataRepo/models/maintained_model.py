@@ -235,14 +235,10 @@ class MaintainedModelCoordinator:
         """
 
         # See if this class contains a field with a matching label (if a populated label_filters array was supplied)
-        if (
-            mdl_obj.label_filters is not None
-            and len(mdl_obj.label_filters) > 0
-            and not mdl_obj.updater_list_has_matching_labels(
-                mdl_obj.get_my_updaters(),
-                mdl_obj.label_filters,
-                mdl_obj.filter_in,
-            )
+        if not mdl_obj.updater_list_passes_filtering(
+            mdl_obj.get_my_updaters(),
+            mdl_obj.label_filters,
+            mdl_obj.filter_in,
         ):
             # Do not buffer - nothing to update
             return
@@ -315,7 +311,6 @@ class MaintainedModelCoordinator:
         # Track what's been updated to prevent repeated updates triggered by multiple child updates
         updated = []
         new_buffer = []
-        no_filters = label_filters is None or len(label_filters) == 0
 
         # For each record in the buffer
         buffer_item: MaintainedModel
@@ -334,11 +329,8 @@ class MaintainedModelCoordinator:
 
             # Try to perform the update. It could fail if the affected record was deleted
             try:
-                if key not in updated and (
-                    no_filters
-                    or buffer_item.updater_list_has_matching_labels(
-                        updater_dicts, label_filters, filter_in
-                    )
+                if key not in updated and buffer_item.updater_list_passes_filtering(
+                    updater_dicts, label_filters, filter_in
                 ):
                     # Saving the record while mass_updates is True, causes auto-updates of every field
                     # included among the model's decorated functions.  It does not only update the fields indicated in
@@ -434,7 +426,7 @@ class MaintainedModel(Model):
         class_name = self.__class__.__name__
 
         # Register the class with the coordinator if not already registered
-        if class_name not in MaintainedModel.model_classes.keys():
+        if class_name not in MaintainedModel.model_classes:
             print(
                 f"Registering class {class_name} as a MaintainedModel from _maintained_model_setup: {type(self)}"
             )
@@ -484,7 +476,7 @@ class MaintainedModel(Model):
                 for cfld in updater_dict["child_fields"]:
                     flds[cfld] = "child field"
                 bad_fields = []
-                for field in flds.keys():
+                for field in flds:
                     try:
                         getattr(self.__class__, field)
                     except AttributeError:
@@ -554,10 +546,7 @@ class MaintainedModel(Model):
             # update can be manually achieved via a targeted script.  If label_filters is not set in the coordinator, it
             # falls back to the update_labels belonging to the model class's decorators, and propagation will only
             # follow those paths.
-            if (
-                coordinator.default_label_filters is None
-                or len(coordinator.default_label_filters) == 0
-            ):
+            if not coordinator.default_label_filters:
                 self.label_filters = self.get_my_update_labels()
                 self.filter_in = True
             else:
@@ -680,10 +669,7 @@ class MaintainedModel(Model):
                     # targeted script.  If label_filters is not set in the coordinator, it falls back to the
                     # update_labels belonging to the model class's decorators, and propagation will only follow those
                     # paths.
-                    if (
-                        coordinator.default_label_filters is None
-                        or len(coordinator.default_label_filters) == 0
-                    ):
+                    if not coordinator.default_label_filters:
                         parent_inst.label_filters = parent_inst.get_my_update_labels()
                         parent_inst.filter_in = True
                     else:
@@ -827,7 +813,7 @@ class MaintainedModel(Model):
             class_name = cls.__name__
 
             # Register the class (and the module) with the coordinator if not already registered
-            if class_name not in MaintainedModel.model_classes.keys():
+            if class_name not in MaintainedModel.model_classes:
                 print(
                     f"Registering class {class_name} as a MaintainedModel from the relation decorator: {cls}"
                 )
@@ -922,7 +908,7 @@ class MaintainedModel(Model):
             }
 
             # Try to register the model class.  If this fails, fallback methods will be used when it is needed later.
-            if class_name not in MaintainedModel.model_packages.keys():
+            if class_name not in MaintainedModel.model_packages:
                 models_path = (
                     MaintainedModel.get_model_package_name_from_member_function(fn)
                 )
@@ -1263,10 +1249,7 @@ class MaintainedModel(Model):
                 if disable_opt_names and len(disable_opt_names) > 0:
                     # Check the value of each option and change the mode to "disabled" if *any* of them are True.
                     for disable_opt_name in disable_opt_names:
-                        if (
-                            disable_opt_name in kwargs.keys()
-                            and kwargs[disable_opt_name]
-                        ):
+                        if disable_opt_name in kwargs and kwargs[disable_opt_name]:
                             # This is if the option is in kwargs
                             mode = "disabled"
                             break
@@ -1346,7 +1329,7 @@ class MaintainedModel(Model):
         the model classes have been instantiated and after the decorators have registered.
         """
         class_list = []
-        for model_class_name in cls.updater_list.keys():
+        for model_class_name in cls.updater_list:
             if (
                 len(
                     cls._filter_updaters(
@@ -1367,7 +1350,7 @@ class MaintainedModel(Model):
         models_path is optional and must be a string like "DataRepo.models".  It's only required if called before any of
         the model classes have been instantiated and after the decorators have registered.
         """
-        if model_class_name in cls.model_classes.keys():
+        if model_class_name in cls.model_classes:
             return cls.model_classes[model_class_name]
         access_method = "determiend by the decorator(s)"
         try:
@@ -1416,7 +1399,7 @@ class MaintainedModel(Model):
         all_values = {}
         maintained_fields = cls.get_maintained_fields_query_dict(models_path)
 
-        for key in maintained_fields.keys():
+        for key in maintained_fields:
             mdl: Model = maintained_fields[key]["class"]
             flds = maintained_fields[key]["fields"]
             all_values[mdl.__name__] = []
@@ -1448,11 +1431,9 @@ class MaintainedModel(Model):
             if mdl_name not in cls.updater_list:
                 raise NoDecorators(mdl_name)
 
+            updater_dict: dict
             for updater_dict in cls.updater_list[mdl_name]:
-                if (
-                    "update_field" in updater_dict.keys()
-                    and updater_dict["update_field"]
-                ):
+                if "update_field" in updater_dict and updater_dict["update_field"]:
                     mdl_update_flds.append(updater_dict["update_field"])
 
             if issubclass(mdl, MaintainedModel) and len(mdl_update_flds) > 0:
@@ -1506,10 +1487,28 @@ class MaintainedModel(Model):
         return new_updaters_list
 
     @classmethod
-    def updater_list_has_matching_labels(cls, updaters_list, label_filters, filter_in):
+    def updater_list_passes_filtering(
+        cls,
+        updaters_list: List[dict],
+        label_filters: Optional[List[str]],
+        filter_in: bool = True,
+    ):
+        """Returns True if any updater dict in updaters_list passes the label filtering criteria.
+
+        If there are no label_filters, it is treated as no filtering (in or out), so True is returned.
+
+        Args:
+            updaters_list (List[dict]): This is a list of dicts defining the maintained fields (update_fields).
+            label_filters (Optional[List[str]]): A list of update_labels to use to filter the updaters_list.
+            filter_in (bool) [True]: Whether the label_filters specify the desired or undesired labels.
+        Exceptions:
+            None
+        Returns:
+            (bool)
         """
-        Returns True if any updater dict in updaters_list passes the label filtering criteria.
-        """
+        if not label_filters:
+            # There is no filtering in effect
+            return True
         for updater_dict in updaters_list:
             label = updater_dict["update_label"]
             has_a_label = label is not None
@@ -1590,7 +1589,6 @@ class MaintainedModel(Model):
             )
             # Track what's been updated to prevent repeated updates triggered by multiple child updates
             updated = {}
-            has_filters = len(label_filters) > 0
 
             # For every generation from the youngest leaves/children to root/parent
             for gen in sorted(range(youngest_generation + 1), reverse=True):
@@ -1622,7 +1620,7 @@ class MaintainedModel(Model):
                         break
 
                     # No need to perform updates if none of the updaters match the label filters
-                    if has_filters and not cls.updater_list_has_matching_labels(
+                    if not cls.updater_list_passes_filtering(
                         updater_dicts, label_filters, filter_in
                     ):
                         break
@@ -1703,7 +1701,6 @@ class MaintainedModel(Model):
         for updater_dict in self.get_my_updaters():
             changed = False
             update_fld = updater_dict["update_field"]
-            update_label = updater_dict["update_label"]
 
             # from_db was implemented somewhat more carefully than save was.  The documentation for from_db warns about
             # "DEFERRED" fields, whose values aren't available.  After I implemented it, I realized that the deferred
@@ -1722,28 +1719,8 @@ class MaintainedModel(Model):
             # If there is a maintained field(s) in this model and...
             # If auto-updates are restricted to fields by their update_label and this field matches the label
             # filter criteria
-            if update_fld is not None and (
-                # There are no labels for filtering
-                self.label_filters is None
-                or len(self.label_filters) == 0
-                # or the update_label matches a filter-in label
-                or (
-                    self.filter_in
-                    and update_label is not None
-                    and update_label
-                    in self.label_filters  # pylint: disable=unsupported-membership-test
-                    # For the pylint disable, see: https://github.com/pylint-dev/pylint/issues/3045
-                )
-                # or the update_label does not match a filter-out label
-                or (
-                    not self.filter_in
-                    and (
-                        update_label is None
-                        or update_label
-                        not in self.label_filters  # pylint: disable=unsupported-membership-test
-                        # For the pylint disable, see: https://github.com/pylint-dev/pylint/issues/3045
-                    )
-                )
+            if update_fld is not None and self.updater_list_passes_filtering(
+                [updater_dict], self.label_filters, self.filter_in
             ):
                 update_fun = getattr(self, updater_dict["update_function"])
                 try:
@@ -1866,11 +1843,8 @@ class MaintainedModel(Model):
         parent_inst: MaintainedModel
         for parent_inst in parents:
             # Only follow propagation paths that have update_labels that match the active label_filters
-            if (
-                label_filters is not None
-                and not parent_inst.updater_list_has_matching_labels(
-                    parent_inst.get_my_updaters(), label_filters, filter_in
-                )
+            if not parent_inst.updater_list_passes_filtering(
+                parent_inst.get_my_updaters(), label_filters, filter_in
             ):
                 continue
             # If the current instance's update was triggered - and was triggered by the same parent instance whose
@@ -1929,14 +1903,11 @@ class MaintainedModel(Model):
         """
         parents = []
         for updater_dict in self.get_my_updaters():
-            # If label_filters were supplied, only obtain the parent instances that meet the filtering criteria
-            if label_filters is not None:
-                match = (
-                    updater_dict["update_label"] is not None
-                    and updater_dict["update_label"] in label_filters
-                )
-                if filter_in is not match:
-                    continue
+            # Only obtain the parent instances that meet the filtering criteria
+            if not self.updater_list_passes_filtering(
+                [updater_dict], label_filters, filter_in
+            ):
+                continue
 
             parent_fld = updater_dict["parent_field"]
 
@@ -2025,11 +1996,8 @@ class MaintainedModel(Model):
         child_inst: MaintainedModel
         for child_inst in children:
             # Only follow propagation paths that have update_labels that match the active label_filters
-            if (
-                label_filters is not None
-                and not child_inst.updater_list_has_matching_labels(
-                    child_inst.get_my_updaters(), label_filters, filter_in
-                )
+            if not child_inst.updater_list_passes_filtering(
+                child_inst.get_my_updaters(), label_filters, filter_in
             ):
                 continue
             # If the current instance's update was triggered - and was triggered by the same child instance whose
@@ -2086,14 +2054,11 @@ class MaintainedModel(Model):
         children = []
         updaters = self.get_my_updaters()
         for updater_dict in updaters:
-            # If label_filters were supplied, only obtain the child instances that meet the filtering criteria
-            if label_filters is not None:
-                match = (
-                    updater_dict["update_label"] is not None
-                    and updater_dict["update_label"] in label_filters
-                )
-                if filter_in is not match:
-                    continue
+            # Only obtain the child instances that meet the filtering criteria
+            if not self.updater_list_passes_filtering(
+                [updater_dict], label_filters, filter_in
+            ):
+                continue
 
             child_flds = updater_dict["child_fields"]
 
@@ -2171,15 +2136,10 @@ class MaintainedModel(Model):
             updater_dict["update_field"]
             for updater_dict in cls.get_my_updaters()
             if (
-                "update_field" in updater_dict.keys()
+                "update_field" in updater_dict
                 and updater_dict["update_field"]
-                and (
-                    label_filters is None
-                    or (filter_in and updater_dict["update_label"] in label_filters)
-                    or (
-                        not filter_in
-                        and updater_dict["update_label"] not in label_filters
-                    )
+                and cls.updater_list_passes_filtering(
+                    [updater_dict], label_filters, filter_in
                 )
             )
         ]
@@ -2210,7 +2170,7 @@ class MaintainedModel(Model):
             update_labels (List[str])
         """
         update_labels: List[str] = []
-        if cls.__name__ in cls.updater_list.keys():
+        if cls.__name__ in cls.updater_list:
             update_labels = [
                 updater_dict["update_label"]
                 for updater_dict in cls.updater_list[cls.__name__]
