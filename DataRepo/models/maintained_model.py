@@ -881,12 +881,13 @@ class MaintainedModel(Model):
         the same, only 1 of those decorators needs to set a parent field.
         """
 
-        if update_field_name is None and (
-            parent_field_name is None and generation != 0
-        ):
+        if not update_field_name and not parent_field_name:
             raise ConditionallyRequiredArgumentError(
                 "Either an update_field_name or parent_field_name argument is required."
             )
+
+        if update_field_name is not None and update_field_name == "":
+            update_field_name = None
 
         # The actual decorator (because a decorator can only take 1 argument (the decorated function).  The "decorator"
         # above is more akin to a global function call that returns this decorator that is immediately applied to the
@@ -918,6 +919,23 @@ class MaintainedModel(Model):
 
             # No way to ensure supplied fields exist because the models aren't actually loaded yet, so while that would
             # be nice to handle here, it will have to be handled in MaintanedModel when objects are created
+
+            # We *can* check that there is only 1 setter per field however...
+            if class_name in MaintainedModel.updater_list and any(
+                update_field_name == fd["update_field"]
+                for fd in MaintainedModel.updater_list[class_name]
+                if fn.__name__ != fd["update_function"]
+                and fd["update_field"] is not None
+            ):
+                setters = [fn.__name__]
+                setters.extend(
+                    [
+                        fd["update_function"]
+                        for fd in MaintainedModel.updater_list[class_name]
+                        if fd["update_field"] == update_field_name
+                    ]
+                )
+                raise MultipleModelFieldSetters(class_name, update_field_name, setters)
 
             # Add this info to our global updater_list
             MaintainedModel.updater_list[class_name].append(func_dict)
@@ -2223,6 +2241,18 @@ class BadModelFields(Exception):
         self.cls = cls
         self.flds = flds
         self.fcn = fcn
+
+
+class MultipleModelFieldSetters(Exception):
+    def __init__(self, model_name: str, field_name: dict, setters: List[str]):
+        message = (
+            f"Model {model_name} has multiple setters for field {field_name}: {setters}.  "
+            "Only 1 setter is allowed per field."
+        )
+        super().__init__(message)
+        self.model_name = model_name
+        self.field_name = field_name
+        self.setters = setters
 
 
 class MaintainedFieldNotSettable(Exception):

@@ -87,13 +87,13 @@ class StudyLoaderTests(TracebaseTestCase):
 
         # Check all the maintained fields
         expected = {}
-        cls: Type[MaintainedModel]
-        for cls in MaintainedModel._get_classes(None, None, True):
-            for fld in cls.get_my_update_fields():
-                if cls.__name__ not in expected.keys():
-                    expected[cls.__name__] = {fld: cls.objects.none()}
+        kls: Type[MaintainedModel]
+        for kls in MaintainedModel._get_classes(None, None, True):
+            for fld in kls.get_my_update_fields():
+                if kls.__name__ not in expected.keys():
+                    expected[kls.__name__] = {fld: kls.objects.none()}
                 else:
-                    expected[cls.__name__][fld] = cls.objects.none()
+                    expected[kls.__name__][fld] = kls.objects.none()
 
         null_querysets = dict(
             (key, dict(val)) for key, val in MaintainedModel._get_nulls().items()
