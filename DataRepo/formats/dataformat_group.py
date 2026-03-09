@@ -39,8 +39,8 @@ class FormatGroup:
         """
         Add formats and set the default to the first class, unless default already set.
         """
-        for cls in format_classes:
-            self.modeldata[cls.id] = cls
+        for kls in format_classes:
+            self.modeldata[kls.id] = kls
         if self.default_format is None:
             self.default_format = format_classes[0].id
 
