@@ -15,10 +15,11 @@ metabolomics lab that does tracing experiments.  This document is for installati
 a TraceBase instance (e.g. loading data) is covered in MAINTENANCE.md.  For a local development version of TraceBase
 installed on a workstation (if you want to try it out before going through this for rigorous setup), see out
 `CONTRIBUTING.md` document.
-
+<!-- TODO: Create MAINTENANCE.md -->
 ### Target Audience
 
-This document is written for system administrators and/or developers.
+This document is written for system administrators and developers familiar with setting up users, authorization, web
+servers, and databases.
 
 ### Prerequisites
 
@@ -29,10 +30,11 @@ This document is written for system administrators and/or developers.
     - 2G swap
     - 19G /var
     - 39G /
+  - A mount for the archive whose size corresponds to the lab's current rate of mzXML raw file accumulation is advised.
 - Software Requirements:
   - Operating system: RHEL version `9`
   - Database: PostgreSQL version `13`
-  - Web server: Apache version <!-- TODO: version? -->
+  - Web server: Apache version `2.4.62` <!-- TODO: Can this be just `2.4`? -->
   - Language: [Python version `3.10`](https://www.python.org/downloads/)
   - Package manager: pip version `25.3`
 
@@ -47,23 +49,24 @@ Ensure you are using Python 3.10, e.g.:
 
 Create a virtual environment (from a bash shell) in `/usr/local` and activate it, for example:
 
-    python3 -m venv /usr/local/tracebase
+    python3 -m venv /usr/local/tracebase <!-- TODO: Is this correct? -->
     source /usr/local/tracebase/bin/activate
 
 ### Create a `tracebase` User Account
 
 Create a `tracebase` user account that we will use to install TraceBase.
 
-<!-- TODO: permissions -->
+<!-- TODO: What permissions should we advise? Should we give explicit account creation guidance here? -->
 
 ### Installing System Dependencies
 
 #### Apache Installation
 
-<!-- TODO: Apache Installation Instructions -->
+<!-- TODO: Apache Installation Instructions? `sudo dnf install httpd`? How to set it up to auto-start? -->
+<!-- TODO: Is there a guide we can just link to? -->
 
 #### Postgres Installation
-
+<!-- TODO: Is this correct? -->
 Install Postgres via package installer from [https://www.postgresql.org](https://www.postgresql.org).
 
 During installation, use these settings for a postgres user for admin privileges:
@@ -78,7 +81,7 @@ PATH, e.g. if the utility is located in `/usr/pgsql-13/bin/`:
     export PATH="/usr/pgsql-13/bin/:$PATH"
 
 and add it to the `tracebase` user's `.bashrc`.
-
+<!-- TODO: Should this describe adding to the .bashrc file? -->
 ### Installing Application Dependencies
 
 As the `tracebase` user:
@@ -88,7 +91,7 @@ As the `tracebase` user:
 Download the latest stable release of TraceBase from:
 
 - [TraceBase Releases](https://github.com/Princeton-LSI-ResearchComputing/tracebase/releases)
-
+<!-- TODO: Create a downloadable release in the github repo -->
 Save the file in:
 
     /var/www/
@@ -102,11 +105,6 @@ Install dependencies for the production environment (`requirements/prod.txt`).
     cd /var/www/tracebase
     python -m pip install -U pip
     python -m pip install -r requirements/prod.txt
-
-Verify the installation by checking the Django version:
-
-    python3 -m django --version
-    4.2.29
 
 ## Configuration
 
@@ -123,12 +121,14 @@ Set these settings in the `postgresql.conf` file.  Open it in a text editor and 
     maintenance_work_mem = 1GB
     effective_cache_size = 6GB
 
-Manually create the tracebase database (`tracebase`) in postgres:
+Manually create the database (`tracebase`) in postgres:
 
     createdb -U postgres tracebase
 
 Create a tracebase postgres user:
 
+    sudo -iu postgres
+    psql
     > create user tracebase with encrypted password '########';
     > ALTER USER tracebase CREATEDB;
     > grant all privileges on database tracebase to tracebase;
@@ -153,10 +153,10 @@ Create a secret token for secure API access.  This will be saved in the `TraceBa
 
 Update the `TraceBase/.env` file to:
 
-- Add the new secret key that was just generated above.
+- Add the new `SECRET_KEY` that was just generated above.
 - Add the `tracebase` user database credentials you used in the **Postgres Setup** section.
 - Set `DEBUG` to `False`
-- Set the archive location (must match the `alias` in the **Apache Setup** section).
+- Set the `ARCHIVE` location (must match the `alias` in the **Apache Setup** section).
 
 #### TraceBase Database Migration
 
@@ -183,6 +183,9 @@ Apache config is in `/etc/httpd/conf.d/tracebase.conf`
   public instance for sharing data).
 - Be sure that the ARCHIVE_DIR variable in `/var/www/tracebase/TraceBase/.env` matches the alias in
   `/etc/httpd/conf.d/tracebase.conf`.
+- Set the gateway timeout to match what's in the `TraceBase/.env` file.  This allows the software to end gracefully if
+  submission processing takes too long.
+- Create an `alias` to match the `ARCHIVE` location in the `TraceBase/.env` file to enable archive file downloads.
 
 <!-- TODO: Description of how to allow access to archive and static files in the apache config. -->
 
@@ -208,17 +211,22 @@ Supply your desired account credentials for testing.
 
 ### Verification
 
-Running the test suite will verify everything is installed correctly.  Note, this can take up to 20 minutes:
+Verify the installation by checking the Django version:
 
-    python manage.py test
+    python3 -m django --version
+    4.2.29
 
 You can check your environment to ensure it is set up securely using the following command:
 
     python manage.py check --deploy
 
+Running the test suite will verify everything is installed correctly.  Note, this can take up to 20 minutes:
+
+    python manage.py test
+
 ### Backups
 
-<!-- TODO: Add Fan's backup script to the repo, (or create a separate gist?)
+<!-- TODO: Add Fan's backup script to the repo, (or create a separate gist?).  This is from nplcadmindocs:
 Database backup cronjob scheduled for postgres user:
    00 05 * * * /var/lib/pgsql/dbadmin/tracebase_dump.sh |/bin/mail -s "dev:tracebase_dump.sh" fkang@princeton.edu
 Database dump files:
@@ -231,7 +239,40 @@ README_test_db_restore_from_dump
 
 ### Updates
 
-<!-- TODO: Add instructions for updating from the nplcadmindocs. -->
+1. Log into the tracebase server, sudo to the tracebase user, and go to the www directory.
+
+    sudo -iu tracebase
+    cd /var/www/
+
+2. As tracebase user, download, decompress, and replace the tracebase directory, copying in the `.env` file.  (This
+   assumes you have not modified the TraceBase codebase and that the archive is not under `/var/www/tracebase`.)
+
+    mv tracebase tracebase-old
+    tar -zxvf tracebase-vX.X.X.tar.gz
+    cp tracebase-old/TraceBase/.env tracebase/TraceBase/
+
+3. Update the virtual environment.
+
+    python -m pip install -U pip
+    python -m pip install -r requirements/prod.txt
+
+4. Update the database.
+
+    python manage.py migrate
+
+5. Update for new or deleted environment variables in `TraceBase/.env` by comparing it with `TraceBase/.env.example`.
+
+   diff --side-by-side TraceBase/.env TraceBase/.env.example
+   vi TraceBase/.env
+
+8. Check the deployment for security issues.
+
+   python manage.py check --deploy
+
+9. Restart Apache and TraceBase
+
+   exit  # logout of sudo tracebase to your user account
+   sudo apachectl graceful
 
 ### Load Supporting Data
 
