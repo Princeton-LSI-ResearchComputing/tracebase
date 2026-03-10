@@ -13,7 +13,7 @@ simple to browse, collate, compare, and download the data.
 This document will walk you through setting up your own private instance of TraceBase for the private use of an entire
 metabolomics lab that does tracing experiments.  This document is for installation and configuration only.  Maintaining
 a TraceBase instance (e.g. loading data) is covered in MAINTENANCE.md.  For a local development version of TraceBase
-installed on a workstation (if you want to try it out before going through this for rigorous setup), see out
+installed on a workstation (if you want to try it out before going through this for rigorous setup), see our
 `CONTRIBUTING.md` document.
 <!-- TODO: Create MAINTENANCE.md -->
 ### Target Audience
@@ -113,13 +113,13 @@ Install dependencies for the production environment (`requirements/prod.txt`).
 Set these settings in the `postgresql.conf` file.  Open it in a text editor and make sure these settings are uncommented
 & correct.  E.g.:
 
-    client_encoding: 'UTF8'
-    default_transaction_isolation: 'read committed'
-    log_timezone = 'America/New_York'
-    shared_buffers = 6GB
-    work_mem = 60MB
-    maintenance_work_mem = 1GB
-    effective_cache_size = 6GB
+- `client_encoding` = `UTF8`
+- `default_transaction_isolation` = `read committed`
+- `log_timezone` = `America/New_York`
+- `shared_buffers` = 6GB
+- `work_mem` = 60MB
+- `maintenance_work_mem` = 1GB
+- `effective_cache_size` = 6GB
 
 Manually create the database (`tracebase`) in postgres:
 
@@ -158,6 +158,19 @@ Update the `TraceBase/.env` file to:
 - Set `DEBUG` to `False`
 - Set the `ARCHIVE` location (must match the `alias` in the **Apache Setup** section).
 
+If `READONLY` is set to `False`, the following `SUBMISSION` environment variables must be defined and a shared drive
+(not managed by TraceBase) must be set up for lab members to deposite their submission data.  This is where
+administrators will go to retrieve data for loading.  The environment variables are for your own internal documentation
+for drive access.
+<!-- TODO: These are defunct/deprecated - remove them. -->
+- `SUBMISSION_DOC_URL`
+- `SUBMISSION_DOC_NAME`
+-->
+- `SUBMISSION_DRIVE_DOC_URL` - A URL to documentation about access to the shared drive where submissions are deposited.
+- `SUBMISSION_DRIVE_TYPE` - This is a display name for the drive, e.g. "MS Data Shre", for display of the doc URL.
+- `SUBMISSION_DRIVE_FOLDER` - This is a demonstrative path in the shared drive showing where to deposit submissions,
+  e.g. `\\gen-iota-cifs\msdata\tracebase-submissions`.
+
 #### TraceBase Database Migration
 
 Set up the project's postgres database:
@@ -175,15 +188,17 @@ TraceBase has a single `static` directory, containing:
 - favicon.ico
 
 It also serves files from the administrator-selected archive location, which should be set up outside the `tracebase`
-code repository directory.
+code repository directory and configured with the `ARCHIVE` variable in the `TraceBase/.env` file.
 
-The webseerver needs to be set up to allow file access to both directories.  See **Apache Setup** below.
+The webserver needs to be set up to allow file access to both directories.
+
+Both locations need to be configured as aliases in the webserver.  See **Apache Setup** below.
 
 ## Web Server Configuration
 
 ### Apache Setup
 
-<!-- TODO: Apache config instructions -->
+<!-- TODO: Apache config instructions?? -->
 
 Apache config is in `/etc/httpd/conf.d/tracebase.conf`
 
@@ -253,38 +268,38 @@ README_test_db_restore_from_dump
 
 1. Log into the tracebase server, sudo to the tracebase user, and go to the www directory.
 
-    sudo -iu tracebase
-    cd /var/www/
+        sudo -iu tracebase
+        cd /var/www/
 
 2. As tracebase user, download, decompress, and replace the tracebase directory, copying in the `.env` file.  (This
    assumes you have not modified the TraceBase codebase and that the archive is not under `/var/www/tracebase`.)
 
-    mv tracebase tracebase-old
-    tar -zxvf tracebase-vX.X.X.tar.gz
-    cp tracebase-old/TraceBase/.env tracebase/TraceBase/
+        mv tracebase tracebase-old
+        tar -zxvf tracebase-vX.X.X.tar.gz
+        cp tracebase-old/TraceBase/.env tracebase/TraceBase/
 
 3. Update the virtual environment.
 
-    python -m pip install -U pip
-    python -m pip install -r requirements/prod.txt
+        python -m pip install -U pip
+        python -m pip install -r requirements/prod.txt
 
 4. Update the database.
 
-    python manage.py migrate
+        python manage.py migrate
 
 5. Update for new or deleted environment variables in `TraceBase/.env` by comparing it with `TraceBase/.env.example`.
 
-   diff --side-by-side TraceBase/.env TraceBase/.env.example
-   vi TraceBase/.env
+        diff --side-by-side TraceBase/.env TraceBase/.env.example
+        vi TraceBase/.env
 
 8. Check the deployment for security issues.
 
-   python manage.py check --deploy
+        python manage.py check --deploy
 
 9. Restart the web server.
 
-   exit  # logout of sudo tracebase to your user account
-   sudo apachectl graceful
+        exit  # logout of sudo tracebase to your user account
+        sudo apachectl graceful
 
 ### Load Supporting Data
 
