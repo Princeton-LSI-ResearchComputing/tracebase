@@ -162,10 +162,7 @@ If `READONLY` is set to `False`, the following `SUBMISSION` environment variable
 (not managed by TraceBase) must be set up for lab members to deposite their submission data.  This is where
 administrators will go to retrieve data for loading.  The environment variables are for your own internal documentation
 for drive access.
-<!-- TODO: These are defunct/deprecated - remove them. -->
-- `SUBMISSION_DOC_URL`
-- `SUBMISSION_DOC_NAME`
--->
+
 - `SUBMISSION_DRIVE_DOC_URL` - A URL to documentation about access to the shared drive where submissions are deposited.
 - `SUBMISSION_DRIVE_TYPE` - This is a display name for the drive, e.g. "MS Data Shre", for display of the doc URL.
 - `SUBMISSION_DRIVE_FOLDER` - This is a demonstrative path in the shared drive showing where to deposit submissions,
