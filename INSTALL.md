@@ -218,11 +218,13 @@ Apache config is in `/etc/httpd/conf.d/tracebase.conf`
 
 ### User Management
 
-Create a superuser for admin access:
+Add superusers for admin access.  This allows select lab users to login to the admin page linked at the top right of
+each TraceBase page.  This is a limited interface that is yet to be fully featured and contains currently, only the
+ability to edit Compound records.
+
+You can create multiple admin users, each with this command, which will prompt for a username, email, and password:
 
     python manage.py createsuperuser
-
-Supply your desired account credentials for testing.
 
 <!-- TODO: Add a section that talks about authenticating users -0 which is not supported by the codebase, and how -->
 <!-- TODO: to add/remove users using `/var/www/tracebase/groups.txt`. -->
@@ -299,6 +301,18 @@ README_test_db_restore_from_dump
         sudo apachectl graceful
 
 ### Load Supporting Data
+
+TraceBase has supported data types and data formats that are required to be loaded from fixtures to support ArchiveFile
+records.  This data must be loaded for TraceBase to work:
+
+    python manage.py loaddata data_types data_formats
+
+An optional fixture to load is the liquid chromatography protocols.  Users can define their own protocols as a part of
+the study submission process, so these protocols are optional to load:
+
+    python manage.py loaddata lc_methods
+
+All available fixtures are located in `DataRepo/fixtures`.
 
 <!-- TODO: Describe how to load compounds, tissues (if mouse), DataTypes, DataFormats, and LCMethods.
            This will require access to some supporting files. -->
