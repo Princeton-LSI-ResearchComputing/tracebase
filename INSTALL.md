@@ -167,9 +167,17 @@ Set up the project's postgres database:
 
 ### Static and Media Files
 
-Explanation of how Django handles static files in production.
-Steps to run python manage.py collectstatic.
-Configuration for serving static and media files efficiently (e.g., via Apache or a CDN).
+TraceBase has a single `static` directory, containing:
+
+- JavaScript
+- CSS
+- Images
+- favicon.ico
+
+It also serves files from the administrator-selected archive location, which should be set up outside the `tracebase`
+code repository directory.
+
+The webseerver needs to be set up to allow file access to both directories.  See **Apache Setup** below.
 
 ## Web Server Configuration
 
@@ -186,6 +194,7 @@ Apache config is in `/etc/httpd/conf.d/tracebase.conf`
 - Set the gateway timeout to match what's in the `TraceBase/.env` file.  This allows the software to end gracefully if
   submission processing takes too long.
 - Create an `alias` to match the `ARCHIVE` location in the `TraceBase/.env` file to enable archive file downloads.
+- Create an `alias` to match the `/var/www/tracebase/static` directory.
 
 <!-- TODO: Description of how to allow access to archive and static files in the apache config. -->
 
@@ -202,6 +211,9 @@ Create a superuser for admin access:
     python manage.py createsuperuser
 
 Supply your desired account credentials for testing.
+
+<!-- TODO: Add a section that talks about authenticating users -0 which is not supported by the codebase, and how -->
+<!-- TODO: to add/remove users using `/var/www/tracebase/groups.txt`. -->
 
 ### Security
 
@@ -269,7 +281,7 @@ README_test_db_restore_from_dump
 
    python manage.py check --deploy
 
-9. Restart Apache and TraceBase
+9. Restart the web server.
 
    exit  # logout of sudo tracebase to your user account
    sudo apachectl graceful
