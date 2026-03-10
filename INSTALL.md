@@ -4,12 +4,6 @@
 
 ### Overview
 
-TraceBase is a data repository and analysis tool for mass-spectrometry data from isotope tracing studies used to
-quantify metabolism in vivo.  Lab members submit peak data exported from El-Maven and processed for natural abundance
-correction by AccuCor, IsoCor, or Iso-AutoCor along with details about their experiment.  TraceBase computes useful
-metrics such as enrichment, normalized labeling, and estimated FCirc (rate of appearance/disappearance), making it
-simple to browse, collate, compare, and download the data.
-
 This document will walk you through setting up your own private instance of TraceBase for the private use of an entire
 metabolomics lab that does tracing experiments.  This document is for installation and configuration only.  Maintaining
 a TraceBase instance (e.g. loading data) is covered in MAINTENANCE.md.  For a local development version of TraceBase
