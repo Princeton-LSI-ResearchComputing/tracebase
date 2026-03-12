@@ -1,11 +1,11 @@
-# TraceBase Maintenance
+# Data Curation Guide
 
 ## Introduction
 
 ### Overview
 
-This document describes how to maintain a TraceBase instance and briefly, how to support users.  It does not cover
-updating TraceBase.  For that, refer to `INSTALL.md`.
+This document describes how TraceBase curators load and manage study data and assist users with submission issues. 
+It does not cover installing or upgrading TraceBase.  For that, refer to `INSTALL.md`.
 
 ### Target Audience
 
