@@ -99,6 +99,9 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "TraceBase.wsgi.application"
 
+# Run mode (testing or not)
+# See: django-debug-toolbar.readthedocs.io/en/latest/installation.html#disable-the-toolbar-when-running-tests-optional
+TESTING = "test" in sys.argv
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
@@ -243,38 +246,21 @@ SUBMISSION_DRIVE_FOLDER = env.str(
     "SUBMISSION_DRIVE_FOLDER", default="tracebase-submissions"
 )
 
-# Set up caching used by model cached_properties
+# Set up caching used by model cached_properties.  Caching is via postgres DB table and is custom managed.
+# MAX_ENTRIES should be large enough to hold all calculated values.
+CACHE_TABLE_NAME = env.str("CACHE_TABLE_NAME", default="tracebase_cache_table")
+CACHE_MAX_ENTRIES = env.int("CACHE_MAX_ENTRIES", default=1500000)
+CACHE_KEY_PREFIX = env.str("CACHE_KEY_PREFIX", default="PROD")
 # See: https://docs.djangoproject.com/en/dev/topics/cache/#setting-up-the-cache
-PROD_CACHES = {
+CACHES: Dict[str, Dict] = {
     "default": {
         "BACKEND": "django.core.cache.backends.db.DatabaseCache",
-        "LOCATION": "tracebase_cache_table",
+        "LOCATION": CACHE_TABLE_NAME,
         "TIMEOUT": None,
-        "OPTIONS": {"MAX_ENTRIES": 1500000},
-        "KEY_PREFIX": "PROD",
+        "OPTIONS": {"MAX_ENTRIES": CACHE_MAX_ENTRIES},
+        "KEY_PREFIX": CACHE_KEY_PREFIX,
     }
 }
-
-TEST_CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
-        "LOCATION": "tracebase_cache_table",
-        "TIMEOUT": 1200,
-        "OPTIONS": {"MAX_ENTRIES": 1000},
-        "KEY_PREFIX": "TEST",
-    }
-}
-
-CACHES_SETTING = env.str("CACHES", default="PROD_CACHES")
-
-CACHES: Dict[str, Dict] = PROD_CACHES
-if CACHES_SETTING == "TEST_CACHES":
-    CACHES = TEST_CACHES
-elif CACHES_SETTING != "PROD_CACHES":
-    print(
-        f"Invalid CACHE_SETTINGS value: {CACHES_SETTING} in .env. Defaulting to PROD_CACHES. Valid values are "
-        "TEST_CACHES and PROD_CACHES."
-    )
 
 # Define a custom test runner
 # https://docs.djangoproject.com/en/4.2/topics/testing/advanced/#using-different-testing-frameworks
@@ -321,7 +307,6 @@ MIDDLEWARE = [
 DEBUG_TOOLBAR_ENABLED = False
 DEBUG_TOOLBAR = env.bool("DEBUG_TOOLBAR", default=True)
 if DEBUG_TOOLBAR is True:
-    TESTING = "test" in sys.argv
     try:
         import debug_toolbar  # noqa: F401
 

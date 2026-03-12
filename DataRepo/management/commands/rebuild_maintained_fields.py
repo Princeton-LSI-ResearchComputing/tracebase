@@ -1,7 +1,6 @@
 from django.core.management import BaseCommand
 
 from DataRepo.models.hier_cached_model import (
-    delete_all_caches,
     disable_caching_retrievals,
     disable_caching_updates,
     enable_caching_retrievals,
@@ -41,7 +40,6 @@ class Command(BaseCommand):
                 label_filters=options["labels"],
                 filter_in=not options["exclude"],
             )
-            delete_all_caches()
         finally:
             enable_caching_updates()
             enable_caching_retrievals()

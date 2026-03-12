@@ -1,8 +1,6 @@
 from datetime import timedelta
 
-from django.conf import settings
 from django.core.management import call_command
-from django.test import override_settings
 
 from DataRepo.models import (
     Animal,
@@ -26,7 +24,6 @@ from DataRepo.utils.infusate_name_parser import (
 )
 
 
-@override_settings(CACHES=settings.TEST_CACHES)
 class LoadSamplesSmallObob2Tests(TracebaseTestCase):
     fixtures = ["lc_methods.yaml"]
 
@@ -166,7 +163,6 @@ class LoadSamplesSmallObob2Tests(TracebaseTestCase):
         )
 
 
-@override_settings(CACHES=settings.TEST_CACHES)
 class LoadSamplesSmallObobTests(TracebaseTestCase):
     fixtures = ["data_types.yaml", "data_formats.yaml"]
 

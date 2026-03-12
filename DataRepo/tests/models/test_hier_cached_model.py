@@ -8,6 +8,7 @@ from DataRepo.models import (
     Sample,
 )
 from DataRepo.models.hier_cached_model import (
+    HierCachedModel,
     delete_all_caches,
     disable_caching_retrievals,
     disable_caching_updates,
@@ -15,6 +16,7 @@ from DataRepo.models.hier_cached_model import (
     enable_caching_updates,
     get_cache,
     get_cache_key,
+    get_cache_table_size,
     get_cached_method_names,
     set_cache,
 )
@@ -597,3 +599,41 @@ class HierCachedModelTests(TracebaseTestCase):
             a.id,
             msg="The root model record returned by get_root_record is directly related",
         )
+
+    def test_get_max_cached_pk(self):
+        enable_caching_retrievals()
+        enable_caching_updates()
+
+        # The cache table should already be empty, but just in case
+        delete_all_caches()
+
+        # After deleting caches, the max pk should be None
+        self.assertIsNone(HierCachedModel.get_max_cached_pk("PeakGroupLabel"))
+
+        pgl = PeakGroup.objects.first().labels.first()
+        f = "enrichment_fraction"
+
+        # Trigger caching via decorator
+        getattr(pgl, f)
+
+        # We can't control what the primary key will be, so we just check it's an int
+        self.assertIsInstance(HierCachedModel.get_max_cached_pk("PeakGroupLabel"), int)
+
+    def test_get_cache_table_size(self):
+        enable_caching_retrievals()
+        enable_caching_updates()
+
+        # The cache table should already be empty, but just in case
+        delete_all_caches()
+
+        # Assert that we're starting empty
+        self.assertEqual(0, get_cache_table_size())
+
+        pgl = PeakGroup.objects.first().labels.first()
+        f = "enrichment_fraction"
+
+        # Trigger caching via decorator.  This builds a few values because they are used in the calculation.
+        getattr(pgl, f)
+
+        # Calling PeakGroupLabel.enrichment_fraction also calls and sets PeakData.fraction, hence the 2
+        self.assertEqual(2, get_cache_table_size())

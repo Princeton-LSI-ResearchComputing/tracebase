@@ -1,9 +1,7 @@
 from datetime import timedelta
 
 import pandas as pd
-from django.conf import settings
 from django.core.management import CommandError, call_command
-from django.test import override_settings
 
 from DataRepo.loaders.peak_annotation_files_loader import (
     PeakAnnotationFilesLoader,
@@ -511,7 +509,6 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
         self.assertTrue(isinstance(aes.exceptions[0], MultiplePeakGroupRepresentations))
 
 
-@override_settings(CACHES=settings.TEST_CACHES)
 class DuplicatePeakAnnotationRowsTests(TracebaseTestCase):
     fixtures = ["lc_methods.yaml", "data_types.yaml", "data_formats.yaml"]
 
