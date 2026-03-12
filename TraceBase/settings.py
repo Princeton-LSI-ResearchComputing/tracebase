@@ -252,7 +252,7 @@ CACHE_TABLE_NAME = env.str("CACHE_TABLE_NAME", default="tracebase_cache_table")
 CACHE_MAX_ENTRIES = env.int("CACHE_MAX_ENTRIES", default=1500000)
 CACHE_KEY_PREFIX = env.str("CACHE_KEY_PREFIX", default="PROD")
 # See: https://docs.djangoproject.com/en/dev/topics/cache/#setting-up-the-cache
-PROD_CACHES = {
+CACHES: Dict[str, Dict] = {
     "default": {
         "BACKEND": "django.core.cache.backends.db.DatabaseCache",
         "LOCATION": CACHE_TABLE_NAME,
@@ -261,34 +261,6 @@ PROD_CACHES = {
         "KEY_PREFIX": CACHE_KEY_PREFIX,
     }
 }
-
-# Cache entries for testing use the same cache table (Because Django only creates 1) but a different prefix and have a
-# timeout.
-TEST_CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
-        "LOCATION": CACHE_TABLE_NAME,
-        "TIMEOUT": 1200,
-        "OPTIONS": {"MAX_ENTRIES": 1000},
-        "KEY_PREFIX": "TEST",
-    }
-}
-
-# This setting is "hidden".  It does not appear in the .env example file because it is handled automatically, but adding
-# it to .env will override the automatic handling.
-CACHES_SETTING = env.str("CACHES", default=None)
-
-CACHES: Dict[str, Dict] = PROD_CACHES
-if CACHES_SETTING is not None:
-    if CACHES_SETTING == "TEST_CACHES":
-        CACHES = TEST_CACHES
-    elif CACHES_SETTING != "PROD_CACHES":
-        print(
-            f"Invalid CACHE_SETTINGS value: {CACHES_SETTING} in .env. Defaulting to PROD_CACHES. Valid values are "
-            "TEST_CACHES and PROD_CACHES."
-        )
-elif TESTING:
-    CACHES = TEST_CACHES
 
 # Define a custom test runner
 # https://docs.djangoproject.com/en/4.2/topics/testing/advanced/#using-different-testing-frameworks
