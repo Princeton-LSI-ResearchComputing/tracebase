@@ -9,7 +9,7 @@ It does not cover installing or upgrading TraceBase.  For that, refer to `INSTAL
 
 ### Target Audience
 
-This document is written for system administrators and TraceBase curators.
+This document is written for TraceBase curators and other users responsible for loading and validating study submissions.
 
 A TraceBase curator is a metabolomics domain expert whose job is to govern nomenclature consistency and scientific
 correctness, such as ensuring that an HMDB_ID applied to a compound is correct or that there don't exist 2 tissue
