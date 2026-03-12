@@ -42,8 +42,7 @@ See `LICENSE.md`.
 ## Authors & Acknowledgments
 
 See [The TraceBase Team](https://princeton-lsi-researchcomputing.github.io/tracebase/About/Team/).
-<!-- TODO: Add citation
 
 ## Citing TraceBase
 
--->
+Citation coming soon.

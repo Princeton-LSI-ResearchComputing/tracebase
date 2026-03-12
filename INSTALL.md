@@ -9,7 +9,7 @@ metabolomics lab that does tracing experiments.  This document is for installati
 a TraceBase instance (e.g. loading data) is covered in MAINTENANCE.md.  For a local development version of TraceBase
 installed on a workstation (if you want to try it out before going through this for rigorous setup), see our
 `CONTRIBUTING.md` document.
-<!-- TODO: Create MAINTENANCE.md -->
+
 ### Target Audience
 
 This document is written for system administrators and developers familiar with setting up users, authorization, web
@@ -34,6 +34,12 @@ servers, and databases.
 
 ## Installation
 
+### Create a `tracebase` User Account
+
+Create a `tracebase` user account that belongs to a `tracebase` group that we will use to install TraceBase.
+
+<!-- TODO: What permissions should we advise? Should we give explicit account creation guidance here? -->
+
 ### Environment Setup
 
 Ensure you are using Python 3.10, e.g.:
@@ -43,14 +49,11 @@ Ensure you are using Python 3.10, e.g.:
 
 Create a virtual environment (from a bash shell) in `/usr/local` and activate it, for example:
 
-    python3 -m venv /usr/local/tracebase <!-- TODO: Is this correct? -->
+    sudo mkdir /usr/local/tracebase
+    sudo chown tracebase:tracebase /usr/local/tracebase
+
+    python3 -m venv /usr/local/tracebase
     source /usr/local/tracebase/bin/activate
-
-### Create a `tracebase` User Account
-
-Create a `tracebase` user account that we will use to install TraceBase.
-
-<!-- TODO: What permissions should we advise? Should we give explicit account creation guidance here? -->
 
 ### Installing System Dependencies
 
@@ -60,8 +63,12 @@ Create a `tracebase` user account that we will use to install TraceBase.
 <!-- TODO: Is there a guide we can just link to? -->
 
 #### Postgres Installation
-<!-- TODO: Is this correct? -->
-Install Postgres via package installer from [https://www.postgresql.org](https://www.postgresql.org).
+
+Install [Postgres](https://www.postgresql.org).
+
+We used the `rhel-9-for-x86_64-appstream-rpms` repository and followed the
+[4.1. Installing PostgreSQL](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/9/html/configuring_and_using_database_servers/using-postgresql_configuring-and-using-database-servers#installing-postgresql_using-postgresql)
+installation instructions.
 
 During installation, use these settings for a postgres user for admin privileges:
 
@@ -69,13 +76,9 @@ During installation, use these settings for a postgres user for admin privileges
     Password: ########
     Port: 5432
 
-Be sure to make note of where the `psql` command-line utility gets installed and add this to the `tracebase` user's
-PATH, e.g. if the utility is located in `/usr/pgsql-13/bin/`:
+If you use the same strategy, the `psql` command-line utility will be in the PATH.  Just make sure that the `tracebase`
+user has it in their PATH.
 
-    export PATH="/usr/pgsql-13/bin/:$PATH"
-
-and add it to the `tracebase` user's `.bashrc`.
-<!-- TODO: Should this describe adding to the .bashrc file? -->
 ### Installing Application Dependencies
 
 As the `tracebase` user:
@@ -246,16 +249,9 @@ Running the test suite will verify everything is installed correctly.  Note, thi
 
 ### Backups
 
-<!-- TODO: Add Fan's backup script to the repo, (or create a separate gist?).  This is from nplcadmindocs:
-Database backup cronjob scheduled for postgres user:
-   00 05 * * * /var/lib/pgsql/dbadmin/tracebase_dump.sh |/bin/mail -s "dev:tracebase_dump.sh" fkang@princeton.edu
-Database dump files:
-   two copies of dump files are kept ( sudo into postgres for access):
-   generated on current date: ~postgres/dbadmin/dev.tracebase.dump.sql
-   generated a day before current date: ~postgres/dev.tracebase.dump.sql.old
-README_test_db_restore_from_dump
-   ~postgres/dbadmin/test_db_restore/README_test_db_restore_from_dump
--->
+The TraceBase codebase does not provide a backup mechanism out-of-the-box, but we recommend setting up a backup of the
+database and the archive files.  We use a cron job to dump the database and backup that file and the archive directory
+regularly.
 
 ### Updates
 
@@ -308,5 +304,11 @@ the study submission process, so these protocols are optional to load:
 
 All available fixtures are located in `DataRepo/fixtures`.
 
-<!-- TODO: Describe how to load compounds, tissues (if mouse), DataTypes, DataFormats, and LCMethods.
-           This will require access to some supporting files. -->
+Some of the other supporting data, such as compounds, tissues, and animal treatments tend to vary from lap to lab.  Many
+researchers have their prefered compound names, for example, so we do not provide fixtures for this data, but compiling
+that data can be a time consuming endeavor.  If you would like to get a jump start on this data resource, you can
+download that data from [tracebase.princeton.edu](http://tracebase.princeton.edu), format it for the Study doc format,
+and put it in a 3-sheet study doc (Compounds, Tissues, and Treatments) named `underlying_data.xlsx` and load it into
+your tracebase instance with:
+
+    python manage.py load_study --invile underlying_data.xlsx
