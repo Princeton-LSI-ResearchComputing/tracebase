@@ -77,7 +77,8 @@ one manual edit to the study doc that must occur before loading:
    annotation file.  We do have plans to add that ability in future versions of TraceBase.
 2. **Optional**: Validate the Study doc.  See the **Validating** section below.
 
-Once that is done, all you have to do to load the study doc is go to the study directory and run:
+Once that is done, all you have to do to load the study doc is go to the study directory (which may contain the raw
+mzXML files) and run:
 
     python manage.py load_study --infile study_doc.xlsx
 
@@ -85,6 +86,47 @@ There are some errors that can arise that are not checked by the Upload Submissi
 **Known Issues** section below.
 
 ### Things to Know About Building and Loading Study Submissions
+
+#### It's OK to `control-c`
+
+The load scripts all wrap their database operations in an atomic transaction and only commit changes at the very end.
+Any exception that occurs during the script execution will prevent the final commit.
+
+#### Ignore Warnings
+
+Addressing issues in the warnings can suppress the warnings, but it is generally not necessary to fix warnings.
+Warnings are intended specifically for the Researchers to address before submission.  They are intended to pertain to
+domain knowledge issues.  For example one warning might mention potential sample contamination.  A researcher would have
+to make a judgement call if unexpected isotopes are due to natural background issues.
+
+#### mzXMLs
+
+The first errors you are likely to encounter (even though a study doc passes validation on the site) are errors
+involving mzXML files.  The validation interface on any TraceBase instance doesn't have access to those files at the
+time of validation, which is why errors associated with those files only come up during loading.
+<!-- textlint-disable terminology -->
+The only files you need to be added to the study doc are the ones that are listed in the errors.  The mapping of mzXML
+files to the samples is generally automatic, and the "mzXML File Name" column in the "Peak Annotation Details" sheet is
+empty, but if any mapping could not be automatically resolved, there will be an error.
+
+Each error you encounter should provide a suggested fix, but often, the fix is the same, and that is to add the mzXML
+**with a path relative to the study directory** to the row in the "Peak Annotation Details" sheet containing the
+corresponding sample and the Peak Annotation File (for the mathcing scan range), under the "mzXML File Name" column.  If
+a row doesn't exist, add one.  If you cannot tell by the filenames which sample and which peak annotation file matches,
+compile a list of the mzXML files (with their relative paths) and ask the researcher to put them on the correct rows.
+<!-- textlint-enable terminology -->
+The useful things to know about mzXMLs, to be able to address the errors, are:
+
+- mzXML files are "raw" files that are the inputs to the abundance correction tools like AccuCor and IsoCorr.
+- mzXML files contain subsets of data (positive and negative scan ranges) from the actual proprietary `.raw` files
+  produced by the mass spec instrument.
+- There are multiple mzXML files per sample (and per `.raw` file, defined by a polarity and scan range).
+- Some mzXML files have no scan data (a side effect of how they are produced).
+- Some mzXML files may have been abandonned (i.e. not analyzed) by the researcher.
+- All mzXML files for 1 sample start out with the same name, but researchers sometimes append a scan label (like "_pos")
+  to differentiate them.
+- mzXML filenames tend to be the sample names, but sometimes the names don't match the samples exactly due to
+  restrictions on sample names applied by the abundance correction software.
 
 #### The Study Doc
 
@@ -236,7 +278,7 @@ is a highlight of the main things to know:
 
 ## Cache and Maintained Field Maintenance
 
-### Cached Functions
+### Cache
 
 The calculated values in TraceBase (e.g. Normalized Labeling) are computed as needed and stored in a django-controlled
 Postgres cache table named `tracebase_cache_table`.  As mentioned in the *Caching and Download Performance* item in the
@@ -296,6 +338,7 @@ decorators (and disable caching updates):
 This will make your record changes much faster.  For example:
 
     from django.db import transaction
+
     from DataRepo.models import *
     from DataRepo.models.hier_cached_model import disable_caching_updates
 
