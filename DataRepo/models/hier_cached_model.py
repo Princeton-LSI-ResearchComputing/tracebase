@@ -113,11 +113,7 @@ def get_cache_key(rec, cache_func_name):
 
 
 def delete_all_caches():
-    """Deletes either just the test caches or all caches (including the test caches).
-
-    Deletion of the test caches only is just to preserve production caches so that tests do not affect the production
-    entries.  The deletion of all caches regardless of prefix when not testing is simply due to the superior
-    performance of cache.clear().
+    """Deletes all entries in the cache table.
 
     Args:
         None
@@ -126,19 +122,7 @@ def delete_all_caches():
     Returns:
         None
     """
-    if settings.TESTING:
-        # If we are testing, only delete the test caches
-        table_name = settings.CACHES["default"]["LOCATION"]
-        prefix = settings.CACHES["default"]["KEY_PREFIX"]
-
-        # This deletes everything with the current cache prefix from the cache table
-        sql = f"DELETE FROM {table_name} WHERE split_part(cache_key, '.', 1) LIKE '{prefix}:%';"
-
-        with connection.cursor() as cursor:
-            cursor.execute(sql)
-    else:
-        # This is faster.  It deletes everything in the cache table.
-        cache.clear()
+    cache.clear()
 
 
 def get_cached_method_names():
