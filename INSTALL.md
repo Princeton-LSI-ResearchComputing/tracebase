@@ -18,7 +18,7 @@ servers, and databases.
 ### Prerequisites
 
 - Minimum Hardware Recommendations:
-  - CPUs: 1 (2 recommended) <!-- TODO: What speed is tb? -->
+  - CPUs: 4 Intel(R) Xeon(R) Gold 6230R CPU @ 2.10GHz (1 can suffice)
   - RAM: 32G (6G swap on /swapfile - Configure after OS install - adjust as needed - See /etc/fstab)
   - Disk Space: 60G (Default size on install for /boot)
     - 2G swap
@@ -28,7 +28,7 @@ servers, and databases.
 - Software Requirements:
   - Operating system: RHEL version `9`
   - Database: PostgreSQL version `13`
-  - Web server: Apache version `2.4.62` <!-- TODO: Can this be just `2.4`? -->
+  - Web server: Apache version `2.4.62`
   - Language: [Python version `3.10`](https://www.python.org/downloads/)
   - Package manager: pip version `25.3`
 
@@ -36,9 +36,8 @@ servers, and databases.
 
 ### Create a `tracebase` User Account
 
-Create a `tracebase` user account that belongs to a `tracebase` group that we will use to install TraceBase.
-
-<!-- TODO: What permissions should we advise? Should we give explicit account creation guidance here? -->
+Create a `tracebase` user account that belongs to a `tracebase` group that we will use to install TraceBase, e.g. using
+`useradd`.
 
 ### Environment Setup
 
@@ -59,8 +58,15 @@ Create a virtual environment (from a bash shell) in `/usr/local` and activate it
 
 #### Apache Installation
 
-<!-- TODO: Apache Installation Instructions? `sudo dnf install httpd`? How to set it up to auto-start? -->
-<!-- TODO: Is there a guide we can just link to? -->
+We installed apache 2.4.62 on RHEL 9 using roughly these commands:
+
+    sudo dnf install httpd -y
+    sudo systemctl start httpd
+    sudo systemctl enable httpd
+    sudo systemctl status httpd
+    sudo firewall-cmd --permanent --add-service=http
+    sudo firewall-cmd --permanent --add-service=https
+    sudo firewall-cmd --reload
 
 #### Postgres Installation
 
@@ -88,7 +94,7 @@ As the `tracebase` user:
 Download the latest stable release of TraceBase from:
 
 - [TraceBase Releases](https://github.com/Princeton-LSI-ResearchComputing/tracebase/releases)
-<!-- TODO: Create a downloadable release in the github repo -->
+
 Save the file in:
 
     /var/www/
@@ -107,8 +113,8 @@ Install dependencies for the production environment (`requirements/prod.txt`).
 
 ### Postgres Setup
 
-Set these settings in the `postgresql.conf` file.  Open it in a text editor and make sure these settings are uncommented
-& correct.  E.g.:
+Set these settings in the `/var/lib/pgsql/data/postgresql.conf` file.  Open it in a text editor and make sure these
+settings are uncommented & correct.  E.g.:
 
 - `client_encoding` = `UTF8`
 - `default_transaction_isolation` = `read committed`
@@ -192,28 +198,60 @@ Both locations need to be configured as aliases in the webserver.  See **Apache 
 
 ### Apache Setup
 
-<!-- TODO: Apache config instructions?? -->
+The following is an example `/etc/httpd/conf.d/tracebase.conf` file:
 
-Apache config is in `/etc/httpd/conf.d/tracebase.conf`
+    <VirtualHost>
+        SSLEngine on
+        SSLCertificateFile /etc/pki/tls/certs/example-edu.cer
+        SSLCertificateKeyFile /etc/pki/tls/private/example-edu.key
+        SSLCertificateChainFile /etc/pki/tls/certs/example-edu.cer
+        SSLProtocol all -SSLv2 -SSLv3
+        ServerName example.edu
+        Timeout 180
+        ErrorLog logs/tracebase-error_log
+        CustomLog logs/tracebase-access_log common
+        WSGIDaemonProcess tracebase processes=2 threads=4 display-name=tracebase python-home=/usr/local/tracebase python-path=/var/www/tracebase
+        WSGIProcessGroup tracebase
+        WSGIScriptAlias / /var/www/tracebase/TraceBase/wsgi.py
+        # If you are using CAS for authentication
+        <Location />
+            AuthType CAS
+            CASScope /
+            Require group tb
+            AuthGroupFile /var/www/tracebase/groups.txt
+        </Location>
+        Alias /static /var/www/tracebase/static
+        Alias /favicon.ico /var/www/tracebase/static/favicon.ico
+        <Directory /var/www/tracebase/static>
+            Require all granted
+        </Directory>
+        Alias /archive /tracebase-archive/archive
+        <Directory /tracebase-archive/archive>
+            Require all granted
+            Header set Content-disposition attachment
+        </Directory>
+    </VirtualHost>
 
-- Create an alias for the archive, which should be independent of any other tracebase instances (if you intend to run a
+Note that it:
+
+- Creates an alias for the archive, which should be independent of any other tracebase instances (if you intend to run a
   public instance for sharing data).
-- Be sure that the ARCHIVE_DIR variable in `/var/www/tracebase/TraceBase/.env` matches the alias in
-  `/etc/httpd/conf.d/tracebase.conf`.
-- Set the gateway timeout to match what's in the `TraceBase/.env` file.  This allows the software to end gracefully if
+  - Be sure that the ARCHIVE_DIR variable in `/var/www/tracebase/TraceBase/.env` matches the alias.
+- Creates an `alias` to match the `/var/www/tracebase/static` directory.
+- Sets the gateway timeout to match what's in the `TraceBase/.env` file.  This allows the software to end gracefully if
   submission processing takes too long.
-- Create an `alias` to match the `ARCHIVE` location in the `TraceBase/.env` file to enable archive file downloads.
-- Create an `alias` to match the `/var/www/tracebase/static` directory.
-
-<!-- TODO: Description of how to allow access to archive and static files in the apache config. -->
-
-### Domain and SSL
-
-<!-- TODO: Guidance on configuring a domain name & setting up SSL/HTTPS using tools like Let's Encrypt for security. -->
 
 ## Authorization and Security
 
 ### User Management
+
+#### Regular Users (Lab-Only)
+
+User authentication is left for system administrators to work out.  At Princeton, we use CAS authorization and all
+that's required is to add it in a Location tag in `/etc/httpd/conf.d/tracebase.conf` as is seen in ghe example above.
+We provide access to specific users by adding their usernames to `/var/www/tracebase/groups.txt`.
+
+#### Admin Users (Curators)
 
 Add superusers for admin access.  This allows select lab users to login to the admin page linked at the top right of
 each TraceBase page.  This is a limited interface that is yet to be fully featured and contains currently, only the
@@ -222,13 +260,6 @@ ability to edit Compound records.
 You can create multiple admin users, each with this command, which will prompt for a username, email, and password:
 
     python manage.py createsuperuser
-
-<!-- TODO: Add a section that talks about authenticating users -0 which is not supported by the codebase, and how -->
-<!-- TODO: to add/remove users using `/var/www/tracebase/groups.txt`. -->
-
-### Security
-
-<!-- TODO: Documentation for enable HTTPS and set appropriate security headers. -->
 
 ## Post-Installation
 
