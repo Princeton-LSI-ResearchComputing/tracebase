@@ -161,15 +161,28 @@ Update the `TraceBase/.env` file to:
 - Set `DEBUG` to `False`
 - Set the `ARCHIVE` location (must match the `alias` in the **Apache Setup** section).
 
-If `READONLY` is set to `False`, the following `SUBMISSION` environment variables must be defined and a shared drive
-(not managed by TraceBase) must be set up for lab members to deposite their submission data.  This is where
-administrators will go to retrieve data for loading.  The environment variables are for your own internal documentation
-for drive access.
+Each lab must have their own way of submitting large amounts of study data (the study doc, peak annotation files, and
+mzXML raw files).  The following `SUBMISSION` environment variables must be defined and a shared drive (not managed by
+TraceBase) must be set up for lab members to deposite their submission data.  This is where administrators will go to
+retrieve data for loading.  The environment variables are for your own internal documentation for drive access.
 
 - `SUBMISSION_DRIVE_DOC_URL` - A URL to documentation about access to the shared drive where submissions are deposited.
 - `SUBMISSION_DRIVE_TYPE` - This is a display name for the drive, e.g. "MS Data Shre", for display of the doc URL.
 - `SUBMISSION_DRIVE_FOLDER` - This is a demonstrative path in the shared drive showing where to deposit submissions,
   e.g. `\\gen-iota-cifs\msdata\tracebase-submissions`.
+
+NOTE, If `READONLY` is set to `False`, the `SUBMISSION_*` environment variables are not needed, because it disables the
+submission interface.
+
+The submission process is described in
+[the user documentation](https://princeton-lsi-researchcomputing.github.io/tracebase/Upload/How%20to%20Build%20a%20Submission/4%20-%20How%20to%20Submit%20Data/),
+however since each setup is different, the TraceBase
+codebase does not provide a study submission form.  You must create one and save it in this environment variable:
+
+- `SUBMISSION_FORM_URL`
+
+You can do so by creating a copy of our
+[example google submission form](https://docs.google.com/forms/d/1XBTUwweS0cEhsBoVxgu7aSAUsypeW4xay93jHGnPznk/copy).
 
 #### TraceBase Database Migration
 
