@@ -510,7 +510,7 @@ class HierCachedModel(Model):
 
     @classmethod
     def get_final_cache_table_size(cls):
-        """Returns a dict containing the final number of cached values per model (and in total).
+        """Returns a dict containing the final number of cached values per model and in total.
 
         Args:
             None
@@ -526,7 +526,7 @@ class HierCachedModel(Model):
         for model_name, func_list in func_name_lists.items():
             model = get_model_by_name(model_name)
             num_caches = model.objects.count() * len(func_list)
-            cache_sizes["per_model"] = num_caches
+            cache_sizes["per_model"][model_name] = num_caches
             cache_sizes["total"] += num_caches
 
         return cache_sizes
