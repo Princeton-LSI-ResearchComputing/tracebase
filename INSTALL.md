@@ -226,13 +226,13 @@ The following is an example `/etc/httpd/conf.d/tracebase.conf` file:
         WSGIDaemonProcess tracebase processes=2 threads=4 display-name=tracebase python-home=/usr/local/tracebase python-path=/var/www/tracebase
         WSGIProcessGroup tracebase
         WSGIScriptAlias / /var/www/tracebase/TraceBase/wsgi.py
-        # If you are using CAS for authentication
-        <Location />
-            AuthType CAS
-            CASScope /
-            Require group tb
-            AuthGroupFile /var/www/tracebase/groups.txt
-        </Location>
+        # If you are using CAS for authentication for a private TraceBase instance
+        # <Location />
+        #     AuthType CAS
+        #     CASScope /
+        #     Require group tb
+        #     AuthGroupFile /var/www/tracebase/groups.txt
+        # </Location>
         Alias /static /var/www/tracebase/static
         Alias /favicon.ico /var/www/tracebase/static/favicon.ico
         <Directory /var/www/tracebase/static>
@@ -257,6 +257,16 @@ Note that it:
 ## Authorization and Security
 
 ### User Management
+
+#### Public Users
+
+TraceBase does not provide differential public versus private access.  To "publish" any study data, a separate public
+instance of TraceBase must be created that must be separately loaded with the studies that have been selected to be
+"public"/published.  To create a public instance, follow these installation instructions, but do not apply any
+authentication mechanism.  It is also recommended that you set the `READONLY` environment variable in `TraceBase/.env`
+to `True`.
+
+NOTE: Retain copies of submitted study docs and all associated data for this purpose.
 
 #### Regular Users (Lab-Only)
 
