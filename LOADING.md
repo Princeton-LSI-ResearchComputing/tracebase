@@ -212,17 +212,15 @@ errors and suggestions they make to fix them is the same.
 
 Errors and and warnings are buffered during the load, but are output to the console with their traces as they are
 encountered.  Some errors are eventually handled by the loading code and ignored.  All outstanding errors are collated
-and summarized in an "AggregatedErrorsSet Summary" at the end of a load, which is only output if there is at least 1
+and summarized in an "`AggregatedErrorsSet` Summary" at the end of a load, which is only output if there is at least 1
 fatal error.  (Take note of the *Duplicate error summaries* item in the **Known Issues** section below.)
 
 The strategy of error handling in TraceBase is to create custom errors and warnings for common errors that are
 understandable by the researchers, so that they can fix the issues in their submission before they submit the data for
-loading.  Each custom error should contain advice on how to fix the problem in the data that has been identified.  Most
-errors will likely be data related, but if you encounter any cryptic or non-custom errors in the AggregatedErrorsSet
-Summary, such as for example, a `ValueError`, `KeyError`, or `TyperError`, the way to debug it is to find the trace that
-was output to the console when it actually arose.  To find the actual trace of a custom error that has been summarized,
-you will need to re-run and supply the `--debug` flag.  The console output of summarized errors is suppressed by
-default.
+loading.  Each custom error should contain advice on how to fix the problem in the data that has been identified. If you
+encounter any cryptic or non-custom errors in the `AggregatedErrorsSet` Summary, please re-run your data load with the
+`--debug` flag and redirect all output to a file.  Provide that file to your administrator or IT support desk for
+further assistance.
 
 For help on any particular error, consult the user guide's
 [Errors and Warnings Reference](https://princeton-lsi-researchcomputing.github.io/tracebase/Upload/Errors%20and%20Warnings%20Reference/)
@@ -243,7 +241,7 @@ is a highlight of the main things to know:
   `mzXML` files are being loaded.
 - *Duplicate error summaries*: Repeated errors are collected and summarized at the end of the script, however that
   summary at the end gets duplicated.  The summary to pay attention to is the last occurrence of the term
-  "AggregatedErrorsSet".  Everything below that line summarizes the important errors and warnings.  Everything above
+  `AggregatedErrorsSet`.  Everything below that line summarizes the important errors and warnings.  Everything above
   that line can be ignored.
 - *Overly verbose*: The loading scripts currently produce a lot of console output that the TraceBase project will
   eventually pare down.  That said, there can also be extended periods of no output.  Rest assured that it is running.
