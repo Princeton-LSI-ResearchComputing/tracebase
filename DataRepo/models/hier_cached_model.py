@@ -1,4 +1,3 @@
-from collections import defaultdict
 from functools import wraps
 from typing import Dict, List, Optional
 from warnings import warn
@@ -521,7 +520,7 @@ class HierCachedModel(Model):
         """
         from DataRepo.models.utilities import get_model_by_name
 
-        cache_sizes = defaultdict(lambda: {"per_model": defaultdict(int), "total": 0})
+        cache_sizes = {"per_model": {}, "total": 0}
 
         for model_name, func_list in func_name_lists.items():
             model = get_model_by_name(model_name)
