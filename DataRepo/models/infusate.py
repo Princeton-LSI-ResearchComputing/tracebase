@@ -48,7 +48,7 @@ class InfusateQuerySet(models.QuerySet):
         for infusate_tracer in infusate_data["tracers"]:
             tracer = Tracer.objects.get_tracer(infusate_tracer["tracer"])
             if tracer is None:
-                (tracer, _) = Tracer.objects.get_or_create_tracer(
+                tracer, _ = Tracer.objects.get_or_create_tracer(
                     infusate_tracer["tracer"],
                 )
             # associate tracers with specific conectrations

@@ -161,7 +161,7 @@ class Animal(MaintainedModel, HierCachedModel):
         no serum samples or if the retrieved serum sample has no annotated time_collected, a warning will be issued.
         """
         # Create an is_null field for time_collected to be able to sort them
-        (extra_args, is_null_field) = create_is_null_field("time_collected")
+        extra_args, is_null_field = create_is_null_field("time_collected")
         last_serum_sample = (
             self.samples.filter(Tissue.serum_q_expression("tissue__name"))
             .extra(**extra_args)
@@ -200,7 +200,7 @@ class Animal(MaintainedModel, HierCachedModel):
 
         # Get the last peakgroup for each tracer
         last_serum_peakgroup_ids = []
-        (tc_extra_args, tc_is_null_field) = create_is_null_field(
+        tc_extra_args, tc_is_null_field = create_is_null_field(
             "msrun_sample__sample__time_collected"
         )
         for tracer in self.tracers.all():
