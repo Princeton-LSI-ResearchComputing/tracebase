@@ -1,3 +1,4 @@
+from collections import defaultdict
 from functools import wraps
 from typing import Dict, List, Optional
 from warnings import warn
@@ -506,6 +507,29 @@ class HierCachedModel(Model):
                     "Caches were built for all supplied cache functions except the following invalid function names: "
                     f"{invalid_func_names}.  Valid function names are:{nlt}{valid_funcs_str}"
                 )
+
+    @classmethod
+    def get_final_cache_table_size(cls):
+        """Returns a dict containing the final number of cached values per model (and in total).
+
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            cache_sizes (dict): {"per_model": {model_name: 0}, "total": 0}
+        """
+        from DataRepo.models.utilities import get_model_by_name
+
+        cache_sizes = defaultdict(lambda: {"per_model": defaultdict(int), "total": 0})
+
+        for model_name, func_list in func_name_lists.items():
+            model = get_model_by_name(model_name)
+            num_caches = model.objects.count() * len(func_list)
+            cache_sizes["per_model"] = num_caches
+            cache_sizes["total"] += num_caches
+
+        return cache_sizes
 
     class Meta:
         abstract = True
