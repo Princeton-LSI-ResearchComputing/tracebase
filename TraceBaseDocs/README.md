@@ -29,14 +29,15 @@ site updates live as changes are made to the Markdown documents.
 
 Build the site to serve publicly on [GitHub Pages](https://princeton-lsi-researchcomputing.github.io/tracebase/):
 
-1) `mkdocs gh-deploy -m "description of site update"`
+1) `mkdocs gh-deploy -m "Metabolite Tracing Database" --ignore-version`
 
-If you get an error that states:
+Without the `--ignore-version` flag, you get an error that states:
 
 > Deployment terminated: Previous deployment was made with MkDocs version 3.1; you are attempting to deploy with an
 > older version (1.6.1). Use --ignore-version to deploy anyway.
 
-This appears to possibly be a bug in either `mkdocs` or one of its plugins.  It should be safe to use `--ignore-version`.
+This appears to possibly be a bug in either `mkdocs` or one of its plugins.  NOTE: There are dependency conflicts that
+need to be overcome before we can use a later version of `mkdocs`.
 
 This generates HTML based on Markdown documents.  It can be accessed by anyone at
 [https://Princeton-LSI-ResearchComputing.github.io/tracebase/](https://Princeton-LSI-ResearchComputing.github.io/tracebase/).

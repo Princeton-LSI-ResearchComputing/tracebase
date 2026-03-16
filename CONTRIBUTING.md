@@ -9,15 +9,22 @@ repository in order to start developing/contributing.
 
 #### Python
 
-Install the latest Python (version 3.9.1), and make sure it is in your path:
+TraceBase has been tested with Python 3.7 through 3.10.  TraceBase may work with later Python versions, but currently
+there are dependency issues with Python 3.14.
+
+Install a Python version that is 3.9.1 or greater (3.10 is the current recommendation) from:
+
+    https://www.python.org/downloads/
+
+Make sure that version of python is in your path:
 
     $ python --version
-    Python 3.9.1
+    Python 3.10.11
 
 Test to make sure that the `python` command now shows your latest python install:
 
     $ python --version
-    Python 3.9.1
+    Python 3.10.11
 
 #### Postgres
 
@@ -84,7 +91,7 @@ dependencies.
 Django:
 
     python3 -m django --version
-    4.2.16
+    4.2.29
 
 ### Configure TraceBase
 
@@ -184,16 +191,11 @@ editor. Some linters that may be useful to install locally include:
     - Example install: `npm install --save-dev markdownlint-cli`
     - Recommended version: `0.45.0`
   - [textlint](https://github.com/textlint/textlint)
-<<<<<<< HEAD
-    - Example install
+    - Example install:
       - `npm install --save-dev textlint`
       - `npm install --save-dev textlint-rule-terminology`
       - `npm install --save-dev textlint-filter-rule-comments`
-=======
-    - `npm install --save-dev textlint`
-    - `npm install --save-dev textlint-rule-terminology`
-    - Example: `npx textlint -c .textlintrc.json CHANGELOG.md`
->>>>>>> 127a6c0a... 3.1.5-beta point release.
+    - Example usage: `npx textlint -c .textlintrc.json CHANGELOG.md`
 - Config
   - [editorconfig-checker](https://www.npmjs.com/package/editorconfig-checker)
 
