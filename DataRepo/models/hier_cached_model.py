@@ -450,10 +450,17 @@ class HierCachedModel(Model):
                 max_pk = cls.get_max_cached_pk(model.__name__)
                 if not max_pk:
                     print(
-                        f"No new uncached {model.__name__} records to build.  Note, this may be inaccurate if the site "
-                        "was browsed after load.  Do not use new_only to guarantee all caches are built."
+                        f"No new uncached {model.__name__} record values to build.  Note, uncached values may still "
+                        "exist if the site was browsed after load.  Do not use new_only to guarantee all caches are "
+                        "built."
                     )
                     continue
+                else:
+                    print(
+                        f"Building caches for new {model.__name__} records (after pk {max_pk}).  Note, uncached values "
+                        "may still exist if the site was browsed after load.  Do not use new_only to guarantee all "
+                        "caches are built."
+                    )
                 qs = qs.filter(pk__gt=max_pk)
 
             for rec in qs.order_by("pk"):
