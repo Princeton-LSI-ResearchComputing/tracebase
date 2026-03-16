@@ -9,7 +9,8 @@ does not cover installing or upgrading TraceBase.  For that, refer to `INSTALL.m
 
 ### Target Audience
 
-This document is written for TraceBase curators and other users responsible for loading and validating study submissions.
+This document is written for TraceBase curators and other users responsible for loading and validating study
+submissions.
 
 A TraceBase curator is a metabolomics domain expert whose job is to govern nomenclature consistency and scientific
 correctness, such as ensuring that an HMDB_ID applied to a compound is correct or that there don't exist 2 tissue
@@ -36,16 +37,14 @@ export all data.
 
 ### Plubishing Data
 
-To "publish" data to the public, this must be accomplished by setting up a separate TraceBase instance that does not
-have authentication or access controls.  However, it is recommended that public TraceBase instances make the following
-change to the `TraceBase/.env` files:
+TraceBase does not provide differential public versus private access to selected studies, so to "publish" any study
+data, a separate public instance of TraceBase must be created.  If you don't already have a public instance of
+TraceBase, please see your systems administrator to set one up, by following the instructions in `INSTALL.md`
 
-    READONLY=True
-
-This will disable the Admin page and the Upload pages.
-
-To get the data onto a public instance, the related study docs from the original load on the lab site must be loaded
-separately.
+To get the data onto a public instance, it must be loaded the same way your private instance of TraceBase is loaded, by
+following this loading document.  If you've already loaded the data on your private instance, all of the potential
+issues should already be worked out, so all you should need to do is locate the original files and follow the steps in
+the **Quick Start** section below.
 
 ## Loading
 
@@ -65,11 +64,14 @@ one manual edit to the study doc that must occur before loading:
    ^ The study doc template creation on the Upload Submission Start page does not know the path of each submitted peak
    annotation file.  We do have plans to add that ability in future versions of TraceBase.
 2. **Optional**: Validate the Study doc.  See the **Validating** section below.
-
+<!-- TODO: Eliminate step 1: https://princeton-university.atlassian.net/browse/GREATS-251 -->
 Once that is done, all you have to do to load the study doc is go to the study directory (which may contain the raw
 mzXML files) and run:
 
     python manage.py load_study --infile study_doc.xlsx
+
+Save the original input files if you ever need to reset the database or load the same data on another TaraceBase
+instance (e.g. the public instance mentioned in the **Plubishing Data** section above).
 
 There are some errors that can arise that are not checked by the Upload Submission Validate page.  See the
 **Known Issues** section below.
