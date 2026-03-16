@@ -91,7 +91,7 @@ dependencies.
 Django:
 
     python3 -m django --version
-    4.2.27
+    4.2.29
 
 ### Configure TraceBase
 
