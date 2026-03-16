@@ -14,7 +14,7 @@ simple to browse, collate, compare, and download the data.
 See `INSTALL.md`.
 
 ## Usage
-
+<!-- TODO: Update this link for: https://princeton-university.atlassian.net/browse/GREATS-249 -->
 See our [online user guide](https://princeton-lsi-researchcomputing.github.io/tracebase/).
 
 ## Contributing Guidelines
@@ -31,7 +31,7 @@ See `LICENSE.md`.
 - [Feature & Bug Request](https://princeton-university.atlassian.net/wiki/x/DABDGQ)
 - [Feedback](https://docs.google.com/forms/d/e/1FAIpQLSdnYe_gvKdoELXexZ9508xO8o59F1WgXcWBNh-_oxYh9WfHPg/viewform?usp=pp_url&entry.1881422913=README.md)
 
-## Technologies Used
+## Technology Stack
 
 - Python
   - See `requirements/common.txt` for dependencies.
@@ -40,7 +40,7 @@ See `LICENSE.md`.
 - JavaScript
 
 ## Authors & Acknowledgments
-
+<!-- TODO: Update this link for: https://princeton-university.atlassian.net/browse/GREATS-249 -->
 See [The TraceBase Team](https://princeton-lsi-researchcomputing.github.io/tracebase/About/Team/).
 
 ## Citing TraceBase

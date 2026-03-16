@@ -1,6 +1,6 @@
-# TraceBase Install
+# Install Instructions
 
-## Introduction and System Requirements
+## Requirements
 
 ### Overview
 
@@ -12,8 +12,7 @@ installed on a workstation (if you want to try it out before going through this 
 
 ### Target Audience
 
-This document is written for system administrators and developers familiar with setting up users, authorization, web
-servers, and databases.
+This document is written for system administrators and software developers.
 
 ### Prerequisites
 
