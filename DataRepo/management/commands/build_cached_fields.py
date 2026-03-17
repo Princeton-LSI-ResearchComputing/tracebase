@@ -28,7 +28,14 @@ funcs_str = nlt.join(
 class Command(BaseCommand):
     help = (
         "Builds missing cached values for all model fields with the following cached_functions:\n"
-        f"{nlt}{funcs_str}"
+        f"{nlt}{funcs_str}\n"
+        "\n"
+        "To monitor cache building progress in another terminal window, you can run `python manage.py shell` and use "
+        "any of the following commands:\n"
+        f"{nlt}from DataRepo.models.hier_cached_model import get_cache_table_size, HierCachedModel\n"
+        f"{nlt}get_cache_table_size()"
+        f"{nlt}HierCachedModel.get_final_cache_table_size()"
+        f"{nlt}HierCachedModel.get_cache_table_size_per_model()  # This one is slower, but more detailed."
     )
 
     def add_arguments(self, parser):
