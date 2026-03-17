@@ -355,7 +355,7 @@ def create_test_model(
     SECURE_SSL_REDIRECT=False,
 )
 class TracebaseArchiveTestCase(TracebaseTransactionTestCase):
-    ARCHIVE_DIR = settings.TEST_MEDIA_ROOT
+    ARCHIVE_DIR = settings.TEST_ARCHIVE_DIR
 
     @classmethod
     def setUpClass(cls):
