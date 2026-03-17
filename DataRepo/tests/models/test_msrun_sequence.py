@@ -40,7 +40,7 @@ class MSRunSequenceTests(TracebaseTestCase):
         self.assertEqual(ValidationError, type(exc))
 
     def test_parse_sequence_name(self):
-        (operator, lc_protocol_name, instrument, date) = (
+        operator, lc_protocol_name, instrument, date = (
             MSRunSequence.parse_sequence_name("Rob, polar-HILIC-25-min, QE, 1972-11-24")
         )
         self.assertEqual(

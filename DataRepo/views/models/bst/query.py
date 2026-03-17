@@ -591,7 +591,7 @@ class BSTListView(BSTBaseListView, BSTQueryView):
 
         # Determine what annotations must occur before the subquery so as to leave their values unaltered (because many-
         # related model field filters can change aggregate annotation values)
-        (self.presubset_annots, _) = self.get_annotations(self.subquery)
+        self.presubset_annots, _ = self.get_annotations(self.subquery)
 
     def get_queryset(self):
         """An extension of the superclass method intended to only set the total instance attribute.  raw_total is set by

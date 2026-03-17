@@ -534,9 +534,7 @@ class TableLoaderTests(TracebaseTestCase):
         records and does not include differences with many-related models.  See PR #1713.
         """
         # TODO: See TODO note in the constructor
-        (connected_model, related_model, many_model) = (
-            self.generate_test_related_models()
-        )
+        connected_model, related_model, many_model = self.generate_test_related_models()
         test_related_loader = self.generate_test_related_loader(connected_model)
 
         # Create a loader object from which we will call get_inconsistencies
@@ -575,9 +573,7 @@ class TableLoaderTests(TracebaseTestCase):
         records and does not include differences with many-related models.  See PR #1713.
         """
         # TODO: See TODO note in the constructor
-        (connected_model, related_model, many_model) = (
-            self.generate_test_related_models()
-        )
+        connected_model, related_model, many_model = self.generate_test_related_models()
         test_related_loader = self.generate_test_related_loader(connected_model)
 
         # Create a loader object from which we will call get_inconsistencies

@@ -75,7 +75,7 @@ class Compound(MaintainedModel):
     def get_or_create_synonym(self, synonym_name=None):
         if not synonym_name:
             synonym_name = self.name
-        (compound_synonym, created) = CompoundSynonym.objects.get_or_create(
+        compound_synonym, created = CompoundSynonym.objects.get_or_create(
             name=synonym_name, compound_id=self.id
         )
         return (compound_synonym, created)
@@ -85,9 +85,9 @@ class Compound(MaintainedModel):
         compound_synonym(s) which we are auto-creating afterwards.
         """
         super().save(*args, **kwargs)
-        (_primary_synonym, created) = self.get_or_create_synonym()
+        _primary_synonym, created = self.get_or_create_synonym()
         ucfirst_synonym = self.name[0].upper() + self.name[1:]
-        (_secondary_synonym, created) = self.get_or_create_synonym(ucfirst_synonym)
+        _secondary_synonym, created = self.get_or_create_synonym(ucfirst_synonym)
 
     def clean(self, *args, **kwargs):
         """super.clean will raise an error about existing compounds, if this entire record already exists.
