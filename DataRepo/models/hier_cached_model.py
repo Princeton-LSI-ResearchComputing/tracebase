@@ -517,7 +517,7 @@ class HierCachedModel(Model):
         Exceptions:
             None
         Returns:
-            cache_sizes (dict): {"per_model": {model_name: 0}, "total": 0}
+            cache_sizes (dict): {"per_model": {model_name: {"records": 0, "functions": 0, "total": 0}}, "total": 0}
         """
         from DataRepo.models.utilities import get_model_by_name
 
@@ -583,7 +583,7 @@ class HierCachedModel(Model):
         # Calculate the stats per model
         for model_name, final_stats in final["per_model"].items():
             current = cache_data["per_model"][model_name]["total"]
-            total = final_stats["records"]
+            total = final_stats["total"]
             cache_stats["per_model"][model_name]["current"] = current
             cache_stats["per_model"][model_name]["final"] = total
             cache_stats["per_model"][model_name]["percent"] = int(current / total * 100)

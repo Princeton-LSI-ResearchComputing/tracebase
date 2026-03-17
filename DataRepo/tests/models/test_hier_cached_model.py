@@ -695,17 +695,17 @@ class HierCachedModelTests(TracebaseTestCase):
             "per_model": {
                 "Animal": {
                     "current": 1,
-                    "final": 1,
-                    "percent": 100,
+                    "final": 3,
+                    "percent": 33,
                 },
                 "AnimalLabel": {
                     "current": 0,
-                    "final": 1,
+                    "final": 3,
                     "percent": 0,
                 },
                 "FCirc": {
                     "current": 0,
-                    "final": 1,
+                    "final": 12,
                     "percent": 0,
                 },
                 "Infusate": {
@@ -715,13 +715,13 @@ class HierCachedModelTests(TracebaseTestCase):
                 },
                 "PeakGroup": {
                     "current": 0,
-                    "final": 31,
+                    "final": 93,
                     "percent": 0,
                 },
                 "PeakGroupLabel": {
                     "current": 1,
-                    "final": 31,
-                    "percent": 3,
+                    "final": 682,
+                    "percent": 0,
                 },
                 "Sample": {
                     "current": 0,
