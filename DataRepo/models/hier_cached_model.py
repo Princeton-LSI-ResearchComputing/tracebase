@@ -1,9 +1,11 @@
+from collections import defaultdict
 from functools import wraps
 from typing import Dict, List, Optional
 from warnings import warn
 
 from django.conf import settings
 from django.core.cache import cache
+from django.db import connection
 from django.db.models import Model
 
 caching_retrievals = True
@@ -112,6 +114,15 @@ def get_cache_key(rec, cache_func_name):
 
 
 def delete_all_caches():
+    """Deletes all entries in the cache table.
+
+    Args:
+        None
+    Exceptions:
+        None
+    Returns:
+        None
+    """
     cache.clear()
 
 
@@ -170,6 +181,59 @@ def enable_caching_errors():
     """
     global throw_cache_errors
     throw_cache_errors = True
+
+
+def dump_cache_table_keys():
+    """This is a debugging function to see what is in the cache table regardless of prefix.
+
+    Args:
+        None
+    Exceptions:
+        None
+    Returns:
+        settings.CACHES (dict): The CACHES settings.
+        cache_keys_and_expires (List[Tuple[str, datetime]]): A list of cache_key and expires values from the cache table
+            (regardless of the cache prefix in settings).
+    """
+    table_name = settings.CACHES["default"]["LOCATION"]
+
+    with connection.cursor() as cursor:
+        sql = f"SELECT cache_key, expires FROM {table_name};"
+        cursor.execute(sql)
+        cache_keys_and_expires = cursor.fetchall()
+
+    return settings.CACHES, cache_keys_and_expires
+
+
+def get_cache_table_size():
+    """Returns the number of rows from the cache table that match the CACHE settings prefix.
+
+    Args:
+        None
+    Exceptions:
+        None
+    Returns:
+        count (int): The number of rows containing the cache settings prefix.
+    """
+    table_name = settings.CACHES["default"]["LOCATION"]
+    max_entries = settings.CACHES["default"]["OPTIONS"]["MAX_ENTRIES"]
+    prefix = settings.CACHES["default"]["KEY_PREFIX"]
+
+    with connection.cursor() as cursor:
+        sql = f"SELECT count(*) FROM {table_name} WHERE cache_key like '{prefix}:%';"
+        cursor.execute(sql)
+        row = cursor.fetchone()
+        count = int(row[0])
+
+    if count / max_entries >= 0.8:
+        pcnt = int(count / max_entries * 100)
+        warn(
+            f"Cache table {table_name} is {pcnt}% full (there are {count} entries out of a max of {max_entries} "
+            "allowed entries).  The caching strategy is persistant and values are updated only when they change.  "
+            "Increase environment variable CACHE_MAX_ENTRIES."
+        )
+
+    return count
 
 
 class HierCachedModel(Model):
@@ -303,20 +367,61 @@ class HierCachedModel(Model):
         else:
             return self
 
+    @staticmethod
+    def get_max_cached_pk(model_name: str):
+        """Given a model name, returns the max record primary key for that model that has a cache entry in the cache
+        table.
+
+        Args:
+            model_name (str): The name of a HierCachedModel that will be queried in the cache table to find the largest
+            primary key for that model present in the cache table.
+        Exceptions:
+            None
+        Returns:
+            max_pk (Optional[int]): The max primary key for the given model present in the cache table.  Returns None if
+                no cache entries exist for that model.
+        """
+        table_name = settings.CACHES["default"]["LOCATION"]
+        prefix = settings.CACHES["default"]["KEY_PREFIX"]
+
+        # This splits the cache key on dot (.) and takes the second value, which is the primary key of the record.  It
+        # is saved as an integer annotation and the max value among the model's cached values is returned
+        sql = (
+            f"SELECT MAX(split_part(cache_key, '.', 2)::int) AS {table_name}_pk FROM {table_name} WHERE cache_key LIKE "
+            f"%s ORDER BY {table_name}_pk;"
+        )
+
+        with connection.cursor() as cursor:
+            # Note, version is ignored, but the cache prefix and the dot after the model name are matched
+            regexp = f"{prefix}:%:%{model_name}\\.%"
+            cursor.execute(sql, [regexp])
+            row = cursor.fetchone()
+            max_pk = row[0]
+
+        return max_pk
+
     @classmethod
     def build_cached_fields(
         cls,
         model_names: Optional[List[str]] = None,
         func_names: Optional[List[str]] = None,
+        new_only=False,
     ):
         """Use this method to generate missing cached values.
 
+        Assumptions:
+            1. All cached_function decorated methods are also decorated as a property
         Limitations:
             1. Does not clear existing cached values.
-            2. Does not check validity of function names provided.  Quietly ignores invalid ones.
+            2. No way to limit cache updates to a particular study.
         Args:
             model_names (Optional[List[str]])
             func_names (Optional[List[str]])
+            new_only (bool) [False]: Only build cached_function values for model records whose primary key is greater
+                than the max key for that model in the cache table.  This is intended to be run immediately after a
+                study load, to only update cached values for the new data.  WARNING: Cache builds can happen randomly
+                (as data is displayed) if the new data is browsed on the site.  If that happens, note that this option
+                may not build caches for all the new data.
         Exceptions:
             None
         Returns:
@@ -337,8 +442,30 @@ class HierCachedModel(Model):
                     f"{[m.__name__ for m in models if not issubclass(m, __class__)]}."  # type: ignore[name-defined]
                 )
 
+        # This keeps track of the valid fcached function names that have been called
+        func_names_seen = []
+
         for model in models:
-            for rec in model.objects.order_by("pk"):
+            qs = model.objects.all()
+            if new_only:
+                max_pk = cls.get_max_cached_pk(model.__name__)
+                if not max_pk:
+                    print(
+                        f"No new uncached {model.__name__} record values to build.  Note, uncached values may still "
+                        "exist if the site was browsed after load.  Do not use new_only to guarantee all caches are "
+                        "built."
+                    )
+                    continue
+                else:
+                    print(
+                        f"Building caches for new {model.__name__} records (after pk {max_pk}).  Note, uncached values "
+                        "may still exist if the site was browsed after load.  Do not use new_only to guarantee all "
+                        "caches are built."
+                    )
+                qs = qs.filter(pk__gt=max_pk)
+
+            for rec in qs.order_by("pk"):
+                # Populate cfunc_names with either all cached functions or the valid selected ones for this model
                 if func_names is None or len(func_names) == 0:
                     cfunc_names = func_name_lists[model.__name__]
                 else:
@@ -346,8 +473,15 @@ class HierCachedModel(Model):
                         fn for fn in func_name_lists[model.__name__] if fn in func_names
                     ]
 
+                # Keep track of what (valid) cached functions are being set so we can check for invalid ones at the end
+                for func_name in cfunc_names:
+                    if func_name not in func_names_seen:
+                        func_names_seen.append(func_name)
+
+                # Update the missing cached values
                 for cfunc_name in cfunc_names:
                     try:
+                        # Since cached_functions are properties, getting the cached_function sets the cache (if unset)
                         getattr(rec, cfunc_name)
                     except Exception as e:
                         if settings.DEBUG:
@@ -356,9 +490,113 @@ class HierCachedModel(Model):
                                 f"'{rec}': {type(e).__name__}: {e}"
                             )
 
+        # Check for invalid function names that were supplied.
+        if func_names and len(func_names) > 0:
+            invalid_func_names = list(set(func_names) - set(func_names_seen))
+            if len(invalid_func_names) > 0:
+                # These indent the valid cached function name list by class
+                nlt = "\n  "
+                nltt = "\n    "
+                valid_funcs_str = nlt.join(
+                    [
+                        f"{k}{nltt}{nltt.join(v)}"
+                        for k, v in get_cached_method_names().items()
+                    ]
+                )
+                raise InvalidCacheFunctions(
+                    "Caches were built for all supplied cache functions except the following invalid function names: "
+                    f"{invalid_func_names}.  Valid function names are:{nlt}{valid_funcs_str}"
+                )
+
+    @classmethod
+    def get_final_cache_table_size(cls):
+        """Returns a dict containing the final number of cached values per model and in total.
+
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            cache_sizes (dict): {"per_model": {model_name: {"records": 0, "functions": 0, "total": 0}}, "total": 0}
+        """
+        from DataRepo.models.utilities import get_model_by_name
+
+        cache_sizes = {"per_model": {}, "total": 0}
+
+        for model_name, func_list in func_name_lists.items():
+            model = get_model_by_name(model_name)
+            num_funcs = len(func_list)
+            num_recs = model.objects.count()
+            num_caches = num_recs * num_funcs
+            cache_sizes["per_model"][model_name] = {
+                "records": num_recs,
+                "functions": num_funcs,
+                "total": num_caches,
+            }
+            cache_sizes["total"] += num_caches
+
+        return cache_sizes
+
+    @classmethod
+    def get_cache_table_size_per_model(cls):
+        """Returns stats on the cache table entries.
+
+        Assumptions:
+            1. There is only 1 cache version number.
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            cache_stats (dict): {
+                "total": {"current": 0, "final": 0, "percent": 0},
+                "per_model": {model_name: {"current": 0, "final": 0, "percent": 0}},
+            }
+        """
+        prefix = settings.CACHES["default"]["KEY_PREFIX"]
+        # This retrieves the current cache entry keys
+        _, cache_keys_and_expires = dump_cache_table_keys()
+        # This holds the current raw cache entry counts per model
+        cache_data = {"total": 0, "per_model": defaultdict(lambda: defaultdict(int))}
+        # This will hold the current stats
+        cache_stats = {"total": {}, "per_model": defaultdict(dict)}
+        # This is the total potential count of cache entries, if the cache table was full
+        final = cls.get_final_cache_table_size()
+
+        # Count the current cache entries per model
+        key: str
+        for key, _ in cache_keys_and_expires:
+            cur_prefix, _, signature = key.split(":")
+            if cur_prefix == prefix:
+                components = list(signature.split("."))
+                model_name = components[0]
+                cache_data["per_model"][model_name]["total"] += 1
+                cache_data["total"] += 1
+
+        # Calculate the current overall stats.  "percent" is the current / final percent.
+        cache_stats["total"] = {
+            "current": cache_data["total"],
+            "final": final["total"],
+            "percent": int(cache_data["total"] / final["total"] * 100),
+        }
+
+        # Calculate the stats per model
+        for model_name, final_stats in final["per_model"].items():
+            current = cache_data["per_model"][model_name]["total"]
+            total = final_stats["total"]
+            cache_stats["per_model"][model_name]["current"] = current
+            cache_stats["per_model"][model_name]["final"] = total
+            cache_stats["per_model"][model_name]["percent"] = int(current / total * 100)
+
+        return cache_stats
+
     class Meta:
         abstract = True
 
 
 class CacheError(Exception):
+    pass
+
+
+class InvalidCacheFunctions(Exception):
     pass
