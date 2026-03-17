@@ -637,3 +637,46 @@ class HierCachedModelTests(TracebaseTestCase):
 
         # Calling PeakGroupLabel.enrichment_fraction also calls and sets PeakData.fraction, hence the 2
         self.assertEqual(2, get_cache_table_size())
+
+    def test_get_final_cache_table_size(self):
+        expected = {
+            "per_model": {
+                "Animal": {
+                    "records": 1,
+                    "functions": 3,
+                    "total": 3,
+                },
+                "AnimalLabel": {
+                    "records": 1,
+                    "functions": 3,
+                    "total": 3,
+                },
+                "FCirc": {
+                    "records": 1,
+                    "functions": 12,
+                    "total": 12,
+                },
+                "Infusate": {
+                    "records": 1,
+                    "functions": 1,
+                    "total": 1,
+                },
+                "PeakGroup": {
+                    "records": 31,
+                    "functions": 3,
+                    "total": 93,
+                },
+                "PeakGroupLabel": {
+                    "records": 31,
+                    "functions": 22,
+                    "total": 682,
+                },
+                "Sample": {
+                    "records": 15,
+                    "functions": 1,
+                    "total": 15,
+                },
+            },
+            "total": 809,
+        }
+        self.assertEquivalent(expected, HierCachedModel.get_final_cache_table_size())

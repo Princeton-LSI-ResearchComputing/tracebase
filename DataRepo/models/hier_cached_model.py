@@ -524,8 +524,14 @@ class HierCachedModel(Model):
 
         for model_name, func_list in func_name_lists.items():
             model = get_model_by_name(model_name)
-            num_caches = model.objects.count() * len(func_list)
-            cache_sizes["per_model"][model_name] = num_caches
+            num_funcs = len(func_list)
+            num_recs = model.objects.count()
+            num_caches = num_recs * num_funcs
+            cache_sizes["per_model"][model_name] = {
+                "records": num_recs,
+                "functions": num_funcs,
+                "total": num_caches,
+            }
             cache_sizes["total"] += num_caches
 
         return cache_sizes
