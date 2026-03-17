@@ -1,4 +1,5 @@
 from django.core.management import call_command
+from django.test import override_settings
 
 from DataRepo.models import (
     Animal,
@@ -635,7 +636,7 @@ class HierCachedModelTests(TracebaseTestCase):
         # Trigger caching via decorator.  This builds a few values because they are used in the calculation.
         getattr(pgl, f)
 
-        # Calling PeakGroupLabel.enrichment_fraction also calls and sets PeakData.fraction, hence the 2
+        # Calling PeakGroupLabel.enrichment_fraction also sets Animal.tracers, hence the 2
         self.assertEqual(2, get_cache_table_size())
 
     def test_get_final_cache_table_size(self):
@@ -680,3 +681,61 @@ class HierCachedModelTests(TracebaseTestCase):
             "total": 809,
         }
         self.assertEquivalent(expected, HierCachedModel.get_final_cache_table_size())
+
+    @override_settings(DEBUG=True)
+    def test_get_cache_table_size_per_model(self):
+        pgl = PeakGroup.objects.first().labels.first()
+        f = "enrichment_fraction"
+
+        # Trigger caching via decorator.  This builds a few values because they are used in the calculation.
+        getattr(pgl, f)
+
+        # Calling PeakGroupLabel.enrichment_fraction also sets Animal.tracers, hence the 2
+        expected = {
+            "per_model": {
+                "Animal": {
+                    "current": 1,
+                    "final": 1,
+                    "percent": 100,
+                },
+                "AnimalLabel": {
+                    "current": 0,
+                    "final": 1,
+                    "percent": 0,
+                },
+                "FCirc": {
+                    "current": 0,
+                    "final": 1,
+                    "percent": 0,
+                },
+                "Infusate": {
+                    "current": 0,
+                    "final": 1,
+                    "percent": 0,
+                },
+                "PeakGroup": {
+                    "current": 0,
+                    "final": 31,
+                    "percent": 0,
+                },
+                "PeakGroupLabel": {
+                    "current": 1,
+                    "final": 31,
+                    "percent": 3,
+                },
+                "Sample": {
+                    "current": 0,
+                    "final": 15,
+                    "percent": 0,
+                },
+            },
+            "total": {
+                "current": 2,
+                "final": 809,
+                "percent": 0,
+            },
+        }
+
+        self.assertEquivalent(
+            expected, HierCachedModel.get_cache_table_size_per_model()
+        )

@@ -1,3 +1,4 @@
+from collections import defaultdict
 from functools import wraps
 from typing import Dict, List, Optional
 from warnings import warn
@@ -535,6 +536,59 @@ class HierCachedModel(Model):
             cache_sizes["total"] += num_caches
 
         return cache_sizes
+
+    @classmethod
+    def get_cache_table_size_per_model(cls):
+        """Returns stats on the cache table entries.
+
+        Assumptions:
+            1. There is only 1 cache version number.
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            cache_stats (dict): {
+                "total": {"current": 0, "final": 0, "percent": 0},
+                "per_model": {model_name: {"current": 0, "final": 0, "percent": 0}},
+            }
+        """
+        prefix = settings.CACHES["default"]["KEY_PREFIX"]
+        # This retrieves the current cache entry keys
+        _, cache_keys_and_expires = dump_cache_table_keys()
+        # This holds the current raw cache entry counts per model
+        cache_data = {"total": 0, "per_model": defaultdict(lambda: defaultdict(int))}
+        # This will hold the current stats
+        cache_stats = {"total": {}, "per_model": defaultdict(dict)}
+        # This is the total potential count of cache entries, if the cache table was full
+        final = cls.get_final_cache_table_size()
+
+        # Count the current cache entries per model
+        key: str
+        for key, _ in cache_keys_and_expires:
+            cur_prefix, _, signature = key.split(":")
+            if cur_prefix == prefix:
+                components = list(signature.split("."))
+                model_name = components[0]
+                cache_data["per_model"][model_name]["total"] += 1
+                cache_data["total"] += 1
+
+        # Calculate the current overall stats.  "percent" is the current / final percent.
+        cache_stats["total"] = {
+            "current": cache_data["total"],
+            "final": final["total"],
+            "percent": int(cache_data["total"] / final["total"] * 100),
+        }
+
+        # Calculate the stats per model
+        for model_name, final_stats in final["per_model"].items():
+            current = cache_data["per_model"][model_name]["total"]
+            total = final_stats["records"]
+            cache_stats["per_model"][model_name]["current"] = current
+            cache_stats["per_model"][model_name]["final"] = total
+            cache_stats["per_model"][model_name]["percent"] = int(current / total * 100)
+
+        return cache_stats
 
     class Meta:
         abstract = True
