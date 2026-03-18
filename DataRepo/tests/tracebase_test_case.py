@@ -365,7 +365,7 @@ class TracebaseArchiveTestCase(TracebaseTransactionTestCase):
     def setUp(self):
         super().setUp()
         shutil.rmtree(self.ARCHIVE_DIR, ignore_errors=True)
-        os.mkdir(self.ARCHIVE_DIR)
+        os.makedirs(self.ARCHIVE_DIR)
 
     def tearDown(self):
         shutil.rmtree(self.ARCHIVE_DIR, ignore_errors=True)
