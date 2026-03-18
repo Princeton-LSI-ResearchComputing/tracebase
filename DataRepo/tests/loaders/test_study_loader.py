@@ -29,6 +29,7 @@ from DataRepo.models import (
     Tracer,
     TracerLabel,
 )
+from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
@@ -83,6 +84,21 @@ class StudyLoaderTests(TracebaseTestCase):
         self.assertEqual(3, TracerLabel.objects.count())
         self.assertEqual(2, PeakGroupCompound.objects.count())
         self.assertEqual(0, len(sl.aggregated_errors_object.exceptions))
+
+        # Check all the maintained fields
+        expected = {}
+        kls: Type[MaintainedModel]
+        for kls in MaintainedModel._get_classes(None, None, True):
+            for fld in kls.get_my_update_fields():
+                if kls.__name__ not in expected.keys():
+                    expected[kls.__name__] = {fld: kls.objects.none()}
+                else:
+                    expected[kls.__name__][fld] = kls.objects.none()
+
+        null_querysets = dict(
+            (key, dict(val)) for key, val in MaintainedModel._get_nulls().items()
+        )
+        self.assertEquivalent(expected, null_querysets)
 
     def test_study_loader_get_class_dtypes(self):
         sl = StudyV3Loader()
