@@ -384,7 +384,7 @@ class AdvancedSearchDownloadMzxmlTSVView(AdvancedSearchDownloadView):
         self.filename = None
 
         if qry is not None:
-            self.prepare_download(qry=qry, res=res)
+            self.prepare_download(qry, res=res)
 
     def prepare_download(self, qry, res=None):
         super().prepare_download(qry, res=res)
@@ -400,7 +400,7 @@ class AdvancedSearchDownloadMzxmlTSVView(AdvancedSearchDownloadView):
         # Get the query object (for the commented metadata header)
         self.qry = self.get_qry(form.cleaned_data)
 
-        self.prepare_download()
+        self.prepare_download(self.qry)
 
         # Create a fake buffer object (needed to be able to use the csv package for streaming the tsv)
         pseudo_buffer = Echo()
@@ -575,12 +575,14 @@ class AdvancedSearchDownloadMzxmlZIPView(AdvancedSearchDownloadView):
         self.converter = RecordToMzxmlZIP.get_converter_object(self.format_id)
 
         # Generate the content of the metadata file that will accompany the mzXML files in the zip archive.
-        self.asdtv = AdvancedSearchDownloadMzxmlTSVView(qry=self.qry, res=self.res)
+        self.asdmtv = AdvancedSearchDownloadMzxmlTSVView(qry=self.qry, res=self.res)
 
         # Create a fake buffer object (needed to be able to use the csv package for streaming the tsv)
         pseudo_buffer = Echo()
         metadata_tsv_writer: "_csv._writer" = csv.writer(pseudo_buffer, delimiter="\t")
-        self.metadata_content = "".join(list(self.asdtv.tsv_iterator(metadata_tsv_writer)))
+        self.metadata_content = "".join(
+            list(self.asdmtv.tsv_iterator(metadata_tsv_writer))
+        )
 
     def mzxml_zip_iterator(self, metadata_content):
         """Builds a zip archive stream that contains all mzXML files from the user's search and includes a metadata file
@@ -599,7 +601,7 @@ class AdvancedSearchDownloadMzxmlZIPView(AdvancedSearchDownloadView):
 
         # Create a zip file object
         with ZipFile(buffer, "w", ZIP_DEFLATED) as zipf:
-            zipf.writestr(self.asdtv.filename, metadata_content)
+            zipf.writestr(self.asdmtv.filename, metadata_content)
             yield buffer.take()
             for file_tuple in self.converter.queryset_to_files_iterator(self.res):
                 export_path, file_obj = file_tuple

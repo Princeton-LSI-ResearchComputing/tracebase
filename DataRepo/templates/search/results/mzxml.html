@@ -1,0 +1,593 @@
+{% load customtags %}
+{% block head_extras %}
+
+    <script>
+        // Correct the row count to account for M:M related tables
+        document.addEventListener("DOMContentLoaded", function(){
+            // https://bootstrap-table.com/docs/api/events/
+            // https://bootstrap-table.com/docs/api/events/#oncolumnswitch
+            $("#advsrchres").bootstrapTable({
+                onAll: function() {
+                    updateColumnGroups()
+                    {% if mode != 'view' %}
+                        updateColumnSortControls()
+                    {% endif %}
+                    updateAllColumnSwitchingCookies()
+                }
+                // I did have an onColumnSwitch here to set cookies, but it doesn't handle the "Toggle All" control, so I added a call to updateAllColumnSwitchingCookies in onAll
+            })
+
+            function updateColumnGroups() {
+                var identdata_cnt = 0
+                var datadata_cnt = 0
+                var metadata_cnt = 0
+                $("#advsrchres th").each(function() {
+                    if ($(this).is(":visible")) {
+                        if ($(this).hasClass("idgrp")) {
+                            identdata_cnt = identdata_cnt + 1
+                        } else if ($(this).hasClass("datagrp")) {
+                            datadata_cnt = datadata_cnt + 1
+                        } else if ($(this).hasClass("metagrp")) {
+                            metadata_cnt = metadata_cnt + 1
+                        }
+                    }
+                })
+                $("#advsrchres .identdata").attr("span", identdata_cnt)
+                $("#advsrchres .datadata").attr("span", datadata_cnt)
+                $("#advsrchres .metadata").attr("span", metadata_cnt)
+            }
+        })
+    </script>
+    <script src="https://cdn.jsdelivr.net/gh/wenzhixin/bootstrap-table-examples@master/utils/natural-sorting/dist/natural-sorting.js"></script>
+
+{% endblock %}
+{% block content %}
+    <div style="float: right; {% if mode == 'view' %}margin-right: 1rem;margin-bottom: 1rem;{% else %}margin-right: 1rem;{% endif %}" class="buttons-toolbar"></div>
+    <table class="table table-hover table-striped table-bordered"
+        id="advsrchres"
+        data-toggle="table"
+        data-buttons-toolbar=".buttons-toolbar"
+        data-buttons-class="primary"
+        data-buttons-align="right"
+        data-filter-control="false"
+        data-search="false"
+        data-show-search-clear-button="false"
+        data-show-multi-sort="{% if mode == 'view' %}true{% else %}false{% endif %}"
+        data-show-columns="true"
+        data-show-columns-toggle-all="true"
+        data-show-fullscreen="false"
+        data-show-export="false"
+        data-pagination="{% if mode == 'view' %}true{% else %}false{% endif %}">
+
+        <colgroup span="4" class="identdata"></colgroup>
+        <colgroup span="3" class="datadata"></colgroup>
+        <colgroup span="22" class="metadata"></colgroup>
+
+        <thead>
+            <tr>
+
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Filename-data-visible' 'true' %}" data-field="Filename" class="idgrp" data-switchable="false">
+                    {% with "mzXML Filename" as colhead %}
+                        {% if mode == "view" %}{{ colhead }}{% else %}
+                            <div onclick="sortColumn(this)" class="sortable" id="filename">{{ colhead }}</div>
+                        {% endif %}
+                    {% endwith %}
+                </th>
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'mzXML-Filepath-data-visible' 'false' %}" data-field="mzXML-Filepath" class="idgrp">
+                    mzXML Filepath
+                </th>
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'mzXML-Checksum-data-visible' 'false' %}" data-field="mzXML-Checksum" class="idgrp">
+                    {% with "mzXML Checksum" as colhead %}
+                        {% if mode == "view" %}{{ colhead }}{% else %}
+                            <div onclick="sortColumn(this)" class="sortable" id="checksum">{{ colhead }}</div>
+                        {% endif %}
+                    {% endwith %}
+                </th>
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Imported-Timestamp-data-visible' 'false' %}" data-field="Imported-Timestamp" class="idgrp">
+                    {% with "Imported Timestamp" as colhead %}
+                        {% if mode == "view" %}{{ colhead }}{% else %}
+                            <div onclick="sortColumn(this)" class="sortable" id="imported_timestamp">{{ colhead }}</div>
+                        {% endif %}
+                    {% endwith %}
+                </th>
+
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Polarity-data-visible' 'true' %}" data-field="Polarity" class="datagrp">
+                    {% with "Polarity" as colhead %}
+                        {% if mode == "view" %}{{ colhead }}{% else %}
+                            <div onclick="sortColumn(this)" class="sortable" id="mz_to_msrunsamples__polarity">{{ colhead }}</div>
+                        {% endif %}
+                    {% endwith %}
+                </th>
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'MZ-Min-data-visible' 'true' %}" data-field="MZ-Min" class="datagrp">
+                    {% with "MZ Min" as colhead %}
+                        {% if mode == "view" %}{{ colhead }}{% else %}
+                            <div onclick="sortColumn(this)" class="sortable" id="mz_to_msrunsamples__mz_min">{{ colhead }}</div>
+                        {% endif %}
+                    {% endwith %}
+                </th>
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'MZ-Max-data-visible' 'true' %}" data-field="MZ-Max" class="datagrp">
+                    {% with "MZ Max" as colhead %}
+                        {% if mode == "view" %}{{ colhead }}{% else %}
+                            <div onclick="sortColumn(this)" class="sortable" id="mz_to_msrunsamples__mz_max">{{ colhead }}</div>
+                        {% endif %}
+                    {% endwith %}
+                </th>
+
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Sample-data-visible' 'true' %}" data-field="Sample" class="metagrp">
+                    {% with "Sample" as colhead %}
+                        {% if mode == "view" %}{{ colhead }}{% else %}
+                            <div onclick="sortColumn(this)" class="sortable" id="mz_to_msrunsamples__sample__name">{{ colhead }}</div>
+                        {% endif %}
+                    {% endwith %}
+                </th>
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Tissue-data-visible' 'true' %}" data-field="Tissue" class="metagrp">
+                    {% with "Tissue" as colhead %}
+                        {% if mode == "view" %}{{ colhead }}{% else %}
+                            <div onclick="sortColumn(this)" class="sortable" id="mz_to_msrunsamples__sample__tissue__name">{{ colhead }}</div>
+                        {% endif %}
+                    {% endwith %}
+                </th>
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Date-Collected-data-visible' 'true' %}" data-field="Date-Collected" class="metagrp">
+                    {% with "Date Collected" as colhead %}
+                        {% if mode == "view" %}{{ colhead }}{% else %}
+                            <div onclick="sortColumn(this)" class="sortable" id="mz_to_msrunsamples__sample__date">{{ colhead }}</div>
+                        {% endif %}
+                    {% endwith %}
+                </th>
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Time-Collected-data-visible' 'true' %}" data-field="Time-Collected" class="metagrp">
+                    {% with "Time Collected (m)" as colhead %}
+                        {% if mode == "view" %}{{ colhead }}{% else %}
+                            <div onclick="sortColumn(this)" class="sortable" id="mz_to_msrunsamples__sample__time_collected">{{ colhead }}</div>
+                        {% endif %}
+                    {% endwith %}
+                </th>
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Handler-data-visible' 'true' %}" data-field="Handler" class="metagrp">
+                    {% with "Handler" as colhead %}
+                        {% if mode == "view" %}{{ colhead }}{% else %}
+                            <div onclick="sortColumn(this)" class="sortable" id="mz_to_msrunsamples__sample__researcher">{{ colhead }}</div>
+                        {% endif %}
+                    {% endwith %}
+                </th>
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Animal-data-visible' 'true' %}" data-field="Animal" class="metagrp">
+                    {% with "Animal" as colhead %}
+                        {% if mode == "view" %}{{ colhead }}{% else %}
+                            <div onclick="sortColumn(this)" class="sortable" id="mz_to_msrunsamples__sample__animal__name">{{ colhead }}</div>
+                        {% endif %}
+                    {% endwith %}
+                </th>
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Age-data-visible' 'true' %}" data-field="Age" class="metagrp">
+                    {% with "Age (w)" as colhead %}
+                        {% if mode == "view" %}{{ colhead }}{% else %}
+                            <div onclick="sortColumn(this)" class="sortable" id="mz_to_msrunsamples__sample__animal__age">{{ colhead }}</div>
+                        {% endif %}
+                    {% endwith %}
+                </th>
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Sex-data-visible' 'true' %}" data-field="Sex" class="metagrp">
+                    {% with "Sex" as colhead %}
+                        {% if mode == "view" %}{{ colhead }}{% else %}
+                            <div onclick="sortColumn(this)" class="sortable" id="mz_to_msrunsamples__sample__animal__sex">{{ colhead }}</div>
+                        {% endif %}
+                    {% endwith %}
+                </th>
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Genotype-data-visible' 'true' %}" data-field="Genotype" class="metagrp">
+                    {% with "Genotype" as colhead %}
+                        {% if mode == "view" %}{{ colhead }}{% else %}
+                            <div onclick="sortColumn(this)" class="sortable" id="mz_to_msrunsamples__sample__animal__genotype">{{ colhead }}</div>
+                        {% endif %}
+                    {% endwith %}
+                </th>
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Weight-data-visible' 'true' %}" data-field="Weight" class="metagrp">
+                    {% with "Weight (g)" as colhead %}
+                        {% if mode == "view" %}{{ colhead }}{% else %}
+                            <div onclick="sortColumn(this)" class="sortable" id="mz_to_msrunsamples__sample__animal__body_weight">{{ colhead }}</div>
+                        {% endif %}
+                    {% endwith %}
+                </th>
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Diet-data-visible' 'true' %}" data-field="Diet" class="metagrp">
+                    {% with "Diet" as colhead %}
+                        {% if mode == "view" %}{{ colhead }}{% else %}
+                            <div onclick="sortColumn(this)" class="sortable" id="mz_to_msrunsamples__sample__animal__diet">{{ colhead }}</div>
+                        {% endif %}
+                    {% endwith %}
+                </th>
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Feeding-Status-data-visible' 'true' %}" data-field="Feeding-Status" class="metagrp">
+                    {% with "Feeding Status" as colhead %}
+                        {% if mode == "view" %}{{ colhead }}{% else %}
+                            <div onclick="sortColumn(this)" class="sortable" id="mz_to_msrunsamples__sample__animal__feeding_status">{{ colhead }}</div>
+                        {% endif %}
+                    {% endwith %}
+                </th>
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Treatment-data-visible' 'true' %}" data-field="Treatment" class="metagrp">
+                    {% with "Treatment" as colhead %}
+                        {% if mode == "view" %}{{ colhead }}{% else %}
+                            <div onclick="sortColumn(this)" class="sortable" id="mz_to_msrunsamples__sample__animal__treatment__name">{{ colhead }}</div>
+                        {% endif %}
+                    {% endwith %}
+                </th>
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Infusion-Rate-data-visible' 'true' %}" data-field="Infusion-Rate" class="metagrp">
+                    {% with "Infusion Rate (ul/min/g)" as colhead %}
+                        {% if mode == "view" %}{{ colhead }}{% else %}
+                            <div onclick="sortColumn(this)" class="sortable" id="mz_to_msrunsamples__sample__animal__infusion_rate">{{ colhead }}</div>
+                        {% endif %}
+                    {% endwith %}
+                </th>
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Infusate-data-visible' 'true' %}" data-field="Infusate" class="metagrp">
+                    {% with "Infusate" as colhead %}
+                        {% if mode == "view" %}{{ colhead }}{% else %}
+                            <div onclick="sortColumn(this)" class="sortable" id="mz_to_msrunsamples__sample__animal__infusate__name">{{ colhead }}</div>
+                        {% endif %}
+                    {% endwith %}
+                </th>
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Operator-data-visible' 'true' %}" data-field="Operator" class="metagrp">
+                    {% with "Operator" as colhead %}
+                        {% if mode == "view" %}{{ colhead }}{% else %}
+                            <div onclick="sortColumn(this)" class="sortable" id="mz_to_msrunsamples__msrun_sequence__researcher">{{ colhead }}</div>
+                        {% endif %}
+                    {% endwith %}
+                </th>
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Instrument-data-visible' 'true' %}" data-field="Instrument" class="metagrp">
+                    {% with "Instrument" as colhead %}
+                        {% if mode == "view" %}{{ colhead }}{% else %}
+                            <div onclick="sortColumn(this)" class="sortable" id="mz_to_msrunsamples__msrun_sequence__instrument">{{ colhead }}</div>
+                        {% endif %}
+                    {% endwith %}
+                </th>
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'LC-Protocol-data-visible' 'true' %}" data-field="LC-Protocol" class="metagrp">
+                    {% with "LC Protocol" as colhead %}
+                        {% if mode == "view" %}{{ colhead }}{% else %}
+                            <div onclick="sortColumn(this)" class="sortable" id="mz_to_msrunsamples__msrun_sequence__lc_method__name">{{ colhead }}</div>
+                        {% endif %}
+                    {% endwith %}
+                </th>
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Run-Date-data-visible' 'true' %}" data-field="Run-Date" class="metagrp">
+                    {% with "Run Date" as colhead %}
+                        {% if mode == "view" %}{{ colhead }}{% else %}
+                            <div onclick="sortColumn(this)" class="sortable" id="mz_to_msrunsamples__msrun_sequence__date">{{ colhead }}</div>
+                        {% endif %}
+                    {% endwith %}
+                </th>
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'RAW-Filename-data-visible' 'false' %}" data-field="RAW-Filename" class="metagrp">
+                    {% with "RAW Filename" as colhead %}
+                        {% if mode == "view" %}{{ colhead }}{% else %}
+                            <div onclick="sortColumn(this)" class="sortable" id="mz_to_msrunsamples__ms_raw_file__filename">{{ colhead }}</div>
+                        {% endif %}
+                    {% endwith %}
+                </th>
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'RAW-Checksum-data-visible' 'false' %}" data-field="RAW-Checksum" class="metagrp">
+                    {% with "RAW Checksum" as colhead %}
+                        {% if mode == "view" %}{{ colhead }}{% else %}
+                            <div onclick="sortColumn(this)" class="sortable" id="mz_to_msrunsamples__ms_raw_file__checksum">{{ colhead }}</div>
+                        {% endif %}
+                    {% endwith %}
+                </th>
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Study-data-visible' 'true' %}" data-field="Study" class="metagrp">
+                    {% with "Study" as colhead %}
+                        {% if mode == "view" %}{{ colhead }}{% else %}
+                            <div onclick="sortColumn(this)" class="sortable" id="mz_to_msrunsamples__sample__animal__studies__name">{{ colhead }}</div>
+                        {% endif %}
+                    {% endwith %}
+                </th>
+
+            </tr>
+        </thead>
+
+        <tbody>
+
+            {% for mz_archive_file in res.all %}
+
+                <tr>
+
+                    <!-- There can be only one msrun_sample due to MSRunSample's UniqueConstraint -->
+                    {% with msrun_sample=mz_archive_file.mz_to_msrunsamples.all|first %}
+
+                        <!-- mzXML Filename -->
+                        <td>
+                            <!-- Put displayed link text first for sorting -->
+                            <div style="display:none;">{{ mz_archive_file.filename }}</div>
+                            <a href="{% url 'archive_file_detail' mz_archive_file.id %}">
+                                {{ mz_archive_file.filename|default_if_none:"None" }}
+                            </a>
+                        </td>
+
+                        <!-- mzXML Filepath -->
+                        <td>
+                            {% if msrun_sample %}
+                                {{ msrun_sample.mzxml_filepath|default_if_none:"None" }}
+                            {% else %}
+                                <span title="The mzXML file on this row was not used in an abundance correction analysis.">None</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- mzXML Checksum -->
+                        <td>
+                            <!-- Put displayed link text first for sorting -->
+                            <div style="display:none;">{{ mz_archive_file.checksum }}</div>
+                            <a href="{% url 'archive_file_detail' mz_archive_file.id %}">
+                                {{ mz_archive_file.checksum }}
+                            </a>
+                        </td>
+
+                        <!-- Imported Timestamp -->
+                        <td>
+                            {{ mz_archive_file.imported_timestamp|format_date:"%Y-%m-%d %H:%M:%S.%f" }}
+                        </td>
+
+                        <!-- Polarity -->
+                        <td>
+                            {% if msrun_sample %}
+                                {{ msrun_sample.polarity|default_if_none:"None" }}
+                            {% else %}
+                                <span title="The mzXML file on this row was not used in an abundance correction analysis.">None</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- MZ Min -->
+                        <td class="text-end">
+                            {% if msrun_sample %}
+                                {{ msrun_sample.mz_min|sigdig:3|default_if_none:"None" }}
+                            {% else %}
+                                <span title="The mzXML file on this row was not used in an abundance correction analysis.">None</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- MZ Max -->
+                        <td class="text-end">
+                            {% if msrun_sample %}
+                                {{ msrun_sample.mz_max|sigdig:3|default_if_none:"None" }}
+                            {% else %}
+                                <span title="The mzXML file on this row was not used in an abundance correction analysis.">None</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Sample -->
+                        <td>
+                            {% if msrun_sample %}
+                                <!-- Put displayed link text first for sorting -->
+                                <div style="display:none;">{{ msrun_sample.sample.name }}</div>
+                                <div class="nobr">
+                                    <a href="{% url 'sample_detail' msrun_sample.sample.id %}">
+                                        {{ msrun_sample.sample.name }}
+                                    </a>
+                                </div>
+                                {{ msrun_sample.sample.name }}
+                            {% else %}
+                                <span title="The mzXML file on this row was not used in an abundance correction analysis.">None</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Tissue -->
+                        <td>
+                            {% if msrun_sample %}
+                                <!-- Put displayed link text first for sorting -->
+                                <div style="display:none;">{{ msrun_sample.sample.tissue.name }}</div>
+                                <a href="{% url 'tissue_detail' msrun_sample.sample.tissue.id %}">
+                                    {{ msrun_sample.sample.tissue.name }}
+                                </a>
+                            {% else %}
+                                <span title="The mzXML file on this row was not used in an abundance correction analysis.">None</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Date Collected -->
+                        <td>
+                            {% if msrun_sample %}
+                                {{ msrun_sample.sample.date|convert_iso_date|default_if_none:"None" }}
+                            {% else %}
+                                <span title="The mzXML file on this row was not used in an abundance correction analysis.">None</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Time Collected (m) -->
+                        <td class="text-end">
+                            {% if msrun_sample %}
+                                <p title="{{ msrun_sample.sample.time_collected }} (h:m:s)">{{ msrun_sample.sample.time_collected|durationToMins|decimalPlaces:2|default_if_none:"None" }}</p>
+                            {% else %}
+                                <span title="The mzXML file on this row was not used in an abundance correction analysis.">None</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Handler -->
+                        <td>
+                            {% if msrun_sample %}
+                                {{ msrun_sample.sample.researcher|default_if_none:"None" }}
+                            {% else %}
+                                <span title="The mzXML file on this row was not used in an abundance correction analysis.">None</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Animal -->
+                        <td>
+                            {% if msrun_sample %}
+                                <!-- Put displayed link text first for sorting -->
+                                <div style="display:none;">{{ msrun_sample.sample.animal.name }}</div>
+                                <a href="{% url 'animal_detail' msrun_sample.sample.animal.id %}">
+                                    {{ msrun_sample.sample.animal.name }}
+                                </a>
+                            {% else %}
+                                <span title="The mzXML file on this row was not used in an abundance correction analysis.">None</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Age (w) -->
+                        <td class="text-end">
+                            {% if msrun_sample %}
+                                <p title="{{ msrun_sample.sample.animal.age }} (d-hh:mm:ss)">{{ msrun_sample.sample.animal.age|durationToWeeks|decimalPlaces:2|default_if_none:"None" }}</p>
+                            {% else %}
+                                <span title="The mzXML file on this row was not used in an abundance correction analysis.">None</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Sex -->
+                        <td>
+                            {% if msrun_sample %}
+                                {{ msrun_sample.sample.animal.sex|default_if_none:"None" }}
+                            {% else %}
+                                <span title="The mzXML file on this row was not used in an abundance correction analysis.">None</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Genotype -->
+                        <td>
+                            {% if msrun_sample %}
+                                {{ msrun_sample.sample.animal.genotype|default_if_none:"None" }}
+                            {% else %}
+                                <span title="The mzXML file on this row was not used in an abundance correction analysis.">None</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Weight (g) -->
+                        <td class="text-end">
+                            {% if msrun_sample %}
+                                {{ msrun_sample.sample.animal.body_weight|default_if_none:"None" }}
+                            {% else %}
+                                <span title="The mzXML file on this row was not used in an abundance correction analysis.">None</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Diet -->
+                        <td>
+                            {% if msrun_sample %}
+                                {{ msrun_sample.sample.animal.diet|default_if_none:"None" }}
+                            {% else %}
+                                <span title="The mzXML file on this row was not used in an abundance correction analysis.">None</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Feeding Status -->
+                        <td>
+                            {% if msrun_sample %}
+                                {{ msrun_sample.sample.animal.feeding_status|default_if_none:"None" }}
+                            {% else %}
+                                <span title="The mzXML file on this row was not used in an abundance correction analysis.">None</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Treatment -->
+                        <td>
+                            {% if msrun_sample %}
+                                <!-- Put displayed link text first for sorting -->
+                                <div style="display:none;">{{ msrun_sample.sample.animal.treatment.name }}</div>
+
+                                <a href="{% url 'protocol_detail' msrun_sample.sample.animal.treatment.id %}">
+                                    {{ msrun_sample.sample.animal.treatment.name|default_if_none:"None" }}
+                                </a>
+                            {% else %}
+                                <span title="The mzXML file on this row was not used in an abundance correction analysis.">None</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Infusion Rate (ul/min/g) -->
+                        <td class="text-end">
+                            {% if msrun_sample %}
+                                {{ msrun_sample.sample.animal.infusion_rate|default_if_none:"None" }}
+                            {% else %}
+                                <span title="The mzXML file on this row was not used in an abundance correction analysis.">None</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Infusate -->
+                        <td class="text-end">
+                            {% if msrun_sample %}
+                                <!-- Put displayed link text first for sorting -->
+                                <div style="display:none;">{{ msrun_sample.sample.animal.infusate.name }}</div>
+
+                                <a href="{% url 'infusate_detail' msrun_sample.sample.animal.infusate.id %}" title="{{ msrun_sample.sample.animal.infusate.name }}">
+                                    <div class="newlines">{{ msrun_sample.sample.animal.infusate.pretty_short_name|default_if_none:"None" }}</div>
+                                </a>
+                            {% else %}
+                                <span title="The mzXML file on this row was not used in an abundance correction analysis.">None</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Operator -->
+                        <td>
+                            {% if msrun_sample %}
+                                {{ msrun_sample.msrun_sequence.researcher|default_if_none:"None" }}
+                            {% else %}
+                                <span title="The mzXML file on this row was not used in an abundance correction analysis.">None</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Instrument -->
+                        <td>
+                            {% if msrun_sample %}
+                                {{ msrun_sample.msrun_sequence.instrument|default_if_none:"None" }}
+                            {% else %}
+                                <span title="The mzXML file on this row was not used in an abundance correction analysis.">None</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- LC Protocol -->
+                        <td>
+                            {% if msrun_sample %}
+                                {{ msrun_sample.msrun_sequence.lc_method.name|default_if_none:"None" }}
+                            {% else %}
+                                <span title="The mzXML file on this row was not used in an abundance correction analysis.">None</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Run Date -->
+                        <td>
+                            {% if msrun_sample %}
+                                <!-- Put displayed link text first for sorting -->
+                                <div style="display:none;">{{ msrun_sample.msrun_sequence.date|convert_iso_date|default_if_none:"None" }}</div>
+
+                                <a href="{% url 'msrunsequence_detail' msrun_sample.msrun_sequence.id %}">
+                                    {{ msrun_sample.msrun_sequence.date|convert_iso_date|default_if_none:"None" }}
+                                </a>
+                            {% else %}
+                                <span title="The mzXML file on this row was not used in an abundance correction analysis.">None</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- RAW Filename -->
+                        <td>
+                            {% if msrun_sample %}
+                                <!-- Put displayed link text first for sorting -->
+                                <div style="display:none;">{{ msrun_sample.ms_raw_file.filename|default_if_none:"None" }}</div>
+
+                                <a href="{% url 'archive_file_detail' msrun_sample.ms_raw_file.id %}">
+                                    {{ msrun_sample.ms_raw_file.filename|default_if_none:"None" }}
+                                </a>
+                            {% else %}
+                                <span title="The mzXML file on this row was not used in an abundance correction analysis.">None</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- RAW Checksum -->
+                        <td>
+                            {% if msrun_sample %}
+                                <!-- Put displayed link text first for sorting -->
+                                <div style="display:none;">{{ msrun_sample.ms_raw_file.checksum|default_if_none:"None" }}</div>
+
+                                <a href="{% url 'archive_file_detail' msrun_sample.ms_raw_file.id %}">
+                                    {{ msrun_sample.ms_raw_file.checksum|default_if_none:"None" }}
+                                </a>
+                            {% else %}
+                                <span title="The mzXML file on this row was not used in an abundance correction analysis.">None</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Studies -->
+                        <td>
+                            {% if msrun_sample %}
+                                <!-- This will work as intended even if mz_archive_file.study wasn't added as an annotation (e.g. if split_rows is false or root_annot_fld is not defined) -->
+                                {% get_many_related_rec msrun_sample.sample.animal.studies mz_archive_file.study as studies %}
+                                <!-- Put displayed link text first for sorting -->
+                                <div style="display:none;">
+                                    {% for study in studies %}{% if not forloop.first %},<br>{% endif %}{{ study.name }}{% empty %}None{% endfor %}
+                                </div>
+
+                                {% for study in studies %}{% if not forloop.first %},<br>{% endif %}<a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>{% empty %}None{% endfor %}
+                            {% else %}
+                                <span title="The mzXML file on this row was not used in an abundance correction analysis.">None</span>
+                            {% endif %}
+                        </td>
+
+                    {% endwith %}
+
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}
