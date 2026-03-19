@@ -35,7 +35,7 @@ Anyone with access to a TraceBase instance has access to all loaded data, i.e. a
 TraceBase does not support specific data protections.  In other words, all members of a lab can see, search for, and
 export all data.
 
-### Plubishing Data
+### Publishing Data
 
 TraceBase does not provide differential public versus private access to selected studies, so to "publish" any study
 data, a separate public instance of TraceBase must be created.  If you don't already have a public instance of
@@ -71,7 +71,7 @@ mzXML files) and run:
     python manage.py load_study --infile study_doc.xlsx
 
 Save the original input files if you ever need to reset the database or load the same data on another TaraceBase
-instance (e.g. the public instance mentioned in the **Plubishing Data** section above).
+instance (e.g. the public instance mentioned in the **Publishing Data** section above).
 
 There are some errors that can arise that are not checked by the Upload Submission Validate page.  See the
 **Known Issues** section below.
