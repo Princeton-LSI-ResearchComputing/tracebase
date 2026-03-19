@@ -665,8 +665,6 @@ class FormatGroup:
         for annotation in split_row_annotations:
             results = results.annotate(**annotation)
 
-        print(f"{fmt} RESULTS: {cnt}")
-
         return results, cnt, stats
 
     def getQueryStats(self, res, fmt, time_limit_secs: Optional[int] = None):
