@@ -67,7 +67,7 @@ class AdvancedSearchDownloadView(FormView):
     def get_query_results(self, qry, **kwargs):
         if not isQryObjValid(qry, self.basv_metadata.getFormatNames().keys()):
             print("ERROR: Invalid qry object: ", qry)
-            raise Http404("Invalid json")
+            raise Http404("Invalid or incomplete json for the qry object")
 
         if isValidQryObjPopulated(qry):
             res, tot, stats = self.basv_metadata.performQuery(

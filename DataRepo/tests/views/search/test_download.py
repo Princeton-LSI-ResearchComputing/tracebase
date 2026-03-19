@@ -54,6 +54,10 @@ test_qry = {
             "name": "Fcirc",
             "tree": empty_tree,
         },
+        "mztemplate": {
+            "name": "mzXML",
+            "tree": empty_tree,
+        },
     },
 }
 
@@ -124,6 +128,8 @@ class AdvancedSearchDownloadViewTests(BaseAdvancedSearchDownloadViewTests):
             "'units': ''}]}}, 'pdtemplate': {'name': 'PeakData', 'tree': {'type': 'group', 'val': 'all', 'static': "
             "False, 'queryGroup': [{'type': 'query', 'pos': '', 'static': False, 'fld': '', 'ncmp': '', 'val': '', "
             "'units': ''}]}}, 'fctemplate': {'name': 'Fcirc', 'tree': {'type': 'group', 'val': 'all', 'static': False, "
+            "'queryGroup': [{'type': 'query', 'pos': '', 'static': False, 'fld': '', 'ncmp': '', 'val': '', 'units': "
+            "''}]}}, 'mztemplate': {'name': 'mzXML', 'tree': {'type': 'group', 'val': 'all', 'static': False, "
             "'queryGroup': [{'type': 'query', 'pos': '', 'static': False, 'fld': '', 'ncmp': '', 'val': '', 'units': "
             "''}]}}}}\n"
             "#\n"
