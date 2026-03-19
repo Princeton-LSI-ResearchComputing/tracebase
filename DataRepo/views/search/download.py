@@ -67,7 +67,7 @@ class AdvancedSearchDownloadView(FormView):
     def get_query_results(self, qry, **kwargs):
         if not isQryObjValid(qry, self.basv_metadata.getFormatNames().keys()):
             print("ERROR: Invalid qry object: ", qry)
-            raise Http404("Invalid json")
+            raise Http404("Invalid or incomplete json for the qry object")
 
         if isValidQryObjPopulated(qry):
             res, tot, stats = self.basv_metadata.performQuery(
@@ -79,6 +79,25 @@ class AdvancedSearchDownloadView(FormView):
             )
 
         return res, tot, stats
+
+    def prepare_download(self, qry, res=None):
+        """This needs to be extended to set self.filename and self.converter, at the least."""
+        if qry is None:
+            raise ValueError("Argument 'qry' cannot be None.")
+
+        # Set the supplied query object (for the commented metadata header)
+        self.qry = deepcopy(qry)
+        # Get the date (for the commented metadata header)
+        now = datetime.now()
+        self.date_str = now.strftime(self.date_format)
+        self.datestamp_str = now.strftime(self.datestamp_format)
+
+        # Get the search format ID and name
+        self.format_id = self.qry["selectedtemplate"]
+        self.format_name = self.qry["searches"][self.format_id]["name"]
+
+        # Perform the query and save the queryset
+        self.res = res if res else list(self.get_query_results(self.qry))[0]
 
     def get(self, _):
         """No support for GET.  This sets the status as 405.  Only POST is permitted."""
@@ -219,7 +238,7 @@ class RecordToMzxmlTSV(ABC):
         Exceptions:
             Http404
         Returns:
-            (RecordToMzxmlTSV)
+            None
         """
         for derived_class in cls.__subclasses__():
             if format_id == derived_class.format_id:
@@ -365,24 +384,13 @@ class AdvancedSearchDownloadMzxmlTSVView(AdvancedSearchDownloadView):
         self.filename = None
 
         if qry is not None:
-            self.prepare_download(qry=qry, res=res)
+            self.prepare_download(qry, res=res)
 
-    def prepare_download(self, qry=None, res=None):
-        if qry is None and self.qry is None:
-            raise ValueError("Argument 'qry' cannot be None.")
-
-        if self.qry is None:
-            self.qry = deepcopy(qry)
-
-        # Get the search format ID and name
-        self.format_id = self.qry["selectedtemplate"]
-        self.format_name = self.qry["searches"][self.format_id]["name"]
+    def prepare_download(self, qry, res=None):
+        super().prepare_download(qry, res=res)
 
         # Get the converter object that converts a record from the results queryset to a list we can supply to csv
         self.converter = RecordToMzxmlTSV.get_converter_object(self.format_id)
-
-        # Perform the query and save the queryset
-        self.res = res if res is not None else list(self.get_query_results(self.qry))[0]
 
         # Set the output file name
         self.filename = f"{self.format_name}_{self.datestamp_str}.tsv"
@@ -392,7 +400,7 @@ class AdvancedSearchDownloadMzxmlTSVView(AdvancedSearchDownloadView):
         # Get the query object (for the commented metadata header)
         self.qry = self.get_qry(form.cleaned_data)
 
-        self.prepare_download()
+        self.prepare_download(self.qry)
 
         # Create a fake buffer object (needed to be able to use the csv package for streaming the tsv)
         pseudo_buffer = Echo()
@@ -549,19 +557,16 @@ class AdvancedSearchDownloadMzxmlZIPView(AdvancedSearchDownloadView):
     content_type = "application/zip"
 
     def form_valid(self, form):
-        # Get the query object (for the commented metadata header)
-        self.qry = self.get_qry(form.cleaned_data)
-        # Get the date (for the commented metadata header)
-        now = datetime.now()
-        self.date_str = now.strftime(self.date_format)
-        self.datestamp_str = now.strftime(self.datestamp_format)
+        self.prepare_download(self.get_qry(form.cleaned_data))
 
-        # Get the search format ID and name
-        self.format_id = self.qry["selectedtemplate"]
-        self.format_name = self.qry["searches"][self.format_id]["name"]
+        return StreamingHttpResponse(
+            self.mzxml_zip_iterator(self.metadata_content),
+            content_type=self.content_type,
+            headers={"Content-Disposition": f"attachment; filename={self.filename}"},
+        )
 
-        # Perform the query and save the queryset
-        self.res = list(self.get_query_results(self.qry))[0]
+    def prepare_download(self, qry, res=None):
+        super().prepare_download(qry, res=res)
 
         # Set the output file name
         self.filename = f"{self.format_name}_mzxmls_{self.datestamp_str}.zip"
@@ -570,16 +575,13 @@ class AdvancedSearchDownloadMzxmlZIPView(AdvancedSearchDownloadView):
         self.converter = RecordToMzxmlZIP.get_converter_object(self.format_id)
 
         # Generate the content of the metadata file that will accompany the mzXML files in the zip archive.
-        self.asdtv = AdvancedSearchDownloadMzxmlTSVView(qry=self.qry, res=self.res)
+        self.asdmtv = AdvancedSearchDownloadMzxmlTSVView(qry=self.qry, res=self.res)
+
         # Create a fake buffer object (needed to be able to use the csv package for streaming the tsv)
         pseudo_buffer = Echo()
         metadata_tsv_writer: "_csv._writer" = csv.writer(pseudo_buffer, delimiter="\t")
-        metadata_content = "".join(list(self.asdtv.tsv_iterator(metadata_tsv_writer)))
-
-        return StreamingHttpResponse(
-            self.mzxml_zip_iterator(metadata_content),
-            content_type=self.content_type,
-            headers={"Content-Disposition": f"attachment; filename={self.filename}"},
+        self.metadata_content = "".join(
+            list(self.asdmtv.tsv_iterator(metadata_tsv_writer))
         )
 
     def mzxml_zip_iterator(self, metadata_content):
@@ -599,7 +601,7 @@ class AdvancedSearchDownloadMzxmlZIPView(AdvancedSearchDownloadView):
 
         # Create a zip file object
         with ZipFile(buffer, "w", ZIP_DEFLATED) as zipf:
-            zipf.writestr(self.asdtv.filename, metadata_content)
+            zipf.writestr(self.asdmtv.filename, metadata_content)
             yield buffer.take()
             for file_tuple in self.converter.queryset_to_files_iterator(self.res):
                 export_path, file_obj = file_tuple
