@@ -74,7 +74,7 @@
                     {% endwith %}
                 </th>
                 <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'mzXML-Filepath-data-visible' 'false' %}" data-field="mzXML-Filepath" class="idgrp">
-                    mzXML Filepath
+                    mzXML Export Path
                 </th>
                 <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'mzXML-Checksum-data-visible' 'false' %}" data-field="mzXML-Checksum" class="idgrp">
                     {% with "mzXML Checksum" as colhead %}
@@ -309,7 +309,7 @@
 
                         <!-- Imported Timestamp -->
                         <td>
-                            {{ mz_archive_file.imported_timestamp|format_date:"%Y-%m-%d %H:%M:%S.%f"|default_if_none:"None" }}
+                            <span title='{{ mz_archive_file.imported_timestamp|default_if_none:"None" }}'>{{ mz_archive_file.imported_timestamp|format_date:"%Y-%m-%d %H:%M:%S.%f"|default_if_none:"None" }}</span>
                         </td>
 
                         <!-- Polarity -->
@@ -324,7 +324,7 @@
                         <!-- MZ Min -->
                         <td class="text-end">
                             {% if msrun_sample %}
-                                <span title="{{ msrun_sample.mz_min }}">{{ msrun_sample.mz_min|sigdig:3|default_if_none:"None" }}</span>
+                                <span title="{{ msrun_sample.mz_min }}">{{ msrun_sample.mz_min|sigdig:3|stringformat:"f"|default_if_none:"None" }}</span>
                             {% else %}
                                 <span title="The mzXML file on this row was not used in an abundance correction analysis.">None</span>
                             {% endif %}
@@ -333,7 +333,7 @@
                         <!-- MZ Max -->
                         <td class="text-end">
                             {% if msrun_sample %}
-                                <span title="{{ msrun_sample.mz_max }}">{{ msrun_sample.mz_max|sigdig:3|default_if_none:"None" }}</span>
+                                <span title="{{ msrun_sample.mz_max }}">{{ msrun_sample.mz_max|sigdig:3|stringformat:"f"|default_if_none:"None" }}</span>
                             {% else %}
                                 <span title="The mzXML file on this row was not used in an abundance correction analysis.">None</span>
                             {% endif %}
@@ -370,7 +370,7 @@
                         <!-- Date Collected -->
                         <td>
                             {% if msrun_sample %}
-                                {{ msrun_sample.sample.date|format_date:"%Y-%m-%d"|default_if_none:"None" }}
+                                <span title='{{ msrun_sample.sample.date|default_if_none:"None" }}'>{{ msrun_sample.sample.date|format_date:"%Y-%m-%d"|default_if_none:"None" }}</span>
                             {% else %}
                                 <span title="The mzXML file on this row was not used in an abundance correction analysis.">None</span>
                             {% endif %}
@@ -437,7 +437,7 @@
                         <!-- Weight (g) -->
                         <td class="text-end">
                             {% if msrun_sample %}
-                                {{ msrun_sample.sample.animal.body_weight|default_if_none:"None" }}
+                                <span title='{{ msrun_sample.sample.animal.body_weight|default_if_none:"None" }}'>{{ msrun_sample.sample.animal.body_weight|default_if_none:"None" }}</span>
                             {% else %}
                                 <span title="The mzXML file on this row was not used in an abundance correction analysis.">None</span>
                             {% endif %}
@@ -463,13 +463,15 @@
 
                         <!-- Treatment -->
                         <td>
-                            {% if msrun_sample %}
+                            {% if msrun_sample and msrun_sample.sample.animal.treatment %}
                                 <!-- Put displayed link text first for sorting -->
                                 <div style="display:none;">{{ msrun_sample.sample.animal.treatment.name }}</div>
 
                                 <a href="{% url 'protocol_detail' msrun_sample.sample.animal.treatment.id %}">
                                     {{ msrun_sample.sample.animal.treatment.name|default_if_none:"None" }}
                                 </a>
+                            {% elif msrun_sample %}
+                                <span title="No treatment recorded for the animal.">None</span>
                             {% else %}
                                 <span title="The mzXML file on this row was not used in an abundance correction analysis.">None</span>
                             {% endif %}
@@ -490,9 +492,11 @@
                                 <!-- Put displayed link text first for sorting -->
                                 <div style="display:none;">{{ msrun_sample.sample.animal.infusate.name }}</div>
 
-                                <a href="{% url 'infusate_detail' msrun_sample.sample.animal.infusate.id %}" title="{{ msrun_sample.sample.animal.infusate.name }}">
-                                    <div class="newlines">{{ msrun_sample.sample.animal.infusate.pretty_short_name|default_if_none:"None" }}</div>
-                                </a>
+                                <span title="{{ msrun_sample.sample.animal.infusate.name }}">
+                                    <a href="{% url 'infusate_detail' msrun_sample.sample.animal.infusate.id %}">
+                                        <div class="newlines">{{ msrun_sample.sample.animal.infusate.pretty_short_name|default_if_none:"None" }}</div>
+                                    </a>
+                                </span>
                             {% else %}
                                 <span title="The mzXML file on this row was not used in an abundance correction analysis.">None</span>
                             {% endif %}
@@ -531,9 +535,11 @@
                                 <!-- Put displayed link text first for sorting -->
                                 <div style="display:none;">{{ msrun_sample.msrun_sequence.date|format_date:"%Y-%m-%d"|default_if_none:"None" }}</div>
 
-                                <a href="{% url 'msrunsequence_detail' msrun_sample.msrun_sequence.id %}">
-                                    {{ msrun_sample.msrun_sequence.date|format_date:"%Y-%m-%d"|default_if_none:"None" }}
-                                </a>
+                                <span title='{{ msrun_sample.msrun_sequence.date|default_if_none:"None" }}'>
+                                    <a href="{% url 'msrunsequence_detail' msrun_sample.msrun_sequence.id %}">
+                                        {{ msrun_sample.msrun_sequence.date|format_date:"%Y-%m-%d"|default_if_none:"None" }}
+                                    </a>
+                                </span>
                             {% else %}
                                 <span title="The mzXML file on this row was not used in an abundance correction analysis.">None</span>
                             {% endif %}
