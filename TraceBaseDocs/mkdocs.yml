@@ -5,6 +5,13 @@ docs_dir: ./TraceBaseDocs
 
 theme: readthedocs
 
+markdown_extensions:
+  - pymdownx.arithmatex:
+      generic: true
+
 plugins:
   - search
   - roamlinks
+
+extra_javascript:
+  - 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js'
