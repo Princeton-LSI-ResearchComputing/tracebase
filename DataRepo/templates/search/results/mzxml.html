@@ -324,7 +324,7 @@
                         <!-- MZ Min -->
                         <td class="text-end">
                             {% if msrun_sample %}
-                                <span title="{{ msrun_sample.mz_min }}">{{ msrun_sample.mz_min|sigdig:3|stringformat:"f"|default_if_none:"None" }}</span>
+                                <span title="{{ msrun_sample.mz_min }}">{{ msrun_sample.mz_min|sigdig:4|default_if_none:"None" }}</span>
                             {% else %}
                                 <span title="The mzXML file on this row was not used in an abundance correction analysis.">None</span>
                             {% endif %}
@@ -333,7 +333,7 @@
                         <!-- MZ Max -->
                         <td class="text-end">
                             {% if msrun_sample %}
-                                <span title="{{ msrun_sample.mz_max }}">{{ msrun_sample.mz_max|sigdig:3|stringformat:"f"|default_if_none:"None" }}</span>
+                                <span title="{{ msrun_sample.mz_max }}">{{ msrun_sample.mz_max|sigdig:4|default_if_none:"None" }}</span>
                             {% else %}
                                 <span title="The mzXML file on this row was not used in an abundance correction analysis.">None</span>
                             {% endif %}

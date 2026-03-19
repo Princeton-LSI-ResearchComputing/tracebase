@@ -151,7 +151,7 @@ class MzxmlFormat(Format):
                 },
                 "date": {
                     "displayname": "Date Collected",
-                    "searchable": False,  # Date search is not yet supported in advanced search
+                    "searchable": True,  # NOTE: Date search is not fully supported in advanced search yet
                     "displayed": True,
                     "type": "string",
                 },
@@ -349,8 +349,7 @@ class MzxmlFormat(Format):
             },
             "fields": {
                 # There is no single identifying field, so no ID field.  No handoff.  This means that a link from the
-                # basic_search to MSRunSample cannot be serviced.  Date would be the most likely field to be unique as a
-                # handoff, but date search is not yet supported in the advanced search interface.
+                # basic_search to MSRunSample cannot be serviced.
                 "researcher": {
                     "displayname": "Operator",
                     "searchable": True,
@@ -365,7 +364,7 @@ class MzxmlFormat(Format):
                 },
                 "date": {
                     "displayname": "Run Date",
-                    "searchable": False,  # Date search is not yet supported in advanced search
+                    "searchable": True,  # NOTE: Date search is not fully supported in advanced search yet
                     "displayed": True,
                     "type": "string",
                 },
