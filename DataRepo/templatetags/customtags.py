@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Union
+from typing import Optional, Union
 
 from django import template
 from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
@@ -236,7 +236,9 @@ def convert_iso_date(value):
 
 
 @register.filter
-def format_date(date: Union[datetime, str], fmt: str):
+def format_date(date: Optional[Union[datetime, str]], fmt: str):
+    if date is None:
+        return None
     fdate = dateparse.parse_datetime(str(date))
     return fdate.strftime(fmt) if fdate is not None else str(date)
 

@@ -309,7 +309,7 @@
 
                         <!-- Imported Timestamp -->
                         <td>
-                            {{ mz_archive_file.imported_timestamp|format_date:"%Y-%m-%d %H:%M:%S.%f" }}
+                            {{ mz_archive_file.imported_timestamp|format_date:"%Y-%m-%d %H:%M:%S.%f"|default_if_none:"None" }}
                         </td>
 
                         <!-- Polarity -->
@@ -371,7 +371,7 @@
                         <!-- Date Collected -->
                         <td>
                             {% if msrun_sample %}
-                                {{ msrun_sample.sample.date|convert_iso_date|default_if_none:"None" }}
+                                {{ msrun_sample.sample.date|format_date:"%Y-%m-%d"|default_if_none:"None" }}
                             {% else %}
                                 <span title="The mzXML file on this row was not used in an abundance correction analysis.">None</span>
                             {% endif %}
@@ -530,10 +530,10 @@
                         <td>
                             {% if msrun_sample %}
                                 <!-- Put displayed link text first for sorting -->
-                                <div style="display:none;">{{ msrun_sample.msrun_sequence.date|convert_iso_date|default_if_none:"None" }}</div>
+                                <div style="display:none;">{{ msrun_sample.msrun_sequence.date|format_date:"%Y-%m-%d"|default_if_none:"None" }}</div>
 
                                 <a href="{% url 'msrunsequence_detail' msrun_sample.msrun_sequence.id %}">
-                                    {{ msrun_sample.msrun_sequence.date|convert_iso_date|default_if_none:"None" }}
+                                    {{ msrun_sample.msrun_sequence.date|format_date:"%Y-%m-%d"|default_if_none:"None" }}
                                 </a>
                             {% else %}
                                 <span title="The mzXML file on this row was not used in an abundance correction analysis.">None</span>
