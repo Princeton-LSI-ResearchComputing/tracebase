@@ -279,7 +279,7 @@ class Animal(MaintainedModel, HierCachedModel):
             rec (Optional[AnimalStudy])
             created (boolean)
         """
-        AnimalStudy = Animal.studies.through
+        AnimalStudy = Animal.studies.through  # pylint: disable=invalid-name
 
         # This is the effective rec_dict
         rec_dict = {

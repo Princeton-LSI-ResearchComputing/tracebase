@@ -64,27 +64,27 @@ def test_case_class_factory(base_class: Type[T]) -> Type[T]:
 
         maxDiff = None
 
-        def setUp(self):
+        def setUp(self):  # pylint: disable=invalid-name
             """
             This method in the superclass is intended to record the start time so that the test run time can be
             reported in tearDown.
             """
-            self.testStartTime = time.time()
+            self.test_start_time = time.time()
             super().setUp()
             print(
                 "STARTING TEST: %s at %s"
                 % (self.id(), time.strftime("%m/%d/%Y, %H:%M:%S"))
             )
 
-        def tearDown(self):
+        def tearDown(self):  # pylint: disable=invalid-name
             """
             This method in the superclass is intended to provide run time information for each test.
             """
             super().tearDown()
-            reportRunTime(self.id(), self.testStartTime)
+            report_run_time(self.id(), self.test_start_time)
 
         @classmethod
-        def setUpClass(cls):
+        def setUpClass(cls):  # pylint: disable=invalid-name
             """
             This method in the superclass is intended to record the setUpTestData start time so that the setup run time
             can be reported in setUpTestData.
@@ -97,13 +97,13 @@ def test_case_class_factory(base_class: Type[T]) -> Type[T]:
             super().setUpClass()
 
         @classmethod
-        def setUpTestData(cls):
+        def setUpTestData(cls):  # pylint: disable=invalid-name
             """
             This method in the superclass is intended to provide run time information for the setUpTestData method.
             """
             super().setUpTestData()
             try:
-                reportRunTime(
+                report_run_time(
                     f"{cls.__module__}.{cls.__name__}.setUpTestData", cls.setupStartTime
                 )
             except AttributeError:
@@ -124,7 +124,7 @@ def test_case_class_factory(base_class: Type[T]) -> Type[T]:
         class Meta:
             abstract = True
 
-        def assertDictEquivalent(
+        def assertDictEquivalent(  # pylint: disable=invalid-name
             self, d1: dict, d2: dict, max_depth=10, _path=None, **kwargs
         ):
             """Checks whether dicts are equal when their values can be objects that technically differ, but are
@@ -151,7 +151,7 @@ def test_case_class_factory(base_class: Type[T]) -> Type[T]:
                     v1, d2[key], _path=_path + key + ",", max_depth=max_depth, **kwargs
                 )
 
-        def assertEquivalent(
+        def assertEquivalent(  # pylint: disable=invalid-name
             self, o1: object, o2: object, max_depth=10, _path=None, **kwargs
         ):
             """Checks whether values are equal.  If the values are objects, it essentially checks that their types and
@@ -211,7 +211,7 @@ def test_case_class_factory(base_class: Type[T]) -> Type[T]:
                         ).with_traceback(ae.__traceback__)
 
         @staticmethod
-        def assertNotWarns(unexpected_warning=Warning):
+        def assertNotWarns(unexpected_warning=Warning):  # pylint: disable=invalid-name
             """This is a decorator.  Apply it to tests that should not raise a warning.
 
             Usage:
@@ -220,7 +220,7 @@ def test_case_class_factory(base_class: Type[T]) -> Type[T]:
                     do_something_that_should_not_warn()
 
                 @MyTestCase.assertNotWarns(SpecificWarning)
-                def test_no_SpecificWarning(self):
+                def test_no_specific_warning(self):
                     do_something_that_does_not_raise_specific_warning()
             """
 
@@ -277,12 +277,12 @@ def test_case_class_factory(base_class: Type[T]) -> Type[T]:
     return TracebaseTestCaseTemplate
 
 
-def reportRunTime(id, startTime):
+def report_run_time(id, start_time):
     """
     Print the runtime of a test given the test ID and start time.
     """
 
-    t = time.time() - startTime
+    t = time.time() - start_time
     heads_up = ""  # String to include for tests that run too long
 
     if t > LONG_TEST_THRESH_SECS:

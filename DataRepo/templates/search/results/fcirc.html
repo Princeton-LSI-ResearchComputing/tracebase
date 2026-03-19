@@ -683,7 +683,7 @@
                     <!-- Tracer Concentration (mM) -->
                     <td class="text-end">
                         <!-- This will get all tracer_link records for every tracer in the infusate, so we need to filter those for the tracer in this FCirc record -->
-                        <!-- This is not effectively a many to many relationship because of the override of getRootQuerySet in fluxcirc_dataformat.py, which forces the FCirc.tracer to match FCirc.serum_sample.animal.tracer_links.tracer -->
+                        <!-- This is not effectively a many to many relationship because of the override of get_root_query_set in fluxcirc_dataformat.py, which forces the FCirc.tracer to match FCirc.serum_sample.animal.tracer_links.tracer -->
                         {% if rec.serum_sample.animal.infusate is None %}
                             None
                         {% else %}

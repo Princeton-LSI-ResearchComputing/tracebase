@@ -6,12 +6,12 @@ from django.conf import settings
 from django.http import Http404
 
 from DataRepo.formats.dataformat_group_query import (
-    appendFilterToGroup,
-    createFilterCondition,
-    createFilterGroup,
-    formsetsToDict,
-    isQryObjValid,
-    isValidQryObjPopulated,
+    append_filter_to_group,
+    create_filter_condition,
+    create_filter_group,
+    formsets_to_dict,
+    is_qry_obj_valid,
+    is_valid_qry_obj_populated,
 )
 from DataRepo.formats.search_group import SearchGroup
 from DataRepo.forms import (
@@ -100,7 +100,7 @@ class AdvancedSearchView(MultiFormsView):
         context["mode"] = mode
         context["format"] = format
         context["default_format"] = self.basv_metadata.default_format
-        self.addInitialContext(context)
+        self.add_initial_context(context)
 
         return context
 
@@ -109,9 +109,9 @@ class AdvancedSearchView(MultiFormsView):
         Upon invalid advanced search form submission, rescues the query to add back to the context.
         """
 
-        qry = formsetsToDict(formset, self.form_classes)
+        qry = formsets_to_dict(formset, self.form_classes)
 
-        root_group = self.basv_metadata.getRootGroup()
+        root_group = self.basv_metadata.get_root_group()
 
         return self.render_to_response(
             self.get_context_data(
@@ -121,10 +121,10 @@ class AdvancedSearchView(MultiFormsView):
                 debug=settings.DEBUG,
                 root_group=root_group,
                 default_format=self.basv_metadata.default_format,
-                ncmp_choices=self.basv_metadata.getComparisonChoices(),
-                fld_types=self.basv_metadata.getFieldTypes(),
-                fld_choices=self.basv_metadata.getSearchFieldChoicesDict(),
-                fld_units=self.basv_metadata.getFieldUnitsDict(),
+                ncmp_choices=self.basv_metadata.get_comparison_choices(),
+                fld_types=self.basv_metadata.get_field_types(),
+                fld_choices=self.basv_metadata.get_search_field_choices_dict(),
+                fld_units=self.basv_metadata.get_field_units_dict(),
                 error="All fields are required",  # Unless hacked, this is the only thing that can go wrong
             )
         )
@@ -134,10 +134,10 @@ class AdvancedSearchView(MultiFormsView):
         Upon valid advanced search form submission, adds results (& query) to the context of the search page.
         """
 
-        qry = formsetsToDict(formset, self.form_classes)
+        qry = formsets_to_dict(formset, self.form_classes)
         res = {}
 
-        if isQryObjValid(qry, self.basf.form_classes.keys()):
+        if is_qry_obj_valid(qry, self.basf.form_classes.keys()):
             download_forms = self.get_download_form_tuples(qry=qry)
             rows_per_page = int(
                 self.get_template_cookie(
@@ -146,7 +146,7 @@ class AdvancedSearchView(MultiFormsView):
                     self.pager.default_rows,
                 )
             )
-            res, tot, stats = self.basv_metadata.performQuery(
+            res, tot, stats = self.basv_metadata.perform_query(
                 qry,
                 qry["selectedtemplate"],
                 limit=rows_per_page,
@@ -169,7 +169,7 @@ class AdvancedSearchView(MultiFormsView):
             # Log a warning
             print("WARNING: Invalid query root:", qry)
 
-        root_group = self.basv_metadata.getRootGroup()
+        root_group = self.basv_metadata.get_root_group()
 
         return self.render_to_response(
             self.get_context_data(
@@ -182,10 +182,10 @@ class AdvancedSearchView(MultiFormsView):
                 debug=settings.DEBUG,
                 pager=self.pager,
                 default_format=self.basv_metadata.default_format,
-                ncmp_choices=self.basv_metadata.getComparisonChoices(),
-                fld_types=self.basv_metadata.getFieldTypes(),
-                fld_choices=self.basv_metadata.getSearchFieldChoicesDict(),
-                fld_units=self.basv_metadata.getFieldUnitsDict(),
+                ncmp_choices=self.basv_metadata.get_comparison_choices(),
+                fld_types=self.basv_metadata.get_field_types(),
+                fld_choices=self.basv_metadata.get_search_field_choices_dict(),
+                fld_units=self.basv_metadata.get_field_units_dict(),
             )
         )
 
@@ -203,7 +203,7 @@ class AdvancedSearchView(MultiFormsView):
 
         qry = {}
 
-        root_group = self.basv_metadata.getRootGroup()
+        root_group = self.basv_metadata.get_root_group()
 
         return self.render_to_response(
             self.get_context_data(
@@ -214,11 +214,11 @@ class AdvancedSearchView(MultiFormsView):
                 debug=settings.DEBUG,
                 root_group=root_group,
                 default_format=self.basv_metadata.default_format,
-                ncmp_choices=self.basv_metadata.getComparisonChoices(),
-                fld_choices=self.basv_metadata.getSearchFieldChoicesDict(),
+                ncmp_choices=self.basv_metadata.get_comparison_choices(),
+                fld_choices=self.basv_metadata.get_search_field_choices_dict(),
                 error="All fields are required",  # Unless hacked, this is the only thing that can go wrong
-                fld_types=self.basv_metadata.getFieldTypes(),
-                fld_units=self.basv_metadata.getFieldUnitsDict(),
+                fld_types=self.basv_metadata.get_field_types(),
+                fld_units=self.basv_metadata.get_field_units_dict(),
             )
         )
 
@@ -233,7 +233,7 @@ class AdvancedSearchView(MultiFormsView):
         except TypeError:
             qry = cform["qryjson"]
 
-        if not isQryObjValid(qry, self.basv_metadata.getFormatNames().keys()):
+        if not is_qry_obj_valid(qry, self.basv_metadata.get_format_names().keys()):
             print("ERROR: Invalid qry object: ", qry)
             raise Http404("Invalid json")
 
@@ -296,14 +296,14 @@ class AdvancedSearchView(MultiFormsView):
         if (received_stats is None or not received_stats["populated"]) and show_stats:
             generate_stats = True
 
-        if isValidQryObjPopulated(qry):
+        if is_valid_qry_obj_populated(qry):
             # For some reason, the download form generated in either case below always generates an error in the
             # browser that says "Failed to load resource: Frame load interrupted" when the download button is
             # clicked, but it still seems to work.  If however, the form creation in the first case is moved to the
             # bottom of the block, the downloaded file will only contain the header and will not be named properly...
             # Might be a (Safari) browser issue (according to stack).
             download_forms = self.get_download_form_tuples(qry=qry)
-            res, tot, stats = self.basv_metadata.performQuery(
+            res, tot, stats = self.basv_metadata.perform_query(
                 qry,
                 qry["selectedtemplate"],
                 limit=rows,
@@ -313,7 +313,7 @@ class AdvancedSearchView(MultiFormsView):
                 generate_stats=generate_stats,
             )
         else:
-            res, tot, stats = self.basv_metadata.getAllBrowseData(
+            res, tot, stats = self.basv_metadata.get_all_browse_data(
                 qry["selectedtemplate"],
                 limit=rows,
                 offset=offset,
@@ -324,7 +324,7 @@ class AdvancedSearchView(MultiFormsView):
             # Remake the qry so it will be valid for downloading all data (not entirely sure why this is necessary, but
             # the download form created on the subsequent line doesn't work without doing this.  I suspect that the qry
             # object isn't built correctly when the initial browse link is clicked)
-            qry = self.basv_metadata.getRootGroup(qry["selectedtemplate"])
+            qry = self.basv_metadata.get_root_group(qry["selectedtemplate"])
             download_forms = self.get_download_form_tuples(qry=qry)
 
         # If we received populated stats from the paging form (i.e. they were previously calculated)
@@ -344,7 +344,7 @@ class AdvancedSearchView(MultiFormsView):
             order_dir=order_dir,
         )
 
-        root_group = self.basv_metadata.getRootGroup()
+        root_group = self.basv_metadata.get_root_group()
 
         response = self.render_to_response(
             self.get_context_data(
@@ -357,16 +357,16 @@ class AdvancedSearchView(MultiFormsView):
                 root_group=root_group,
                 pager=self.pager,
                 default_format=self.basv_metadata.default_format,
-                ncmp_choices=self.basv_metadata.getComparisonChoices(),
-                fld_types=self.basv_metadata.getFieldTypes(),
-                fld_units=self.basv_metadata.getFieldUnitsDict(),
-                fld_choices=self.basv_metadata.getSearchFieldChoicesDict(),
+                ncmp_choices=self.basv_metadata.get_comparison_choices(),
+                fld_types=self.basv_metadata.get_field_types(),
+                fld_units=self.basv_metadata.get_field_units_dict(),
+                fld_choices=self.basv_metadata.get_search_field_choices_dict(),
             )
         )
 
         return response
 
-    def addInitialContext(self, context):
+    def add_initial_context(self, context):
         """
         Prepares context data for the initial page load.
         """
@@ -376,22 +376,22 @@ class AdvancedSearchView(MultiFormsView):
             mode = "browse"
         context["mode"] = mode
 
-        context["root_group"] = self.basv_metadata.getRootGroup()
-        context["ncmp_choices"] = self.basv_metadata.getComparisonChoices()
-        context["fld_types"] = self.basv_metadata.getFieldTypes()
-        context["fld_choices"] = self.basv_metadata.getSearchFieldChoicesDict()
-        context["fld_units"] = self.basv_metadata.getFieldUnitsDict()
+        context["root_group"] = self.basv_metadata.get_root_group()
+        context["ncmp_choices"] = self.basv_metadata.get_comparison_choices()
+        context["fld_types"] = self.basv_metadata.get_field_types()
+        context["fld_choices"] = self.basv_metadata.get_search_field_choices_dict()
+        context["fld_units"] = self.basv_metadata.get_field_units_dict()
 
         # Initial search page with no results
         if "qry" not in context or (
-            mode == "browse" and not isValidQryObjPopulated(context["qry"])
+            mode == "browse" and not is_valid_qry_obj_populated(context["qry"])
         ):
             if "qry" not in context:
                 # Initialize the qry object
                 if "format" in context:
-                    qry = self.basv_metadata.getRootGroup(context["format"])
+                    qry = self.basv_metadata.get_root_group(context["format"])
                 else:
-                    qry = self.basv_metadata.getRootGroup()
+                    qry = self.basv_metadata.get_root_group()
                 # If we're in browse more, put the qry object in context (because that's where the format name is
                 # extracted)
                 if mode == "browse":
@@ -407,7 +407,7 @@ class AdvancedSearchView(MultiFormsView):
                     context["res"],
                     context["tot"],
                     context["stats"],
-                ) = self.basv_metadata.getAllBrowseData(
+                ) = self.basv_metadata.get_all_browse_data(
                     qry["selectedtemplate"],
                     limit=self.pager.rows,
                     offset=offset,
@@ -424,10 +424,10 @@ class AdvancedSearchView(MultiFormsView):
                 )
         elif (
             "qry" in context
-            and isQryObjValid(
-                context["qry"], self.basv_metadata.getFormatNames().keys()
+            and is_qry_obj_valid(
+                context["qry"], self.basv_metadata.get_format_names().keys()
             )
-            and isValidQryObjPopulated(context["qry"])
+            and is_valid_qry_obj_populated(context["qry"])
             and ("res" not in context or len(context["res"]) == 0)
         ):
             qry = context["qry"]
@@ -436,7 +436,7 @@ class AdvancedSearchView(MultiFormsView):
                 context["res"],
                 context["tot"],
                 context["stats"],
-            ) = self.basv_metadata.performQuery(qry, qry["selectedtemplate"])
+            ) = self.basv_metadata.perform_query(qry, qry["selectedtemplate"])
             context["pager"] = self.pager.update(
                 other_field_inits={
                     "qryjson": json.dumps(qry),
@@ -478,7 +478,7 @@ class AdvancedSearchView(MultiFormsView):
         templates_with_mzxmls = ["pgtemplate", "pdtemplate"]
         if selected_template in templates_with_mzxmls:
             # Create a temporary ammended the query to check if any mzXML files are in the results
-            # We need the field path of the mzXML file record.  performQuery is limited to non-key fields, because I
+            # We need the field path of the mzXML file record.  perform_query is limited to non-key fields, because I
             # wrote it when I was still learning Django, but if there is a filename, then there is a file.
             fld = ""
             if selected_template == "pgtemplate":
@@ -492,23 +492,23 @@ class AdvancedSearchView(MultiFormsView):
             # Save the original query
             orig_group = mzcheck_qry["searches"][selected_template]["tree"]
             # Create a new root to the query
-            new_group = createFilterGroup(all=True)
+            new_group = create_filter_group(all=True)
 
             # If the qry was populated (i.e. not "browse all")
-            if isValidQryObjPopulated(qry):
+            if is_valid_qry_obj_populated(qry):
                 # Append the original query
-                new_group = appendFilterToGroup(new_group, orig_group)
+                new_group = append_filter_to_group(new_group, orig_group)
 
             # Append isnull=False to the qry so we can check if the mzxml download button should be enabled
-            new_group = appendFilterToGroup(
+            new_group = append_filter_to_group(
                 new_group,
-                createFilterCondition(fld, "not_isnull", None, None),
+                create_filter_condition(fld, "not_isnull", None, None),
             )
             # Now reset the new qry that includes the mzxml isnull=False
             mzcheck_qry["searches"][selected_template]["tree"] = new_group
 
             # Do the query and just save the count
-            _, cnt, _ = self.basv_metadata.performQuery(qry=mzcheck_qry)
+            _, cnt, _ = self.basv_metadata.perform_query(qry=mzcheck_qry)
             # Now, with the count, we can determine if there are any files to return
 
             button_name = f"mzXMLs ({cnt})"

@@ -83,11 +83,11 @@ class StudiesExporter:
                 datatype_slug = slugify(data_type)
 
                 # A data type name corresponds to a format key
-                data_type_key = self.sg.formatNameOrKeyToKey(data_type)
+                data_type_key = self.sg.format_name_or_key_to_key(data_type)
 
                 # Construct a query object understood by the format
                 # NOTE: This *assumes* every format in self.sg includes Study.id as searchable
-                qry = self.sg.createNewBasicQuery(
+                qry = self.sg.create_new_basic_query(
                     "Study",
                     "id",
                     "exact",
@@ -98,7 +98,7 @@ class StudiesExporter:
                 )
 
                 # Do the query of the format (ignoring count and optional stats)
-                results, _, _ = self.sg.performQuery(qry, data_type_key)
+                results, _, _ = self.sg.perform_query(qry, data_type_key)
 
                 # Output a file
                 with open(

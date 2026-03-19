@@ -4,12 +4,14 @@ from django.db.models import Q
 from django.http import Http404
 
 
-def extractFldPaths(qry):
+def extract_fld_paths(qry):
     """
     Returns the fld values under the tree of the selectedtemplate.
     """
     unique_fld_paths = []
-    fld_paths = extractFldPathsHelper(qry["searches"][qry["selectedtemplate"]]["tree"])
+    fld_paths = extract_fld_paths_helper(
+        qry["searches"][qry["selectedtemplate"]]["tree"]
+    )
 
     for fld_path in fld_paths:
         if fld_path not in unique_fld_paths:
@@ -18,19 +20,19 @@ def extractFldPaths(qry):
     return unique_fld_paths
 
 
-def extractFldPathsHelper(subtree):
+def extract_fld_paths_helper(subtree):
     """
     Recursive helper to extractFldPaths
     """
     fld_paths = []
     if subtree["type"] == "group":
         for child in subtree["queryGroup"]:
-            tmp_fld_paths = extractFldPathsHelper(child)
+            tmp_fld_paths = extract_fld_paths_helper(child)
             for fld_path in tmp_fld_paths:
                 fld_paths.append(fld_path)
     elif subtree["type"] == "query":
         fld_path_name = subtree["fld"]
-        fld_path, fld_name = splitPathName(fld_path_name)
+        fld_path, fld_name = split_path_name(fld_path_name)
         return [fld_path]
     else:
         raise ValueError(
@@ -40,7 +42,7 @@ def extractFldPathsHelper(subtree):
     return fld_paths
 
 
-def splitPathName(fld):
+def split_path_name(fld):
     """
     Removes the field name from the end of a key path.  The last __ delimited string is assumed to be a field name.
     """
@@ -50,7 +52,7 @@ def splitPathName(fld):
     return fld_path, fld_name
 
 
-def splitCommon(fld_path, reroot_path):
+def split_common(fld_path, reroot_path):
     """
     Returns 2 strings: the beginning portion of fld_path that it has in common with the reroot_path and the remainder
     of the fld_path.
@@ -94,7 +96,7 @@ def splitCommon(fld_path, reroot_path):
     return "__".join(command_path_list), "__".join(remaining_path_list)
 
 
-def createFilterGroup(all=True, static=False):
+def create_filter_group(all=True, static=False):
     """
     This returns a 1-query portion of what is usually under qry[searches][<template>][tree]
     """
@@ -109,7 +111,7 @@ def createFilterGroup(all=True, static=False):
     }
 
 
-def createFilterCondition(fld, ncmp, val, units, static=False):
+def create_filter_condition(fld, ncmp, val, units, static=False):
     """
     This returns a 1-query portion of what is usually under qry[searches][<template>][tree]
     """
@@ -124,7 +126,7 @@ def createFilterCondition(fld, ncmp, val, units, static=False):
     }
 
 
-def appendFilterToGroup(parent, filter):
+def append_filter_to_group(parent, filter):
     """
     This returns a 1-query portion of what is usually under qry[searches][<template>][tree]
     """
@@ -133,7 +135,7 @@ def appendFilterToGroup(parent, filter):
     return output_filter
 
 
-def isQryObjValid(qry, form_class_list):
+def is_qry_obj_valid(qry, form_class_list):
     """
     Determines if an advanced search qry object was properly constructed/populated (only at the root).
     """
@@ -157,7 +159,7 @@ def isQryObjValid(qry, form_class_list):
         return False
 
 
-def isValidQryObjPopulated(qry):
+def is_valid_qry_obj_populated(qry):
     """
     Checks whether a query object is fully populated with at least 1 search term.
     """
@@ -165,12 +167,12 @@ def isValidQryObjPopulated(qry):
     if len(qry["searches"][selfmt]["tree"]["queryGroup"]) == 0:
         return False
     else:
-        return isValidQryObjPopulatedHelper(
+        return is_valid_qry_obj_populated_helper(
             qry["searches"][selfmt]["tree"]["queryGroup"]
         )
 
 
-def isValidQryObjPopulatedHelper(group):
+def is_valid_qry_obj_populated_helper(group):
     for query in group:
         if query["type"] == "query":
             if not query["val"] or query["val"] == "":
@@ -179,13 +181,13 @@ def isValidQryObjPopulatedHelper(group):
             if len(query["queryGroup"]) == 0:
                 return False
             else:
-                tmp_populated = isValidQryObjPopulatedHelper(query["queryGroup"])
+                tmp_populated = is_valid_qry_obj_populated_helper(query["queryGroup"])
                 if not tmp_populated:
                     return False
     return True
 
 
-def formsetsToDict(rawformset, form_classes):
+def formsets_to_dict(rawformset, form_classes):
     """
     Takes a series of forms and a list of form fields and uses the pos field to construct a hierarchical qry tree.
     """
@@ -210,10 +212,10 @@ def formsetsToDict(rawformset, form_classes):
             f"Unable to find the saved form-processed data among formats: {','.join(rawformset.keys())}."
         )
 
-    return formsetToDict(rawformset[processed_formkey], form_classes)
+    return formset_to_dict(rawformset[processed_formkey], form_classes)
 
 
-def formsetToDict(rawformset, form_classes):
+def formset_to_dict(rawformset, form_classes):
     """
     Helper for formsetsToDict that handles only the forms belonging to the selected output format.
     """
@@ -221,32 +223,32 @@ def formsetToDict(rawformset, form_classes):
     search = {"selectedtemplate": "", "searches": {}}
 
     # We take a raw form instead of cleaned_data so that form_invalid will repopulate the bad form as-is
-    isRaw = False
+    is_raw = False
     try:
         formset = rawformset.cleaned_data
     except AttributeError:
-        isRaw = True
+        is_raw = True
         formset = rawformset
 
     for rawform in formset:
-        if isRaw:
+        if is_raw:
             form = rawform.saved_data
         else:
             form = rawform
 
         path = form["pos"].split(".")
 
-        [format, formatName, selected] = rootToFormatInfo(path.pop(0))
+        [format, format_name, selected] = root_to_format_info(path.pop(0))
         rootinfo = path.pop(0)
 
         # If this format has not yet been initialized
         if format not in search["searches"]:
             search["searches"][format] = {}
             search["searches"][format]["tree"] = {}
-            search["searches"][format]["name"] = formatName
+            search["searches"][format]["name"] = format_name
 
             # Initialize the root of the tree
-            [pos, gtype, static] = pathStepToPosGroupType(rootinfo)
+            [pos, gtype, static] = path_step_to_pos_group_type(rootinfo)
             aroot = search["searches"][format]["tree"]
             aroot["pos"] = ""
             aroot["type"] = "group"
@@ -262,7 +264,7 @@ def formsetToDict(rawformset, form_classes):
             search["selectedtemplate"] = format
 
         for spot in path:
-            [pos, gtype, static] = pathStepToPosGroupType(spot)
+            [pos, gtype, static] = path_step_to_pos_group_type(spot)
             while len(curqry) <= pos:
                 curqry.append({})
             if gtype is not None:
@@ -316,7 +318,7 @@ def formsetToDict(rawformset, form_classes):
     return search
 
 
-def pathStepToPosGroupType(spot):
+def path_step_to_pos_group_type(spot):
     """
     Takes a substring from a pos field defining a single tree node and returns its position and group type (if it's an
     inner node).  E.g. "0-all"
@@ -342,13 +344,13 @@ def pathStepToPosGroupType(spot):
     return [pos, gtype, static]
 
 
-def rootToFormatInfo(rootInfo):
+def root_to_format_info(root_info):
     """
     Takes the first substring from a pos field defining the root node and returns the format code, format name, and
     whether it is the selected format.
     """
 
-    val_name_sel = rootInfo.split("-")
+    val_name_sel = root_info.split("-")
     sel = False
     name = ""
     if len(val_name_sel) == 3:
@@ -366,9 +368,9 @@ def rootToFormatInfo(rootInfo):
     return [val, name, sel]
 
 
-def getFirstEmptyQuery(qry_ref):
+def get_first_empty_query(qry_ref):
     """
-    This method takes the "tree" from a qry object (i.e. what you get from basv_metadata.getRootGroup(fmt)) and
+    This method takes the "tree" from a qry object (i.e. what you get from basv_metadata.get_root_group(fmt)) and
     returns a reference to the single empty item of type query that should be present in a new rootGroup.
     """
     if qry_ref["type"] and qry_ref["type"] == "query":
@@ -379,7 +381,7 @@ def getFirstEmptyQuery(qry_ref):
         immutable = qry_ref["static"]
         if len(qry_ref["queryGroup"]) > 0:
             for qry in qry_ref["queryGroup"]:
-                emptyqry = getFirstEmptyQuery(qry)
+                emptyqry = get_first_empty_query(qry)
                 if emptyqry:
                     if immutable:
                         raise Http404(
@@ -390,12 +392,12 @@ def getFirstEmptyQuery(qry_ref):
     raise Http404("Type not found.")
 
 
-def setFirstEmptyQuery(qry_ref, fmt, fld, cmp, val, units):
+def set_first_empty_query(qry_ref, fmt, fld, cmp, val, units):
     """
-    This method takes the "tree" from a qry object (i.e. what you get from basv_metadata.getRootGroup(fmt)) and
+    This method takes the "tree" from a qry object (i.e. what you get from basv_metadata.get_root_group(fmt)) and
     returns a reference to the single empty item of type query that should be present in a new rootGroup.
     """
-    empty_qry = getFirstEmptyQuery(qry_ref["searches"][fmt]["tree"])
+    empty_qry = get_first_empty_query(qry_ref["searches"][fmt]["tree"])
 
     if empty_qry is None:
         return None
@@ -409,14 +411,14 @@ def setFirstEmptyQuery(qry_ref, fmt, fld, cmp, val, units):
     empty_qry["units"] = units
 
 
-def getNumEmptyQueries(qry, fmt):
+def get_num_empty_queries(qry, fmt):
     """
     Takes a qry object and a format and counts the number of empty queries for that format's search tree.
     """
-    return getNumEmptyQueriesHelper(qry["searches"][fmt]["tree"])
+    return get_num_empty_queries_helper(qry["searches"][fmt]["tree"])
 
 
-def getNumEmptyQueriesHelper(filter):
+def get_num_empty_queries_helper(filter):
     """
     Takes a "tree" value of 1 format from the rootGroup query object and recursively counts the number of empty
     queries.
@@ -429,7 +431,7 @@ def getNumEmptyQueriesHelper(filter):
     elif filter["type"] == "group":
         total_empty = 0
         for query in filter["queryGroup"]:
-            total_empty += getNumEmptyQueriesHelper(query)
+            total_empty += get_num_empty_queries_helper(query)
         return total_empty
     else:
         raise ValueError(
@@ -437,75 +439,75 @@ def getNumEmptyQueriesHelper(filter):
         )
 
 
-def getSelectedFormat(qry):
+def get_selected_format(qry):
     return qry["selectedtemplate"]
 
 
-def setSelectedFormat(qry, fmt):
+def set_selected_format(qry, fmt):
     qry["selectedtemplate"] = fmt
     return qry
 
 
-def getSearchTree(qry, fmt):
+def get_search_tree(qry, fmt):
     return qry["searches"][fmt]["tree"]
 
 
-def isQuery(filter):
+def is_query(filter):
     return filter["type"] == "query"
 
 
-def isQueryGroup(filter):
+def is_query_group(filter):
     return filter["type"] == "group"
 
 
-def isAllGroup(filter):
+def is_all_group(filter):
     return filter["val"] == "all"
 
 
-def isAnyGroup(filter):
+def is_any_group(filter):
     return filter["val"] == "any"
 
 
-def getFilterType(filter):
+def get_filter_type(filter):
     return filter["type"]
 
 
-def getChildren(filter):
+def get_children(filter):
     return filter["queryGroup"]
 
 
-def getValue(filter):
+def get_value(filter):
     return filter["val"]
 
 
-def getUnits(filter):
+def get_units(filter):
     return filter["units"]
 
 
-def getComparison(filter):
+def get_comparison(filter):
     return filter["ncmp"]
 
 
-def getField(filter):
+def get_field(filter):
     return filter["fld"]
 
 
-def setField(filter, fld):
+def set_field(filter, fld):
     filter["fld"] = fld
     return filter
 
 
-def constructAdvancedQuery(qryRoot, units_lookup=None):
+def construct_advanced_query(qry_root, units_lookup=None):
     """
     Turns a qry object into a complex Q object by calling its helper and supplying the selected format's tree.
     """
-    return constructAdvancedQueryHelper(
-        qryRoot["searches"][qryRoot["selectedtemplate"]]["tree"],
+    return construct_advanced_query_helper(
+        qry_root["searches"][qry_root["selectedtemplate"]]["tree"],
         units_lookup,
     )
 
 
-def constructAdvancedQueryHelper(qry, units_lookup=None):
+def construct_advanced_query_helper(qry, units_lookup=None):
     """
     Recursively build a complex Q object based on a hierarchical tree defining the search terms.
     """
@@ -565,13 +567,13 @@ def constructAdvancedQueryHelper(qry, units_lookup=None):
         for elem in qry["queryGroup"]:
             gotone = True
             if qry["val"] == "all":
-                nq = constructAdvancedQueryHelper(elem, units_lookup)
+                nq = construct_advanced_query_helper(elem, units_lookup)
                 if nq is None:
                     return None
                 else:
                     q &= nq
             elif qry["val"] == "any":
-                nq = constructAdvancedQueryHelper(elem, units_lookup)
+                nq = construct_advanced_query_helper(elem, units_lookup)
                 if nq is None:
                     return None
                 else:

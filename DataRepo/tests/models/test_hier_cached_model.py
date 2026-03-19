@@ -346,7 +346,7 @@ class HierCachedModelTests(TracebaseTestCase):
             msg="Ensure decorator works to save and retrieve cache, and that the value is correct",
         )
 
-    def createASampleCache(self):
+    def create_a_sample_cache(self):
         delete_all_caches()
         smp = Sample.objects.all().first()
         f = "last_tracer_peak_groups"
@@ -377,7 +377,7 @@ class HierCachedModelTests(TracebaseTestCase):
         return smp, f, rep_rec, rep_fnc
 
     def test_save_override(self):
-        smp, f, rep_rec, rep_fnc = self.createASampleCache()
+        smp, f, rep_rec, rep_fnc = self.create_a_sample_cache()
 
         smp.save()
 
@@ -444,7 +444,7 @@ class HierCachedModelTests(TracebaseTestCase):
         )
 
     def test_delete_descendant_caches(self):
-        smp, f, rep_rec, rep_fnc = self.createASampleCache()
+        smp, f, rep_rec, rep_fnc = self.create_a_sample_cache()
 
         smp.delete_descendant_caches()
 
@@ -466,7 +466,7 @@ class HierCachedModelTests(TracebaseTestCase):
         )
 
     def test_delete_related_caches(self):
-        smp, f, rep_rec, rep_fnc = self.createASampleCache()
+        smp, f, rep_rec, rep_fnc = self.create_a_sample_cache()
 
         smp.delete_related_caches()
 

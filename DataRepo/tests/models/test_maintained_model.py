@@ -258,7 +258,7 @@ class MaintainedModelThreadTests(TracebaseTransactionTestCase):
         cmpd = Compound.objects.create(name="glucose", formula="C6H12O6", hmdb_id="1")
         return Tracer.objects.create(compound=cmpd)
 
-    def test_TestThreadRunner_raises_exceptions_from_child(self):
+    def test_test_thread_runner_raises_exceptions_from_child(self):
         """
         This is a meta-test sanity check to ensure that exceptions in the child are raised in the parent as a
         ChildException
@@ -633,7 +633,7 @@ class RebuildMaintainedModelFieldsTests(TracebaseTestCase):
 
 
 class MaintainedModelMainTests(TracebaseTestCase):
-    def test_ModelNotMaintained(self):
+    def test_model_not_maintained(self):
         mnm = ModelNotMaintained(Compound)
         self.assertIn(
             "Model class 'Compound' must inherit from MaintainedModel.", str(mnm)

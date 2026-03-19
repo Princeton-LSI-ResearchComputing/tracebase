@@ -207,9 +207,7 @@ using each linter's config that we've set up for superlinter:
     find . \( -type f -not -path '*/\.*' -not -path "*bootstrap*" \
         -not -path "*__pycache__*" \) -exec jscpd {} \;
     flake8 --config .flake8 --extend-exclude migrations,.venv .
-    pylint --rcfile .pylintrc --load-plugins pylint_django \
-        --django-settings-module TraceBase.settings -d E1101 \
-        TraceBase DataRepo *.py
+    pylint DataRepo TraceBase
     black --exclude '\.git|__pycache__|migrations|\.venv' .
     isort --sp .isort.cfg -c -s migrations -s .venv -s .git -s __pycache__ .
     mypy --config-file .mypy.ini --disable-error-code annotation-unchecked .

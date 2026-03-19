@@ -43,8 +43,10 @@ class InfusateQuerySet(models.QuerySet):
         infusate = self.create(tracer_group_name=infusate_data["infusate_name"])
 
         # create tracers
-        Tracer = get_model_by_name("Tracer")
-        InfusateTracer = get_model_by_name("InfusateTracer")
+        Tracer = get_model_by_name("Tracer")  # pylint: disable=invalid-name
+        InfusateTracer = get_model_by_name(  # pylint: disable=invalid-name
+            "InfusateTracer"
+        )
         for infusate_tracer in infusate_data["tracers"]:
             tracer = Tracer.objects.get_tracer(infusate_tracer["tracer"])
             if tracer is None:
@@ -79,7 +81,7 @@ class InfusateQuerySet(models.QuerySet):
         )
         # Check that the tracers match
         for infusate_tracer in infusate_data["tracers"]:
-            Tracer = get_model_by_name("Tracer")
+            Tracer = get_model_by_name("Tracer")  # pylint: disable=invalid-name
             tracer = Tracer.objects.get_tracer(infusate_tracer["tracer"])
             infusates = infusates.filter(
                 tracer_links__tracer=tracer,
@@ -111,7 +113,7 @@ class InfusateQuerySet(models.QuerySet):
         )
         # Limit to the infusates that have the right tracers
         for infusate_tracer in infusate_data["tracers"]:
-            Tracer = get_model_by_name("Tracer")
+            Tracer = get_model_by_name("Tracer")  # pylint: disable=invalid-name
             tracer = Tracer.objects.get_tracer(infusate_tracer["tracer"])
             infusates = infusates.filter(
                 tracer_links__tracer=tracer,

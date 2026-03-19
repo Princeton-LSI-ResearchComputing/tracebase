@@ -37,7 +37,7 @@ class AnimalTests(TracebaseTestCase):
 
         super().setUpTestData()
 
-    def createNewLastSerumSample(self):
+    def create_new_last_serum_sample(self):
         # Get an animal (assuming it has an infusate/tracers/etc)
         animal = Animal.objects.filter(last_serum_sample__isnull=False).last()
         print(f"Animal: {animal.name} Last serum sample: {animal.last_serum_sample}")
@@ -75,7 +75,7 @@ class AnimalTests(TracebaseTestCase):
           1. Create a new serum sample whose time collected is later than existing serum samples.
             3. Confirm Animal.last_serum_sample points to the new sample.
         """
-        self.createNewLastSerumSample()
+        self.create_new_last_serum_sample()
         # Assert that the animal's last_serum_sample is autoupdated
         self.assertEqual(self.newlss, self.animal.last_serum_sample)
 

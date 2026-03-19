@@ -14,10 +14,10 @@ from django.db.utils import ProgrammingError
 
 from DataRepo.formats.dataformat import Format
 from DataRepo.formats.dataformat_group_query import (
-    constructAdvancedQuery,
-    getNumEmptyQueries,
-    getSelectedFormat,
-    setFirstEmptyQuery,
+    construct_advanced_query,
+    get_num_empty_queries,
+    get_selected_format,
+    set_first_empty_query,
 )
 from DataRepo.models.utilities import get_model_by_name
 
@@ -35,7 +35,7 @@ class FormatGroup:
     default_format = None
     modeldata: Dict[int, Format] = {}
 
-    def addFormats(self, format_classes):
+    def add_formats(self, format_classes):
         """
         Add formats and set the default to the first class, unless default already set.
         """
@@ -44,17 +44,17 @@ class FormatGroup:
         if self.default_format is None:
             self.default_format = format_classes[0].id
 
-    def setDefaultFormat(self, format_class):
+    def set_default_format(self, format_class):
         self.default_format = format_class.id
 
-    def setDefaultMode(self, mode):
+    def set_default_mode(self, mode):
         if mode not in self.modes:
             raise ValueError(
                 f"Invalid mode: {mode}.  Must be one of: [{', '.join(self.modes)}]"
             )
         self.default_mode = mode
 
-    def getRootGroup(self, selfmt=None):
+    def get_root_group(self, selfmt=None):
         """
         This method builds a fresh qry object (aka "rootGroup"). This is the object that defines an advanced search and
         is modified via javascript as the user composes a search.  It is passed back and forth via json.  The starting
@@ -85,15 +85,15 @@ class FormatGroup:
                 f"WARNING: Unknown format: [{selfmt}]. Falling back to default format: [{self.default_format}]"
             )
             selfmt = self.default_format
-        rootGroup = {
+        root_group = {
             "selectedtemplate": selfmt,
             "searches": {},
         }
         for format in self.modeldata.keys():
-            rootGroup["searches"][format] = {}
-            rootGroup["searches"][format]["name"] = self.modeldata[format].name
-            if self.staticFilterIsValid(self.modeldata[format].static_filter):
-                rootGroup["searches"][format]["tree"] = deepcopy(
+            root_group["searches"][format] = {}
+            root_group["searches"][format]["name"] = self.modeldata[format].name
+            if self.static_filter_is_valid(self.modeldata[format].static_filter):
+                root_group["searches"][format]["tree"] = deepcopy(
                     self.modeldata[format].static_filter
                 )
             else:
@@ -104,12 +104,12 @@ class FormatGroup:
                 raise ValueError(
                     f"Static filter for format {format} must contain at least 1 non-static empty query."
                 )
-        return rootGroup
+        return root_group
 
-    def staticFilterIsValid(self, filter):
+    def static_filter_is_valid(self, filter):
         """
         Takes a "tree" value of 1 format from the rootGroup query object and raises an exception for missing keys or
-        invalid values in the root query and calls staticFilterIsValidHelper to recursively validate the treee.
+        invalid values in the root query and calls static_filterIs_valid_helper to recursively validate the treee.
         """
 
         if (
@@ -122,14 +122,14 @@ class FormatGroup:
                 "Invalid root query group.  Must be of type 'group' and contain a populated queryGroup array."
             )
         else:
-            num_nonstatic = self.getNumNonStaticGroups(filter)
+            num_nonstatic = self.get_num_non_static_groups(filter)
             if num_nonstatic == 0:
                 raise ValueError(
                     "Invalid root query group.  There must exist at least 1 non-static query group."
                 )
-            return self.staticFilterIsValidHelper(filter)
+            return self.static_filter_is_valid_helper(filter)
 
-    def staticFilterIsValidHelper(self, filter):
+    def static_filter_is_valid_helper(self, filter):
         """
         Raises an exception for missing keys or invalid values and returns true if at least 1 empty query exists among
         all recursively checked objects of type query.
@@ -162,7 +162,7 @@ class FormatGroup:
                 )
             empty_exists = False
             for query in filter["queryGroup"]:
-                if self.staticFilterIsValidHelper(query):
+                if self.static_filter_is_valid_helper(query):
                     empty_exists = True
             return empty_exists
         else:
@@ -170,7 +170,7 @@ class FormatGroup:
                 f"Invalid query type {filter['type']}.  Must be either 'query' or 'group'."
             )
 
-    def getNumNonStaticGroups(self, filter):
+    def get_num_non_static_groups(self, filter):
         """
         Takes a "tree" value of 1 format from the rootGroup query object and recursively counts the number of nonstatic
         groups.
@@ -182,55 +182,55 @@ class FormatGroup:
             if not filter["static"]:
                 total_nonstatic = 1
             for query in filter["queryGroup"]:
-                total_nonstatic += self.getNumNonStaticGroups(query)
+                total_nonstatic += self.get_num_non_static_groups(query)
             return total_nonstatic
         else:
             raise ValueError(
                 f"Invalid query type {filter['type']}.  Must be either 'query' or 'group'."
             )
 
-    def getRootQuerySet(self, format):
+    def get_root_query_set(self, format):
         """
-        Calls getRootQuerySet of the supplied format.
+        Calls get_root_query_set of the supplied format.
         """
-        return self.modeldata[format].getRootQuerySet()
+        return self.modeldata[format].get_root_query_set()
 
-    def getPrefetches(self, format):
+    def get_prefetches(self, format):
         """
-        Calls getPrefetches of the supplied ID of the search output format class.
+        Calls get_prefetches of the supplied ID of the search output format class.
         """
-        return self.modeldata[format].getPrefetches()
+        return self.modeldata[format].get_prefetches()
 
-    def getTrueJoinPrefetchPathsAndQrys(self, qry, format=None):
+    def get_true_join_prefetch_paths_and_qrys(self, qry, format=None):
         """
-        Calls getTrueJoinPrefetchPathsAndQrys of the supplied ID of the search output format class.
+        Calls get_true_join_prefetch_paths_and_qrys of the supplied ID of the search output format class.
         """
-        selfmt = getSelectedFormat(qry)
+        selfmt = get_selected_format(qry)
         if format is not None and format != selfmt:
             raise ValueError(
                 f"Supplied format: [{format}] does not match the qry selected format: [{selfmt}]"
             )
         elif format is None:
             format = selfmt
-        return self.modeldata[format].getTrueJoinPrefetchPathsAndQrys(qry)
+        return self.modeldata[format].get_true_join_prefetch_paths_and_qrys(qry)
 
-    def getSearchFieldChoices(self, format):
+    def get_search_field_choices(self, format):
         """
-        Calls getSearchFieldChoices of the supplied ID of the search output format class.
+        Calls get_search_field_choices of the supplied ID of the search output format class.
         """
-        return self.modeldata[format].getSearchFieldChoices()
+        return self.modeldata[format].get_search_field_choices()
 
-    def getSearchFieldChoicesDict(self):
+    def get_search_field_choices_dict(self):
         """
         Creates a format-keyed dict of the fld choices tuples.  Used to populate the fld select list to
         address issue #229 in the same way ncmp_choices is populated and pared down by javascript.
         """
         fld_choices = {}
         for fmtid in self.modeldata.keys():
-            fld_choices[fmtid] = self.modeldata[fmtid].getSearchFieldChoices()
+            fld_choices[fmtid] = self.modeldata[fmtid].get_search_field_choices()
         return fld_choices
 
-    def getAllSearchFieldChoices(self):
+    def get_all_search_field_choices(self):
         """
         Creates a flat tuple of every field in every model of every derived class.  Used to initially populate the fld
         select list that is updated by javascript based on the selected format.  This initial population in the form
@@ -240,16 +240,16 @@ class FormatGroup:
         all_fld_choices = ()
         seen = []
         for fmtid in self.modeldata.keys():
-            for fld_val, fld_name in self.getSearchFieldChoices(fmtid):
+            for fld_val, fld_name in self.get_search_field_choices(fmtid):
                 if fld_val not in seen:
                     seen.append(fld_val)
                     all_fld_choices = all_fld_choices + ((fld_val, fld_name),)
         return all_fld_choices
 
-    def getFieldUnitsLookup(self, fmt):
-        return self.modeldata[fmt].getFieldUnitsLookup()
+    def get_field_units_lookup(self, fmt):
+        return self.modeldata[fmt].get_field_units_lookup()
 
-    def getFieldUnitsDict(self):
+    def get_field_units_dict(self):
         """
         Creates a format-keyed dict of the unit choices data, including the tuples used to create a select list.  This
         is used to populate the units select list based on the selected field.
@@ -273,54 +273,54 @@ class FormatGroup:
 
         fld_units = {}
         for fmtid in self.modeldata.keys():
-            fld_units[fmtid] = self.modeldata[fmtid].getFieldUnitsDict()
+            fld_units[fmtid] = self.modeldata[fmtid].get_field_units_dict()
 
         return fld_units
 
-    def getAllFieldUnitsChoices(self):
+    def get_all_field_units_choices(self):
         """
-        Calls getAllFieldUnitsChoices of the default output format class.
+        Calls get_all_field_units_choices of the default output format class.
 
         All units options are the same for every Format class contained in this class, so we only need to call one.
         """
-        return self.modeldata[self.default_format].getAllFieldUnitsChoices()
+        return self.modeldata[self.default_format].get_all_field_units_choices()
 
-    def getComparisonChoices(self):
+    def get_comparison_choices(self):
         """
-        Calls getComparisonChoices of the default output format class.
+        Calls get_comparison_choices of the default output format class.
 
         All ncmp_choices are the same for every Format class contained in this class, so it doesn't matter which one we
         use.
         """
-        return self.modeldata[self.default_format].getComparisonChoices()
+        return self.modeldata[self.default_format].get_comparison_choices()
 
-    def getAllComparisonChoices(self):
+    def get_all_comparison_choices(self):
         """
-        Calls getAllComparisonChoices of the default output format class.
+        Calls get_all_comparison_choices of the default output format class.
 
         All ncmp_choices are the same for every Format class contained in this class, so we only need to call one.
         """
-        return self.modeldata[self.default_format].getAllComparisonChoices()
+        return self.modeldata[self.default_format].get_all_comparison_choices()
 
-    def getModelInstances(self, format):
+    def get_model_instances(self, format):
         """
-        Calls getModelInstances of the supplied ID of the search output format class.
+        Calls get_model_instances of the supplied ID of the search output format class.
         """
-        return self.modeldata[format].getModelInstances()
+        return self.modeldata[format].get_model_instances()
 
-    def getModelInstance(self, format, mdl):
+    def get_model_instance(self, format, mdl):
         """
-        Calls getModelInstance of the supplied ID of the search output format class.
+        Calls get_model_instance of the supplied ID of the search output format class.
         """
-        return self.modeldata[format].getModelInstance(mdl)
+        return self.modeldata[format].get_model_instance(mdl)
 
-    def getModelFromInstance(self, format, mdl_inst):
+    def get_model_from_instance(self, format, mdl_inst):
         """
-        Calls getModelFromInstance of the supplied ID of the search output format class.
+        Calls get_model_from_instance of the supplied ID of the search output format class.
         """
-        return self.modeldata[format].getModelFromInstance(mdl_inst)
+        return self.modeldata[format].get_model_from_instance(mdl_inst)
 
-    def getFormatNames(self):
+    def get_format_names(self):
         """
         Returns a dict of search output format class IDs to their user-facing names.
         """
@@ -329,43 +329,43 @@ class FormatGroup:
             namedict[fmtid] = str(self.modeldata[fmtid].name)
         return namedict
 
-    def getFieldTypes(self):
+    def get_field_types(self):
         """
         Returns a dict of fmt -> path__field -> {type -> field_type (number, string, enumeration), choices -> list of
         tuples}.
         """
         typedict = {}
         for fmtid in self.modeldata.keys():
-            typedict[fmtid] = self.modeldata[fmtid].getFieldTypes()
+            typedict[fmtid] = self.modeldata[fmtid].get_field_types()
         return typedict
 
-    def getSearchFields(self, fmt, mdl):
+    def get_search_fields(self, fmt, mdl):
         """
         Takes a format key and model and returns a dict of searchable field name -> field key path
         """
-        return self.modeldata[fmt].getSearchFields(mdl)
+        return self.modeldata[fmt].get_search_fields(mdl)
 
-    def getDisplayFields(self, fmt, mdl):
+    def get_display_fields(self, fmt, mdl):
         """
         Takes a format key and model and returns a dict of field name -> display field name (if there exists a handoff
         from a non-displayed field to a displayed one)
         """
-        return self.modeldata[fmt].getDisplayFields(mdl)
+        return self.modeldata[fmt].get_display_fields(mdl)
 
-    def getKeyPathList(self, fmt, mdl):
+    def get_key_path_list(self, fmt, mdl):
         """
-        Calls getKeyPathList of the supplied ID of the search output format class.
+        Calls get_key_path_list of the supplied ID of the search output format class.
         """
-        return self.modeldata[fmt].getKeyPathList(mdl)
+        return self.modeldata[fmt].get_key_path_list(mdl)
 
-    def formatNameOrKeyToKey(self, fmtsubmitted):
+    def format_name_or_key_to_key(self, fmtsubmitted):
         """
         Takes a search output format ID or name and returns the corresponding search output format
         ID.  This method exists to facilitate the usage of (case-insensitive) format names in search_basic URLs.
         """
 
         fmtkey = fmtsubmitted
-        names = self.getFormatNames()
+        names = self.get_format_names()
         foundit = False
         if fmtsubmitted in names:
             foundit = True
@@ -379,41 +379,41 @@ class FormatGroup:
             return None
         return fmtkey
 
-    def reRootQry(self, fmt, qry, new_root_model_instance_name):
-        return self.modeldata[fmt].reRootQry(qry, new_root_model_instance_name)
+    def re_root_qry(self, fmt, qry, new_root_model_instance_name):
+        return self.modeldata[fmt].re_root_qry(qry, new_root_model_instance_name)
 
-    def getDistinctFields(
+    def get_distinct_fields(
         self, fmt, order_by=None, assume_distinct=True, split_all=False
     ):
-        return self.modeldata[fmt].getDistinctFields(
+        return self.modeldata[fmt].get_distinct_fields(
             order_by, assume_distinct, split_all
         )
 
-    def getOrderByFields(self, fmt):
-        return self.modeldata[fmt].getOrderByFields(
+    def get_order_by_fields(self, fmt):
+        return self.modeldata[fmt].get_order_by_fields(
             model_name=self.modeldata[fmt].rootmodel.__name__
         )
 
-    def getFullJoinAnnotations(self, fmt):
-        return self.modeldata[fmt].getFullJoinAnnotations()
+    def get_full_join_annotations(self, fmt):
+        return self.modeldata[fmt].get_full_join_annotations()
 
-    def getStatsParams(self, fmt):
-        return self.modeldata[fmt].getStatsParams()
+    def get_stats_params(self, fmt):
+        return self.modeldata[fmt].get_stats_params()
 
-    def statsAvailable(self, fmt):
-        return self.modeldata[fmt].statsAvailable()
+    def stats_available(self, fmt):
+        return self.modeldata[fmt].stats_available()
 
-    def meetsAllConditionsByValList(self, fmt, rootrec, query, field_order):
+    def meets_all_conditions_by_val_list(self, fmt, rootrec, query, field_order):
         """
         This is a python-code version of a complex Q expression, necessary for checking filters in aggregate count
         annotations, because the Django ORM does not support .distinct(fields).annotate(Count) when duplicate root
         table records exist.
         """
-        return self.modeldata[fmt].meetsAllConditionsByValList(
+        return self.modeldata[fmt].meets_all_conditions_by_val_list(
             rootrec, query, field_order
         )
 
-    def searchFieldToDisplayField(self, mdl_instance, fld, val, qry):
+    def search_field_to_display_field(self, mdl_instance, fld, val, qry):
         """
         Takes a field from a basic search and converts it to a non-hidden field for an advanced search select list.
 
@@ -423,9 +423,9 @@ class FormatGroup:
 
         dfld = fld
         dval = val
-        fmt = getSelectedFormat(qry)
-        dfields = self.getDisplayFields(fmt, mdl_instance)
-        mdl = self.getModelFromInstance(fmt, mdl_instance)
+        fmt = get_selected_format(qry)
+        dfields = self.get_display_fields(fmt, mdl_instance)
+        mdl = self.get_model_from_instance(fmt, mdl_instance)
 
         # If fld is not a displayed field
         if fld in dfields.keys() and dfields[fld] != fld:
@@ -444,7 +444,7 @@ class FormatGroup:
                 # We only expect to get here if fld is not a unique field.
 
                 # The value may be unique in the root queryset subset
-                recs, tot, _ = self.performQuery(qry, fmt)
+                recs, tot, _ = self.perform_query(qry, fmt)
 
                 # Note, "recs" is the root model records, not mdl records, so we except multiple results
                 if tot == 0:
@@ -456,7 +456,7 @@ class FormatGroup:
                 else:
                     # Set the field path for the display field
                     dfld = dfields[fld]
-                    dval = self.getJoinedRecFieldValue(
+                    dval = self.get_joined_rec_field_value(
                         recs, fmt, mdl_instance, dfields[fld], fld, val
                     )
             else:
@@ -469,7 +469,7 @@ class FormatGroup:
     # Warning, the code in this method would potentially not work in cases where multiple search terms (including a term
     # from a m:m related table) were or'ed together.  This cannot happen currently because this is only utilized for
     # handoff fields from search_basic, so the first record is guaranteed to have a matching value from the search term.
-    def getJoinedRecFieldValue(self, recs, fmt, mdl, dfld, sfld, sval):
+    def get_joined_rec_field_value(self, recs, fmt, mdl, dfld, sfld, sval):
         """
         Takes a queryset object and a model.field and returns its value.
         """
@@ -481,7 +481,7 @@ class FormatGroup:
             )
             raise ObjectDoesNotExist("Records not found.")
 
-        kpl = self.getKeyPathList(fmt, mdl)
+        kpl = self.get_key_path_list(fmt, mdl)
         ptr = recs[0]
         # This loop climbs through each key in the key path, maintaining a pointer to the current model
         for key in kpl:
@@ -518,7 +518,7 @@ class FormatGroup:
 
         return dval
 
-    def getAllBrowseData(
+    def get_all_browse_data(
         self,
         format,
         limit=None,
@@ -530,11 +530,11 @@ class FormatGroup:
         """
         Grabs all data without a filtering match for browsing.
         """
-        return self.performQuery(
+        return self.perform_query(
             None, format, limit, offset, order_by, order_direction, generate_stats
         )
 
-    def performQuery(
+    def perform_query(
         self,
         qry=None,
         fmt=None,
@@ -552,9 +552,9 @@ class FormatGroup:
         q_exp = None
 
         if qry is not None:
-            selfmt = getSelectedFormat(qry)
-            units_lookup = self.getFieldUnitsLookup(selfmt)
-            q_exp = constructAdvancedQuery(qry, units_lookup)
+            selfmt = get_selected_format(qry)
+            units_lookup = self.get_field_units_lookup(selfmt)
+            q_exp = construct_advanced_query(qry, units_lookup)
             if fmt is not None and fmt != selfmt:
                 raise ValueError(
                     f"The selected format in the qry object: [{selfmt}] does not match the supplied format: [{fmt}]"
@@ -566,14 +566,14 @@ class FormatGroup:
                 "Neither a qry object nor a format was supplied.  1 of the 2 is required."
             )
 
-        if fmt not in self.getFormatNames().keys():
+        if fmt not in self.get_format_names().keys():
             raise KeyError(f"Invalid selected format: {fmt}")
 
         # If the Q expression is None, get all, otherwise filter
         if q_exp is None:
-            results = self.getRootQuerySet(fmt)
+            results = self.get_root_query_set(fmt)
         else:
-            results = self.getRootQuerySet(fmt).filter(q_exp)
+            results = self.get_root_query_set(fmt).filter(q_exp)
 
         # Get stats before applying order by and distinct so that unsplit rows can be accurately counted by making all
         # M:M related tables distinct
@@ -581,10 +581,10 @@ class FormatGroup:
             "data": {},
             "populated": generate_stats,
             "show": False,
-            "available": self.statsAvailable(fmt),
+            "available": self.stats_available(fmt),
         }
         if generate_stats:
-            data, based_on = self.getQueryStats(
+            data, based_on = self.get_query_stats(
                 results, fmt, time_limit_secs=SAFE_TIMEOUT_SECS
             )
             stats["data"] = data
@@ -605,12 +605,12 @@ class FormatGroup:
 
         # This ensures the number of records matches the number of rows desired in the html table based on the
         # split_rows values configured in each format in SearchGroup
-        distinct_fields = self.getDistinctFields(fmt, order_by)
+        distinct_fields = self.get_distinct_fields(fmt, order_by)
 
         # If there are distinct fields, then django may require order-by fields
         if order_by is None and len(distinct_fields) > 0:
             # Get the default order-by fields for the root model
-            orderby_fields = self.getOrderByFields(fmt)
+            orderby_fields = self.get_order_by_fields(fmt)
             if len(orderby_fields) > 0:
                 results = results.order_by(*orderby_fields)
 
@@ -627,10 +627,10 @@ class FormatGroup:
 
         # If prefetches have been defined in the base advanced search view
         if qry is None:
-            prefetches = self.getPrefetches(fmt)
+            prefetches = self.get_prefetches(fmt)
         else:
             # Retrieve the prefetch data
-            prefetch_qrys = self.getTrueJoinPrefetchPathsAndQrys(qry, fmt)
+            prefetch_qrys = self.get_true_join_prefetch_paths_and_qrys(qry, fmt)
 
             # Build the prefetches, including subqueries for M:M related tables to produce a "true join" if a search
             # term is from a M:M related model
@@ -645,7 +645,7 @@ class FormatGroup:
                     pf_units_lookup = pfq[3]
 
                     # Construct a new Q expression using the rerooted query
-                    pf_q_exp = constructAdvancedQuery(pf_qry, pf_units_lookup)
+                    pf_q_exp = construct_advanced_query(pf_qry, pf_units_lookup)
 
                     # grab the model using its name
                     mdl = get_model_by_name(pf_mdl)
@@ -661,20 +661,20 @@ class FormatGroup:
         if prefetches is not None:
             results = results.prefetch_related(*prefetches)
 
-        split_row_annotations = self.getFullJoinAnnotations(fmt)
+        split_row_annotations = self.get_full_join_annotations(fmt)
         for annotation in split_row_annotations:
             results = results.annotate(**annotation)
 
         return results, cnt, stats
 
-    def getQueryStats(self, res, fmt, time_limit_secs: Optional[int] = None):
+    def get_query_stats(self, res, fmt, time_limit_secs: Optional[int] = None):
         """
-        This method takes a queryset (produced by performQuery) and a format (e.g. "pgtemplate") and returns a stats
+        This method takes a queryset (produced by perform_query) and a format (e.g. "pgtemplate") and returns a stats
         dict keyed on the stat name and containing the counts of the number of unique values for the fields defined in
         the basic advanced search view object for the supplied template.  E.g. The results contain 5 distinct tissues.
         """
         # Obtain the metadata about what stats we will display
-        params_arrays = self.getStatsParams(fmt)
+        params_arrays = self.get_stats_params(fmt)
         if params_arrays is None:
             return None
 
@@ -684,9 +684,9 @@ class FormatGroup:
         stats_fields = [fld for d in params_arrays for fld in d["distincts"]]
 
         # These are the distinct fields that that dictate the number of rows in the view's output table
-        fmt_distinct_fields = self.getDistinctFields(fmt, assume_distinct=False)
+        fmt_distinct_fields = self.get_distinct_fields(fmt, assume_distinct=False)
         # These are the distinct fields necessary to get an accurate count of unique values
-        all_distinct_fields = self.getDistinctFields(
+        all_distinct_fields = self.get_distinct_fields(
             fmt, assume_distinct=False, split_all=True
         )
         all_fields = all_distinct_fields + stats_fields
@@ -743,7 +743,9 @@ class FormatGroup:
                         cnt_dict[statskey] = {}
 
                     # Update the stats
-                    if params["filter"] is None or self.meetsAllConditionsByValList(
+                    if params[
+                        "filter"
+                    ] is None or self.meets_all_conditions_by_val_list(
                         fmt, rec, params["filter"], all_fields
                     ):
                         if valcombo not in cnt_dict[statskey].keys():
@@ -792,19 +794,19 @@ class FormatGroup:
 
         return stats, based_on
 
-    def getDownloadQryList(self):
+    def get_download_qry_list(self):
         """
         Returns a list of dicts where the keys are name and json and the values are the format name and the json-
         stringified qry object with the target format selected
         """
         qry_list = []
-        for format, name in self.getFormatNames().items():
+        for format, name in self.get_format_names().items():
             qry_list.append(
-                {"name": name, "json": json.dumps(self.getRootGroup(format))}
+                {"name": name, "json": json.dumps(self.get_root_group(format))}
             )
         return qry_list
 
-    def createNewBasicQuery(
+    def create_new_basic_query(
         self, mdl, fld, cmp, val, fmt, units="identity", search_again=True
     ):
         """
@@ -817,10 +819,10 @@ class FormatGroup:
         queryset.)
         """
 
-        qry = self.getRootGroup(fmt)
+        qry = self.get_root_group(fmt)
 
         try:
-            mdl_inst = self.getModelInstance(fmt, mdl)
+            mdl_inst = self.get_model_instance(fmt, mdl)
         except KeyError as ke:
             # Print error to the console
             print(
@@ -828,14 +830,14 @@ class FormatGroup:
             )
             raise ke
 
-        sfields = self.getSearchFields(fmt, mdl_inst)
+        sfields = self.get_search_fields(fmt, mdl_inst)
 
         if fld not in sfields:
             raise FieldError(
                 f"Field [{fld}] is not searchable.  Must be one of [{','.join(sfields.keys())}]."
             )
 
-        num_empties = getNumEmptyQueries(qry, fmt)
+        num_empties = get_num_empty_queries(qry, fmt)
         if num_empties != 1:
             raise ValidationError(
                 f"The static filter for format {fmt} is improperly configured. It must contain exactly 1 empty query."
@@ -844,10 +846,10 @@ class FormatGroup:
         target_fld = sfields[fld]
         target_val = val
 
-        setFirstEmptyQuery(qry, fmt, target_fld, cmp, target_val, units)
+        set_first_empty_query(qry, fmt, target_fld, cmp, target_val, units)
 
         if search_again:
-            dfld, dval = self.searchFieldToDisplayField(mdl_inst, fld, val, qry)
+            dfld, dval = self.search_field_to_display_field(mdl_inst, fld, val, qry)
 
             if dfld != fld:
                 # Set the field path for the display field
@@ -855,9 +857,9 @@ class FormatGroup:
                 target_val = dval
 
                 # Re-create another empty copy of the qry
-                qry = self.getRootGroup(fmt)
+                qry = self.get_root_group(fmt)
                 # Note units cannot be transfered, so default should always be "identity"
-                setFirstEmptyQuery(qry, fmt, target_fld, cmp, target_val, "identity")
+                set_first_empty_query(qry, fmt, target_fld, cmp, target_val, "identity")
 
         return qry
 

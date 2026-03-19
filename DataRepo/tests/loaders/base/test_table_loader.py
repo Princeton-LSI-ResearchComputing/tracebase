@@ -363,7 +363,7 @@ class TableLoaderTests(TracebaseTestCase):
             str(tl.aggregated_errors_object.exceptions[0]),
         )
 
-    def test_handle_load_db_errors_catches_RequiredColumnValue(self):
+    def test_handle_load_db_errors_catches_required_column_value(self):
         """Ensures that handle_load_db_errors catches RequiredColumnValue errors."""
         tl = self.test_loader_class()
         # Circumventing the need to call load_data, set what is needed to call handle_load_db_errors...
@@ -410,7 +410,7 @@ class TableLoaderTests(TracebaseTestCase):
             str(tl.aggregated_errors_object.exceptions[0]),
         )
 
-    def test_handle_load_db_errors_leaves_unpackaged_if_rec_dict_None(self):
+    def test_handle_load_db_errors_leaves_unpackaged_if_rec_dict_none(self):
         """Ensures that the exception is not packaged by handle_load_db_errors inside an InfileDatabaseError if rec_dict
         is None
         """
@@ -497,8 +497,8 @@ class TableLoaderTests(TracebaseTestCase):
         erec2.full_clean()
 
         # Supplying ["opt_val": None] is technically unsupported by the TableLoader when using get_or_create, but that
-        # is the one condition I found that would trigger the multiple unique constrain match issue.  There are probably
-        # other ways to trigger it.
+        # is the one condition I found that would trigger the multiple unique constraint match issue.  There are
+        # probably other ways to trigger it.
         newrecdict = {"name": "a", "file": 1, "opt_val": None}
 
         # Send a simulated IntegrityError to handle_load_db_errors
@@ -1375,7 +1375,7 @@ class TableLoaderTests(TracebaseTestCase):
         )
 
     # Test that load_wrapper
-    def test_load_wrapper_does_not_nest_AggregatedErrors(self):
+    def test_load_wrapper_does_not_nest_aggregated_errors(self):
         class TestNestedAesLoader(self.test_loader_class):
             def load_data(self):
                 # Buffer an exception correctly
@@ -1400,7 +1400,7 @@ class TableLoaderTests(TracebaseTestCase):
         self.assertEqual(ValueError, type(aes.exceptions[1]))
         self.assertEqual("Nested", str(aes.exceptions[1]))
 
-    def test_load_wrapper_summarizes_ConflictingValueErrors(self):
+    def test_load_wrapper_summarizes_conflicting_value_errors(self):
         class TestMultiCVELoader(self.test_loader_class):
             def load_data(self):
                 # Buffer 2 ConflictingValueError exceptions
@@ -1436,7 +1436,7 @@ class TableLoaderTests(TracebaseTestCase):
             str(aes.exceptions[0]),
         )
 
-    def test_load_wrapper_summarizes_RequiredValueErrors(self):
+    def test_load_wrapper_summarizes_required_value_errors(self):
         class TestMultiRVELoader(self.test_loader_class):
             def load_data(self):
                 # Buffer 2 RequiredValueError exceptions
@@ -1488,7 +1488,7 @@ class TableLoaderTests(TracebaseTestCase):
             "Fixing errors above this will fix this error", str(aes.exceptions[0])
         )
 
-    def test_load_wrapper_summarizes_DuplicateValueErrors(self):
+    def test_load_wrapper_summarizes_duplicate_value_errors(self):
         class TestMultiDVELoader(self.test_loader_class):
             def load_data(self):
                 # Buffer 2 RequiredValueError exceptions
@@ -1525,7 +1525,7 @@ class TableLoaderTests(TracebaseTestCase):
             str(aes.exceptions[0]),
         )
 
-    def test_load_wrapper_summarizes_RequiredColumnValues(self):
+    def test_load_wrapper_summarizes_required_column_values(self):
         class TestMultiRCVLoader(self.test_loader_class):
             def load_data(self):
                 # Buffer 2 RequiredValueError exceptions
@@ -1593,7 +1593,7 @@ class TableLoaderTests(TracebaseTestCase):
         # This get should not cause an exception because the record should have been created and kept
         self.test_model_class.objects.get(name="A", choice=1)
 
-    def test_load_wrapper_handles_DryRun(self):
+    def test_load_wrapper_handles_dry_run(self):
         class TestDryRunLoader(self.test_loader_class):
             def load_data(self):
                 self.Models[0].objects.create(name="A", choice=1)

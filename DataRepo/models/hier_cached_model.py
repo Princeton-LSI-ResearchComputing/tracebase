@@ -6,10 +6,10 @@ from django.conf import settings
 from django.core.cache import cache
 from django.db.models import Model
 
-caching_retrievals = True
-caching_updates = True
-throw_cache_errors = False
-func_name_lists: Dict[str, List] = {}
+CACHING_RETRIEVALS = True
+CACHING_UPDATES = True
+THROW_CACHE_ERRORS = False
+FUNC_NAME_LISTS: Dict[str, List] = {}
 
 
 def cached_function(f):
@@ -31,10 +31,10 @@ def cached_function(f):
         return result
 
     class_name = f.__qualname__.split(".")[0]
-    if class_name in func_name_lists:
-        func_name_lists[class_name].append(f.__name__)
+    if class_name in FUNC_NAME_LISTS:
+        FUNC_NAME_LISTS[class_name].append(f.__name__)
     else:
-        func_name_lists[class_name] = [f.__name__]
+        FUNC_NAME_LISTS[class_name] = [f.__name__]
     if settings.DEBUG:
         print(f"Added cached_function decorator to function {f.__qualname__}")
     return get_result
@@ -44,7 +44,7 @@ def get_cache(rec, cache_func_name):
     """
     Returns a cached value and a boolean as to whether the cached value was good or not (e.g. not cached)
     """
-    if not caching_retrievals:
+    if not CACHING_RETRIEVALS:
         return None, False
     try:
         good_cache = True
@@ -59,7 +59,7 @@ def get_cache(rec, cache_func_name):
         print(e)
         result = None
         good_cache = False
-        if throw_cache_errors:
+        if THROW_CACHE_ERRORS:
             raise CacheError(f"{rec.__class__.__name__}.{cache_func_name} ERROR: {e}")
         else:
             print(
@@ -72,7 +72,7 @@ def set_cache(rec, cache_func_name, value):
     """
     Caches a given value
     """
-    if not caching_updates:
+    if not CACHING_UPDATES:
         return False
     try:
         cachekey = get_cache_key(rec, cache_func_name)
@@ -94,7 +94,7 @@ def set_cache(rec, cache_func_name, value):
     except Exception as e:
         # Allow tracebase to still work, just without caching
         print(f"{type(e).__name__}: {e}")
-        if throw_cache_errors:
+        if THROW_CACHE_ERRORS:
             raise CacheError(f"{rec.__class__.__name__}.{cache_func_name} ERROR: {e}")
         else:
             print(
@@ -120,39 +120,39 @@ def get_cached_method_names():
     Returns the structure storing the cached function names.  The structure is a dict keyed on class name whose values
     are lists of the method names that are cached.
     """
-    return func_name_lists
+    return FUNC_NAME_LISTS
 
 
 def disable_caching_updates():
     """
     Prevents storage and deletion of cached values.  Currently only used for loading scripts.
     """
-    global caching_updates
-    caching_updates = False
+    global CACHING_UPDATES
+    CACHING_UPDATES = False
 
 
 def enable_caching_updates():
     """
     Reenables storage and deletion of cached values.  Currently only used for loading scripts.
     """
-    global caching_updates
-    caching_updates = True
+    global CACHING_UPDATES
+    CACHING_UPDATES = True
 
 
 def disable_caching_retrievals():
     """
     Prevents storage and deletion of cached values.  Currently only used for loading scripts.
     """
-    global caching_retrievals
-    caching_retrievals = False
+    global CACHING_RETRIEVALS
+    CACHING_RETRIEVALS = False
 
 
 def enable_caching_retrievals():
     """
     Reenables storage and deletion of cached values.  Currently only used for loading scripts.
     """
-    global caching_retrievals
-    caching_retrievals = True
+    global CACHING_RETRIEVALS
+    CACHING_RETRIEVALS = True
 
 
 def disable_caching_errors():
@@ -160,16 +160,16 @@ def disable_caching_errors():
     Prevents exceptions from being thrown when retrieving or setting a cached value (so that the site works when
     caching's broken)
     """
-    global throw_cache_errors
-    throw_cache_errors = False
+    global THROW_CACHE_ERRORS
+    THROW_CACHE_ERRORS = False
 
 
 def enable_caching_errors():
     """
     Allows exceptions to be thrown when retrieving or setting cached values
     """
-    global throw_cache_errors
-    throw_cache_errors = True
+    global THROW_CACHE_ERRORS
+    THROW_CACHE_ERRORS = True
 
 
 class HierCachedModel(Model):
@@ -194,14 +194,14 @@ class HierCachedModel(Model):
         # tarversed without a record existing in the database:
         # ValueError: '<model name>' instance needs to have a primary key value before this relationship can be used.
         super().save(*args, **kwargs)  # Call the "real" save() method.
-        if caching_updates:
+        if CACHING_UPDATES:
             self.delete_related_caches()
 
     def delete(self, *args, **kwargs):
         """
         If caching updates are enabled, trigger the deletion of every cached value under the linked Animal record
         """
-        if caching_updates:
+        if CACHING_UPDATES:
             self.delete_related_caches()
         return super().delete(*args, **kwargs)  # Call the "real" delete() method.
 
@@ -209,7 +209,7 @@ class HierCachedModel(Model):
         """
         If caching updates are enabled, trigger the deletion of every cached value under the linked Animal record
         """
-        if caching_updates:
+        if CACHING_UPDATES:
             self.get_root_record().delete_descendant_caches()
 
     def delete_descendant_caches(self):
@@ -217,7 +217,7 @@ class HierCachedModel(Model):
         Cascading cache deletion from self, downward. Call from a root record to delete all belonging to the same root
         parent
         """
-        if not caching_updates:
+        if not CACHING_UPDATES:
             return
         delete_keys = []
         # For every cached property, delete the cache value
@@ -240,8 +240,8 @@ class HierCachedModel(Model):
         """
         Convenience method to retrieve all the cached functions of the calling model.
         """
-        if cls.__name__ in func_name_lists:
-            return func_name_lists[cls.__name__]
+        if cls.__name__ in FUNC_NAME_LISTS:
+            return FUNC_NAME_LISTS[cls.__name__]
         else:
             if settings.DEBUG:
                 print(f"Class [{cls.__name__}] does not have any cached functions.")
@@ -327,7 +327,7 @@ class HierCachedModel(Model):
 
         if model_names is None or len(model_names) == 0:
             models = [
-                get_model_by_name(model_name) for model_name in func_name_lists.keys()
+                get_model_by_name(model_name) for model_name in FUNC_NAME_LISTS.keys()
             ]
         else:
             models = [get_model_by_name(model_name) for model_name in model_names]
@@ -340,10 +340,10 @@ class HierCachedModel(Model):
         for model in models:
             for rec in model.objects.order_by("pk"):
                 if func_names is None or len(func_names) == 0:
-                    cfunc_names = func_name_lists[model.__name__]
+                    cfunc_names = FUNC_NAME_LISTS[model.__name__]
                 else:
                     cfunc_names = [
-                        fn for fn in func_name_lists[model.__name__] if fn in func_names
+                        fn for fn in FUNC_NAME_LISTS[model.__name__] if fn in func_names
                     ]
 
                 for cfunc_name in cfunc_names:

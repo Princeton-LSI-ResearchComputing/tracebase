@@ -347,7 +347,7 @@ class FluxCircFormat(Format):
         },
     }
 
-    def getRootQuerySet(self):
+    def get_root_query_set(self):
         """
         Ensure we only get tracer_link records that are for the infusate linked to the animal and for the tracer linked
         in FCirc.

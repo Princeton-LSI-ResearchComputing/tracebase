@@ -15,7 +15,7 @@ from django.db.utils import ProgrammingError
 from django.forms import ValidationError, formset_factory
 from django.views.generic.edit import FormView
 
-from DataRepo.forms import create_BuildSubmissionForm
+from DataRepo.forms import create_build_submission_form
 from DataRepo.loaders.animals_loader import AnimalsLoader
 from DataRepo.loaders.base.table_column import ColumnReference
 from DataRepo.loaders.base.table_loader import TableLoader
@@ -336,7 +336,7 @@ class BuildSubmissionView(FormView):
         }
 
     def get_form_class(self):
-        return create_BuildSubmissionForm()
+        return create_build_submission_form()
 
     def set_files(
         self,

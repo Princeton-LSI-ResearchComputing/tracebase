@@ -629,12 +629,12 @@ class InfusateValidationTests(InfusateTestData):
         obs = parse_isotope_label(label, possible_obs)
         self.assertEqual(expected, obs)
 
-    def test_parse_isotope_label_ObservedIsotopeUnbalancedError(self):
+    def test_parse_isotope_label_observed_isotope_unbalanced_error(self):
         label = "C13N15-label-3-1-5"
         with self.assertRaises(ObservedIsotopeUnbalancedError):
             parse_isotope_label(label)
 
-    def test_parse_isotope_label_UnexpectedLabels(self):
+    def test_parse_isotope_label_unexpected_labels(self):
         label = "C13N15-label-3-1"
         possible_obs = [
             ObservedIsotopeData(
@@ -647,12 +647,12 @@ class InfusateValidationTests(InfusateTestData):
         with self.assertRaises(UnexpectedLabel):
             parse_isotope_label(label, possible_obs)
 
-    def test_parse_isotope_label_IsotopeStringDupe(self):
+    def test_parse_isotope_label_isotope_string_dupe(self):
         label = "C13N15C13-label-3-1-5"
         with self.assertRaises(IsotopeStringDupe):
             parse_isotope_label(label)
 
-    def test_parse_isotope_label_ObservedIsotopeParsingError(self):
+    def test_parse_isotope_label_observed_isotope_parsing_error(self):
         label = "nonsense"
         with self.assertRaises(ObservedIsotopeParsingError):
             parse_isotope_label(label)

@@ -50,7 +50,7 @@ class TestLoader(TableLoader):
 
 
 class ColumnReferenceTests(TracebaseTestCase):
-    def test_ColumnReference(self):
+    def test_column_reference(self):
         # Test no args
         with self.assertRaises(ConditionallyRequiredOptions):
             ColumnReference()
@@ -84,7 +84,7 @@ class ColumnReferenceTests(TracebaseTestCase):
 
 
 class ColumnHeaderTests(TracebaseTestCase):
-    def test_ColumnHeader(self):
+    def test_column_header(self):
         chn = ColumnHeader(name="Test header")
         self.assertEqual("Test header", chn.name)
         chf = ColumnHeader(field=TestTableColumnModel.name)
@@ -94,7 +94,7 @@ class ColumnHeaderTests(TracebaseTestCase):
         )
         self.assertEqual("Name", chfn.name)
 
-    def test_ColumnHeader_comment(self):
+    def test_column_header_comment(self):
         chf = ColumnHeader(field=TestTableColumnModel.name)
         self.assertEqual(
             "This be the name.\n\nMust be unique.\n\nRequired.", chf.comment
@@ -102,7 +102,7 @@ class ColumnHeaderTests(TracebaseTestCase):
 
 
 class ColumnValueTests(TracebaseTestCase):
-    def test_ColumnValue(self):
+    def test_column_value(self):
         cv = ColumnValue()
         self.assertTrue(cv.required)
         cvf = ColumnValue(field=TestTableColumnModel.choice)
@@ -111,7 +111,7 @@ class ColumnValueTests(TracebaseTestCase):
 
 @isolate_apps("DataRepo.tests.apps.loader")
 class TableColumnTests(TracebaseTestCase):
-    def test_TableColumn(self):
+    def test_table_column(self):
         tch = TableColumn(
             header=ColumnHeader(name="Test header"),
         )

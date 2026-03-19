@@ -32,7 +32,7 @@ BCIStudyTestModel = create_test_model(
 
 
 class BSTClientInterfaceTests(TracebaseTestCase):
-    def test_BSTClientInterface(self):
+    def test_bst_client_interface(self):
         ci = BSTClientInterface()
         self.assertEqual("model", ci.model_var_name)
         self.assertEqual("table_id", ci.table_id_var_name)
@@ -47,7 +47,7 @@ class StudyDetailBCI(BSTDetailViewClient):
 
 
 class BSTDetailViewClientTests(TracebaseTestCase):
-    def test_BSTDetailViewClient(self):
+    def test_bst_detail_view_client(self):
         dvc = BSTDetailViewClient()
         self.assertEqual("models/bst/detail_view.html", dvc.template_name)
 
