@@ -355,7 +355,7 @@ def create_test_model(
     SECURE_SSL_REDIRECT=False,
 )
 class TracebaseArchiveTestCase(TracebaseTransactionTestCase):
-    ARCHIVE_DIR = settings.TEST_MEDIA_ROOT
+    ARCHIVE_DIR = settings.TEST_ARCHIVE_DIR
 
     @classmethod
     def setUpClass(cls):
@@ -365,7 +365,7 @@ class TracebaseArchiveTestCase(TracebaseTransactionTestCase):
     def setUp(self):
         super().setUp()
         shutil.rmtree(self.ARCHIVE_DIR, ignore_errors=True)
-        os.mkdir(self.ARCHIVE_DIR)
+        os.makedirs(self.ARCHIVE_DIR)
 
     def tearDown(self):
         shutil.rmtree(self.ARCHIVE_DIR, ignore_errors=True)
