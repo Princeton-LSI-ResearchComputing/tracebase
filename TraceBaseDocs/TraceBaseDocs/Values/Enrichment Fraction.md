@@ -4,7 +4,7 @@
 
 Found in the [PeakGroups](../Download/About%20the%20Data/Data%20Types/PeakGroups.md) data format.
 
-A weighted average of the fraction of labeled atoms (Carbons, Nitrogens, or Oxygens) across all peaks in a PeakGroup detected in a particular sample.
+A weighted average of the fraction of labeled atoms (e.g. Carbons, Nitrogens, Oxygens, etc.) across all peaks in a PeakGroup detected in a particular sample.
 E.g. The fraction of labeled carbons in lysine detected in a spleen sample.
 
 $$
