@@ -17,4 +17,4 @@ Where:
 * $i$ is the number of labeled atoms (i.e. massisomers) of a particular element in any one peak.
 * $M$ is the total number of atoms of a particular element in any one compound (labeled or not).
 
-See the **Enrichment Fraction** column of the PeakGroup table in this [[Enrichment Example]].
+See the **Enrichment Fraction** column of the PeakGroup table in this [Enrichment Example](Enrichment%20Example.md).
