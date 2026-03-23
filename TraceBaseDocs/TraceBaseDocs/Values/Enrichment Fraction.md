@@ -13,8 +13,8 @@ $$
 
 Where:
 
-* $L_i$: Is the fractional abundance of the massisomer peak see [Fraction](Fraction.md)
 * $i$ is the number of labeled atoms (i.e. massisomers) of a particular element in any one peak.
+* $L_i$ is the fractional abundance of the massisomer peak see [Fraction](Fraction.md)
 * $M$ is the total number of atoms of a particular element in any one compound (labeled or not).
 
 See the **Enrichment Fraction** column of the PeakGroup table in this [Enrichment Example](Enrichment%20Example.md).
