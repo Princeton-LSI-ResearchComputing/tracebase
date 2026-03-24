@@ -13,7 +13,7 @@ $$
 
 Where:
 
-* $i$ is the number of labeled atoms (i.e. massisomers) of a particular element in any one peak.
+* $i$ is the number of labeled atoms (i.e. isotopes) of a particular element in any one peak.
 * $L_i$ is the fractional abundance of the massisomer peak see [Fraction](Fraction.md)
 * $M$ is the total number of atoms of a particular element in any one compound (labeled or not).
 

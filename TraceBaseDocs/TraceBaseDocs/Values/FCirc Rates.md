@@ -25,7 +25,7 @@ intact rate of appearance $R_{d,intact}$, iii) averaged rate of disappearance $R
 appearance $R_{a,avg}$. Rates of disappearance measure the overall rate of appearance for a metabolic compound, whereas
 rate of appearances are corrected for the tracer infusion rate.
 
-Intact denotes that the rate was computed using the labeling fraction of the infused massisomer. For example, if
+Intact denotes that the rate was computed using the labeling fraction of the infused isotopologue. For example, if
 uniformly labeled glucose (U13-glucose) is infused, the intact rates are computed using the M+6 (C_labled = 6) labeling
 fraction of circulating glucose-u.  Thus, the intact rate of appearance $R_{a,intact}$, and the intact rate of
 disappearance $R_{d,intact}$ are computed as:
@@ -38,7 +38,7 @@ $$
 R_{a,intact} = \frac{(1-L_{intact})} { L_{intact} } T
 $$
 
-where $L_{intact}$ ([`fraction`](Fraction.md)) is the labeling fraction of the infused massisomer. $T$ is the molar
+where $L_{intact}$ ([`fraction`](Fraction.md)) is the labeling fraction of the infused isotopologue. $T$ is the molar
 infusion rate, computed from the weight normalized infusion rate $I$
 ([`infusion_rate`](../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc.md#infusionrate))
 and the tracer concentration $C$
@@ -48,7 +48,7 @@ $$
 T = I \times C
 $$
 
-Average denotes that the rate was computed using an averaged labeling fraction across all massisomers of the infused
+Average denotes that the rate was computed using an averaged labeling fraction across all isotopologues of the infused
 tracer compound $L_{avg}$ ([`enrichment_fraction`](Enrichment%20Fraction.md)).  The average labeling fraction, also
 termed enrichment fraction, is computed from the weighted average of all labeling fractions. We note that averaged
 labeling fractions are computed for either nitrogen or carbon.
@@ -57,7 +57,7 @@ $$
 L_{avg} = \frac{\sum_i^M i\, L_{i} }{M}
 $$
 
-where $M$ is either the number of nitrogens or number of carbons, $L_i$ is the labelling fraction for a massisomer
+where $M$ is either the number of nitrogens or number of carbons, $L_i$ is the labelling fraction for an isotopologue
 that contains $i$ heavy nitrogens or carbons. Using the averaged labeling fraction, averaged Rates are computed as
 follows:
 
