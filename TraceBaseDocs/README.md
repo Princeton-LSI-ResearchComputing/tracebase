@@ -29,7 +29,7 @@ site updates live as changes are made to the Markdown documents.
 
 Build the site to serve publicly on [GitHub Pages](https://princeton-lsi-researchcomputing.github.io/tracebase/):
 
-1) `mkdocs gh-deploy -m "Metabolite Tracing Database" --ignore-version`
+1) `mkdocs gh-deploy -m "The 'gh-pages' branch exists for the user documentation de[ployment." --ignore-version`
 
 Without the `--ignore-version` flag, you get an error that states:
 
