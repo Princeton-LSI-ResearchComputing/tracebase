@@ -29,4 +29,4 @@ TraceBase metadata found in other pages (e.g. "Studies" table) can be downloaded
 blue download button.  These are typically sample information tables that do not contain the underlying PeakGroups,
 PeakData, or Fcirc data.  For example, the Compounds table can be downloaded as a CSV, TXT, or XLS file.
 
-![Buttons at the top of TraceBase data tables with an arrow pointing to the download button](../Attachments/Howt%20to%20Download%20Metadata.png)
+![Buttons at the top of TraceBase data tables with an arrow pointing to the download button](../Attachments/How%20to%20Download%20Metadata.png)

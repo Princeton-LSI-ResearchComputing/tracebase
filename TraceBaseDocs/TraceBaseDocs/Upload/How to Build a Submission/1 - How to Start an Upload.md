@@ -2,7 +2,7 @@
 
 ## How to Leverage Peak Annotation Files to Jump Start a Data Submission
 
-TraceBase accepts mass spectrometry data that has been corrected for the natural abundance of isotopomers.
+TraceBase accepts mass spectrometry data that has been corrected for the natural abundance of isotopologues.
 
 Specifically, TraceBase supports the output from 3 popular tools for natural abundance correction:
 

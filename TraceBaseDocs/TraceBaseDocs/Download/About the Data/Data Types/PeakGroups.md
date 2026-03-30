@@ -1,6 +1,6 @@
 # PeakGroups
 
-PeakGroups report the abundance and enrichment summated from each isotope associated with a measured compound (as listed
+PeakGroups report the abundance and enrichment summated from each isotopologue associated with a measured compound (as listed
 in [[PeakData]]).  Thus, they report values for the entire "group" of peaks for each compound.
 
 PeakGroup values are almost always reported in a single row for each observed compound.  Multiple PeakGroups rows are
