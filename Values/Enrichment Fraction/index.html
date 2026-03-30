@@ -121,7 +121,7 @@
     <ul class="current">
     </ul>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../FCirc%20Rates/">FCirc Rates</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../FCirc%20Rates/">Circulatory Fluxes</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../Fraction/">Fraction</a>
                   </li>
@@ -157,15 +157,16 @@
                 <h1 id="enrichment-fraction">Enrichment Fraction</h1>
 <p><a href="https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/241e47de6a06df543ad73c6ceb82d758ce373cbe/DataRepo/models/peak_group_label.py#L53-L150"><em>source</em></a></p>
 <p>Found in the <a href="../../Download/About%20the%20Data/Data%20Types/PeakGroups/">PeakGroups</a> data format.</p>
-<p>A weighted average of the fraction of labeled atoms across all peaks in a PeakGroup detected in a particular sample.
+<p>A weighted average of the fraction of labeled atoms (e.g. Carbons, Nitrogens, Oxygens, etc.) across all peaks in a PeakGroup detected in a particular sample.
 E.g. The fraction of labeled carbons in lysine detected in a spleen sample.</p>
-<p><code>enrichment_fraction = ∑_peak(fraction * labeled_count) / element_count</code></p>
+<div class="arithmatex">\[
+L_{avg} = \frac{\sum_i^M i\, L_{i} }{M}
+\]</div>
 <p>Where:</p>
 <ul>
-<li><code>∑_peak</code> stands for the sum across all peaks in a PeakGroup for a particular compound.</li>
-<li><code>fraction</code>: See <a href="../Fraction/">Fraction</a></li>
-<li><code>labeled_count</code> is the number of labeled atoms (i.e. isotopomers) of a particular element in any one peak.</li>
-<li><code>element_count</code> is the total number of atoms of a particular element in any one compound (labeled or not).</li>
+<li><span class="arithmatex">\(i\)</span> is the number of labeled atoms (i.e. isotopes) of a particular element in any one peak.</li>
+<li><span class="arithmatex">\(L_i\)</span> is the fractional abundance of the massisomer peak see <a href="../Fraction/">Fraction</a></li>
+<li><span class="arithmatex">\(M\)</span> is the total number of atoms of a particular element in any one compound (labeled or not).</li>
 </ul>
 <p>See the <strong>Enrichment Fraction</strong> column of the PeakGroup table in this <a href="../Enrichment%20Example/">Enrichment Example</a>.</p>
               
@@ -173,7 +174,7 @@ E.g. The fraction of labeled carbons in lysine detected in a spleen sample.</p>
           </div><footer>
     <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
         <a href="../Enrichment%20Example/" class="btn btn-neutral float-left" title="Enrichment Example"><span class="icon icon-circle-arrow-left"></span> Previous</a>
-        <a href="../FCirc%20Rates/" class="btn btn-neutral float-right" title="FCirc Rates">Next <span class="icon icon-circle-arrow-right"></span></a>
+        <a href="../FCirc%20Rates/" class="btn btn-neutral float-right" title="Circulatory Fluxes">Next <span class="icon icon-circle-arrow-right"></span></a>
     </div>
 
   <hr/>
@@ -207,6 +208,7 @@ E.g. The fraction of labeled carbons in lysine detected in a spleen sample.</p>
     <script>var base_url = "../..";</script>
     <script src="../../js/theme_extra.js"></script>
     <script src="../../js/theme.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
       <script src="../../search/main.js"></script>
     <script>
         jQuery(function () {

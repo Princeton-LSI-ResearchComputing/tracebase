@@ -5,14 +5,14 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="http://Princeton-LSI-ResearchComputing.github.io/tracebase/Values/FCirc%20Rates/" />
       <link rel="shortcut icon" href="../../img/favicon.ico" />
-    <title>FCirc Rates - TraceBase Documentation</title>
+    <title>Circulatory Fluxes - TraceBase Documentation</title>
     <link rel="stylesheet" href="../../css/theme.css" />
     <link rel="stylesheet" href="../../css/theme_extra.css" />
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
     
       <script>
         // Current page data
-        var mkdocs_page_name = "FCirc Rates";
+        var mkdocs_page_name = "Circulatory Fluxes";
         var mkdocs_page_input_path = "Values/FCirc Rates.md";
         var mkdocs_page_url = "/tracebase/Values/FCirc%20Rates/";
       </script>
@@ -119,27 +119,9 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../Enrichment%20Fraction/">Enrichment Fraction</a>
                   </li>
-                  <li class="toctree-l1 current"><a class="reference internal current" href="#">FCirc Rates</a>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Circulatory Fluxes</a>
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#rates-of-appearancedisappearance-rard">Rates of Appearance/Disappearance (Ra/Rd)</a>
-        <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#intact">Intact</a>
-        <ul>
-    <li class="toctree-l4"><a class="reference internal" href="#per-gram">Per Gram</a>
-    </li>
-    <li class="toctree-l4"><a class="reference internal" href="#per-animal">Per Animal</a>
-    </li>
-        </ul>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#average">Average</a>
-        <ul>
-    <li class="toctree-l4"><a class="reference internal" href="#per-gram_1">Per Gram</a>
-    </li>
-    <li class="toctree-l4"><a class="reference internal" href="#per-animal_1">Per Animal</a>
-    </li>
-        </ul>
-    </li>
-        </ul>
     </li>
     </ul>
                   </li>
@@ -165,7 +147,7 @@
   <ul class="wy-breadcrumbs">
     <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
           <li class="breadcrumb-item">Values</li>
-      <li class="breadcrumb-item active">FCirc Rates</li>
+      <li class="breadcrumb-item active">Circulatory Fluxes</li>
     <li class="wy-breadcrumbs-aside">
     </li>
   </ul>
@@ -174,76 +156,100 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
             <div class="section" itemprop="articleBody">
               
-                <h1 id="fcirc-rates">FCirc Rates</h1>
-<p>Each FCirc calculation is performed per labeled element, and requires the following values/metadata to have been
-supplied by the researcher:</p>
+                <h1 id="circulatory-fluxes">Circulatory Fluxes</h1>
+<p>Each Circulatory Flux (FCirc) calculation is performed per labeled element, and requires the following values/metadata
+to have been supplied by the researcher:</p>
 <!-- markdownlint-disable MD007 -->
 <ul>
 <li>Animal Body <a href="../../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc/#weight">Weight</a></li>
 <li><a href="../../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc/#infusionrate">Infusion Rate</a></li>
-<li>MS <a href="../../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc/#rundate">Run Date</a><ul>
-<li>Note: reruns take precedence over previous runs</li>
-<li>If this date is not provided, and the last serum sample was run multiple times, an arbitrary run is selected</li>
-</ul>
-</li>
 <li>At least 1 serum sample, with:<ul>
-<li><a href="../../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc/#tissue">tissue</a> name
-  containing "serum".</li>
+<li><a href="../../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc/#tissue">tissue</a>
+  name containing "serum".</li>
 <li><a href="../../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc/#coltim">collection time</a></li>
 <li>A peak group for every tracer the animal was infused with</li>
 <li>Note: The <strong>intact</strong> FCirc calculations require the detection of a fully labeled tracer in each of the infused
   tracers' PeakGroups.</li>
 </ul>
 </li>
+<li>MS <a href="../../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc/#rundate">Run Date</a><ul>
+<li>Note: reruns take precedence over previous runs</li>
+<li>If this date is not provided, and the last serum sample was run multiple times, an arbitrary run is selected</li>
+</ul>
+</li>
 </ul>
 <!-- markdownlint-enable MD007 -->
 
 <h2 id="rates-of-appearancedisappearance-rard">Rates of Appearance/Disappearance (<code>Ra</code>/<code>Rd</code>)</h2>
-<p>For more information of the variables in the equations below:</p>
+<p>TraceBase computes four distinct values for circulatory fluxes i) intact rate of disappearance <span class="arithmatex">\(R_{d,intact}\)</span>, ii)
+intact rate of appearance <span class="arithmatex">\(R_{d,intact}\)</span>, iii) averaged rate of disappearance <span class="arithmatex">\(R_{d,avg}\)</span> and iv) averaged rate of
+appearance <span class="arithmatex">\(R_{a,avg}\)</span>. Rates of disappearance measure the overall rate of appearance for a metabolic compound, whereas
+rate of appearances are corrected for the tracer infusion rate.</p>
+<p>Intact denotes that the rate was computed using the labeling fraction of the infused isotopologue. For example, if
+uniformly labeled glucose (U13-glucose) is infused, the intact rates are computed using the M+6 (C_labled = 6) labeling
+fraction of circulating glucose-u.  Thus, the intact rate of appearance <span class="arithmatex">\(R_{a,intact}\)</span>, and the intact rate of
+disappearance <span class="arithmatex">\(R_{d,intact}\)</span> are computed as:</p>
+<div class="arithmatex">\[
+R_{a,intact} = \frac{1}{ L_{intact}} T
+\]</div>
+<div class="arithmatex">\[
+R_{a,intact} = \frac{(1-L_{intact})} { L_{intact} } T
+\]</div>
+<p>where <span class="arithmatex">\(L_{intact}\)</span> (<a href="../Fraction/"><code>fraction</code></a>) is the labeling fraction of the infused isotopologue. <span class="arithmatex">\(T\)</span> is the molar
+infusion rate, computed from the weight normalized infusion rate <span class="arithmatex">\(I\)</span>
+(<a href="../../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc/#infusionrate"><code>infusion_rate</code></a>)
+and the tracer concentration <span class="arithmatex">\(C\)</span>
+(<a href="../../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc/#conc"><code>tracer_concentration</code></a>):</p>
+<div class="arithmatex">\[
+T = I \times C
+\]</div>
+<p>Average denotes that the rate was computed using an averaged labeling fraction across all isotopologues of the infused
+tracer compound <span class="arithmatex">\(L_{avg}\)</span> (<a href="../Enrichment%20Fraction/"><code>enrichment_fraction</code></a>).  The average labeling fraction, also
+termed enrichment fraction, is computed from the weighted average of all labeling fractions. We note that averaged
+labeling fractions are computed for either nitrogen or carbon.</p>
+<div class="arithmatex">\[
+L_{avg} = \frac{\sum_i^M i\, L_{i} }{M}
+\]</div>
+<p>where <span class="arithmatex">\(M\)</span> is either the number of nitrogens or number of carbons, <span class="arithmatex">\(L_i\)</span> is the labelling fraction for an isotopologue
+that contains <span class="arithmatex">\(i\)</span> heavy nitrogens or carbons. Using the averaged labeling fraction, averaged Rates are computed as
+follows:</p>
+<div class="arithmatex">\[
+R_{a,intact} = \frac{1}{ L_{avg}} T
+\]</div>
+<div class="arithmatex">\[
+R_{a,intact} = \frac{(1-L_{avg})} { L_{avg} } T
+\]</div>
+<p>By default, circulatory fluxes are based on the animal weight normalized in fusion rate <span class="arithmatex">\(I\)</span> resulting in units
+nmol/min/gBW. In some cases, e.g. when body weight primarily varies due to fat accumulation, it is advantageous to
+compare circular fluxes on a per animal instead of per weight basis. For this case, TraceBase offers per animal values
+for each of the above defined rates.  These values are computed from the weight normalized rates, by multiplying with
+the animal weight <span class="arithmatex">\(W\)</span>
+(<a href="../../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc/#weight"><code>animal_body_weight</code></a>):</p>
+<div class="arithmatex">\[
+R_{animal} = R \times W
+\]</div>
+<p>Links to the source code of these calculations can be found here:</p>
 <ul>
-<li><a href="../../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc/#weight"><code>animal_body_weight</code></a></li>
-<li><a href="../Enrichment%20Fraction/"><code>enrichment_fraction</code></a></li>
-<li><a href="../Fraction/"><code>fraction</code></a></li>
-<li><a href="../../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc/#infusionrate"><code>infusion_rate</code></a></li>
-<li><a href="../../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc/#conc"><code>tracer_concentration</code></a></li>
-</ul>
-<h3 id="intact">Intact</h3>
-<h4 id="per-gram">Per Gram</h4>
-<ul>
-<li>
-<p><a name="Rd_intact_g"></a><code>Rd_intact_g = infusion_rate * tracer_concentration / fraction</code> (<a href="https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/241e47de6a06df543ad73c6ceb82d758ce373cbe/DataRepo/models/peak_group_label.py#L455-L477"><em>source</em></a>)</p>
-</li>
+<li><a name="Rd_intact_g"></a><code>Rd_intact_g = infusion_rate * tracer_concentration / fraction</code> (<a href="https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/241e47de6a06df543ad73c6ceb82d758ce373cbe/DataRepo/models/peak_group_label.py#L455-L477"><em>source</em></a>)</li>
 <li>
 <p><a name="Ra_intact_g"></a><code>Ra_intact_g = Rd_intact_g - infusion_rate * tracer_concentration</code> (<a href="https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/241e47de6a06df543ad73c6ceb82d758ce373cbe/DataRepo/models/peak_group_label.py#L481-L494"><em>source</em></a>)</p>
 </li>
-</ul>
-<h4 id="per-animal">Per Animal</h4>
-<ul>
-<li>
-<p><a name="Rd_intact"></a><code>Rd_intact = Rd_intact_g * animal_body_weight</code> (<a href="https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/241e47de6a06df543ad73c6ceb82d758ce373cbe/DataRepo/models/peak_group_label.py#L501-L509"><em>source</em></a>)</p>
-</li>
-<li>
-<p><a name="Ra_intact"></a><code>Ra_intact = Ra_intact_g * animal_body_weight</code> (<a href="https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/241e47de6a06df543ad73c6ceb82d758ce373cbe/DataRepo/models/peak_group_label.py#L513-L523"><em>source</em></a>)</p>
-</li>
-</ul>
-<h3 id="average">Average</h3>
-<h4 id="per-gram_1">Per Gram</h4>
-<ul>
 <li>
 <p><a name="Rd_avg_g"></a><code>Rd_avg_g = infusion_rate * tracer_concentration / enrichment_fraction</code> (<a href="https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/241e47de6a06df543ad73c6ceb82d758ce373cbe/DataRepo/models/peak_group_label.py#L527-L552"><em>source</em></a>)</p>
 </li>
 <li>
 <p><a name="Ra_avg_g"></a><code>Ra_avg_g = Rd_avg_g - infusion_rate * tracer_concentration</code> (<a href="https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/241e47de6a06df543ad73c6ceb82d758ce373cbe/DataRepo/models/peak_group_label.py#L556-L579"><em>source</em></a>)</p>
 </li>
-</ul>
-<h4 id="per-animal_1">Per Animal</h4>
-<ul>
 <li>
 <p><a name="Rd_avg"></a><code>Rd_avg = Rd_avg_g * animal_body_weight</code> (<a href="https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/241e47de6a06df543ad73c6ceb82d758ce373cbe/DataRepo/models/peak_group_label.py#L583-L595"><em>source</em></a>)</p>
 </li>
 <li>
 <p><a name="Ra_avg"></a><code>Ra_avg = Ra_avg_g * animal_body_weight</code> (<a href="https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/241e47de6a06df543ad73c6ceb82d758ce373cbe/DataRepo/models/peak_group_label.py#L599-L611"><em>source</em></a>)</p>
 </li>
+<li>
+<p><a name="Rd_intact"></a><code>Rd_intact = Rd_intact_g * animal_body_weight</code> (<a href="https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/241e47de6a06df543ad73c6ceb82d758ce373cbe/DataRepo/models/peak_group_label.py#L501-L509"><em>source</em></a>)</p>
+</li>
+<li><a name="Ra_intact"></a><code>Ra_intact = Ra_intact_g * animal_body_weight</code> (<a href="https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/241e47de6a06df543ad73c6ceb82d758ce373cbe/DataRepo/models/peak_group_label.py#L513-L523"><em>source</em></a>)</li>
 </ul>
               
             </div>
@@ -284,6 +290,7 @@ supplied by the researcher:</p>
     <script>var base_url = "../..";</script>
     <script src="../../js/theme_extra.js"></script>
     <script src="../../js/theme.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
       <script src="../../search/main.js"></script>
     <script>
         jQuery(function () {
