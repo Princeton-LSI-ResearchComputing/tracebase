@@ -10,7 +10,7 @@ Markdown documents stored in `/TraceBaseDocs` are used to generate a static site
 To generate the static site from these Markdown documents, first install mkdocs and related plugins (which are listed in
 the general requirements document for tracebase):
 
-1) `pip install -U -r requirements/dev.txt`
+1) `pip install --upgrade pip && pip install -U -r requirements/dev.txt`
 
 2) serve locally or build (see next steps)
 

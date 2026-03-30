@@ -1,14 +1,14 @@
-# Circulatory Fluxes (FCirc)
+# Circulatory Fluxes
 
-Each FCirc calculation is performed per labeled element, and requires the following values/metadata to have been
-supplied by the researcher:
+Each Circulatory Flux (FCirc) calculation is performed per labeled element, and requires the following values/metadata
+to have been supplied by the researcher:
 
 <!-- markdownlint-disable MD007 -->
 * Animal Body [Weight](../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc.md#weight)
 * [Infusion Rate](../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc.md#infusionrate)
 * At least 1 serum sample, with:
-    * [tissue](../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc.md#tissue) name
-      containing "serum".
+    * [tissue](../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc.md#tissue)
+      name containing "serum".
     * [collection time](../Upload/How%20to%20Build%20a%20Submission/2%20-%20How%20to%20Fill%20In%20the%20Study%20Doc.md#coltim)
     * A peak group for every tracer the animal was infused with
     * Note: The **intact** FCirc calculations require the detection of a fully labeled tracer in each of the infused
