@@ -1,7 +1,7 @@
 # Contributing to the TraceBase project
 
-This document describes the basics of how to set up the TraceBase Project
-repository in order to start developing/contributing.
+This document describes the basics of how to set up the TraceBase Project repository in order to start
+developing/contributing.
 
 ## Getting Started
 
@@ -28,10 +28,8 @@ Test to make sure that the `python` command now shows your latest python install
 
 #### Postgres
 
-Install Postgres via package installer from
-[https://www.postgresql.org](https://www.postgresql.org).  Be sure to make note
-of where it installs the `psql` command-line utility, so you can add it to your
-PATH, e.g. if you see:
+Install Postgres via package installer from [https://www.postgresql.org](https://www.postgresql.org).  Be sure to make
+note of where it installs the `psql` command-line utility, so you can add it to your PATH, e.g. if you see:
 
     Command Line Tools Installation Directory: /Library/PostgreSQL/13
 
@@ -45,9 +43,8 @@ Configuration:
     Password: tracebase
     Port: 5432
 
-In the Postgres app interface, you can find where the `postgresql.conf` file is
-located.  Open it in a text editor and make sure these settings are uncommented
-& correct:
+In the Postgres app interface, you can find where the `postgresql.conf` file is located.  Open it in a text editor and
+make sure these settings are uncommented & correct:
 
     client_encoding: 'UTF8'
     default_transaction_isolation: 'read committed'
@@ -79,9 +76,8 @@ Create a virtual environment (from a bash shell) and activate it, for example:
 
 #### Install dependencies in the virtual environment
 
-Install Django and psycopg2 dependencies as well as linters and other
-development related tools. Use `requirements/prod.txt` for production
-dependencies.
+Install Django and psycopg2 dependencies as well as linters and other development related tools. Use
+`requirements/prod.txt` for production dependencies.
 
     python -m pip install -U pip
     python -m pip install -r requirements/dev.txt
@@ -99,19 +95,16 @@ Create a new secret:
 
     python -c "import secrets; print(secrets.token_urlsafe())"
 
-Database and secret key information should not be stored directly in settings
-that are published to the repository.  We use environment variables to store
-configuration data.  This makes it possible to easily change between
-environments of a deployed application (see [The Twelve-Factor
-App](https://www.12factor.net/config)).  The `.env` file you create here is pre-
-configured to be ignored by the repository, so do not explicitly check it in.
+Database and secret key information should not be stored directly in settings that are published to the repository.  We
+use environment variables to store configuration data.  This makes it possible to easily change between environments of
+a deployed application (see [The Twelve-Factor App](https://www.12factor.net/config)).  The `.env` file you create here
+is pre- configured to be ignored by the repository, so do not explicitly check it in.
 
 Copy the TraceBase environment example:
 
     cp TraceBase/.env.example TraceBase/.env
 
-Update the .env file to reflect the new secret key and the database credentials
-you used when setting up Postgres.
+Update the .env file to reflect the new secret key and the database credentials you used when setting up Postgres.
 
 Set up the project's postgres database:
 
@@ -156,15 +149,14 @@ Then go to this site in your web browser:
 
 All pull requests must pass linting prior to being merged.
 
-Currently, all pushes are linted using [GitHub's
-Super-Linter](https://github.com/github/super-linter). The configuration files
-for the most used linters have been setup in the project root to facilitate
-linting on developers' machines.
+Currently, all pushes are linted using [GitHub's Super-Linter](https://github.com/github/super-linter). The
+configuration files for the most used linters have been setup in the project root to facilitate linting on developers'
+machines.
 
 #### Linting
 
-Linting for this project runs automatically on GitHub when a PR is submitted,
-but this section describes how to lint your changes locally.
+Linting for this project runs automatically on GitHub when a PR is submitted, but this section describes how to lint
+your changes locally.
 
 ##### Individual linters
 
@@ -195,30 +187,31 @@ editor. Some linters that may be useful to install locally include:
       - `npm install --save-dev textlint`
       - `npm install --save-dev textlint-rule-terminology`
       - `npm install --save-dev textlint-filter-rule-comments`
-    - Example usage: `npx textlint -c .textlintrc.json CHANGELOG.md`
 - Config
   - [editorconfig-checker](https://www.npmjs.com/package/editorconfig-checker)
+    - Example install:
+      - `npm install --save-dev editorconfig-checker`
 
-It is recommended to run superlinter (described below) routinely or
-automatically before submitting a PR, but if you want a quick check while
-developing, you can run these example linting commands on the command-line,
-using each linter's config that we've set up for superlinter:
+It is recommended to run superlinter (described below) routinely or automatically before submitting a PR, but if you
+want a quick check while developing, you can run these example linting commands on the command-line, using each linter's
+config that we've set up for superlinter:
 
     find . \( -type f -not -path '*/\.*' -not -path "*bootstrap*" \
-        -not -path "*__pycache__*" \) -exec jscpd {} \;
-    flake8 --config .flake8 --extend-exclude migrations,.venv .
-    pylint DataRepo TraceBase
+        -not -path "*__pycache__*" \) -exec jscpd -c .github/linters/.jscpd.json {} \;
+    flake8 --config .github/linters/.flake8 --extend-exclude migrations,.venv .
+    pylint --rcfile .github/linters/.python-lint DataRepo TraceBase
     black --exclude '\.git|__pycache__|migrations|\.venv' .
-    isort --sp .isort.cfg -c -s migrations -s .venv -s .git -s __pycache__ .
-    mypy --config-file .mypy.ini --disable-error-code annotation-unchecked .
+    isort --sp .github/linters/.isort.cfg -c -s migrations -s .venv -s .git -s __pycache__ .
+    mypy --config-file .github/linters/.mypy.ini --disable-error-code annotation-unchecked .
     find . \( ! -iname "*bootstrap*" -not -path '*/\.*' -iname "*.js" \) \
         -exec standard --fix --verbose {} \;
-    htmlhint -c .htmlhintrc .
-    stylelint --config .stylelintrc.json --ip '**/bootstrap*' **/*.css
-    markdownlint --config .markdown-lint.yml .
+    htmlhint -c .github/linters/.htmlhintrc .
+    stylelint --config .github/linters/.stylelintrc.json --ip '**/bootstrap*' **/*.css
+    markdownlint --config .github/linters/.markdown-lint.yml .
     find . \( ! -iname "*bootstrap*" -not -path '*/\.*' -not -path '*node_modules*' \
-        -iname "*.md" \) -exec npx textlint -c .textlintrc.json {} \;
-    editorconfig-checker -v -exclude '__pycache__|\.DS_Store|\~\$.*' TraceBase DataRepo
+        -iname "*.md" \) -exec npx textlint -c .github/linters/.textlintrc.json {} \;
+    npx editorconfig-checker -v -config .github/linters/.editorconfig \
+        -exclude '__pycache__|\.DS_Store|\~\$.*' TraceBase DataRepo
 
 Note, some of these linter installs can be rather finicky, so if you have
 trouble, consider running Super-Linter locally, as described below.
@@ -330,3 +323,7 @@ need to cleanup orphaned files, you’ll need to handle it yourself (for
 instance, with a custom management command that can be run manually or
 scheduled to run periodically via e.g. cron). See [Management command to list
 orphaned files in `MEDIA_ROOT` #718](https://github.com/Princeton-LSI-ResearchComputing/tracebase/issues/718).
+
+## Development
+
+For tips on navigating and adding to the TraceBase codebase, see `docs/contributor/Development_Notes.md`.

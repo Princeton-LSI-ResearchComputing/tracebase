@@ -45,6 +45,6 @@ jobs:
           # To report GitHub Actions status checks
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DEFAULT_BRANCH: main
-          LINTER_RULES_PATH: /
+          LINTER_RULES_PATH: /.github/linters/
           IGNORE_GITIGNORED_FILES: true
           FILTER_REGEX_EXCLUDE: (\.pylintrc|migrations|.*\.xlsx|static\/bootstrap.*)
