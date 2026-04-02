@@ -22,7 +22,12 @@ from DataRepo.models import (
     Tissue,
 )
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
-from DataRepo.utils.exceptions import AggregatedErrorsSet, InfileError
+from DataRepo.utils.exceptions import (
+    AggregatedErrorsSet,
+    FileFromInputNotFound,
+    InfileError,
+    MultipleMatchingPeakAnnotationFiles,
+)
 from DataRepo.utils.file_utils import read_from_file
 from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
 
@@ -449,4 +454,48 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
                 ],
             },
             dtsd,
+        )
+
+    def test_find_annot_file_success_when_multiple(self):
+        pafl = PeakAnnotationFilesLoader()
+        exp_file = "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_serum/small_obob_maven_6eaas_serum.xlsx"
+        file = pafl.find_annot_file(exp_file, "DataRepo/data/tests/small_obob")
+        self.assertEqual(exp_file, file)
+        self.assertEqual(0, len(pafl.aggregated_errors_object.exceptions))
+
+    def test_find_annot_file_success_find(self):
+        pafl = PeakAnnotationFilesLoader()
+        exp_file = "DataRepo/data/tests/multiple_representations/resolution_handling/negative_cor.xlsx"
+        file = pafl.find_annot_file(
+            "negative_cor.xlsx", "DataRepo/data/tests/multiple_representations"
+        )
+        self.assertEqual(exp_file, file)
+        self.assertEqual(0, len(pafl.aggregated_errors_object.exceptions))
+
+    def test_find_annot_file_not_found(self):
+        pafl = PeakAnnotationFilesLoader()
+        exp_file = "doesnotexist.xlsx"
+        file = pafl.find_annot_file(
+            exp_file, "DataRepo/data/tests/multiple_representations"
+        )
+        self.assertEqual(exp_file, file)
+        self.assertEqual(1, len(pafl.aggregated_errors_object.exceptions))
+        self.assertIsInstance(
+            pafl.aggregated_errors_object.exceptions[0], FileFromInputNotFound
+        )
+
+    def test_find_annot_file_multiple_found(self):
+        pafl = PeakAnnotationFilesLoader()
+        file = "small_obob_maven_6eaas_serum.xlsx"
+        file = pafl.find_annot_file(file, "DataRepo/data/tests/small_obob")
+        self.assertIsNone(file)
+        self.assertEqual(2, len(pafl.aggregated_errors_object.exceptions))
+        self.assertEqual(1, pafl.aggregated_errors_object.num_errors)
+        self.assertEqual(1, pafl.aggregated_errors_object.num_warnings)
+        self.assertIsInstance(
+            pafl.aggregated_errors_object.exceptions[0],
+            MultipleMatchingPeakAnnotationFiles,
+        )
+        self.assertIn(
+            f"'{file}' was incorrect", str(pafl.aggregated_errors_object.exceptions[1])
         )

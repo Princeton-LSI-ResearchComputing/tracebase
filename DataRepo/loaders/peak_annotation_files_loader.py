@@ -1,6 +1,6 @@
 import os
 from collections import defaultdict, namedtuple
-from typing import Dict
+from typing import Dict, List
 
 from django.db import transaction
 
@@ -15,6 +15,7 @@ from DataRepo.utils.exceptions import (
     AggregatedErrors,
     AggregatedErrorsSet,
     FileFromInputNotFound,
+    MultipleMatchingPeakAnnotationFiles,
     RollbackException,
 )
 from DataRepo.utils.file_utils import get_sheet_names, is_excel, read_from_file
@@ -305,9 +306,14 @@ class PeakAnnotationFilesLoader(TableLoader):
                     # In case the path is relative to the current directory
                     filepath = filepath_str
                 else:
-                    # Make the forthcoming error show the path relative to the study doc, which we should encourange
-                    # users to use.
-                    filepath = os.path.join(study_dir, filepath_str)
+                    # Try and find the file (this will buffer an error and return None if multiple files with the same
+                    # name are found)
+                    tmp_filepath = self.find_annot_file(filepath_str, dir=study_dir)
+                    if tmp_filepath:
+                        filepath = tmp_filepath
+                    else:
+                        self.add_skip_row_index()
+                        return filename, None, format_code
             else:
                 # We will look relative to the current directory
                 filepath = filepath_str
@@ -675,3 +681,69 @@ class PeakAnnotationFilesLoader(TableLoader):
         if self.file is None:
             return os.getcwd()
         return os.path.dirname(os.path.abspath(self.file))
+
+    def find_annot_file(self, supplied_file_with_opt_path: str, dir=None):
+        """Given a supplied file name with optional path information, return it with its filepath.
+
+        Args:
+            supplied_files_with_opt_path (str): A peak annotation file with optional path (derived from the Peak
+                Annotation Files sheet).
+            dir (Optional[str]) [current directory]: A directory under which mzXML files reside (in subdirectories).
+        Exceptions:
+            None
+        Returns:
+            annot_filepath (Optional[str]): A peak annotation filepath if one was found, the supplied_file_with_opt_path
+                if not found, or None if multiple matching files were found (i.e. error).
+        """
+
+        if dir is None or dir == "":
+            dir = os.getcwd()
+
+        if os.path.exists(supplied_file_with_opt_path):
+            return supplied_file_with_opt_path
+
+        supplied_dirpath, supplied_filename = os.path.split(supplied_file_with_opt_path)
+
+        # Use a dict to track the matching filepaths
+        annot_filepath = None
+        dupe_annot_files: List[str] = []
+        found_one = False
+
+        # Walk the directory
+        for dir_path, _, fileset in os.walk(dir):
+            for filename in fileset:
+                # If the current file matches one of the supplied files
+                if filename == supplied_filename:
+                    filepath = os.path.join(dir_path, filename)
+
+                    # If there are multiple files with this name (which is not allowed)
+                    if annot_filepath is not None or len(dupe_annot_files) > 0:
+                        dupe_annot_files.append(filepath)
+                        if annot_filepath is not None:
+                            dupe_annot_files.append(annot_filepath)
+                            annot_filepath = None
+                    else:
+                        annot_filepath = filepath
+                        found_one = True
+
+        if dupe_annot_files:
+            self.buffer_infile_exception(
+                MultipleMatchingPeakAnnotationFiles(dupe_annot_files)
+            )
+        elif annot_filepath is None:
+            # Return the supplied file name if not found at all
+            annot_filepath = supplied_file_with_opt_path
+
+        if found_one and supplied_dirpath not in ["", "."]:
+            self.buffer_infile_exception(
+                ValueError(
+                    f"The peak annotation filepath supplied '{supplied_file_with_opt_path}' was incorrect but one or "
+                    "more files matching this filename were found, so this is just a warning.  Correct the Peak "
+                    "Annotation Files sheet to eliminate this warning."
+                ),
+                is_error=False,
+                is_fatal=self.validate,
+                column=self.headers.FILE,
+            )
+
+        return annot_filepath
