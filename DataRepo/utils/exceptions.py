@@ -412,7 +412,7 @@ class RequiredValueError(InfileError, SummarizableError):
 class RequiredColumnValues(Exception):
     """Summary of every RequiredColumnValue exception.
 
-    DEV_SECTION - Everything above this delimiter is user-facing.  See TraceBaseDocs/README.md
+    DEV_SECTION - Everything above this delimiter is user-facing.  See docs/README.md
 
     Args:
         exceptions (List[RequiredColumnValue])
@@ -3986,6 +3986,132 @@ class AssumedMzxmlSampleMatch(InfileError, SummarizableError):
         self.mzxml_file = mzxml_file
 
 
+class AmbiguousMzxmlSampleMatches(Exception):
+    """Summary of `AmbiguousMzxmlSampleMatch` exceptions.
+
+    DEV_SECTION - Everything above this delimiter is user-facing.  See docs/README.md
+
+    Args:
+        exceptions (List[AmbiguousMzxmlSampleMatch])
+        message (Optional[str])
+    Attributes:
+        Class:
+            None
+        Instance:
+            exceptions (List[AmbiguousMzxmlSampleMatch])
+    """
+
+    def __init__(self, exceptions: List[AmbiguousMzxmlSampleMatch], message=None):
+        if message is None:
+            tmp_message = [
+                (
+                    "The following mzXML files could not be mapped to a single sample.  Each mzXML must be associated "
+                    "with an MSRunSample, which links to a Sample record, so knowing which sample an mzXML is "
+                    "associated with is required.  To resolve this, add a row for every mzXML file with the indicated "
+                    "name, including their paths relative to the study directory, to the Peak Annotation Details sheet."
+                )
+            ]
+            matches_by_annot_file = defaultdict(list)
+            exc: AmbiguousMzxmlSampleMatch
+            for exc in exceptions:
+                loc = generate_file_location_string(
+                    file=exc.file,
+                    sheet=exc.sheet,
+                )
+                matches_by_annot_file[loc].append(exc)
+            for loc, exc_list in sorted(
+                matches_by_annot_file.items(), key=lambda tpl: tpl[0]
+            ):
+                tmp_message.append(f"\t{loc}\n")
+                for exc in sorted(exc_list, key=lambda e: e.mzxml_name):
+                    tmp_message.append(
+                        f"\t\t'{exc.mzxml_name}' matches samples: {exc.sample_names}\n"
+                    )
+            message = "".join(tmp_message)
+        super().__init__(message)
+        self.exceptions = exceptions
+
+
+class AmbiguousMzxmlSampleMatch(InfileError, SummarizableError):
+    """An mzXML file could not be unambiguously mapped to a single sample record.
+
+    Each mzXML must be associated with a single Sample record.  The link between the mzXML and the Sample is indirect.
+    The link is via an MSRunSample record, which links to the Sample.  Knowing which sample an mzXML is associated with
+    is thus required.
+
+    Sometimes this is due to mzXML name collisions that the user explicitly mapped to different samples, but the
+    association was not explicitly made for each mzXML file because there exist leftover, unaccounted-for mzXML files
+    that were not involved in abundance correction.  For example, there could exist an unanalyzed positive scan or scan-
+    range mzXML.  To ensure comprehensive saving of all mzXML files, the loading code looks at all files in the study
+    directory and tries to automatically associate them with a sequence and a sample, and there are multiple routes that
+    can result in an ambiguous match.
+
+    To resolve this ambiguous match, the mzXML file with ambiguous name, including its path relative from the study
+    directory, must be added to the Peak Annotation Details sheet.  The error will include all the potentially matching
+    sample names.  Decide which one is the correct biological sample from which the mzXML was derived and do one of two
+    things:
+
+    1. If the mzXML was analyzed (i.e. included in an abundance correction analysis), there should exist a row already
+       in the Peak Annotation Details sheet.  You must find that row and add the relative path from the study directory
+       to the mzXML file to the "mzXML File Name" column on the row containing the corresponding Sample and the peak
+       annotation file.
+    2. If the mzXML was *not* analyzed (i.e. it was not used for peak picking and natural abundance correct), there will
+       not exist a row in the Peak Annotation Details sheet.  (NOTE: Sometimes, this may be simply due to the fact that
+       the mzXML contains no scan data.)  You must add a row to the Peak Annotation Details sheet that contains only~
+       the Sample, mzXML File Name (including the relative path from the study directory), and "skip" in the Skip
+       column.  Skip indicates only that there will be no peak group data and that an MSRunSample record does not need
+       to be created to link it.  But note that this will not prevent later adding peak data to the study in the future.
+       This should be done even for the mzXML files that do not contain scan data.  And it only needs to be done for
+       those files affected by an ambiguous match.^
+
+    ~ NOTE: The blue column headers in the Peak Annotation Details sheet indicate the required columns, but they are
+      only for the common case (when there exists a peak annotation file and PeakGroup data).  The required columns are
+      actually case-conditional.  In this case, where there is no peak annotation file, only the Sample and mzXML File
+      Name columns are required.  In fact, the "skip" is in the Skip column, no columns are required.
+    ^ There may be warnings associated with some files such as those associated with blank samples, no scans, or
+      ambiguous sequence assignments.  Adding those to the Peak Annotation Details sheet will silence the warnings, but
+      as long as the warnings don't indicate a data problem and that the automatic handling is accurate, the warnings
+      are harmless.
+
+    DEV_SECTION - Everything above this delimiter is user-facing.  See docs/README.md
+
+    Args:
+        sample_names (List[str]): A list of 2 or more sample names that an mzXML file is ambiguously associated with.
+        mzxml_name (str): An mzXML file name (with optional path) that ambiguously maps to multiple samples.
+        kwargs (dict): See InfileError.
+    Attributes:
+        Class:
+            SummarizerExceptionClass (Exception): The exception class that takes a list of objects from this class and
+                summarizes their content.
+        Instance:
+            sample_names (List[str])
+            mzxml_name (str)
+    """
+
+    SummarizerExceptionClass = AmbiguousMzxmlSampleMatches
+
+    def __init__(
+        self, sample_names: List[str], mzxml_name: str, inferred_match=False, **kwargs
+    ):
+        inferred_message = (
+            ""
+            if not inferred_match
+            else (
+                " (The ambigous sample match for this mzXML file was inferred via mzXML files of the same name "
+                "explicitly mapped to multiple samples.) "
+            )
+        )
+        message = (
+            f"mzXML file '{mzxml_name}' could not be mapped to a single sample. {inferred_message} Each mzXML must be "
+            "associated with an MSRunSample, which links to a Sample record, so knowing which sample an mzXML is "
+            "associated with is required.  To resolve this, add a row for every mzXML file with this name, including "
+            f"its path relative from the study directory, to %s.  Potential sample matches include: {sample_names}."
+        )
+        super().__init__(message, **kwargs)
+        self.sample_names = sample_names
+        self.mzxml_name = mzxml_name
+
+
 class UnmatchedMzXMLs(Exception):
     """Summary of `UnmatchedMzXML` exceptions."""
 
@@ -5593,6 +5719,176 @@ class MultipleStudyDocVersions(StudyDocVersionException):
         self.matching_version_numbers = matching_version_numbers
 
 
+class MultipleConflictingValueMatchesSummary(Exception):
+    """Summary of MultipleConflictingValueMatches exceptions."""
+
+    def __init__(self, exceptions: List[MultipleConflictingValueMatches]):
+
+        # Construct all the conflict data in a multi-dimensional dict
+        conflict_data: Dict[str, dict] = defaultdict(
+            lambda: defaultdict(lambda: defaultdict(list))
+        )
+        mcvm: MultipleConflictingValueMatches
+        for mcvm in exceptions:
+            # Create a new location string that excludes the column and includes the affected model
+            file_loc = generate_file_location_string(sheet=mcvm.sheet, file=mcvm.file)
+            mdl = mcvm.model.__name__
+            mcvm_loc = f"Model {mdl} in {file_loc}"
+            for rec, differences, _ in mcvm.recs_diffs_cves:
+                conflict_data[mcvm_loc][str(mcvm.rec_dict)][str(rec.id)] = {
+                    "rec": model_to_dict(rec, exclude=["id"]),
+                    "diffs": differences,
+                }
+
+        preamble = (
+            f"Data from {len(conflict_data.keys())} file sheets has conflicts with existing database records, but we "
+            "were unable to determine which differences to report due to multiple unique constraints and query "
+            "limitations, so all differences with each matching record are reported below, broken down by file sheet "
+            "and model.  It is up to the user to decide which matching record is relevant and fix the differences "
+            "derived from the file to match the correct existing database record.  The correct match will likely have "
+            "more matching values to the record parsed from the file.\n\n"
+            "Note that the file record may be incomplete due to either the order in which records are loaded or due to "
+            "optional file values that were left empty.  Any values in the database that are not in the file are the "
+            "likely correct match.\n\n"
+            "The following are the differences/conflicts:\n\n"
+        )
+        summary = [preamble]
+
+        # Compile the summary text, sorted
+        for mcvm_loc in sorted(conflict_data.keys()):
+            summary.append(mcvm_loc)
+            for file_rec in sorted(conflict_data[mcvm_loc].keys()):
+                summary.append(f"\tDifferences between file record: {file_rec} and:")
+                for rec_id in conflict_data[mcvm_loc][file_rec].keys():
+                    summary.append(
+                        f"\t\tDatabase record {rec_id}: {conflict_data[mcvm_loc][file_rec][rec_id]['rec']}:"
+                    )
+                    for field, diff_dict in sorted(
+                        conflict_data[mcvm_loc][file_rec][rec_id]["diffs"].items()
+                    ):
+                        summary.append(f"\t\t\t{field}")
+                        summary.append(f"\t\t\t\tdatabase: [{diff_dict['orig']}]")
+                        summary.append(f"\t\t\t\tfile: [{diff_dict['new']}]")
+
+        # Append a note to developers
+        summary.append(
+            "Developers should see if either the conditions in the unique constraints of the models involved can be "
+            "improved to be mutually exclusive or whether TableLoader.get_inconsistencies can be improved to identify "
+            "the precise match."
+        )
+
+        message = "\n".join(summary)
+
+        super().__init__(message)
+
+
+class MultipleConflictingValueMatches(InfileError, SummarizableError):
+    """The reports an error between file data and existing records in the database when there are multiple matching
+    database records.
+
+    Some file-created records can conflict with existing database records.  This usually happens when a researcher is
+    adding supplemental study data to a study doc and has edited the old data that has already been loaded, but in doing
+    so, they edited or filled in some of the missing values in the old study data.  TraceBase does not yet support the
+    editing of previously loaded study data, even if that is to fill in previously upsupplied optional values.  Doing so
+    creates conflicts with the previously loaded data.  If you have edited or added data to previously loaded records
+    from your study doc, a curator will need to create a custom migration.
+
+    The other possibility is that your data is a brand new study, but your conflicting records happen to collide with
+    unrelated records from another study, in which case you would have to make your data unique.  Frequently, this will
+    be unique fields like animal or sample name, for example.
+
+    In this case however, the matching database record could not be narrowed down to a single offending database record.
+    This can sometimes happen when a model has multiple unique constraints that apply individually to subsets of
+    database records.  If a user has for example, deleted an optional value from an existing row of the file, there is
+    no way to query in the deleted value to match it.  And that combined with multiple unique constraints can result in
+    multiple matches.
+
+    When this happens, the differences between the file-derived record and each of the matching database records is
+    displayed.  The user must determine which database record is the matching one and either report this to a curator so
+    that they can edit the existing database record(s) of you can reverse the file edit that caused the conflict.
+
+    Tip: The correct matching and conflicting record will be the one that has more matching values.
+
+    NOTE: This exception is analogous to the ConflictingValueError, but is specifically for the case when a single
+    offending database record cannot be identified.
+
+    DEV_SECTION - Everything above this delimiter is user-facing.  See docs/README.md
+
+    If this exception ever occurs, or occurs repeatedly, there are a couple options to avoid it and make a regular
+    ConflictingValueError occur instead.  The inability to identify the exact offending record and report the precise
+    conflicting values arises due to a couple of factors.  First, This occurs when there are multiple unique constraints
+    and at least one uses a condition.  Second, the rec_dict from the file cannot be matched using the unique constraint
+    condition in order to rule out a database match.
+
+    One fix would be to improve TableLoader.get_inconsistencies so that it can rule out a unique constraint if its
+    condition is violated by the file-derived rec_dict.  This would require a recursive method that takes a Q object and
+    the rec_dict and determines in the rec_dict meets the unique constraint's condition.  If it does not, skip that
+    unique constraint.
+
+    The other option would be to modify the unique constraints to make the file record's values not match one of the
+    unique constraints.
+    """
+
+    SummarizerExceptionClass = MultipleConflictingValueMatchesSummary
+
+    def __init__(
+        self,
+        recs_diffs: List[Tuple[Model, dict]],
+        rec_dict=None,
+        message=None,
+        derived=False,
+        **kwargs,
+    ):
+        # This assumes all the records in recs_diffs are from the same model
+        model = type(recs_diffs[0][0])
+
+        # This builds contained ConflictingValueError exceptions to be able to include their difference descriptions in
+        # this exception's verbiage.
+        recs_diffs_cves = []
+        for rec, differences in recs_diffs:
+            cve = ConflictingValueError(
+                rec,
+                differences,
+                rec_dict=rec_dict,
+                derived=derived,
+            )
+            recs_diffs_cves.append((rec, differences, cve))
+
+        if message is None:
+            # The preamble describing the problem
+            message = (
+                f"Data from %s has conflicts with {len(recs_diffs)} existing database records, but we were unable to "
+                "determine which differences to report due to multiple unique constraints and query limitations, so "
+                "all differences with each matching record are reported below.  It is up to the user to decide which "
+                "matching record is relevant and fix the differences derived from the file to match the correct "
+                "existing database record.  The correct match will likely have more matching values to the "
+                f"{type(recs_diffs[0][0]).__name__} record parsed from the file:\n\n"
+                f"\t{rec_dict}\n\n"
+                "Note that it may be incomplete due to either the order in which records are loaded or due to optional "
+                "file values that were left empty.  Any values in the database that are not in the file are the likely "
+                "correct match.\n\n"
+                "The following are the differences between each of the matching records:\n\n"
+            )
+
+            # This includes the string version of a ConflictingValueError describing differences for each matching rec
+            for rec, differences, cve in recs_diffs_cves:
+                message += f"Differences with {type(rec).__name__} record {rec.id}:\n{indent(str(cve))}\n"
+
+            # Append a note to developers to see if they can prevent this ambiguity from happening again.
+            message += (
+                "Developers should see if either the conditions in the unique constraints of model "
+                f"{type(recs_diffs[0][0]).__name__} can be improved to be mutually exclusive or whether "
+                "TableLoader.get_inconsistencies can be improved to identify the precise match."
+            )
+
+        super().__init__(message, **kwargs)
+
+        self.recs_diffs_cves = recs_diffs_cves
+        self.rec_dict = rec_dict
+        self.derived = derived
+        self.model = model
+
+
 class DeveloperWarning(Warning):
     # NOTE: Not user facing.
     pass
@@ -6029,7 +6325,7 @@ class AnimalsWithoutSamples(Exception):
     Lists the names of animals (and the locations in the study doc in which they can be found) that have no samples and
     suggests how to resolve the issue.
 
-    DEV_SECTION - Everything above this delimiter is user-facing.  See TraceBaseDocs/README.md
+    DEV_SECTION - Everything above this delimiter is user-facing.  See docs/README.md
 
     Args:
         exceptions (List[AnimalWithoutSamples])
@@ -6090,7 +6386,7 @@ class AnimalWithoutSamples(InfileError, SummarizableError):
 
     Summarized in `AnimalsWithoutSamples`.
 
-    DEV_SECTION - Everything above this delimiter is user-facing.  See TraceBaseDocs/README.md
+    DEV_SECTION - Everything above this delimiter is user-facing.  See docs/README.md
 
     Args:
         animal (str): Name of an animal without samples.
@@ -6129,7 +6425,7 @@ class AnimalsWithoutSerumSamples(Exception):
     Lists the names of animals (and the locations in the study doc in which they can be found) that have no serum
     samples, explains why they're important, and suggests how to resolve the issue.
 
-    DEV_SECTION - Everything above this delimiter is user-facing.  See TraceBaseDocs/README.md
+    DEV_SECTION - Everything above this delimiter is user-facing.  See docs/README.md
 
     Args:
         exceptions (List[AnimalWithoutSerumSamples])
@@ -6199,7 +6495,7 @@ class AnimalWithoutSerumSamples(InfileError, SummarizableError):
 
     Summarized in `AnimalsWithoutSerumSamples`.
 
-    DEV_SECTION - Everything above this delimiter is user-facing.  See TraceBaseDocs/README.md
+    DEV_SECTION - Everything above this delimiter is user-facing.  See docs/README.md
 
     Args:
         animal (str): Name of an animal without serum samples.
