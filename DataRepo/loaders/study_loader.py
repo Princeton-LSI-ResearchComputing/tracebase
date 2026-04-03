@@ -74,6 +74,7 @@ from DataRepo.utils.exceptions import (
     BlankRemoved,
     BlanksRemoved,
     ConditionallyRequiredArgs,
+    FatalStudyLoadWarning,
     InfileError,
     InvalidStudyDocVersion,
     MissingCompounds,
@@ -396,7 +397,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
             )
 
     def check_exclude_sheets(self):
-        """This buffers an error if any supplied sheet names to not match any of the loader classes' DataSheetName class
+        """This buffers an error if any supplied sheet names do not match any of the loader classes' DataSheetName class
         attributes.
 
         Args:
@@ -530,6 +531,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
 
         # This cycles through the loaders in the order in which they were defined in the namedtuple
         all_aggregated_errors = []
+        premature_stop = False
         for loader_key in self.Loaders._fields:
             if loader_key not in loaders.keys():
                 continue
@@ -537,9 +539,23 @@ class StudyLoader(ConvertedTableLoader, ABC):
             loader: TableLoader = loaders[loader_key]
 
             try:
-                loader.load_data()
+                if premature_stop:
+                    fslw = FatalStudyLoadWarning(
+                        f"Skipping loader {type(loader).__name__}"
+                    )
+                    fslw.is_error = False
+                    fslw.is_fatal = self.validate
+                    all_aggregated_errors.append(fslw)
+                else:
+                    loader.load_data()
             except Exception as e:
                 all_aggregated_errors.append(e)
+                if isinstance(e, AggregatedErrors) and e.exception_type_exists(
+                    FatalStudyLoadWarning
+                ):
+                    # No subsequent loads can succeed if a FatalStudyLoadWarning exists in a loader's aggregated errors
+                    # object, so we stop loading prematurely
+                    premature_stop = True
 
         # Perform cross-loader checks
         self.perform_checks(loaders)

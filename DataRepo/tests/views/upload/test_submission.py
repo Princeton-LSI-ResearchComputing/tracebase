@@ -36,6 +36,7 @@ from DataRepo.utils.exceptions import (
     AllMissingTissues,
     AllMissingTreatments,
     MultiLoadStatus,
+    PeakAnnotationFileConflict,
     RecordDoesNotExist,
 )
 from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
@@ -43,6 +44,7 @@ from DataRepo.views.upload.submission import BuildSubmissionView
 
 
 class BuildSubmissionViewTests1(TracebaseTransactionTestCase):
+    fixtures = ["data_types.yaml", "data_formats.yaml"]
 
     def test_get_or_create_study_dataframes_create(self):
         """
@@ -937,6 +939,44 @@ class BuildSubmissionViewTests1(TracebaseTransactionTestCase):
         dvv.extract_autofill_from_peak_annotation_files_forms()
         self.assertDictEqual(
             self.get_expected_autofill_dict("accucor1.xlsx"), dvv.autofill_dict
+        )
+
+    def test_catch_peak_annotation_file_edits(self):
+        """This test asserts that previously loaded peak annotation files that have been edited (and resubmitted in a
+        supplemental load) are reported as PeakAnnotationFileConflict exceptions.
+        """
+        from DataRepo.models import ArchiveFile, DataFormat, DataType
+
+        # Prepare to create an "edited" file (loaded and being loaded)
+        ms_peak_annotation = DataType.objects.get(code="ms_peak_annotation")
+        accucor_format = DataFormat.objects.get(code="accucor")
+
+        # The annot file saved in this ArchiveFile record should not match the same named file submitted below
+        ArchiveFile.objects.create(
+            filename="accucor1.xlsx",
+            file_location=None,
+            checksum="558ea654d7f2914ca4527580edf4fac11bd151d0",
+            data_type=ms_peak_annotation,
+            data_format=accucor_format,
+        )
+
+        dvv = BuildSubmissionView()
+        dvv.set_files(
+            peak_annot_files=["DataRepo/data/tests/data_submission/accucor1.xlsx"]
+        )
+        self.assertEqual(
+            1,
+            len(
+                dvv.load_status_data.statuses["accucor1.xlsx"][
+                    "aggregated_errors"
+                ].exceptions
+            ),
+        )
+        self.assertIsInstance(
+            dvv.load_status_data.statuses["accucor1.xlsx"][
+                "aggregated_errors"
+            ].exceptions[0],
+            PeakAnnotationFileConflict,
         )
 
     def test_extract_autofill_from_peak_annotation_file_with_elmaven_modified_compounds(
