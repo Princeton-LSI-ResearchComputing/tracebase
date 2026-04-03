@@ -1,9 +1,9 @@
-# TraceBaseDocs
+# Deployment of TraceBase User Documentation
 
-Documentation for [TraceBase](https://github.com/Princeton-LSI-ResearchComputing/tracebase) users
+Documentation for [TraceBase](https://github.com/Princeton-LSI-ResearchComputing/tracebase) users.
 
-Markdown documents stored in `/TraceBaseDocs` are used to generate a static site using [MkDocs](https://www.mkdocs.org/)
-(with a [readthedocs](https://readthedocs.org/) template).
+Markdown documents stored in `docs/user` are used to generate a static site using
+[MkDocs](https://www.mkdocs.org/) (with a [readthedocs](https://readthedocs.org/) template).
 
 ## Development
 
@@ -16,9 +16,9 @@ the general requirements document for tracebase):
 
 ### Use mkdocs to generate a local static site
 
-1) `cd TraceBaseDocs`
+1) `cd docs`
 
-2) `mkdocs serve --verbose` (verbose is optional but recommended)
+2) `mkdocs serve -f admin/mkdocs.yml --verbose` (verbose is optional but recommended)
 
 The site can be accessed at [http://127.0.0.1:8000/repo-name/](http://127.0.0.1:8000/repo-name/). The locally served
 site updates live as changes are made to the Markdown documents.
@@ -29,7 +29,7 @@ site updates live as changes are made to the Markdown documents.
 
 Build the site to serve publicly on [GitHub Pages](https://princeton-lsi-researchcomputing.github.io/tracebase/):
 
-1) `mkdocs gh-deploy -m "The 'gh-pages' branch exists for the user documentation deployment." --ignore-version`
+1) `mkdocs -f admin/mkdocs.yml gh-deploy -m "User documentation" --ignore-version`
 
 Without the `--ignore-version` flag, you get an error that states:
 
@@ -44,6 +44,9 @@ This generates HTML based on Markdown documents.  It can be accessed by anyone a
 Note that updated Markdown docs in the repository will not be reflected in the public site until a developer deploys the
 revised site.
 
+**NOTE**: This creates a branch on the tracebase GitHub repository named `gh-pages`.  If this branch is deleted, the
+GitHub Pages documentation site will encounter a 404 error.
+
 ### GitHub Wiki
 
 The TraceBase repository on GitHub has a `Wiki` tab whose content is independent of GitHub Pages (that are served via
@@ -51,7 +54,7 @@ github.io).  The Wiki serves a different purpose from the Pages and is incompati
 the documentation for Pages cannot be deployed to the Wiki).  The Wiki is intended for internal and contributor content,
 not user content.  That said, this is how the Wiki content is managed.  The TraceBase repository has a separate
 repository that manages the Wiki.  That repository must be cloned and the files updated based on the contents of the
-`TraceBaseDocs` directory.
+`user` directory.
 
 You can manage that content by cloning the wiki repository:
 
@@ -247,7 +250,7 @@ def setup(app):
 Generate the `rst` files using `autodoc`.  This will only generate documentation for the exceptions file:
 
 ```bash
-sphinx-apidoc -o docs -d 1 --remove-old . TraceBase TraceBaseDocs DataRepo/models DataRepo/schemas DataRepo/templates DataRepo/templatetags DataRepo/tests DataRepo/views DataRepo/widgets DataRepo/data DataRepo/fixtures DataRepo/formats DataRepo/loaders DataRepo/management DataRepo/migrations DataRepo/admin.py DataRepo/apps.py DataRepo/context_processors.py DataRepo/forms.py \
+sphinx-apidoc -o docs -d 1 --remove-old . TraceBase user DataRepo/models DataRepo/schemas DataRepo/templates DataRepo/templatetags DataRepo/tests DataRepo/views DataRepo/widgets DataRepo/data DataRepo/fixtures DataRepo/formats DataRepo/loaders DataRepo/management DataRepo/migrations DataRepo/admin.py DataRepo/apps.py DataRepo/context_processors.py DataRepo/forms.py \
 DataRepo/multiforms.py DataRepo/pager.py DataRepo/urls.py DataRepo/utils/file_utils.py DataRepo/utils/func_utils.py DataRepo/utils/infusate_name_parser.py DataRepo/utils/queryset_to_pandas_dataframe.py DataRepo/utils/studies_exporter.py DataRepo/utils/text_utils.py manage.py
 ```
 

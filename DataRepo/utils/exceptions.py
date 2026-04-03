@@ -417,7 +417,7 @@ class RequiredValueError(InfileError, SummarizableError):
 class RequiredColumnValues(Exception):
     """Summary of every RequiredColumnValue exception.
 
-    DEV_SECTION - Everything above this delimiter is user-facing.  See TraceBaseDocs/README.md
+    DEV_SECTION - Everything above this delimiter is user-facing.  See docs/README.md
 
     Args:
         exceptions (List[RequiredColumnValue])
@@ -4016,7 +4016,7 @@ class AssumedMzxmlSampleMatch(InfileError, SummarizableError):
 class AmbiguousMzxmlSampleMatches(Exception):
     """Summary of `AmbiguousMzxmlSampleMatch` exceptions.
 
-    DEV_SECTION - Everything above this delimiter is user-facing.  See TraceBaseDocs/README.md
+    DEV_SECTION - Everything above this delimiter is user-facing.  See docs/README.md
 
     Args:
         exceptions (List[AmbiguousMzxmlSampleMatch])
@@ -4100,7 +4100,7 @@ class AmbiguousMzxmlSampleMatch(InfileError, SummarizableError):
       as long as the warnings don't indicate a data problem and that the automatic handling is accurate, the warnings
       are harmless.
 
-    DEV_SECTION - Everything above this delimiter is user-facing.  See TraceBaseDocs/README.md
+    DEV_SECTION - Everything above this delimiter is user-facing.  See docs/README.md
 
     Args:
         sample_names (List[str]): A list of 2 or more sample names that an mzXML file is ambiguously associated with.
@@ -6071,7 +6071,7 @@ class MultipleConflictingValueMatches(InfileError, SummarizableError):
     NOTE: This exception is analogous to the ConflictingValueError, but is specifically for the case when a single
     offending database record cannot be identified.
 
-    DEV_SECTION - Everything above this delimiter is user-facing.  See TraceBaseDocs/README.md
+    DEV_SECTION - Everything above this delimiter is user-facing.  See docs/README.md
 
     If this exception ever occurs, or occurs repeatedly, there are a couple options to avoid it and make a regular
     ConflictingValueError occur instead.  The inability to identify the exact offending record and report the precise
@@ -6584,7 +6584,7 @@ class AnimalsWithoutSamples(Exception):
     Lists the names of animals (and the locations in the study doc in which they can be found) that have no samples and
     suggests how to resolve the issue.
 
-    DEV_SECTION - Everything above this delimiter is user-facing.  See TraceBaseDocs/README.md
+    DEV_SECTION - Everything above this delimiter is user-facing.  See docs/README.md
 
     Args:
         exceptions (List[AnimalWithoutSamples])
@@ -6645,7 +6645,7 @@ class AnimalWithoutSamples(InfileError, SummarizableError):
 
     Summarized in `AnimalsWithoutSamples`.
 
-    DEV_SECTION - Everything above this delimiter is user-facing.  See TraceBaseDocs/README.md
+    DEV_SECTION - Everything above this delimiter is user-facing.  See docs/README.md
 
     Args:
         animal (str): Name of an animal without samples.
@@ -6684,7 +6684,7 @@ class AnimalsWithoutSerumSamples(Exception):
     Lists the names of animals (and the locations in the study doc in which they can be found) that have no serum
     samples, explains why they're important, and suggests how to resolve the issue.
 
-    DEV_SECTION - Everything above this delimiter is user-facing.  See TraceBaseDocs/README.md
+    DEV_SECTION - Everything above this delimiter is user-facing.  See docs/README.md
 
     Args:
         exceptions (List[AnimalWithoutSerumSamples])
@@ -6754,7 +6754,7 @@ class AnimalWithoutSerumSamples(InfileError, SummarizableError):
 
     Summarized in `AnimalsWithoutSerumSamples`.
 
-    DEV_SECTION - Everything above this delimiter is user-facing.  See TraceBaseDocs/README.md
+    DEV_SECTION - Everything above this delimiter is user-facing.  See docs/README.md
 
     Args:
         animal (str): Name of an animal without serum samples.

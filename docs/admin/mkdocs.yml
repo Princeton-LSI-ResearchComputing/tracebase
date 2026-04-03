@@ -1,7 +1,7 @@
 site_name: TraceBase Documentation
 site_url: http://Princeton-LSI-ResearchComputing.github.io/tracebase
 site_dir: public
-docs_dir: ./TraceBaseDocs
+docs_dir: ../user
 
 theme: readthedocs
 

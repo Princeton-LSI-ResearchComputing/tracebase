@@ -125,7 +125,7 @@ venv.bak/
 .ropeproject
 
 # mkdocs documentation
-/TraceBaseDocs/public
+/docs/public
 
 # mypy
 .mypy_cache/
@@ -152,6 +152,3 @@ DataRepo/management/commands/list_tests.py
 static/admin
 static/debug_toolbar
 TraceBase/static
-
-# Sphinx
-docs

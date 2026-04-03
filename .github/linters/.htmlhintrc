@@ -25,6 +25,6 @@
     "head-script-disabled": true
   },
   "ignore": [
-    "**/TraceBaseDocs/**"
+    "docs/user/**"
   ]
 }

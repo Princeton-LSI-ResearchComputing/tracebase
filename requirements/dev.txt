@@ -1,4 +1,4 @@
-# Specifies only dev-specific requirements
+# Specifies only development-specific requirements
 # But imports the common ones too
 -r common.txt
 
