@@ -1638,13 +1638,26 @@ class MultiLoadStatus(Exception):
             ):
                 if self.debug:
                     print(
-                        f"The AggregatedErrorsSet exception is fatal because the '{lk}' load key's AggregatedErrors "
-                        "object contains the following fatal exceptions:"
+                        f"DEBUG: The AggregatedErrorsSet exception is fatal because the '{lk}' load key's "
+                        "AggregatedErrors object contains the following fatal errors:"
                     )
                     for exc in self.statuses[lk]["aggregated_errors"].exceptions:
+                        if exc.is_error and exc.is_fatal:
+                            print(
+                                f"\t{type(exc).__name__} is_error: {exc.is_error} is_fatal: {exc.is_fatal}"
+                            )
+                    if any(
+                        not (exc.is_error and exc.is_fatal)
+                        for exc in self.statuses[lk]["aggregated_errors"].exceptions
+                    ):
                         print(
-                            f"\t{type(exc).__name__} is_error: {exc.is_error} is_fatal: {exc.is_fatal}"
+                            "DEBUG: The following non-fatal and/or warnings also existed:"
                         )
+                        for exc in self.statuses[lk]["aggregated_errors"].exceptions:
+                            if not (exc.is_error and exc.is_fatal):
+                                print(
+                                    f"\t{type(exc).__name__} is_error: {exc.is_error} is_fatal: {exc.is_fatal}"
+                                )
                 return False
         return True
 
@@ -6941,6 +6954,16 @@ class AnimalWithoutSerumSamples(InfileError, SummarizableError):
             )
         super().__init__(message, **kwargs)
         self.animal = animal
+
+
+class FatalStudyLoadWarning(Exception):
+    """This error is watched-for in the StudyLoader to stop loading.
+
+    It's purpose is to cease subsequent expensive long-running load jobs that occur after one of the loaders totally
+    fails, and whose failure would cause subsequent loaders to generate a multitude of useless cascading errors.
+    """
+
+    pass
 
 
 def generate_file_location_string(column=None, rownum=None, sheet=None, file=None):

@@ -1129,18 +1129,34 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             if self.msrun_sample_dict[sample_header][MSRunSample.__name__] is not None:
                 return self.msrun_sample_dict[sample_header][MSRunSample.__name__]
 
-        # 2. The second way (if a Peak Annotation Details sheet was not provided, or doesn't list a value for this
-        #    sample header) is to start searching using the sample header to look for an exact matching sample name.  If
-        #    there is more than 1 match, we can try to whittle it down using what we've been provided in the way of the
-        #    default sequence data.
-
-        # Initialize the entry in the msrun_sample_dict so we can avoid this code block if we encounter the header again
-        self.msrun_sample_dict[sample_header] = {}
-        self.msrun_sample_dict[sample_header]["seen"] = True
-        self.msrun_sample_dict[sample_header][MSRunSample.__name__] = None
+        # 2. The second way (if a Peak Annotation Details sheet was not provided, or doesn't have an MSRunSample record
+        #    for this sample header) is to start searching using the sample header (or name) to look for an exact
+        #    matching sample.  If there is more than 1 match, we can try to whittle it down using what we've been
+        #    provided in the way of the default sequence data.
 
         # First, we will check the Sample table directly, so we can report the most relevant error if it's missing
         query_dict = {"name": sample_header}
+
+        # If the msrun_sample_dict DOES contain a sample name (just not an MSRunSample record), use the actual sample
+        # name
+        if (
+            sample_header in self.msrun_sample_dict
+            and self.msrunsloader.headers.SAMPLENAME
+            in self.msrun_sample_dict[sample_header]
+        ):
+            query_dict = {
+                "name": self.msrun_sample_dict[sample_header][
+                    self.msrunsloader.headers.SAMPLENAME
+                ]
+            }
+        elif sample_header not in self.msrun_sample_dict:
+            # Initialize the entry in the msrun_sample_dict so we can avoid this code block if we encounter the header
+            # again
+            self.msrun_sample_dict[sample_header] = {}
+            self.msrun_sample_dict[sample_header][MSRunSample.__name__] = None
+
+        self.msrun_sample_dict[sample_header]["seen"] = True
+
         samples = Sample.objects.filter(**query_dict)
         if not samples.exists():
 

@@ -724,14 +724,32 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         self.assertEqual("not none", msrs2)
         self.assertTrue(al.msrun_sample_dict["072920_XXX1_2_bra"]["seen"])
 
+        # Test no MSRunSample, but the sample header exists in the msrun_sample_dict and is associated with a sample
+        # with a completely different name
+        Sample.objects.create(
+            name="oddball_sample",
+            tissue=self.tsu,
+            animal=self.anml,
+            researcher="John Doe",
+            date=datetime.now(),
+        )
+        al.msrun_sample_dict["072920_XXX1_2_bra"] = {
+            "seen": False,
+            MSRunSample.__name__: "not none",
+            MSRunsLoader.DataHeaders.SAMPLENAME: "oddball_sample",
+        }
+        msrs3 = al.get_msrun_sample("072920_XXX1_2_bra")
+        self.assertEqual("not none", msrs3)
+        self.assertTrue(al.msrun_sample_dict["072920_XXX1_2_bra"]["seen"])
+
         # Test skip
         al.msrun_sample_dict["blank_1_404020"] = {
             "seen": False,
             MSRunSample.__name__: None,
             "Skip": True,
         }
-        msrs3 = al.get_msrun_sample("blank_1_404020")
-        self.assertIsNone(msrs3)
+        msrs4 = al.get_msrun_sample("blank_1_404020")
+        self.assertIsNone(msrs4)
         self.assertTrue(al.msrun_sample_dict["blank_1_404020"]["seen"])
 
     def create_peak_group(self):

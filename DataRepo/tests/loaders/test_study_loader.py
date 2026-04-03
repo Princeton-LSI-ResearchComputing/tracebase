@@ -1,10 +1,13 @@
+from datetime import datetime, timedelta
 from typing import Dict, Type
 
+import pandas as pd
 from django.core.management import call_command
 from django.db.models import Model
 
 from DataRepo.loaders.animals_loader import AnimalsLoader
 from DataRepo.loaders.base.table_loader import TableLoader
+from DataRepo.loaders.msruns_loader import MSRunsLoader
 from DataRepo.loaders.protocols_loader import ProtocolsLoader
 from DataRepo.loaders.study_loader import StudyLoader, StudyV3Loader
 from DataRepo.models import (
@@ -29,6 +32,7 @@ from DataRepo.models import (
     Tracer,
     TracerLabel,
 )
+from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
@@ -39,6 +43,8 @@ from DataRepo.utils.exceptions import (
     AllUnskippedBlanks,
     AnimalsWithoutSamples,
     AnimalsWithoutSerumSamples,
+    FatalStudyLoadWarning,
+    FileFromInputNotFound,
     MissingTissues,
     MissingTreatments,
     MultiLoadStatus,
@@ -46,6 +52,7 @@ from DataRepo.utils.exceptions import (
     RecordDoesNotExist,
 )
 from DataRepo.utils.file_utils import read_from_file
+from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
 
 PeakGroupCompound: Type[Model] = PeakGroup.compounds.through
 
@@ -409,6 +416,123 @@ class StudyLoaderTests(TracebaseTestCase):
             },
             sl.record_counts,
         )
+
+    def create_some_study_recs(self):
+        """Create underlying data for test test_study_loader_stops_when_fatal_study_load_warning_present which loads
+        partial study doc DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx
+        """
+        call_command("loaddata", "lc_methods")
+        Compound.objects.create(
+            name="gluc",
+            formula="C6H12O6",
+            hmdb_id="HMDB0000122",
+        )
+        infobj = parse_infusate_name_with_concs("gluc-[13C6][10]")
+        inf, _ = Infusate.objects.get_or_create_infusate(infobj)
+        inf.save()
+        anml = Animal.objects.create(
+            name="test_animal",
+            age=timedelta(weeks=int(13)),
+            sex="M",
+            genotype="WT",
+            body_weight=200,
+            diet="normal",
+            feeding_status="fed",
+            infusate=inf,
+        )
+        tsu = Tissue.objects.create(name="Brain")
+        Sample.objects.create(
+            name="Sample Name",
+            tissue=tsu,
+            animal=anml,
+            researcher="John Doe",
+            date=datetime.now(),
+        )
+
+    # This decorator makes the test faster by disabling autoupdates (not needed for the test)
+    @MaintainedModel.no_autoupdates()
+    def test_study_loader_stops_when_fatal_study_load_warning_present(self):
+        """When a loader buffers a FatalStudyLoadWarning exception, StudyLoader should not load subsequent sheets."""
+        # Create an StudyV3Loader object
+        # Set its df to a dataframe dict with incorrect mzXML paths
+
+        # Create the necessary records for the partial study doc: mzxml_study_doc_same_seq.xlsx
+        self.create_some_study_recs()
+
+        file = "DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx"
+
+        # Create a dataframe dict
+        df = read_from_file(file, sheet=None)
+
+        # Modify the peak annotation details sheet to provide a bad mzXML (which should cause FatalStudyLoadWarning to
+        # be buffered)
+        df["Peak Annotation Details"] = pd.DataFrame.from_dict(
+            {
+                MSRunsLoader.DataHeaders.SAMPLENAME: [
+                    "BAT-xz971",
+                    "BAT-xz972",
+                ],
+                MSRunsLoader.DataHeaders.SAMPLEHEADER: [
+                    "BAT_xz971",
+                    "BAT_xz971",
+                ],
+                MSRunsLoader.DataHeaders.MZXMLNAME: [
+                    None,
+                    "some_unknown_sample.mzXML",  # <-- This should cause a FatalStudyLoadWarning and stop accucor loads
+                ],
+                MSRunsLoader.DataHeaders.ANNOTNAME: [
+                    "accucor1.xlsx",
+                    "accucor2.xlsx",
+                ],
+                MSRunsLoader.DataHeaders.SEQNAME: [
+                    "John Doe, polar-HILIC-25-min, QE, 1991-5-7",
+                    "John Doe, polar-HILIC-25-min, QE, 1991-5-7",
+                ],
+                MSRunsLoader.DataHeaders.SKIP: [
+                    None,
+                    None,
+                ],
+            }
+        )
+
+        study_loader = StudyV3Loader(
+            df=df,
+            file=file,
+            debug=True,
+        )
+
+        with self.assertRaises(AggregatedErrorsSet) as ar:
+            study_loader.load_data()
+        aes = ar.exception
+
+        # We cannot check the DB for no PeakGroups to confirm that the PeakAnnotationFilesLoader did not run, because
+        # everything would have been rolled back, so we assert that there's a warning about the skipped
+        # PeakAnnotationFilesLoader.  And we assert all the exception types.
+        self.assertEqual(
+            3,
+            len(aes.aggregated_errors_dict["mzxml_study_doc_same_seq.xlsx"].exceptions),
+        )
+        self.assertIsInstance(
+            aes.aggregated_errors_dict["mzxml_study_doc_same_seq.xlsx"].exceptions[0],
+            FileFromInputNotFound,
+        )
+        self.assertIsInstance(
+            aes.aggregated_errors_dict["mzxml_study_doc_same_seq.xlsx"].exceptions[1],
+            FatalStudyLoadWarning,
+        )
+        self.assertIsInstance(
+            aes.aggregated_errors_dict["mzxml_study_doc_same_seq.xlsx"].exceptions[2],
+            FatalStudyLoadWarning,
+        )
+        self.assertIn(
+            "Skipping loader PeakAnnotationFilesLoader",
+            str(
+                aes.aggregated_errors_dict["mzxml_study_doc_same_seq.xlsx"].exceptions[
+                    2
+                ]
+            ),
+        )
+        self.assertEqual(1, len(aes.aggregated_errors_dict))
 
     def test_no_samples_no_serum_warnings(self):
         file = "DataRepo/data/tests/animal_without_samples/study.xlsx"
