@@ -22,7 +22,6 @@ from DataRepo.models import HierCachedModel, MaintainedModel
 @MaintainedModel.relation(
     generation=2,
     parent_field_name="sample",
-    # child_field_names=["peak_groups"],  # Only propagate up
     update_label="fcirc_calcs",
 )
 class MSRunSample(HierCachedModel, MaintainedModel):
