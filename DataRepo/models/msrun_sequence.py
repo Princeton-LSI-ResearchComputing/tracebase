@@ -14,6 +14,8 @@ from django.db.models import (
 
 class MSRunSequence(Model):
     detail_name = "msrunsequence_detail"
+    # NOTE: The long values in the INSTRUMENT_CHOICES should be as they appear in the msModel values in an mzXML file.
+    # Add to this list as new values are encountered.
     INSTRUMENT_CHOICES = [
         ("QE", "Q Exactive"),
         ("QE2", "Q Exactive 2"),
