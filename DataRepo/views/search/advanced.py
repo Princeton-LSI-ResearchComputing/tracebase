@@ -475,7 +475,7 @@ class AdvancedSearchView(MultiFormsView):
 
         # Handle the variable forms
         selected_template = qry["selectedtemplate"]
-        templates_with_mzxmls = ["pgtemplate", "pdtemplate"]
+        templates_with_mzxmls = ["pgtemplate", "pdtemplate", "mztemplate"]
         if selected_template in templates_with_mzxmls:
             # Create a temporary ammended the query to check if any mzXML files are in the results
             # We need the field path of the mzXML file record.  perform_query is limited to non-key fields, because I
@@ -483,8 +483,10 @@ class AdvancedSearchView(MultiFormsView):
             fld = ""
             if selected_template == "pgtemplate":
                 fld = "msrun_sample__sample__msrun_samples__ms_data_file__filename"
-            else:
+            elif selected_template == "pdtemplate":
                 fld = "peak_group__msrun_sample__sample__msrun_samples__ms_data_file__filename"
+            elif selected_template == "mztemplate":
+                fld = "filename"
 
             # Copy the query
             mzcheck_qry = deepcopy(qry)

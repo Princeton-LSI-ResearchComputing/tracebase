@@ -3,7 +3,10 @@ from __future__ import annotations
 import hashlib
 import os
 from pathlib import Path
+from typing import Optional
+from warnings import warn
 
+from django.conf import settings
 from django.core.files import File
 from django.db import ProgrammingError, models, transaction
 from django.db.models.signals import post_delete
@@ -338,6 +341,80 @@ class ArchiveFile(models.Model):
         from django.urls import reverse
 
         return reverse(self.detail_name, kwargs={"pk": self.pk})
+
+    @property
+    def mzxml_export_path(self) -> Optional[str]:
+        """Returns an export path for an mzXML file following this pattern:
+        date/researcher/instrument/protocol/polarity/mz_min-mz_max/filename.mzXML
+
+        NOTE: MSRunSample contains an analogous method.
+
+        Args:
+            msrsrec (MSRunSample)
+        Exceptions:
+            None
+        Returns:
+            (Optional[str]): The path relative to an export directory the file will be exported to in an mzXML download
+                or study export
+        """
+        # TODO: When the schema is refactored to decouple mzXML/RAW files from curated peak data, this code should be
+        # moved to a new model that lies between ArchveFile aind Sample where the mzXML metadata can be saved when a
+        # Sample record doesn't exist.  This will enable searching of unanalyzed data. See:
+        # https://github.com/Princeton-LSI-ResearchComputing/tracebase/issues/1238
+
+        # There is no place where this metadata about unanalyzed mzXML files is stored in the database (currently).  So
+        # we retrieve what info we can from the file content itself.
+
+        # Format of the mzXML export path:
+        # "date/researcher/instrument/protocol/polarity/mz_min-mz_max/filename.mzXML"
+        # The export path is based on the existence of an MSRunSample record.  An MSRunSample record requires that a
+        # Sample record exists, but Samples only exist if curated peak data exists.  This will be the case for any mzXML
+        # file that was never a part of natural abundance correction, e.g. blanks, unanalyzed samples, etc.  We only get
+        # here if there is no associated sample/curated peak data, so instead, we set the path to:
+        # "unknown_date/unknown_researcher/instrument/unknown_lc_protocol/polarity/mz_min-mz_max/filename.mzXML"
+        from DataRepo.loaders.msruns_loader import MSRunsLoader
+        from DataRepo.utils.file_utils import date_to_string
+        from DataRepo.utils.text_utils import sigfig
+
+        if not settings.TESTING and not os.path.exists(self.file_location.path):
+            # NOTE: This warning would come out when testing because archived files are not created by the tests
+            warn(f"mzXML File '{self.file_location.path}' missing from archive.")
+
+        if not self.mz_to_msrunsamples.exists():
+            # We need the file to generate the export path (so we can get the polarity and scan range)
+            if not os.path.exists(self.file_location.path):
+                return None
+
+            mzxml_dict: Optional[dict]
+            mzxml_dict, agg_errs = MSRunsLoader.parse_mzxml(self.file_location.path)
+
+            if not isinstance(mzxml_dict, dict):
+                raise ValueError("Invalid mzxml_dict")
+            elif agg_errs.num_errors > 0:
+                raise agg_errs
+
+            return os.path.join(
+                "unknown_date",
+                "unknown_researcher",
+                mzxml_dict["instrument"],
+                "unknown_lc_protocol",
+                mzxml_dict["polarity"],
+                f"{sigfig(mzxml_dict['mz_min'], figures=4)}-{sigfig(mzxml_dict['mz_max'], figures=4)}",
+                self.filename,
+            )
+
+        # django-pylint fails to identify the mz_to_msrunsamples instance member here
+        msrsrec = self.mz_to_msrunsamples.first()  # pylint: disable=no-member
+
+        return os.path.join(
+            date_to_string(msrsrec.msrun_sequence.date),
+            msrsrec.msrun_sequence.researcher,
+            msrsrec.msrun_sequence.instrument,
+            msrsrec.msrun_sequence.lc_method.name,
+            msrsrec.polarity,
+            f"{sigfig(msrsrec.mz_min, figures=4)}-{sigfig(msrsrec.mz_max, figures=4)}",
+            msrsrec.ms_data_file.filename,
+        )
 
 
 @receiver(post_delete, sender=ArchiveFile)

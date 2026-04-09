@@ -1,6 +1,8 @@
 import os
+import re
 import shutil
 import tempfile
+from pathlib import Path
 
 from django.core.management import call_command
 
@@ -57,6 +59,8 @@ class ExportStudiesTestBase(TracebaseTestCase):
 
 
 class ExportStudiesTests(ExportStudiesTestBase):
+    fixtures = ["data_formats", "data_types"]
+
     @classmethod
     def setUpTestData(cls):
         super().setUpTestData()
@@ -143,6 +147,46 @@ class ExportStudiesTests(ExportStudiesTestBase):
             outdir=os.path.join(self.tmpdir, "test_dir"),
             data_type=["Fcirc"],
             overwrite=True,
+        )
+
+    def test_mzxml_zip_export(self):
+        call_command(
+            "load_study",
+            infile="DataRepo/data/tests/full_tiny_study/study.xlsx",
+        )
+        call_command(
+            "export_studies",
+            outdir=os.path.join(self.tmpdir, "mzxml_study_all_types"),
+            studies=["test v3 study"],
+        )
+        self.assertEqual(
+            set(
+                [
+                    "study_0003/study_0003-peakgroups.tsv",
+                    "study_0003/study_0003-peakdata.tsv",
+                    "study_0003/study_0003-fcirc.tsv",
+                    "study_0003/study_0003-mzxml.zip",
+                ]
+            ),
+            set(
+                [
+                    # The study ID is random/arbitrary.  Change them all to be the same.  I chose 0003 arbitrarily,
+                    # because that's how they appear when I run the test without modifying them.
+                    re.sub(
+                        r"study_\d+",
+                        "study_0003",
+                        str(
+                            os.path.relpath(
+                                p, os.path.join(self.tmpdir, "mzxml_study_all_types")
+                            )
+                        ),
+                        count=2,
+                    )
+                    for p in Path(
+                        os.path.join(self.tmpdir, "mzxml_study_all_types")
+                    ).rglob("*/*/")
+                ]
+            ),
         )
 
 

@@ -241,14 +241,15 @@ class MSRunSampleSequenceTests(TracebaseTestCase):
         brmz_rec = ArchiveFile.objects.get(filename="Br-xz971.mzXML")
         batmz_loc = Path(str(batmz_rec.file_location))
         brmz_loc = Path(str(brmz_rec.file_location))
-        # Reading the file instead of using .is_file() due to the usage of InMemoryStorage for tests
+        # Reading the file instead of using .is_file() due to the usage of InMemoryStorage for tests.
+        # 942 is the number of bytes.
         self.assertEqual(
-            829,
+            942,
             len(batmz_rec.file_location.read()),
             msg=f"{str(batmz_loc)} must be a real file",
         )
         self.assertEqual(
-            828,
+            941,
             len(brmz_rec.file_location.read()),
             msg=f"{str(brmz_loc)} must be a real file",
         )
