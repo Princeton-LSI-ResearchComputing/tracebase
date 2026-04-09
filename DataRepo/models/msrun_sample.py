@@ -170,6 +170,7 @@ class MSRunSample(HierCachedModel, MaintainedModel):
         Returns:
             (str)
         """
+        # TODO: Remove this method and transition to the analogous method in ArchiveFile.
         from DataRepo.utils.file_utils import date_to_string
         from DataRepo.utils.text_utils import sigfig
 
