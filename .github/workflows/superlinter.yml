@@ -40,11 +40,50 @@ jobs:
 
       # Runs the Super-Linter action
       - name: Run Super-Linter
-        uses: super-linter/super-linter/slim@v6.3.0
+        uses: super-linter/super-linter@v8.6.0
         env:
           # To report GitHub Actions status checks
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DEFAULT_BRANCH: main
-          LINTER_RULES_PATH: /.github/linters/
+          LINTER_RULES_PATH: .github/linters
           IGNORE_GITIGNORED_FILES: true
           FILTER_REGEX_EXCLUDE: (\.pylintrc|migrations|.*\.xlsx|static\/bootstrap.*)
+
+          # In the transition from superlinter 6.x to 8.x, stabilize by disabling new linters
+          # pylint-django has a new way to be installed
+          PYTHON_PYLINT_CONFIG_FILE: .pylintrc
+          PYTHON_LINT_REQUIREMENTS_FILE: .github/linters/python-lint-requirements.txt
+          DJANGO_SETTINGS_MODULE: TraceBase.settings
+
+          # The new version of JSCPD checks between files and there is no way to disable it alone
+          VALIDATE_JSCPD: false
+
+          # New linters
+          VALIDATE_PYTHON_RUFF: false
+          VALIDATE_PYTHON_RUFF_FORMAT: false
+          VALIDATE_PYTHON_BANDIT: false
+          VALIDATE_YAML: false
+          VALIDATE_DOCKERFILE: false
+          VALIDATE_GITHUB_ACTIONS: false
+          VALIDATE_BIOME_FORMAT: false
+          VALIDATE_BIOME_LINT: false
+          VALIDATE_SPELL_CODESPELL: false
+          VALIDATE_GITHUB_ACTIONS_ZIZMOR: false
+          VALIDATE_TRIVY: false
+
+          # The "prettier" linters
+          VALIDATE_CSS_PRETTIER: false
+          VALIDATE_HTML_PRETTIER: false
+          VALIDATE_JAVASCRIPT_PRETTIER: false
+          VALIDATE_JSON_PRETTIER: false
+          VALIDATE_MARKDOWN_PRETTIER: false
+          VALIDATE_YAML_PRETTIER: false
+
+          # These linters are true by default.
+          # VALIDATE_PYTHON: true
+          # VALIDATE_PYTHON_PYLINT: true
+          # VALIDATE_PYTHON_FLAKE8: true
+          # VALIDATE_MARKDOWN: true
+          # VALIDATE_JAVASCRIPT: true
+          # VALIDATE_JSON: true
+          # VALIDATE_NATURAL_LANGUAGE: true

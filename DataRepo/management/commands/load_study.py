@@ -82,7 +82,7 @@ class Command(LoadTableCommand):
         parser.add_argument(
             # Legacy support - catch this option and issue an error if it is used.
             "study_params",
-            type=argparse.FileType("r"),
+            type=argparse.FileType("r"),  # pylint: disable=deprecated-class
             nargs="?",
             help=argparse.SUPPRESS,
         )

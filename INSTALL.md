@@ -45,7 +45,7 @@ Ensure you are using Python 3.10, e.g.:
     python3 --version
     # Python 3.10.11
 
-Create a virtual environment (from a bash shell) in `/usr/local` and activate it, for example:
+Create a virtual environment (from a Bash shell) in `/usr/local` and activate it, for example:
 
     sudo mkdir /usr/local/tracebase
     sudo chown tracebase:tracebase /usr/local/tracebase

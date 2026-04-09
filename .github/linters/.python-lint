@@ -82,7 +82,7 @@ limit-inference-results=100
 
 # List of plugins (as comma separated values of python module names) to load,
 # usually to register additional checkers.
-load-plugins=pylint_django
+# load-plugins=pylint_django
 
 # Pickle collected data for later comparisons.
 persistent=yes
@@ -107,7 +107,7 @@ source-roots=
 
 # When enabled, pylint would attempt to guess common misconfiguration and emit
 # user-friendly hints instead of false-positive error messages.
-suggestion-mode=yes
+# suggestion-mode=yes
 
 # Allow loading of arbitrary C extensions. Extensions are imported into the
 # active Python interpreter and may run arbitrary code.
@@ -256,7 +256,8 @@ variable-naming-style=snake_case
 # Regular expression matching correct variable names. Overrides variable-
 # naming-style. If left empty, variable names will be checked with the set
 # naming style.
-#variable-rgx=
+# This is a work-around for superlinter 8.6.0 not loading pylint-django
+variable-rgx=^[a-z_][a-z0-9_]*$|^[A-Z_]+$
 
 
 [CLASSES]
@@ -749,5 +750,5 @@ init-import=no
 # builtins.
 redefining-builtins-modules=six.moves,past.builtins,future.builtins
 
-[django]
-django-settings-module=TraceBase.settings
+# [DJANGO]
+# django-settings-module=TraceBase.settings

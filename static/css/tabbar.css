@@ -37,7 +37,7 @@
 
 .tabbar-item {
   display: flex;
-  flex-grow: auto;
+  flex-grow: auto; /* stylelint-disable-line declaration-property-value-no-unknown */
   flex-basis: 20%;
   justify-content: space-around;
 }

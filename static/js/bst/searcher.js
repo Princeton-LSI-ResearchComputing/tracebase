@@ -12,5 +12,5 @@
  * @returns true
  */
 function djangoSearcher (data, term) { // eslint-disable-line no-unused-vars
-  return data.filter(function (row) { return true })
+  return data.filter(function (row) { return true }) // eslint-disable-line no-unused-vars
 }
