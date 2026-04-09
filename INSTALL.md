@@ -237,8 +237,9 @@ The following is an example `/etc/httpd/conf.d/tracebase.conf` file:
         <Directory /var/www/tracebase/static>
             Require all granted
         </Directory>
-        Alias /archive /tracebase-archive/archive
-        <Directory /tracebase-archive/archive>
+        # Set TraceBase/.env: MEDIA_ROOT=/tracebase_files
+        Alias /files /tracebase_files
+        <Directory /tracebase_files>
             Require all granted
             Header set Content-disposition attachment
         </Directory>
@@ -248,7 +249,7 @@ Note that it:
 
 - Creates an alias for the archive, which should be independent of any other tracebase instances (if you intend to run a
   public instance for sharing data).
-  - Be sure that the ARCHIVE_DIR variable in `/var/www/tracebase/TraceBase/.env` matches the alias.
+  - Be sure that the MEDIA_ROOT variable in `/var/www/tracebase/TraceBase/.env` matches the alias.
 - Creates an `alias` to match the `/var/www/tracebase/static` directory.
 - Sets the gateway timeout to match what's in the `TraceBase/.env` file.  This allows the software to end gracefully if
   submission processing takes too long.
