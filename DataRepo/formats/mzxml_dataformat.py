@@ -457,7 +457,7 @@ class MzxmlFormat(Format):
         },
     }
 
-    def getRootQuerySet(self):
+    def get_root_query_set(self):
         """Ensure we only get mzXML records."""
         return ArchiveFile.objects.filter(
             data_type__code__exact="ms_data",
