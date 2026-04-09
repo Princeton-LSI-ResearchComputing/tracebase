@@ -22,7 +22,7 @@ function initPaginator ( // eslint-disable-line no-unused-vars
   // See DataRepo.widgets.bst.BSTRowsPerPageSelectWidget.
   const rowsPerPageOptionElems = document.getElementsByName(optionElemName)
   for (let i = 0; i < rowsPerPageOptionElems.length; i++) {
-    rowsPerPageOptionElems[i].addEventListener('click', function (event) {
+    rowsPerPageOptionElems[i].addEventListener('click', function (event) { // eslint-disable-line no-unused-vars
       onRowsPerPageChange($(this).data('value')) // eslint-disable-line no-undef
     })
   }

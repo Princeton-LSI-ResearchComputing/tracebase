@@ -17,7 +17,7 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument(
             "study_set_list",
-            type=argparse.FileType("r"),
+            type=argparse.FileType("r"),  # pylint: disable=deprecated-class
             help=("File of study doc filenames, one per line."),
         )
 

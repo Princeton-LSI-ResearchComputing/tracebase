@@ -220,9 +220,9 @@ function initBST ( // eslint-disable-line no-unused-vars
   // Limitations:
   // 1. This only guesses the difference between clicking the 'x' button and deleting characters in the search field.
   //    The following case will inapropriately trigger the search: highlighting the search term and hitting the delete
+  //    key.
   const tableSearchBox = $(jqTableID).parents('.bootstrap-table').find('input[placeholder="Search"]') // eslint-disable-line no-undef
-  tableSearchBox.bind('change click keyup input', function (e) {
-    //    key.
+  tableSearchBox.bind('change click keyup input', function (e) { // eslint-disable-line no-unused-vars
     if (this.value === '' && searchLength > 1) {
       globalThis.searchLength = 0
       onSearchAction(this.value)
