@@ -534,8 +534,7 @@ disable=raw-checker-failed,
         wildcard-import,
         unused-argument,
         super-init-not-called,
-        too-many-positional-arguments,
-        invalid-name
+        too-many-positional-arguments
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option
