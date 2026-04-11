@@ -1,14 +1,11 @@
-from django.conf import settings
 from django.core.management import call_command
 from django.db import IntegrityError
-from django.test import override_settings
 
 from DataRepo.models import Compound, CompoundSynonym
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import ProhibitedStringValue
 
 
-@override_settings(CACHES=settings.TEST_CACHES)
 class CompoundTests(TracebaseTestCase):
     def setUp(self):
         super().setUp()
@@ -89,7 +86,6 @@ class CompoundTests(TracebaseTestCase):
         self.assertEqual(2, lysine._animals_by_tracer())
 
 
-@override_settings(CACHES=settings.TEST_CACHES)
 class CompoundSynonymTests(TracebaseTestCase):
     def setUp(self):
         super().setUp()

@@ -1,9 +1,7 @@
 from datetime import datetime, timedelta
 
 import pandas as pd
-from django.conf import settings
 from django.core.management import call_command
-from django.test import override_settings
 
 from DataRepo.models import (
     Animal,
@@ -20,7 +18,6 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
 
 
-@override_settings(CACHES=settings.TEST_CACHES)
 class LoadStudyTests(TracebaseTestCase):
     fixtures = ["data_types.yaml", "data_formats.yaml"]
 

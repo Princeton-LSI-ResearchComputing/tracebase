@@ -347,7 +347,6 @@ def create_test_model(
 
 
 @override_settings(
-    CACHES=settings.TEST_CACHES,
     STORAGES=settings.TEST_FILE_STORAGES,
     MEDIA_ROOT=settings.TEST_MEDIA_ROOT,
     # The default django test client will cause a 301 error for every get/post when SECURE_SSL_REDIRECT=True
