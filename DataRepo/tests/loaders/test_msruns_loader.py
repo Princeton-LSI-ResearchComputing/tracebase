@@ -336,11 +336,12 @@ class MSRunsLoaderTests(TracebaseTestCase):
             "polarity": MSRunSample.POSITIVE_POLARITY,
             "mz_max": 502.9,
             "mz_min": 1.0,
+            "instrument": "QE",
         }
         mz_dict, errs = MSRunsLoader.parse_mzxml(
             "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML"
         )
-        self.assertEqual(expected, mz_dict)
+        self.assertDictEqual(expected, mz_dict)
         self.assertEqual(0, len(errs.exceptions))
 
     def test_separate_placeholder_peak_groups_match_med_mz_none(self):

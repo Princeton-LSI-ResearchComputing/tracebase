@@ -6,6 +6,9 @@
     <parentFile fileName="file:///C:\XCalibur\data\MDN\210902_exp027d_batch4 serum/xzl4_t.raw"
                 fileType="RAWData"
                 fileSha1="a129d2228d5a693875d2bb03fb03830becdeeca2"/>
+    <msInstrument msInstrumentID="1">
+      <msModel category="msModel" value="Q Exactive"/>
+    </msInstrument>
     <scan num="1"
           lowMz="1"
           highMz="100.9"

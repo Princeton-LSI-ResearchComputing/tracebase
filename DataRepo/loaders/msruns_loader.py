@@ -279,6 +279,12 @@ class MSRunsLoader(TableLoader):
         )
     )
 
+    # This assumes that the names (in the second tuple values) are unique and that the values in the mzXML files match
+    # the names saved in MSRunSequence.INSTRUMENT_CHOICES.
+    MZXML_INSTRUMENTS = dict(
+        (name, code) for code, name in MSRunSequence.INSTRUMENT_CHOICES
+    )
+
     def __init__(self, *args, **kwargs):
         """Constructor.
 
@@ -982,7 +988,8 @@ class MSRunsLoader(TableLoader):
 
         # This assumes that if rollback is deferred, that the caller has disabled caching updates and that they should
         # remain disabled so that the caller can enable them when it is done.
-        # TODO: Remove this after implementing issue #1387
+        # TODO: Remove this after implementing issue #1387 (Use context managers in HierCachedModel to enable/disable
+        # caching operations)
         if not self.defer_rollback:
             enable_caching_updates()
             if not self.dry_run and not self.validate:
@@ -3021,21 +3028,23 @@ class MSRunsLoader(TableLoader):
                 FileNotFoundError
                 NoScans
             Buffers:
+                KeyError
                 MixedPolarityErrors
                 ValueError
                 MzxmlParseError
         Returns:
             If mzxml_path is not a real existing file:
                 None
-            If full_dict=False:
+            If not full_dict:
                 {
                     "raw_file_name": <raw file base name parsed from mzXML file>,
                     "raw_file_sha1": <sha1 string parsed from mzXML file>,
                     "polarity": "positive" or "negative" (based on first polarity parsed from mzXML file),
                     "mz_min": <float parsed from lowMz from the mzXML file>,
                     "mz_max": <float parsed from highMz from the mzXML file>,
+                    "instrument": <A str from cls.MZXML_INSTRUMENTS.values()>,
                 }
-            If full_dict=True:
+            If full_dict:
                 xmltodict.parse(xml_content)
         """
         raw_file_name = None
@@ -3043,6 +3052,7 @@ class MSRunsLoader(TableLoader):
         polarity = None
         mz_min = None
         mz_max = None
+        instrument = None
 
         # Assume Path object
         mzxml_path_obj = mzxml_path
@@ -3083,6 +3093,21 @@ class MSRunsLoader(TableLoader):
                 )
                 raw_file_name = None
                 raw_file_sha1 = None
+
+            tmp_instrument = mzxml_dict["mzXML"]["msRun"]["msInstrument"]["msModel"][
+                "@value"
+            ]
+            try:
+                instrument = cls.MZXML_INSTRUMENTS[tmp_instrument]
+            except KeyError as ke:
+                instrument = tmp_instrument
+                errs_buffer.buffer_error(
+                    KeyError(
+                        f"Unrecognized instrument name encountered in mzXML file [{str(mzxml_path_obj)}].  "
+                        f"Expected one of: [{list(cls.MZXML_INSTRUMENTS.keys())}].  If you are seeing this error, "
+                        f"{__class__.__name__}.MZXML_INSTRUMENTS must be ammended to include this instrument name."
+                    ).with_traceback(ke.__traceback__)
+                )
 
             symbol_polarity = ""
             mixed_polarities = {}
@@ -3141,6 +3166,7 @@ class MSRunsLoader(TableLoader):
             "polarity": polarity,
             "mz_min": mz_min,
             "mz_max": mz_max,
+            "instrument": instrument,
         }, errs_buffer
 
     def unpaired_mzxml_files_exist(self):

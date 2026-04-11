@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from copy import deepcopy
 from datetime import datetime
 from typing import List, Optional, Tuple
+from warnings import warn
 from zipfile import ZIP_DEFLATED, ZipFile
 
 import _csv
@@ -21,9 +22,7 @@ from DataRepo.formats.dataformat_group_query import (
 )
 from DataRepo.formats.search_group import SearchGroup
 from DataRepo.forms import AdvSearchDownloadForm, AdvSearchForm
-from DataRepo.models.msrun_sample import MSRunSample
-from DataRepo.models.peak_data import PeakData
-from DataRepo.models.peak_group import PeakGroup
+from DataRepo.models import ArchiveFile, MSRunSample, PeakData, PeakGroup
 from DataRepo.utils.file_utils import date_to_string
 from DataRepo.views.search.advanced import AdvancedSearchView
 from DataRepo.views.utils import Echo, ZipBuffer
@@ -47,7 +46,10 @@ class AdvancedSearchDownloadView(FormView):
     basv_metadata = SearchGroup()
     date_format = "%d/%m/%Y %H:%M:%S"
     datestamp_format = "%d.%m.%Y.%H.%M.%S"
-    header_template = "search/downloads/download_header.tsv"
+    # The header_template attribute was repurposed here for the search_metadata and column_template (for the column
+    # headers) was created as a step toward migrating away from using templates to render tsv download content.
+    header_template = "search/downloads/search_metadata.txt"
+    column_template = "search/downloads/download_header.tsv"
     row_template = "search/downloads/download_row.tsv"
     content_type = "application/text"
     # This is only used for form_invalid, so that form submissions that are invalid go to the advanced search page
@@ -162,7 +164,7 @@ class AdvancedSearchDownloadView(FormView):
         filename = f"{qry['searches'][qry['selectedtemplate']]['name']}_{now.strftime(self.datestamp_format)}.tsv"
         res = list(self.get_query_results(qry))[0]
 
-        headtmplt = loader.get_template(self.header_template)
+        headtmplt = loader.get_template(self.column_template)
         rowtmplt = loader.get_template(self.row_template)
 
         return StreamingHttpResponse(
@@ -191,6 +193,8 @@ class RecordToMzxmlTSV(ABC):
     data.
     """
 
+    STUDY_DELIMITER = ","
+
     @property
     @abstractmethod
     def format_id(self) -> str:
@@ -204,28 +208,35 @@ class RecordToMzxmlTSV(ABC):
         pass
 
     headers = [
-        "mzXML File",
+        "mzXML Filename",
+        "mzXML Export Path",
+        "mzXML Checksum",
+        "Imported Timestamp",
         "Polarity",
         "MZ Min",
         "MZ Max",
         "Sample",
         "Tissue",
         "Date Collected",
-        "Collection Time (m)",
+        "Time Collected (m)",
         "Handler",
         "Animal",
-        "Age",
+        "Age (w)",
         "Sex",
         "Genotype",
         "Weight (g)",
         "Diet",
         "Feeding Status",
         "Treatment",
+        "Infusion Rate (ul/min/g)",
         "Infusate",
         "Operator",
         "Instrument",
         "LC Protocol",
-        "Date",
+        "Run Date",
+        "RAW Filename",
+        "RAW Checksum",
+        "Study",
     ]
 
     @classmethod
@@ -248,54 +259,69 @@ class RecordToMzxmlTSV(ABC):
             f"{[c.format_id for c in cls.__subclasses__()]}"
         )
 
-    def msrun_sample_rec_to_row(self, msrsrec: MSRunSample) -> List[Optional[str]]:
-        """Takes an MSRunSample record and returns a list of values for the download of mzXML metadata.
+    def archive_file_rec_to_row(self, afrec: ArchiveFile) -> List[str]:
+        """Takes an ArchiveFile record and returns a list of values for the download of mzXML metadata.
 
         It is intended to accompany a series of mzXML files organized into subdirectories.
 
         Args:
-            msrsrec (MSRunSample)
+            afrec (ArchiveFile)
         Exceptions:
             None
         Returns:
-            (List[Optional[str]])
+            (List[str])
         """
+        # There is guaranteed to be only 1 MSRunSample record due to its UniqueConstraints
+        msrsrec: MSRunSample = afrec.mz_to_msrunsamples.first()
         return [
-            msrsrec.mzxml_export_path,
-            msrsrec.polarity,
-            msrsrec.mz_min,
-            msrsrec.mz_max,
-            msrsrec.sample.name,
-            msrsrec.sample.tissue.name,
-            date_to_string(msrsrec.sample.date),
-            (
+            str(afrec.filename),
+            str(afrec.mzxml_export_path),
+            str(afrec.checksum),
+            str(afrec.imported_timestamp),
+            str(msrsrec.polarity if msrsrec else None),
+            str(msrsrec.mz_min if msrsrec else None),
+            str(msrsrec.mz_max if msrsrec else None),
+            str(msrsrec.sample.name if msrsrec else None),
+            str(msrsrec.sample.tissue.name if msrsrec else None),
+            str(date_to_string(msrsrec.sample.date) if msrsrec else None),
+            str(
                 msrsrec.sample.time_collected.total_seconds() / 60
-                if msrsrec.sample.time_collected is not None
+                if msrsrec and msrsrec.sample.time_collected
                 else None
             ),
-            msrsrec.sample.researcher,
-            msrsrec.sample.animal.name,
-            (
+            str(msrsrec.sample.researcher if msrsrec else None),
+            str(msrsrec.sample.animal.name if msrsrec else None),
+            str(
                 msrsrec.sample.animal.age.total_seconds() / 604800
-                if msrsrec.sample.animal.age is not None
+                if msrsrec and msrsrec.sample.animal.age
                 else None
             ),
-            msrsrec.sample.animal.sex,
-            msrsrec.sample.animal.genotype,
-            msrsrec.sample.animal.body_weight,
-            msrsrec.sample.animal.diet,
-            msrsrec.sample.animal.feeding_status,
+            str(msrsrec.sample.animal.sex if msrsrec else None),
+            str(msrsrec.sample.animal.genotype if msrsrec else None),
+            str(msrsrec.sample.animal.body_weight if msrsrec else None),
+            str(msrsrec.sample.animal.diet if msrsrec else None),
+            str(msrsrec.sample.animal.feeding_status if msrsrec else None),
             str(
                 msrsrec.sample.animal.treatment.name
-                if msrsrec.sample.animal.treatment is not None
+                if msrsrec and msrsrec.sample.animal.treatment
                 else None
             ),
-            # Relies on Infusate.__str__ and intentionally can return "None"
-            str(msrsrec.sample.animal.infusate),
-            msrsrec.msrun_sequence.researcher,
-            msrsrec.msrun_sequence.instrument,
-            msrsrec.msrun_sequence.lc_method.name,
-            date_to_string(msrsrec.msrun_sequence.date),
+            str(msrsrec.sample.animal.infusion_rate if msrsrec else None),
+            # Relies on Infusate.__str__ and intentionally can return None
+            str(msrsrec.sample.animal.infusate if msrsrec else None),
+            str(msrsrec.msrun_sequence.researcher if msrsrec else None),
+            str(msrsrec.msrun_sequence.instrument if msrsrec else None),
+            str(msrsrec.msrun_sequence.lc_method.name if msrsrec else None),
+            str(date_to_string(msrsrec.msrun_sequence.date) if msrsrec else None),
+            str(msrsrec.ms_raw_file.filename if msrsrec else None),
+            str(msrsrec.ms_raw_file.checksum if msrsrec else None),
+            (
+                self.STUDY_DELIMITER.join(
+                    [study.name for study in msrsrec.sample.animal.studies.all()]
+                )
+                if msrsrec
+                else str(None)
+            ),
         ]
 
 
@@ -322,7 +348,7 @@ class PeakGroupsToMzxmlTSV(RecordToMzxmlTSV):
             msrsrec: MSRunSample
             for msrsrec in pgrec.msrun_sample.sample.msrun_samples.all():
                 if msrsrec.id not in seen.keys() and msrsrec.ms_data_file is not None:
-                    yield self.msrun_sample_rec_to_row(msrsrec)
+                    yield self.archive_file_rec_to_row(msrsrec.ms_data_file)
                     seen[msrsrec.id] = True
 
 
@@ -349,8 +375,29 @@ class PeakDataToMzxmlTSV(RecordToMzxmlTSV):
             msrsrec: MSRunSample
             for msrsrec in pdrec.peak_group.msrun_sample.sample.msrun_samples.all():
                 if msrsrec.ms_data_file is not None and msrsrec.id not in seen.keys():
-                    yield self.msrun_sample_rec_to_row(msrsrec)
+                    yield self.archive_file_rec_to_row(msrsrec.ms_data_file)
                     seen[msrsrec.id] = True
+
+
+class MzxmlToMzxmlTSV(RecordToMzxmlTSV):
+    """This class defines how to convert an MzxmlFormat class's queryset record to a list of lists."""
+
+    # This format ID matches MzxmlFormat.id
+    format_id = "mztemplate"
+
+    def queryset_to_rows_iterator(self, qs):
+        """Takes a queryset of ArchiveFile records (of just mzXML files) and returns rows of column data as a 2D list.
+
+        Args:
+            qs (QuerySet[ArchiveFile])
+        Exceptions:
+            None
+        Returns:
+            (List[str])
+        """
+        afrec: ArchiveFile
+        for afrec in qs.all():
+            yield self.archive_file_rec_to_row(afrec)
 
 
 class AdvancedSearchDownloadMzxmlTSVView(AdvancedSearchDownloadView):
@@ -359,9 +406,6 @@ class AdvancedSearchDownloadMzxmlTSVView(AdvancedSearchDownloadView):
     This view is for a subset of SearchGroup formats (those that include mz data files in their results:
     PeakGroupsFormat and PeakDataFormat).  It is for streaming a download of the mzXML metadata in a TSV format.
     """
-
-    header_template = "search/downloads/search_metadata.txt"
-    content_type = "application/text"
 
     def __init__(self, qry=None, res=None):
         self.qry = qry
@@ -547,6 +591,31 @@ class PeakDataToMzxmlZIP(RecordToMzxmlZIP):
             yield self.msrun_sample_rec_to_file(msrsrec)
 
 
+class MzxmlToMzxmlZIP(RecordToMzxmlZIP):
+    """This class defines how to convert an ArchiveFile class's queryset record to a list of tuples containing the
+    export file path and a File object."""
+
+    # This format ID matches MzxmlFormat.id
+    format_id = "mztemplate"
+
+    def queryset_to_files_iterator(self, qs: QuerySet):
+        """Takes a queryset of ArchiveFile records (that are specifically for mzXML files) and returns a list of tuples
+        containing the export file path and a File object.
+
+        Args:
+            qs (ArchiveFile.QuerySet): A queryset of ArchiveFile mzXML records.
+        Exceptions:
+            None
+        Yields:
+            (Tuple[str, File]): A file path relative to the zip directory and a File object.
+        """
+        af_rec: ArchiveFile
+        for af_rec in qs.order_by("id"):
+            if settings.DEBUG:
+                print(af_rec.mzxml_export_path)
+            yield af_rec.mzxml_export_path, af_rec.file_location
+
+
 class AdvancedSearchDownloadMzxmlZIPView(AdvancedSearchDownloadView):
     """This is a secondary download view for the advanced search page.
 
@@ -605,9 +674,12 @@ class AdvancedSearchDownloadMzxmlZIPView(AdvancedSearchDownloadView):
             yield buffer.take()
             for file_tuple in self.converter.queryset_to_files_iterator(self.res):
                 export_path, file_obj = file_tuple
-                with file_obj.file.open("r") as fl:
-                    zipf.writestr(export_path, fl.read())
-                    yield buffer.take()
+                try:
+                    with file_obj.file.open("r") as fl:
+                        zipf.writestr(export_path, fl.read())
+                        yield buffer.take()
+                except FileNotFoundError:
+                    warn(f"mzXML File '{file_obj}' missing from archive.")
 
         yield buffer.end()
 

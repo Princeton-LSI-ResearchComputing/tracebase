@@ -52,7 +52,7 @@ class ArchiveFileTests(TracebaseTestCase):
 
     def test_hash_file(self):
         fn = "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML"
-        expected_hash = "c95f714d690bdd2ad069a7a0345dee9cb7cc1e23"
+        expected_hash = "94dcae2cd54b72ec459edb2fd55cf6997ff75c68"
         self.assertEqual(expected_hash, ArchiveFile.hash_file(Path(fn)))
 
     def test_file_is_binary_true(self):
@@ -225,7 +225,7 @@ class ArchiveFileArchiveTests(TracebaseArchiveTestCase):
         created_rec, created = ArchiveFile.objects.get_or_create(**rec_dict)
         self.assertTrue(created)
         self.assertEqual(
-            "c95f714d690bdd2ad069a7a0345dee9cb7cc1e23", created_rec.checksum
+            "94dcae2cd54b72ec459edb2fd55cf6997ff75c68", created_rec.checksum
         )
         self.assertEqual("mzxml", created_rec.data_format.code)
         self.assertEqual("ms_data", created_rec.data_type.code)
