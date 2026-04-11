@@ -1,8 +1,7 @@
 from datetime import datetime, timedelta
 
-from django.conf import settings
 from django.core.management import call_command
-from django.test import override_settings, tag
+from django.test import tag
 
 from DataRepo.models import (
     Animal,
@@ -26,7 +25,6 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import NoCommonLabel
 
 
-@override_settings(CACHES=settings.TEST_CACHES)
 class PeakGroupLabelTracerRateTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
@@ -179,7 +177,6 @@ class PeakGroupLabelTracerRateTests(TracebaseTestCase):
         )
 
 
-@override_settings(CACHES=settings.TEST_CACHES)
 class PeakGroupLabelMultiLabelTests(TracebaseTestCase):
     fixtures = ["data_types.yaml", "data_formats.yaml"]
 
@@ -288,7 +285,6 @@ class PeakGroupLabelMultiLabelTests(TracebaseTestCase):
         self.assertIsNone(pgnln)
 
 
-@override_settings(CACHES=settings.TEST_CACHES)
 class PeakGroupLabelPropertyTests(TracebaseTestCase):
     fixtures = ["lc_methods.yaml", "data_types.yaml", "data_formats.yaml"]
 

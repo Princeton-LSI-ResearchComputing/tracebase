@@ -1,7 +1,5 @@
-from django.conf import settings
 from django.core.management import call_command
 from django.db.models.deletion import RestrictedError
-from django.test import override_settings
 
 from DataRepo.models.animal import Animal
 from DataRepo.models.compound import Compound
@@ -23,7 +21,6 @@ from DataRepo.utils.infusate_name_parser import (
 )
 
 
-@override_settings(CACHES=settings.TEST_CACHES)
 class LoadAnimalsSmallObob2Tests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
@@ -94,7 +91,6 @@ class LoadAnimalsSmallObob2Tests(TracebaseTestCase):
             treatment.delete()
 
 
-@override_settings(CACHES=settings.TEST_CACHES)
 class LoadAnimalsSmallObobTests(TracebaseTestCase):
     fixtures = ["lc_methods.yaml"]
 
@@ -140,7 +136,6 @@ class LoadAnimalsSmallObobTests(TracebaseTestCase):
 
 
 # TODO: Move MaintainedModel-specific tests to its own test file that doesn't use tracebase models
-@override_settings(CACHES=settings.TEST_CACHES)
 class LoadAnimalsAutoupdateTests(TracebaseTestCase):
     fixtures = ["lc_methods.yaml"]
 

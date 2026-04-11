@@ -611,7 +611,17 @@ class MaintainedModel(Model):
                 # case, you can end up with an IntegrityError due to unique constraints from the ID being the same.
                 super().save()
             else:
-                super().save(*args, **kwargs)
+                if via_query:
+                    # If this was via a query (i.e. via the from_db method), don't call using super() because that
+                    # triggers the save call in the multiple hierarchy, which means that it calls HierCachedModel.save,
+                    # which will think something has changed and it deletes related caches, which we do not want.  By
+                    # calling Model.save directly, and passing in `self`, it bypasses HierCachedModel.save, which is
+                    # safe because we are only updating maintained fields that cannot affect the outcome of a
+                    # cached_function (because maintained fields should not be used in a cached_function in the same way
+                    # they're not used in setter functions.)
+                    Model.save(self, *args, **kwargs)
+                else:
+                    super().save(*args, **kwargs)
 
         # If the developer wants to make more changes to this object and call save again, we need to remove the
         # super_save_called attribute.  This will happen when autoupdate mode is immediate or if deferred (but when
@@ -730,9 +740,11 @@ class MaintainedModel(Model):
                 else ": " + cls.__name__ + "." + lazy_update_fields[0]
             )
             print(f"Triggering lazy auto-update of field{flds_str}")
-            # Trigger an auto-update
-            rec.save(  # pylint: disable=unexpected-keyword-arg
-                fields_to_autoupdate=lazy_update_fields, via_query=True
+            # Trigger an auto-update, but specify the the specific class in which to call save (instead of using
+            # super().save) so that lazy-autoupdates do not trigger descendant cache deletions via multiple hierarchical
+            # inheritance
+            MaintainedModel.save(  # pylint: disable=unexpected-keyword-arg
+                rec, fields_to_autoupdate=lazy_update_fields, via_query=True
             )
 
         return rec
