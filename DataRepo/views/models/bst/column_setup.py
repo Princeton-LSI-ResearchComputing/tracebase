@@ -832,7 +832,9 @@ class BSTBaseView:
                 f"Unable to determine column type for column '{colname}'.  The column name does not appear to be "
                 f"either a valid field path (because the model '{self.model.__name__}' has no attribute named "
                 f"'{first_field}') or annotation (because there is no converter in the column settings: {kwargs} and "
-                f"the column name does not appear in the annotations keys: {list(self.annotations.keys())})."
+                f"the column name does not appear in the annotations keys: {list(self.annotations.keys())}).  Did the "
+                f"associated field name change?  Here are the available fields in the {self.model.__name__} model: "
+                f"{[f.name for f in self.model._meta.get_fields()]}."
             )
         elif colname != "details":  # Special case handled after this method returns
             def_count_cols = [
