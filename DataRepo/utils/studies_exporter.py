@@ -84,11 +84,6 @@ class StudiesExporter(ExportBase):
     header_template = get_template("search/downloads/download_header.tsv")
     row_template = get_template("search/downloads/download_row.tsv")
 
-    # NOTE: datestamp_format intentionally differs from AdvancedSearchDownloadView.datestamp_format in that it does not
-    # include the time (since the intention is to run the export in a cron less than or equal to once a day) and we
-    # would like the dates to sort chronologically (i.e. numeric year-month-day)
-    datestamp_format = "%Y.%m.%d"
-
     def __init__(
         self,
         outdir: str,
