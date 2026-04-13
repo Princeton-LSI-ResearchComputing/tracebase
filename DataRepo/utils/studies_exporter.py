@@ -147,6 +147,19 @@ class StudiesExporter(ExportBase):
                 f"export file names: {bad_format_names}."
             )
 
+        self.instance_name = host if host else self.default_instance
+        self.date = date
+
+        # A script on a cron-job uses the study ID in the file name to compare exported files with previously exported
+        # versions.  It does this by splitting on dash and taking the study ID from the file name, relative to the end
+        # of the file, thus the format value at the end of the file name may not have dashes.
+        if any("-" in datatype_name for datatype_name in self.all_data_types):
+            bad_format_names = [dtn for dtn in self.all_data_types if "-" in dtn]
+            raise ValueError(
+                "The following SearchGroup format names contain dashes ('-') which are not allowed in order to parse "
+                f"export file names: {bad_format_names}."
+            )
+
     def export(self):
         # Export time for the outfile headers
         if self.date:
