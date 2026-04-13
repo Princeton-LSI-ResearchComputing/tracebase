@@ -158,14 +158,16 @@ class ExportStudiesTests(ExportStudiesTestBase):
             "export_studies",
             outdir=os.path.join(self.tmpdir, "mzxml_study_all_types"),
             studies=["test v3 study"],
+            host="tb9",
+            date="1972-11-24",
         )
         self.assertEqual(
             set(
                 [
-                    "study_0003/study_0003-peakgroups.tsv",
-                    "study_0003/study_0003-peakdata.tsv",
-                    "study_0003/study_0003-fcirc.tsv",
-                    "study_0003/study_0003-mzxml.zip",
+                    "tb9-1972.11.24-test_v3_study-0003-PeakData.tsv",
+                    "tb9-1972.11.24-test_v3_study-0003-PeakGroups.tsv",
+                    "tb9-1972.11.24-test_v3_study-0003-mzXML.zip",
+                    "tb9-1972.11.24-test_v3_study-0003-Fcirc.tsv",
                 ]
             ),
             set(
@@ -184,7 +186,7 @@ class ExportStudiesTests(ExportStudiesTestBase):
                     )
                     for p in Path(
                         os.path.join(self.tmpdir, "mzxml_study_all_types")
-                    ).rglob("*/*/")
+                    ).rglob("*/")
                 ]
             ),
         )
