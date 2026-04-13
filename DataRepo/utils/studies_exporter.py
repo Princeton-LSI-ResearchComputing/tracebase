@@ -179,7 +179,7 @@ class StudiesExporter:
             for data_type in self.data_types:
                 suffix = "zip" if data_type in self.zipped_data_types else "tsv"
                 filepath = os.path.join(
-                    self.outdir, f"{study_str}-{data_type}.{suffix}"
+                    self.outdir, get_valid_filename(f"{study_str}-{data_type}.{suffix}")
                 )
 
                 if os.path.exists(filepath) and not self.overwrite:
