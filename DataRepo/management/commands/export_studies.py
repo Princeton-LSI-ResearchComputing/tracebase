@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from django.conf import settings
 from django.core.management import BaseCommand
 
@@ -6,7 +8,7 @@ from DataRepo.utils.studies_exporter import StudiesExporter
 
 class Command(BaseCommand):
     # Show this when the user types help
-    help = "Export peak data, peak groups, and fcirc formats, organized by study."
+    help = "Export peak data, peak groups, fcirc, and mzxml formats."
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -36,6 +38,21 @@ class Command(BaseCommand):
             default=False,
             help="Overwrite existing files (not directories).",
         )
+        parser.add_argument(
+            "--host",
+            required=False,
+            default=StudiesExporter.default_instance,
+            help=(
+                f"[{StudiesExporter.default_instance} Host name to include in the exported file names.  "
+                "Use this so users can identify files exported from different TraceBase instances."
+            ),
+        )
+        parser.add_argument(
+            "--date",
+            type=datetime.fromisoformat,
+            help="Date of export.  ISO format: YYYY-MM-DDTHH:MM:SS.",
+            default=datetime.now(),
+        )
 
     def handle(self, *args, **options):
         se = StudiesExporter(
@@ -43,5 +60,11 @@ class Command(BaseCommand):
             study_targets=options["studies"],
             data_types=options["data_type"],
             overwrite=options["overwrite"],
+            host=options["host"],
+            date=(
+                datetime.fromisoformat(options["date"])
+                if isinstance(options["date"], str) and options["date"] != ""
+                else None
+            ),
         )
         se.export()
