@@ -1,12 +1,15 @@
 import os
+import socket
 import tempfile
+from collections import defaultdict
 from datetime import datetime
-from typing import Callable, Iterator
+from typing import Callable, Dict, Iterator, List, Optional, Tuple
 
 from django.db.models import Q
-from django.template.defaultfilters import slugify
 from django.template.loader import get_template
+from django.utils.text import get_valid_filename
 
+from DataRepo.formats.mzxml_dataformat import MzxmlFormat
 from DataRepo.formats.search_group import SearchGroup
 from DataRepo.models import Study
 from DataRepo.utils.exceptions import AggregatedErrors, trace
@@ -17,20 +20,70 @@ from DataRepo.views.search.download import (
 
 
 class StudiesExporter:
+    """Exports the SearchGroup formats with one file per study and and data type combo.
+
+    Output filenames will be slugified (replacing dashes with underscores) and have the following naming structure:
+        {instance_name}-{export_datestamp}-{study_name}-{study_id}-{data_type}.{extension}
+
+    Example:
+        tb9-pub-2026.04.11-Acute_Stress-0004-mzXML.zip
+
+    The reasoning/value for each filename element:
+        instance_name (E.g. "tb9" for the tracebase-rabinowitz instance):
+            Since TraceBase instances are loaded separately, when users download exported data, including the instance
+            name can be used to differentiate between downloads from different instances.  They should theoretically be
+            identical for the same study, but if any data is manually edited, knowing the source can be critical.
+        export_datestamp (E.g. "2026.04.11"):
+            This is the date of the export.  This serves as a version number for the export.
+        study_name (E.g. "Acute_Stress"):
+            Note that study names may contain dashes.  The study name is slugified, so it will not necessarily exactly
+            match the study's name as displayed in TraceBase.
+        study_id (E.g. "0004"):
+            This is the internal database ID of the study.
+        data_type (E.g. "mzXML"):
+            This is the name of the SearchGroup format
+        extension (E.g. "tsv"):
+            There are 2 extensions currently: tsv and zip.  The zip extension is specific to the mzXML search format.
+
+    Class Attributes:
+        sg (SearchGroup): This defines the data types and is the means by which queries are executed.
+        all_data_types (List[str]): These are the names of all of the DataFormat objects contained by sg.
+        all_zipped_data_types (List[str]):  This is the subset of all_data_types that should be exported as zip files.
+        header_template (Template): Used to render the commented metadata header of exported TSV files.
+        row_template (Template): Used to render the content of the exported TSV files.
+        datestamp_format (str): The date string used in the exported filenames.
+        default_instance (str): Hostname of the TraceBase instance (with dashes replaced with underscores).
+    Instance Attributes:
+        bad_searches (Dict[str, Exception]): Query exceptions by study ID or name.
+        outdir (str): Output directory.
+        study_targets (List[str]): List of study IDs and/or names.
+        data_types (List[str]): The data types to be exported.  Must be a subset of cls.all_data_types.
+        zipped_data_types (List[str]): The zipped data types to be exported.  Must be a subset of data_types.
+        overwrite (bool) [False]: Whether to overwrite existing exported files.
+    """
+
     sg = SearchGroup()
     all_data_types = [fmtobj.name for fmtobj in sg.modeldata.values()]
-    all_zipped_data_types = ["mzXML"]
+    all_zipped_data_types = [MzxmlFormat.name]
     header_template = get_template("search/downloads/download_header.tsv")
     row_template = get_template("search/downloads/download_row.tsv")
+    default_instance = socket.gethostname().replace("-", "_")
+
+    # NOTE: datestamp_format intentionally differs from AdvancedSearchDownloadView.datestamp_format in that it does not
+    # include the time (since the intention is to run the export in a cron less than or equal to once a day) and we
+    # would like the dates to sort chronologically (i.e. numeric year-month-day)
+    datestamp_format = "%Y.%m.%d"
 
     def __init__(
         self,
-        outdir,
-        study_targets=None,
-        data_types=None,
-        overwrite=False,
+        outdir: str,
+        study_targets: Optional[List[str]] = None,
+        data_types: Optional[List[str]] = None,
+        overwrite: bool = False,
+        host: Optional[str] = None,
+        date: Optional[datetime] = None,
     ):
-        self.bad_searches = {}
+        self.bad_searches: Dict[str, int] = {}
 
         if isinstance(data_types, str):
             data_types = [data_types]
@@ -45,16 +98,36 @@ class StudiesExporter:
         ]
         self.overwrite = overwrite
 
+        self.instance_name = host if host else self.default_instance
+        self.date = date
+
+        # A script on a cron-job uses the study ID in the file name to compare exported files with previously exported
+        # versions.  It does this by splitting on dash and taking the study ID from the file name, relative to the end
+        # of the file, thus the format value at the end of the file name may not have dashes.
+        if any("-" in datatype_name for datatype_name in self.all_data_types):
+            bad_format_names = [dtn for dtn in self.all_data_types if "-" in dtn]
+            raise ValueError(
+                "The following SearchGroup format names contain dashes ('-') which are not allowed in order to parse "
+                f"export file names: {bad_format_names}."
+            )
+
     def export(self):
         # For individual traceback prints
         aes = AggregatedErrors()
 
         # Export time for the outfile headers
-        now = datetime.now()
-        dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
+        if self.date:
+            export_time = self.date
+        else:
+            export_time = datetime.now()
+
+        dt_string = export_time.strftime(AdvancedSearchDownloadView.date_format)
+
+        # Export time for the outfile name
+        export_datestamp = export_time.strftime(self.datestamp_format)
 
         # Identify the study records to export (by name)
-        study_ids = []
+        study_ids_names = []
         if len(self.study_targets) > 0:
             for study_target in self.study_targets:
                 # Always check for name match
@@ -66,7 +139,12 @@ class StudiesExporter:
                 try:
                     # Perform a `get` for each record so that non-matching values will raise an exception
                     study_rec = Study.objects.get(or_query)
-                    study_ids.append(study_rec.id)
+                    study_ids_names.append(
+                        (
+                            study_rec.id,
+                            get_valid_filename(study_rec.name.replace("-", "_")),
+                        )
+                    )
                 except Exception as e:
                     # Buffering exception to just print the traceback
                     aes.buffer_error(e)
@@ -77,7 +155,15 @@ class StudiesExporter:
             if len(self.bad_searches.keys()) > 0:
                 raise BadQueryTerm(self.bad_searches)
         else:
-            study_ids = list(Study.objects.all().values_list("id", flat=True))
+            study_ids_names = list(
+                (
+                    stdy.id,
+                    get_valid_filename(stdy.name.replace("-", "_")),
+                )
+                for stdy in Study.objects.all()
+            )
+
+        self.check_study_names(study_ids_names)
 
         # Make output directory
         if not os.path.exists(self.outdir):
@@ -85,26 +171,21 @@ class StudiesExporter:
 
         existing_files = []
 
-        # For each study (name)
-        for study_id in study_ids:
-            study_id_str = f"study_{study_id:04d}"
-
-            # Make study directory
-            study_dir = os.path.join(self.outdir, study_id_str)
-            if not os.path.exists(study_dir):
-                os.mkdir(study_dir)
+        # For each study (ID/name)
+        for study_id, study_name in study_ids_names:
+            study_str = (
+                f"{self.instance_name}-{export_datestamp}-{study_name}-{study_id:04d}"
+            )
 
             # For each data type
             for data_type in self.data_types:
-                datatype_slug = slugify(data_type)
-
                 if data_type in self.zipped_data_types:
                     filepath = os.path.join(
-                        study_dir, f"{study_id_str}-{datatype_slug}.zip"
+                        self.outdir, get_valid_filename(f"{study_str}-{data_type}.zip")
                     )
                 else:
                     filepath = os.path.join(
-                        study_dir, f"{study_id_str}-{datatype_slug}.tsv"
+                        self.outdir, get_valid_filename(f"{study_str}-{data_type}.tsv")
                     )
 
                 if os.path.exists(filepath) and not self.overwrite:
@@ -271,10 +352,25 @@ class StudiesExporter:
 
             raise e
 
+    def check_study_names(self, study_ids_names: List[Tuple[int, str]]):
+        """This checks the sanitized study names for uniqueness"""
+        unique_study_names = []
+        dupe_study_names: Dict[str, int] = defaultdict(int)
+        for _, study_name in study_ids_names:
+            if study_name in unique_study_names:
+                if study_name in dupe_study_names:
+                    dupe_study_names[study_name] += 1
+                else:
+                    dupe_study_names[study_name] = 2
+            else:
+                unique_study_names.append(study_name)
+        if dupe_study_names:
+            raise DuplicateSlugifiedStudyNames(dupe_study_names)
+
 
 class BadQueryTerm(Exception):
-    def __init__(self, bad_searches_dict: dict):
-        deets = [f"{k}: {type(v).__name__}: {v}" for k, v in bad_searches_dict.items()]
+    def __init__(self, bad_searches: Dict[str, Exception]):
+        deets = [f"{k}: {type(v).__name__}: {v}" for k, v in bad_searches.items()]
         nt = "\n\t"
         message = (
             "No study name or ID matches the provided search term(s):\n"
@@ -282,4 +378,11 @@ class BadQueryTerm(Exception):
             "Scroll up to see tracebacks above for each individual exception encountered."
         )
         super().__init__(message)
-        self.bad_searches_dict = bad_searches_dict
+        self.bad_searches = bad_searches
+
+
+class DuplicateSlugifiedStudyNames(Exception):
+    def __init__(self, dupe_study_names: Dict[str, int]):
+        message = f"These slugified study names are not unique: {list(dupe_study_names.keys())}."
+        super().__init__(message)
+        self.dupe_study_names = dupe_study_names
