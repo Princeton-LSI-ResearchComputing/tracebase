@@ -37,6 +37,8 @@ from DataRepo.utils.exceptions import (
     MissingSamples,
     MultiLoadStatus,
     MultipleDefaultSequencesFound,
+    MultipleMatchingPeakAnnotationFiles,
+    MultipleMatchingPeakAnnotationFilesSummary,
     MutuallyExclusiveOptions,
     MzxmlColocatedWithMultipleAnnot,
     MzxmlColocatedWithMultipleAnnots,

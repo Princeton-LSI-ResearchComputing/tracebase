@@ -5425,7 +5425,8 @@ class InvalidPeakAnnotationFileFormat(InfileError):
     """The peak annotation file format code is either unrecognized, or doesn't appear to match the auto-detected format
     of the supplied file.
 
-    This exception is raised as an error on the Upload **Start** page only.
+    This exception is raised as an error on the Upload **Start** page.  It can also occur during loading on the command
+    line.
 
     To resolve this issue, select the format code using the dropdown menus in the `File Format` column of the
     `Peak Annotation Files` sheet in the Study Doc that corresponds to the reported file.
@@ -5509,6 +5510,64 @@ class DuplicatePeakAnnotationFileName(Exception):
         message = f"Peak annotation filenames must be unique.  Filename {filename} was encountered multiple times."
         super().__init__(message)
         self.filename = filename
+
+
+class MultipleMatchingPeakAnnotationFilesSummary(Exception):
+    """One or more peak annotation filenames supplied in the Peak Annotation Files sheet had multiple matching files
+    found in the study directory.
+
+    To resolve this issue, either delete the duplicates (recommended) or specify the path (relative to the study
+    directory) to the desired file in the Peak Annotation Files sheet.
+
+    TraceBase requires that peak annotation filenames be globally unique to avoid ambiguities when sharing or
+    referencing data files.
+    """
+
+    def __init__(self, exceptions: List[MultipleMatchingPeakAnnotationFiles]):
+        # Collect all the files in a 2D dict
+        files_dict: Dict[str, List[str]] = defaultdict(list)
+        for exc in exceptions:
+            filename = os.path.basename(exc.annot_files[0])
+            for file in exc.annot_files:
+                files_dict[filename].append(file)
+
+        # Craft the message
+        nlt = "\n\t"
+        nltt = "\n\t\t"
+        message = (
+            f"{len(exceptions)} peak annotation filenames from the Peak Annotation Files sheet had multiple matching "
+            "files found in the study directory:\n"
+            f"\t{nlt.join([name + nltt + nltt.join(paths) for name, paths in files_dict.items()])}\n"
+            "Either delete the duplicate(s) (recommended) or specify the path (relative to the study directory) to the "
+            "desired file in the Peak Annotation Files sheet for each filename listed."
+        )
+        super().__init__(message)
+        self.exceptions = exceptions
+
+
+class MultipleMatchingPeakAnnotationFiles(InfileError, SummarizableError):
+    """A peak annotation filename supplied in the Peak Annotation Files sheet had multiple matching files found in the
+    study directory.
+
+    To resolve this issue, either delete the duplicates (recommended) or specify the path (relative to the study
+    directory) to the desired file in the Peak Annotation Files sheet.
+
+    TraceBase requires that peak annotation filenames be globally unique to avoid ambiguities when sharing or
+    referencing data files.
+    """
+
+    SummarizerExceptionClass = MultipleMatchingPeakAnnotationFilesSummary
+
+    def __init__(self, annot_files: List[str], **kwargs):
+        nltt = "\n\t\t"
+        message = (
+            f"A peak annotation filename from %s had multiple matching files found in the study directory:\n"
+            f"\t{os.path.basename(annot_files[0])}\n\t\t{nltt.join(annot_files)}\n"
+            "Either delete the duplicate(s) (recommended) or specify the path (relative to the study directory) to the "
+            "desired file in the Peak Annotation Files sheet for each file listed."
+        )
+        super().__init__(message, **kwargs)
+        self.annot_files = annot_files
 
 
 class InvalidStudyDocVersion(Exception):
