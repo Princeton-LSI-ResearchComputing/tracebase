@@ -1,6 +1,6 @@
 import os
 from collections import defaultdict, namedtuple
-from typing import Dict
+from typing import Dict, List, Optional
 
 from django.db import transaction
 
@@ -15,6 +15,8 @@ from DataRepo.utils.exceptions import (
     AggregatedErrors,
     AggregatedErrorsSet,
     FileFromInputNotFound,
+    InvalidPeakAnnotationFileFormat,
+    MultipleMatchingPeakAnnotationFiles,
     RollbackException,
 )
 from DataRepo.utils.file_utils import get_sheet_names, is_excel, read_from_file
@@ -122,6 +124,8 @@ class PeakAnnotationFilesLoader(TableLoader):
     # List of model classes that the loader enters records into.  Used for summarized results & some exception handling
     Models = [ArchiveFile]
 
+    peak_annot_exts = ["xlsx", "csv", "tsv"]
+
     def __init__(self, *args, **kwargs):
         """Constructor.
 
@@ -207,6 +211,9 @@ class PeakAnnotationFilesLoader(TableLoader):
 
         # For tracking exceptions of the individual peak annotation loaders
         self.aggregated_errors_dict = {}
+
+        # Walk the dir once to identify potential peak annot files for the find_annot_file method
+        self.potential_peak_annot_files = self.map_potential_peak_annot_files()
 
     def load_data(self):
         """Loads the ArchiveFile table from the dataframe and calls the PeakAnnotationsLoader for each file.
@@ -305,9 +312,11 @@ class PeakAnnotationFilesLoader(TableLoader):
                     # In case the path is relative to the current directory
                     filepath = filepath_str
                 else:
-                    # Make the forthcoming error show the path relative to the study doc, which we should encourange
-                    # users to use.
-                    filepath = os.path.join(study_dir, filepath_str)
+                    # Try and find the file
+                    filepath = self.find_annot_file(filepath_str, study_dir=study_dir)
+                    if not os.path.isfile(filepath):
+                        self.add_skip_row_index()
+                        return filename, None, format_code
             else:
                 # We will look relative to the current directory
                 filepath = filepath_str
@@ -474,9 +483,8 @@ class PeakAnnotationFilesLoader(TableLoader):
             or format_code not in PeakAnnotationsLoader.get_supported_formats()
         ):
             self.buffer_infile_exception(
-                (
-                    f"Skipping load of peak annotations file '{filename}'.  Unrecognized format code: {format_code}.  "
-                    f"Must be one of {PeakAnnotationsLoader.get_supported_formats()}."
+                InvalidPeakAnnotationFileFormat(
+                    format_code, PeakAnnotationsLoader.get_supported_formats(), filepath
                 ),
                 column=self.headers.FORMAT,
                 is_error=False,
@@ -675,3 +683,91 @@ class PeakAnnotationFilesLoader(TableLoader):
         if self.file is None:
             return os.getcwd()
         return os.path.dirname(os.path.abspath(self.file))
+
+    def find_annot_file(
+        self, supplied_file_with_opt_path: str, study_dir: Optional[str] = None
+    ):
+        """Given a supplied file name with optional path information that was not found to exist, find the file under
+        the supplied study directory and return it with its filepath (if explicitly 1 was found with an identical name).
+
+        Args:
+            supplied_files_with_opt_path (str): A peak annotation file with optional path (derived from the Peak
+                Annotation Files sheet).
+            study_dir (Optional[str]) [current directory]: A directory under which peak annotation files reside (in
+                subdirectories).
+        Exceptions:
+            None
+        Returns:
+            (str): A peak annotation filepath if one was found, the supplied_file_with_opt_path if one was not found.
+        """
+
+        if study_dir is None or study_dir == "":
+            study_dir = os.getcwd()
+
+        if os.path.exists(supplied_file_with_opt_path):
+            return supplied_file_with_opt_path
+
+        # Use a list to track the paths of potentially multiple files with the same name
+        matching_annot_files: List[str] = []
+
+        # Determine the path the user supplied in the Peak Annotation Files sheet (if any)
+        supplied_dirpath, supplied_filename = os.path.split(supplied_file_with_opt_path)
+
+        if supplied_filename in self.potential_peak_annot_files:
+            matching_annot_files = self.potential_peak_annot_files[supplied_filename]
+
+        # If there are multiple files with this name (which is not allowed)
+        if len(matching_annot_files) > 1:
+            self.buffer_infile_exception(
+                MultipleMatchingPeakAnnotationFiles(matching_annot_files),
+                is_error=False,
+                is_fatal=self.validate,
+                column=self.headers.FILE,
+            )
+            # Return the supplied file name if 1 file was not found (the caller will deal with the ensuing error)
+            return supplied_file_with_opt_path
+        elif len(matching_annot_files) == 0:
+            # Return the supplied file name if not found at all (the caller will deal with the ensuing error)
+            return supplied_file_with_opt_path
+        elif len(matching_annot_files) == 1 and supplied_dirpath not in ["", "."]:
+            # Buffer a warning that the supplied path was wrong, (but the file was found).
+            self.buffer_infile_exception(
+                ValueError(
+                    f"The peak annotation filepath supplied '{supplied_file_with_opt_path}' was incorrect but a "
+                    "file matching this filename was found in the study directory, so this is just a warning.  "
+                    "Correct the Peak Annotation Files sheet to eliminate this warning."
+                ),
+                is_error=False,
+                is_fatal=self.validate,
+                column=self.headers.FILE,
+            )
+
+        return matching_annot_files[0]
+
+    def map_potential_peak_annot_files(self):
+        """This finds all **potential** peak annotation files and returns a dict keyed on filename, containing a list of
+        filepaths to all files with the same name.
+
+        The intended purpose is for use in self.find_annot_file(), so that the directory is only walked once.
+        """
+        potential_peak_annot_files: Dict[List[str]] = defaultdict(list)
+
+        # We do not need to map the files if no study doc was supplied, because the purpose is to find files from the
+        # Peak Annotation File column of the Peak Annotation Files sheet.  If there is no sheet, there's no need to find
+        # those files.
+        if self.file is None:
+            return {}
+
+        # Determine the study directory
+        study_dir = None if self.file is None else os.path.dirname(self.file)
+
+        # Walk the directory
+        for dir_path, _, fileset in os.walk(study_dir):
+            filename: str
+            for filename in fileset:
+                # If the current file matches one of the supplied files
+                if any(filename.lower().endswith(ext) for ext in self.peak_annot_exts):
+                    filepath = os.path.join(dir_path, filename)
+                    potential_peak_annot_files[filename].append(filepath)
+
+        return potential_peak_annot_files
