@@ -1,5 +1,4 @@
 import os
-import tempfile
 from datetime import datetime
 
 from django.db.models import Q
@@ -8,7 +7,7 @@ from django.template.loader import get_template
 
 from DataRepo.formats.search_group import SearchGroup
 from DataRepo.models import Study
-from DataRepo.utils.exceptions import AggregatedErrors, trace
+from DataRepo.utils.exceptions import AggregatedErrors
 from DataRepo.views.search.download import AdvancedSearchDownloadView
 
 
@@ -23,7 +22,6 @@ class StudiesExporter:
         outdir,
         study_targets=None,
         data_types=None,
-        overwrite=False,
     ):
         self.bad_searches = {}
 
@@ -35,7 +33,6 @@ class StudiesExporter:
         self.outdir = outdir
         self.study_targets = study_targets or []
         self.data_types = data_types or self.all_data_types
-        self.overwrite = overwrite
 
     def export(self):
         # For individual traceback prints
@@ -72,36 +69,18 @@ class StudiesExporter:
             study_ids = list(Study.objects.all().values_list("id", flat=True))
 
         # Make output directory
-        if not os.path.exists(self.outdir):
-            os.mkdir(self.outdir)
-
-        existing_files = []
+        os.mkdir(self.outdir)
 
         # For each study (name)
         for study_id in study_ids:
             study_id_str = f"study_{study_id:04d}"
 
             # Make study directory
-            study_dir = os.path.join(self.outdir, study_id_str)
-            if not os.path.exists(study_dir):
-                os.mkdir(study_dir)
+            os.mkdir(os.path.join(self.outdir, study_id_str))
 
             # For each data type
             for data_type in self.data_types:
                 datatype_slug = slugify(data_type)
-                filepath = os.path.join(
-                    study_dir, f"{study_id_str}-{datatype_slug}.tsv"
-                )
-
-                if os.path.exists(filepath) and not self.overwrite:
-                    file_exists = FileExistsError(
-                        f"File {filepath} exists.  Use the overwrite option to overwrite existing files."
-                    )
-                    print(
-                        f"{trace(file_exists)}\n{type(file_exists).__name__}: {file_exists}"
-                    )
-                    existing_files.append(filepath)
-                    continue
 
                 # A data type name corresponds to a format key
                 data_type_key = self.sg.format_name_or_key_to_key(data_type)
@@ -121,69 +100,21 @@ class StudiesExporter:
                 # Do the query of the format (ignoring count and optional stats)
                 results, _, _ = self.sg.perform_query(qry, data_type_key)
 
-                # Compose a list of output lines
-                content_list = []
-                for line in AdvancedSearchDownloadView.tsv_template_iterator(
-                    self.row_template, self.header_template, results, qry, dt_string
-                ):
-                    content_list.append(line)
-
                 # Output a file
-                self.atomic_file_write_and_move(filepath, "".join(content_list))
-
-        if len(existing_files) > 0:
-            nlt = "\n\t"
-            raise FileExistsError(
-                "The following files exist and were skipped.  You can ignore this error if you do not want to "
-                "overwrite these files.  Use the overwrite option to overwrite existing files.\n"
-                f"\t{nlt.join(existing_files)}"
-            )
-
-    def atomic_file_write_and_move(self, final_destination_path: str, content: str):
-        """Writes content to a temporary file and then moves it to the final destination path.
-
-        Uses NamedTemporaryFile to get a temp file in the filesystem.
-        It sets delete=False to keep the file after it's closed, so it can be moved.
-        'w+t' mode is for text; use 'w+b' for binary data.
-
-        Args:
-            final_destination_path (str): Path of the file to ultimately output to.
-            content (str): One string containing all the file content.
-        Exceptions:
-            No explicit exceptions, but some may arise from the file system, like:
-                FileExistsError - When overwrite is false and an output file exists.
-        Returns:
-            None
-        """
-        # Use NamedTemporaryFile to get a file with a visible name in the filesystem.
-        # Set delete=False to keep the file after it's closed, so it can be moved.
-        # 'w+t' mode is for text; use 'w+b' for binary data.
-        try:
-            suffix = os.path.basename(final_destination_path)
-            with tempfile.NamedTemporaryFile(
-                mode="w+t", delete=False, encoding="utf-8", suffix=suffix
-            ) as temp_file:
-                temp_path = temp_file.name
-                # Write data to the temporary file
-                temp_file.write(content)
-                # File is automatically flushed when exiting the 'with' block
-
-            # After the 'with' block, the temp file is closed and the data is on disk.
-            # Now move it to the final destination.
-            # os.replace performs an atomic move/rename if possible.
-            os.replace(temp_path, final_destination_path)
-            print(final_destination_path)
-
-        except Exception as e:
-            # Clean up the temporary file if the process was interrupted
-            if os.path.exists(temp_path):
-                os.remove(temp_path)
-            print(f"Cleaned up temporary file {temp_path}")
-            raise e
+                with open(
+                    os.path.join(
+                        self.outdir, study_id_str, f"{study_id_str}-{datatype_slug}.tsv"
+                    ),
+                    "w",
+                ) as outfile:
+                    for line in AdvancedSearchDownloadView.tsv_template_iterator(
+                        self.row_template, self.header_template, results, qry, dt_string
+                    ):
+                        outfile.write(line)
 
 
 class BadQueryTerm(Exception):
-    def __init__(self, bad_searches_dict: dict):
+    def __init__(self, bad_searches_dict):
         deets = [f"{k}: {type(v).__name__}: {v}" for k, v in bad_searches_dict.items()]
         nt = "\n\t"
         message = (
