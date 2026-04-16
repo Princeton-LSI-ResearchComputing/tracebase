@@ -8,18 +8,18 @@ from DataRepo.views.models.bst.query import BSTListView
 
 class LCMethodListView(BSTListView):
     model = LCMethod
-    exclude = ["id", "msrun_sequences", "run_length"]
+    exclude = ["id", "msrunsequence", "run_length"]
     column_ordering = [
         "name",
         "type",
         "description",
         "run_length_mins",
-        "msrun_sequences_mm_count",
+        "msrunsequence_mm_count",
     ]
     column_settings = {
         "type": {"filterer": {"distinct_choices": True}},
         "run_length_mins": {"header": "Run Length (m)", "tooltip": "Units:  minutes"},
-        "msrun_sequences_mm_count": {
+        "msrunsequence_mm_count": {
             "header": "MSRun Sequence Count",
             "tooltip": "Number of runs of the MS instrument.",
         },

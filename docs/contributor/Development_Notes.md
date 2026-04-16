@@ -109,8 +109,8 @@ Make sure that the `MAX_ENTRIES` in the settings is sufficient to hold all calcu
       - Numeric values that have long decimal strings should be formatted with a tooltip like this: `<p title="{{ rec.longval }}">{{ rec.longval|floatformat:4 }}</p>`
       - Name fields should be linked to their details page using their ID, e.g. `<a href="{% url 'peakgroup_detail' pg.id %}">{{ pg.name }}</a>`
 
-4. `DataRepo/templates/search/downloads/<format name>_{colheads,row}.tsv`
-   - Copy `DataRepo/templates/search/downloads/peakgroups_colheads.tsv` and `DataRepo/templates/search/downloads/peakgroups_row.tsv` to new files with a name that indicates the format (e.g., same name as in step 3 with a different extension) and edit as you wish, following these guidelines:
+4. `DataRepo/templates/downloads/<format name>_{colheads,row}.tsv`
+   - Copy `DataRepo/templates/downloads/peakgroups_colheads.tsv` and `DataRepo/templates/downloads/peakgroups_row.tsv` to new files with a name that indicates the format (e.g., same name as in step 3 with a different extension) and edit as you wish, following these guidelines:
       - If a field's path includes a many-to-many relationship, e.g. `models.ManyToManyField`, and the resulting table should include a row for every root-model/M:M-model combo...
          - See the `manytomany` settings for step 1 above.
          - See the MeasuredCompound column code in the `peakgroups.html` for an example.  Othwerwise, follow these guidelines:
@@ -130,6 +130,14 @@ Make sure that the `MAX_ENTRIES` in the settings is sufficient to hold all calcu
      Paste it before the `endif` and make the following edits:
       - Replace `pdtemplate` with the ID you assigned at the top of step 1
       - Replace the filename on the include line with the file created in step 4 above
+
+7. `DataRepo/templates/navbar.html`
+   - For each item in the download `dropdown-menu`, edit the `qryjson` value to add the entry for the new format template.  Basically, you need to append an edited version of:
+      `, \&quot;fctemplate\&quot;: {\&quot;name\&quot;: \&quot;FCirc\&quot;, \&quot;tree\&quot;: {\&quot;pos\&quot;: \&quot;\&quot;, \&quot;type\&quot;: \&quot;group\&quot;, \&quot;val\&quot;: \&quot;all\&quot;, \&quot;queryGroup\&quot;: []}}`" just before "`}}&quot;`
+   at the end of the value string.  `fctemplate` and `FCirc` of the above string must be changed to the template ID and name used in step 1.
+   - Copy the entire last item of the same `dropdown-menu` (from `<li>` to `</li>`), paste it at the end of the list, and...
+      - Change the `selectedtemplate` in the `qryjson` value to the template ID used in step 1.
+      - Change the submit button text for the new format.  E.g. change `All FCirc Data` to use the name set in step 1.
 
 ### Notes
 

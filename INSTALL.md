@@ -220,7 +220,6 @@ The following is an example `/etc/httpd/conf.d/tracebase.conf` file:
         SSLProtocol all -SSLv2 -SSLv3
         ServerName example.edu
         Timeout 180
-        LimitRequestFieldSize 12392
         ErrorLog logs/tracebase-error_log
         CustomLog logs/tracebase-access_log common
         WSGIDaemonProcess tracebase processes=2 threads=4 display-name=tracebase python-home=/usr/local/tracebase python-path=/var/www/tracebase

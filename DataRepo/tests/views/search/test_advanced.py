@@ -32,7 +32,7 @@ class AdvancedSearchViewTests(ModelViewTests):
     def get_advanced_search_inputs(self):
         asform = {
             "fmt": "pgtemplate",
-            "form-TOTAL_FORMS": "4",
+            "form-TOTAL_FORMS": "3",
             "form-INITIAL_FORMS": "0",
             "form-0-pos": "pgtemplate-PeakGroups-selected.0-all-False.0",
             "form-0-fld": "msrun_sample__sample__tissue__name",
@@ -47,10 +47,6 @@ class AdvancedSearchViewTests(ModelViewTests):
             "form-2-fld": "msrun_sample__sample__animal__name",
             "form-2-ncmp": "iexact",
             "form-2-units": "identity",
-            "form-3-pos": "mztemplate-mzXML.0-all-False.0",
-            "form-3-fld": "mz_to_msrunsamples__sample__animal__name",
-            "form-3-ncmp": "iexact",
-            "form-3-units": "identity",
         }
         qry = self.get_advanced_qry()
         dlform = {
@@ -86,26 +82,6 @@ class AdvancedSearchViewTests(ModelViewTests):
                         ],
                     },
                     "name": "PeakGroups",
-                },
-                "mztemplate": {
-                    "tree": {
-                        "pos": "",
-                        "type": "group",
-                        "val": "all",
-                        "static": False,
-                        "queryGroup": [
-                            {
-                                "type": "query",
-                                "pos": "",
-                                "ncmp": "iexact",
-                                "static": "",
-                                "fld": "mz_to_msrunsamples__sample__animal__name",
-                                "val": "",
-                                "units": "identity",
-                            }
-                        ],
-                    },
-                    "name": "mzXML",
                 },
                 "pdtemplate": {
                     "tree": {

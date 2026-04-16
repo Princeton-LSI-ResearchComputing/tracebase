@@ -210,6 +210,6 @@ class MSRunSampleTests(TracebaseTestCase):
     def test_mzxml_export_path(self):
         msrs = self.create_rec()
         self.assertEqual(
-            "1972-11-24/Jerry Seinfeld/QE/unknown/positive/1-1234/test.mzxml",
+            "1972-11-24/Jerry Seinfeld/QE/unknown/positive/1-1.23e+03/test.mzxml",
             msrs.mzxml_export_path,
         )
