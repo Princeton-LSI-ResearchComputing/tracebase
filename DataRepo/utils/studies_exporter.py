@@ -1,9 +1,14 @@
+from collections import defaultdict
+import hashlib
+from itertools import zip_longest
 import os
 import socket
 import tempfile
 from collections import defaultdict
 from datetime import datetime
 from typing import Callable, Dict, Iterator, List, Optional, Tuple
+import zipfile
+import io
 
 from django.conf import settings
 from django.db.models import Q
@@ -379,6 +384,189 @@ class StudiesExporter(ExportBase):
                 unique_study_names.append(study_name)
         if dupe_study_names:
             raise DuplicateSlugifiedStudyNames(dupe_study_names)
+
+
+class ExportsOrganizer:
+    def organize(self, export_dir: str):
+        files = [f for f in os.listdir(export_dir) if os.path.isfile(f)]
+        (by_study_first, by_datatype_first) = self.organize_exports_by_study_and_datatype(files)
+        last_date, last_date_by_study, last_date_by_datatype = self.remove_unchanged_exports(by_study_first)
+        self.zip_export_combos(by_study_first, by_datatype_first, last_date, last_date_by_study, last_date_by_datatype)
+
+    def organize_exports_by_study_and_datatype(self, files):
+        study_names = dict((rec.id, rec.name) for rec in Study.objects.all())
+        study_then_datatype_data: Dict[str, Dict[str, Dict[str, List[Dict[str, str]]]]] = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+        datatype_then_study_data: Dict[str, Dict[str, Dict[str, List[Dict[str, str]]]]] = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+        for file in sorted(files):
+            filenameext = os.path.basename(file)
+            filename: str
+            filename, ext = os.path.splitext(filenameext)
+            (host, date_str, slugged_study_name, study_id, data_type) = filename.split("-")
+            study_then_datatype_data[host][study_id][data_type].append(
+                {
+                    "date": date_str,
+                    "file": file,
+                    "id": str(int(study_id)),  # Removes leading zeroes
+                    "name": study_names[study_id],
+                    "slug": slugged_study_name,
+                    "ext": ext,
+                }
+            )
+            datatype_then_study_data[host][data_type][study_id].append(
+                {
+                    "date": date_str,
+                    "file": file,
+                    "id": str(int(study_id)),
+                    "name": study_names[study_id],
+                    "slug": slugged_study_name,
+                    "ext": ext,
+                }
+            )
+
+    def remove_unchanged_exports(self, by_study_first: Dict[str, Dict[str, Dict[str, List[Dict[str, str]]]]]):
+        last_date = "1972.11.24"
+        last_date_by_study: Dict[str, str] = {}
+        last_date_by_datatype: Dict[str, str] = {}
+        for host_dict in by_study_first.values():
+            for study_id, study_dict in host_dict.items():
+                for data_type, file_dict_list in study_dict.items():
+                    if len(file_dict_list) < 2:
+                        continue
+                    # file_dict_list is already sorted by date because the files are sorted and the name starts with (the host, then) the date
+                    prev_file_dict = file_dict_list[-2]
+                    last_file_dict = file_dict_list[-1]
+                    if not self.files_differ(prev_file_dict, last_file_dict, zip = last_file_dict["ext"] == "zip"):
+                        # Delete the last file and set the last dict's file to the previous
+                        os.remove(file_dict_list[-1]["file"])
+                        file_dict_list.pop()
+                    if file_dict_list[-1]["date"] > last_date:
+                        last_date = file_dict_list[-1]["date"]
+                    if study_id not in last_date_by_study or file_dict_list[-1]["date"] > last_date_by_study[study_id]:
+                        last_date_by_study[study_id] = file_dict_list[-1]["date"]
+                    if data_type not in last_date_by_datatype or file_dict_list[-1]["date"] > last_date_by_datatype[data_type]:
+                        last_date_by_datatype[data_type] = file_dict_list[-1]["date"]
+        return last_date, last_date_by_study, last_date_by_datatype
+
+
+    def files_differ(self, prev_file_dict, last_file_dict, zip=False):
+        if zip:
+            return self.mzxml_zips_differ(prev_file_dict, last_file_dict)
+        return self.tsv_files_differ(prev_file_dict, last_file_dict)
+
+    def mzxml_zips_differ(self, prev_file_dict, next_file_dict):
+        """Calls self.tsv_file_objs_differ on the TSV files contained in the mzXML zip files."""
+        differs = False
+
+        with zipfile.ZipFile(prev_file_dict["file"], 'r') as zp:
+            tsv_files = [name for name in zp.namelist() if name.endswith('.tsv')]
+            if len(tsv_files) != 1:
+                raise
+            prev_tsv = tsv_files[0]
+
+            with zipfile.ZipFile(next_file_dict["file"], 'r') as zn:
+                tsv_files = [name for name in zn.namelist() if name.endswith('.tsv')]
+                if len(tsv_files) != 1:
+                    raise
+                next_tsv = tsv_files[0]
+
+
+                # Access the member as a binary file-like object
+                with zp.open(prev_tsv) as prev_binary_file:
+                    # Wrap the binary stream to handle text decoding
+                    with io.TextIOWrapper(prev_binary_file, encoding='utf-8') as prev_file_obj:
+
+                        with zn.open(prev_tsv) as next_binary_file:
+                            # Wrap the binary stream to handle text decoding
+                            with io.TextIOWrapper(next_binary_file, encoding='utf-8') as next_file_obj:
+                                differs = self.tsv_file_objs_differ(prev_file_obj, next_file_obj)
+                                if differs:
+                                    return differs
+
+        # If the tsvs are the same, also check the mzXML files
+        prev_mzxml_checksums = self.get_mzxml_zip_checksums(prev_file_dict["file"])
+        next_mzxml_checksums = self.get_mzxml_zip_checksums(next_file_dict["file"])
+
+        return prev_mzxml_checksums.items() == next_mzxml_checksums.items()
+
+    def tsv_files_differ(self, prev_file_dict, last_file_dict):
+        with open(prev_file_dict["file"], 'r') as f1, open(last_file_dict["file"], 'r') as f2:
+            return self.tsv_file_objs_differ(f1, f2)
+
+    def tsv_file_objs_differ(self, prev_file_obj, next_file_obj):
+
+        # Create generators that skip comments
+        prev_file_generator = (line for line in prev_file_obj if not str(line).startswith('#'))
+        next_file_generator = (line for line in next_file_obj if not str(line).startswith('#'))
+
+        # compare line by line; return False immediately if a mismatch is found
+        for prev_file_line, next_file_line in zip_longest(prev_file_generator, next_file_generator):
+            if prev_file_line != next_file_line:
+                return True
+
+        return False
+
+    def get_mzxml_zip_checksums(self, zip_path):
+        checksums = {}
+        with zipfile.ZipFile(zip_path, 'r') as z:
+            # Filter files by extension
+            mzxml_files = [f for f in z.namelist() if f.lower().endswith(".mzxml")]
+
+            for file_name in mzxml_files:
+                # Open file in-memory without extracting to disk
+                with z.open(file_name) as f:
+                    sha256_hash = hashlib.sha256()
+                    # Read in chunks for memory efficiency with large files
+                    for byte_block in iter(lambda: f.read(4096), b""):
+                        sha256_hash.update(byte_block)
+                    checksums[file_name] = sha256_hash.hexdigest()
+
+        return checksums
+
+    def zip_export_combos(
+        self,
+        by_study_first: Dict[str, Dict[str, Dict[str, List[Dict[str, str]]]]],
+        by_datatype_first: Dict[str, Dict[str, Dict[str, List[Dict[str, str]]]]],
+        last_date: str,
+        last_date_by_study: Dict[str, str],
+        last_date_by_datatype: Dict[str, str],
+    ):
+        # Zip everything
+        # Orig Filename: {instance_name}-{export_datestamp}-{study_name}-{study_id}-{data_type}.{extension}
+
+        # All studies and datatypes  Filename: {instance_name}-{export_datestamp}-allstudies-alldatatypes.zip
+        # All studies by datatype    Filename: {instance_name}-{export_datestamp}-allstudies-{data_type}.zip
+        # All datatypes by study     Filename: {instance_name}-{export_datestamp}-{study_name}-{study_id}-alldatatypes.zip
+        # Individually               Filename: {instance_name}-{export_datestamp}-{study_name}-{study_id}-{data_type}.zip
+
+        slugified_study_names = dict((rec.id, get_valid_filename(rec.name).replace("-", "_")) for rec in Study.objects.all())
+
+        # Create the filenames first, then create the zip if it does not exist
+        for host, host_dict in by_study_first.items():
+            allstudies_alldatatypes_file = f"{host}-{last_date}-allstudies-alldatatypes.zip"
+            if not os.path.exists(allstudies_alldatatypes_file):
+                self.create_all_zip(host_dict, allstudies_alldatatypes_file)
+
+            for study_id, study_dict in host_dict.items():
+                study_file = f"{host}-{last_date_by_study[study_id]}-{slugified_study_names[study_id]}-alldatatypes.zip"
+                if not os.path.exists(study_file):
+                    self.create_study_zip(study_dict, study_file)
+
+            for data_type, data_type_dict in by_datatype_first.items():
+                datatype_file = f"{host}-{last_date_by_datatype[data_type]}-allstudies-{data_type}.zip"
+                if not os.path.exists(datatype_file):
+                    self.create_datatype_zip(data_type_dict, datatype_file)
+
+    def create_all_zip(self, data: Dict[str, Dict[str, List[Dict[str, str]]]], filepath: str):
+        """Takes dict like data[study_id][data_type] = list of dicts"""
+        pass
+
+    def create_study_zip(self, data: Dict[str, List[Dict[str, str]]], filepath: str):
+        """Takes dict like data[data_type] = list of dicts"""
+        pass
+
+    def create_datatype_zip(self, data: Dict[str, List[Dict[str, str]]], filepath: str):
+        """Takes dict like data[study_id] = list of dicts"""
+        pass
 
 
 class BadQueryTerm(Exception):
