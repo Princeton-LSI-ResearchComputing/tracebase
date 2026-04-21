@@ -28,8 +28,8 @@ body::-webkit-scrollbar {
 /* customize Bootstrap-table settings for td */
 .bootstrap-table .fixed-table-container .table tbody tr.no-records-found td {
   text-align: center;
-  overflow-wrap: word-wrap !important; /* added new variable and value */
-  word-wrap: break-all !important; /* added new variable and value */
+  overflow-wrap: word-wrap !important; /* stylelint-disable-line declaration-property-value-no-unknown */
+  word-wrap: break-all !important; /* stylelint-disable-line declaration-property-value-no-unknown, property-no-deprecated */
   word-break: break-all !important; /* added new variable and value */
 }
 

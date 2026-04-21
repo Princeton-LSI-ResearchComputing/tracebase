@@ -55,7 +55,7 @@ function getSortValue (v) {
   const isHTMLregex = /^(?:\s*(<[\w\W]+>)[^>]*|#([\w-]*))$/
 
   // Extract the inner HTML, if the content is inside an HTML element
-  if (isHTMLregex.test(v)) v = $(v).text().trim()
+  if (isHTMLregex.test(v)) v = $(v).text().trim() // eslint-disable-line no-undef
 
   // Do not alphabetically sort "None" (special case from Python/Django)
   // Nones should appear first (or last if desc sorting)

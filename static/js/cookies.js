@@ -26,7 +26,7 @@ function getCookie (name, defval) { // eslint-disable-line no-unused-vars
     // ^ A regular string can look like an encoded string, in which case, the return value will be invalid, but those
     // cases will eventually flush out.
     return tmpval
-  } catch (e) {
+  } catch (e) { // eslint-disable-line no-unused-vars
     return val
   }
 }

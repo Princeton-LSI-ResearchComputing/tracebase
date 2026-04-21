@@ -607,3 +607,18 @@ def get_plural(word: str):
         words[last] = inflect_engine.plural_noun(valid_last_word)
         return " ".join(words)
     return word
+
+
+def indent(string: str, degree=1, indent_str="\t"):
+    """Takes a multi-line string and returns the string with an indent inserted on each line.
+
+    Args:
+        string (str): A multi-line string containing newline characters delineating each line.
+        degree (int) [1]: The indent level.  I.e. The number of indent_strs to prepend on each line.
+        indent_str (str) [\t]: The string to use to insert the indent on each line.
+    Exceptions:
+        None
+    Returns:
+        (str): The indented version of the input string.
+    """
+    return "\n".join([indent_str * degree + line for line in string.splitlines()])

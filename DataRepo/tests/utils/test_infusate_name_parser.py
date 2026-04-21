@@ -311,7 +311,7 @@ class InfusateValidationTests(InfusateTestData):
 
     def test_tracer_creation(self):
         """Test creation of a valid tracer object from TracerData"""
-        (tracer, created) = Tracer.objects.get_or_create_tracer(
+        tracer, created = Tracer.objects.get_or_create_tracer(
             self.tracer_data_l_leucine
         )
         self.assertTrue(created)
@@ -352,7 +352,7 @@ class InfusateValidationTests(InfusateTestData):
     def test_tracer_validation_fully_labeled_no_positions(self):
         """Test tracer validation allows no postions on fully labeled compound"""
         tracer_data_leucine_fully_labeled = parse_tracer_string("Leucine-[13C6]")
-        (tracer, _) = Tracer.objects.get_or_create_tracer(
+        tracer, _ = Tracer.objects.get_or_create_tracer(
             tracer_data_leucine_fully_labeled
         )
         self.assertEqual(tracer.name, "leucine-[13C6]")
@@ -369,7 +369,7 @@ class InfusateValidationTests(InfusateTestData):
 
     def test_infusion_creation(self):
         """Test the creation of a valid infusate from InfusateData"""
-        (infusate, created) = Infusate.objects.get_or_create_infusate(
+        infusate, created = Infusate.objects.get_or_create_infusate(
             self.infusate_data_bcaas
         )
         self.assertTrue(created)
@@ -382,7 +382,7 @@ class InfusateValidationTests(InfusateTestData):
 
     def test_infusion_creation_without_optional_name(self):
         """Test the creation of a valid infusate without the optional name"""
-        (infusate, created) = Infusate.objects.get_or_create_infusate(
+        infusate, created = Infusate.objects.get_or_create_infusate(
             self.infusate_data_l_leucine
         )
         self.assertTrue(created)
@@ -395,9 +395,7 @@ class InfusateValidationTests(InfusateTestData):
 
     def test_infusion_validation_name_conflict(self):
         """Test infusate validation when two groups of tracers share the same infusate name"""
-        (infusate, _) = Infusate.objects.get_or_create_infusate(
-            self.infusate_data_bcaas
-        )
+        infusate, _ = Infusate.objects.get_or_create_infusate(self.infusate_data_bcaas)
         self.assertEqual(infusate.tracer_group_name, "BCAAs")
         with self.assertRaisesRegex(
             ValidationError, "Tracer group name BCAAs is inconsistent."
@@ -411,13 +409,13 @@ class InfusateValidationTests(InfusateTestData):
 
     def test_infusion_validation_same_name(self):
         """Test invusate validation when two infusates have the same group of tracers and the same name"""
-        (infusate_conc1, created1) = Infusate.objects.get_or_create_infusate(
+        infusate_conc1, created1 = Infusate.objects.get_or_create_infusate(
             self.infusate_data_leucine_named_1
         )
         self.assertTrue(created1)
         self.assertEqual(infusate_conc1.tracer_group_name, "leucine")
 
-        (infusate_conc2, created2) = Infusate.objects.get_or_create_infusate(
+        infusate_conc2, created2 = Infusate.objects.get_or_create_infusate(
             self.infusate_data_leucine_named_2
         )
         self.assertTrue(created2)
@@ -425,7 +423,7 @@ class InfusateValidationTests(InfusateTestData):
 
     def test_infusion_get_by_data(self):
         """Test getting infusion record using InfusateData"""
-        (infusate, created) = Infusate.objects.get_or_create_infusate(
+        infusate, created = Infusate.objects.get_or_create_infusate(
             self.infusate_data_bcaas
         )
         self.assertTrue(created)
@@ -434,7 +432,7 @@ class InfusateValidationTests(InfusateTestData):
 
     def test_infusion_get_by_data_diffconc(self):
         """Test that concentration must match to get infusion record using InfusateData"""
-        (_, created) = Infusate.objects.get_or_create_infusate(
+        _, created = Infusate.objects.get_or_create_infusate(
             self.infusate_data_leucine_named_1
         )
         self.assertTrue(created)
@@ -631,12 +629,12 @@ class InfusateValidationTests(InfusateTestData):
         obs = parse_isotope_label(label, possible_obs)
         self.assertEqual(expected, obs)
 
-    def test_parse_isotope_label_ObservedIsotopeUnbalancedError(self):
+    def test_parse_isotope_label_observed_isotope_unbalanced_error(self):
         label = "C13N15-label-3-1-5"
         with self.assertRaises(ObservedIsotopeUnbalancedError):
             parse_isotope_label(label)
 
-    def test_parse_isotope_label_UnexpectedLabels(self):
+    def test_parse_isotope_label_unexpected_labels(self):
         label = "C13N15-label-3-1"
         possible_obs = [
             ObservedIsotopeData(
@@ -649,12 +647,12 @@ class InfusateValidationTests(InfusateTestData):
         with self.assertRaises(UnexpectedLabel):
             parse_isotope_label(label, possible_obs)
 
-    def test_parse_isotope_label_IsotopeStringDupe(self):
+    def test_parse_isotope_label_isotope_string_dupe(self):
         label = "C13N15C13-label-3-1-5"
         with self.assertRaises(IsotopeStringDupe):
             parse_isotope_label(label)
 
-    def test_parse_isotope_label_ObservedIsotopeParsingError(self):
+    def test_parse_isotope_label_observed_isotope_parsing_error(self):
         label = "nonsense"
         with self.assertRaises(ObservedIsotopeParsingError):
             parse_isotope_label(label)

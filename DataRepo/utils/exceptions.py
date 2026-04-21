@@ -6,7 +6,7 @@ import warnings
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from django.core.exceptions import (
     MultipleObjectsReturned,
@@ -17,6 +17,8 @@ from django.core.management import CommandError
 from django.db.models import Model, Q
 from django.db.utils import ProgrammingError
 from django.forms.models import model_to_dict
+
+from DataRepo.utils.text_utils import indent
 
 if TYPE_CHECKING:
     from DataRepo.models.animal import Animal
@@ -230,7 +232,7 @@ class InfileError(Exception):
 class SummarizableError(Exception, ABC):
     @property
     @abstractmethod
-    def SummarizerExceptionClass(self):
+    def SummarizerExceptionClass(self):  # pylint: disable=invalid-name
         """An exception class that takes a list of Exceptions of derived exception classes of this class as the sole
         required positional argument to its constructor.  All keyword arguments are ignored (if they exist).
 
@@ -736,12 +738,12 @@ class MissingModelRecords(MissingRecords, ABC):
 
     @property
     @abstractmethod
-    def ModelName(self):
+    def ModelName(self):  # pylint: disable=invalid-name
         pass
 
     @property
     @abstractmethod
-    def RecordName(self):
+    def RecordName(self):  # pylint: disable=invalid-name
         pass
 
     def __init__(
@@ -815,12 +817,12 @@ class MissingModelRecordsByFile(MissingRecords, ABC):
 
     @property
     @abstractmethod
-    def ModelName(self):
+    def ModelName(self):  # pylint: disable=invalid-name
         pass
 
     @property
     @abstractmethod
-    def RecordName(self):
+    def RecordName(self):  # pylint: disable=invalid-name
         pass
 
     def __init__(
