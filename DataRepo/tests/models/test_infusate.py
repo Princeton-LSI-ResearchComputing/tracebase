@@ -14,10 +14,10 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
 def create_infusate_records():
-    (glu, _) = Compound.objects.get_or_create(
+    glu, _ = Compound.objects.get_or_create(
         name="glucose", formula="C6H12O6", hmdb_id="HMDB0000122"
     )
-    (c16, _) = Compound.objects.get_or_create(
+    c16, _ = Compound.objects.get_or_create(
         name="C16:0", formula="C16H32O2", hmdb_id="HMDB0000220"
     )
 
@@ -62,7 +62,9 @@ class InfusateTests(TracebaseTestCase):
         MaintainedModel._reset_coordinators()
         # INFUSATE1: ti {C16:0-[5,6-13C2,17O2][2];glucose-[2,3-13C2,4-17O1][1]}
         # INFUSATE2: C16:0-[5,6-13C2,17O2][4];glucose-[2,3-13C2,4-17O1][3]
-        self.INFUSATE1, self.INFUSATE2 = create_infusate_records()
+        self.INFUSATE1, self.INFUSATE2 = (  # pylint: disable=invalid-name
+            create_infusate_records()
+        )
 
     @classmethod
     def setUpTestData(cls):

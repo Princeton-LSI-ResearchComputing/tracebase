@@ -15,7 +15,7 @@ function getVisibleValue (v) { // eslint-disable-line no-unused-vars
   const isHTMLregex = /^(?:\s*(<[\w\W]+>)[^>]*|#([\w-]*))$/
 
   // Extract the inner HTML, if the content is inside an HTML element
-  if (isHTMLregex.test(v)) v = $(v).text().trim()
+  if (isHTMLregex.test(v)) v = $(v).text().trim() // eslint-disable-line no-undef
   else v = v.trim()
 
   // Do not alphabetically sort "None" (special case from Python/Django)

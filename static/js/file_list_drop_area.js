@@ -46,11 +46,11 @@ function preventDefaults (e) { // eslint-disable-line no-unused-vars
   e.stopPropagation()
 }
 
-function highlight (e) {
+function highlight (e) { // eslint-disable-line no-unused-vars
   dropArea.classList.add('highlight')
 }
 
-function unhighlight (e) {
+function unhighlight (e) { // eslint-disable-line no-unused-vars
   dropArea.classList.remove('highlight')
 }
 

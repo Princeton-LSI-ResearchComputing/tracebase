@@ -126,7 +126,7 @@
   background-color: lightgray;
   width: max-content;
   opacity: 0;
-  word-wrap: normal;
+  word-wrap: normal; /* stylelint-disable-line property-no-deprecated */
   pointer-events: none;
   -webkit-transition: opacity 0.0s; /* Change timing to control how fast tooltip appears. */
   transition: none;

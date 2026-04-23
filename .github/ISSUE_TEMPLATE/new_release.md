@@ -28,7 +28,7 @@ None
     - [ ] `npx textlint -c .textlintrc.json CHANGELOG.md`
     - [ ] `git commit`
   - [ ] `git push` - commit and push updated changelog
-    - [ ] Ensure all tests pass in GitHub actions
+    - [ ] Ensure all tests pass in GitHub Actions
   - [ ] `git tag -a [TAG_NAME]`
     - [ ] Enter a description of the release when prompted
   - [ ] `git push origin [TAG_NAME]`

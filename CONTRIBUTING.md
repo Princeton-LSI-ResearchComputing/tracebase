@@ -69,7 +69,7 @@ Create a tracebase postgres user:
 
 #### Create a virtual environment
 
-Create a virtual environment (from a bash shell) and activate it, for example:
+Create a virtual environment (from a Bash shell) and activate it, for example:
 
     python3 -m venv .venv
     source .venv/bin/activate
@@ -218,15 +218,14 @@ trouble, consider running Super-Linter locally, as described below.
 
 ##### Superlinter
 
-In addition to linting files as you write them, developers may wish to [run
-Superlinter on the entire repository
-locally](https://github.com/github/super-linter/blob/master/docs/run-linter-locally.md).
+In addition to linting files as you write them, developers may wish to
+[run Superlinter on the entire repository locally](https://github.com/github/super-linter/blob/master/docs/run-linter-locally.md).
 This is most easily accomplished using [Docker](https://docs.docker.com/get-docker/).
-Create a script outside of the repository that runs superlinter via docker and run it
+Create a script outside of the repository that runs superlinter via Docker and run it
 from the repository root directory. Example script:
 
     #!/usr/bin/env sh
-    docker pull github/super-linter:slim-v6
+    docker pull ghcr.io/super-linter/super-linter:v8.6.0
 
     docker run \
         -e FILTER_REGEX_EXCLUDE="(\.pylintrc|migrations|static\/bootstrap.*)" \
