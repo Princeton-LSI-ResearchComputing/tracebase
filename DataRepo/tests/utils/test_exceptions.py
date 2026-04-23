@@ -37,6 +37,8 @@ from DataRepo.utils.exceptions import (
     MissingSamples,
     MultiLoadStatus,
     MultipleDefaultSequencesFound,
+    MultipleMatchingPeakAnnotationFiles,
+    MultipleMatchingPeakAnnotationFilesSummary,
     MutuallyExclusiveOptions,
     MzxmlColocatedWithMultipleAnnot,
     MzxmlColocatedWithMultipleAnnots,
@@ -1805,3 +1807,39 @@ class ExceptionTests(TracebaseTestCase):
         self.assertIn("trc = trace()", trc, msg=f"trace() output:\n{trc}")
         self.assertIn("test_exceptions.py", trc, msg=f"trace() output:\n{trc}")
         self.assertNotIn("site-packages", trc, msg=f"trace() output:\n{trc}")
+
+    def test_multiple_matching_peakannotation_file(self):
+        mmpaf = MultipleMatchingPeakAnnotationFiles(
+            ["path/to/match1/dupe_filename.xlsx", "path/to/match2/dupe_filename.xlsx"]
+        )
+        mmpaf_sum = MultipleMatchingPeakAnnotationFilesSummary([mmpaf])
+        self.assertIn(
+            "A peak annotation filename from the load file data had multiple matching files",
+            str(mmpaf),
+        )
+        self.assertIn("\tdupe_filename.xlsx", str(mmpaf))
+        self.assertIn(
+            "\tpath/to/match1/dupe_filename.xlsx\n\t\tpath/to/match2/dupe_filename.xlsx",
+            str(mmpaf),
+        )
+        self.assertIn(
+            "Either delete the duplicate(s) (recommended) or specify the path",
+            str(mmpaf),
+        )
+
+        self.assertIn(
+            "1 peak annotation filenames from the Peak Annotation Files sheet",
+            str(mmpaf_sum),
+        )
+        self.assertIn(
+            "multiple matching files found in the study directory", str(mmpaf_sum)
+        )
+        self.assertIn("\tdupe_filename.xlsx", str(mmpaf_sum))
+        self.assertIn(
+            "\tpath/to/match1/dupe_filename.xlsx\n\t\tpath/to/match2/dupe_filename.xlsx",
+            str(mmpaf_sum),
+        )
+        self.assertIn(
+            "Either delete the duplicate(s) (recommended) or specify the path",
+            str(mmpaf_sum),
+        )
