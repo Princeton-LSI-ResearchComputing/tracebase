@@ -212,6 +212,8 @@ class PeakAnnotationFilesLoader(TableLoader):
         # For tracking exceptions of the individual peak annotation loaders
         self.aggregated_errors_dict = {}
 
+        # NOTE: This is a temporary method call, to be removed once this issue has been implemented:
+        # https://princeton-university.atlassian.net/browse/GREATS-291
         # Walk the dir once to identify potential peak annot files for the find_annot_file method
         self.potential_peak_annot_files = self.map_potential_peak_annot_files()
 
@@ -312,6 +314,14 @@ class PeakAnnotationFilesLoader(TableLoader):
                     # In case the path is relative to the current directory
                     filepath = filepath_str
                 else:
+                    # NOTE: This is a temporary method call to find_annot_file, to be removed once this issue has been
+                    # implemented:
+                    # https://princeton-university.atlassian.net/browse/GREATS-291
+                    # The entire remainder of the code in this `else` conditional should be reverted to the following:
+                    # # Make the forthcoming error show the path relative to the study doc, which we should encourange
+                    # # users to use.
+                    # filepath = os.path.join(study_dir, filepath_str)
+
                     # Try and find the file
                     filepath = self.find_annot_file(filepath_str, study_dir=study_dir)
                     if not os.path.isfile(filepath):
@@ -690,6 +700,9 @@ class PeakAnnotationFilesLoader(TableLoader):
         """Given a supplied file name with optional path information that was not found to exist, find the file under
         the supplied study directory and return it with its filepath (if explicitly 1 was found with an identical name).
 
+        NOTE: This is a temporary method, to be removed once this issue has been implemented:
+        https://princeton-university.atlassian.net/browse/GREATS-291
+
         Args:
             supplied_files_with_opt_path (str): A peak annotation file with optional path (derived from the Peak
                 Annotation Files sheet).
@@ -749,6 +762,9 @@ class PeakAnnotationFilesLoader(TableLoader):
         filepaths to all files with the same name.
 
         The intended purpose is for use in self.find_annot_file(), so that the directory is only walked once.
+
+        NOTE: This is a temporary method, to be removed once this issue has been implemented:
+        https://princeton-university.atlassian.net/browse/GREATS-291
         """
         potential_peak_annot_files: Dict[List[str]] = defaultdict(list)
 
