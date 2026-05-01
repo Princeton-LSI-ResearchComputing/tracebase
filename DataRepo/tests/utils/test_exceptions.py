@@ -1812,7 +1812,8 @@ class ExceptionTests(TracebaseTestCase):
         mmpaf = MultipleMatchingPeakAnnotationFiles(
             ["path/to/match1/dupe_filename.xlsx", "path/to/match2/dupe_filename.xlsx"]
         )
-        mmpaf_sum = MultipleMatchingPeakAnnotationFilesSummary([mmpaf])
+        # Add second exception with the same file strings, to test that duplicates are condensed
+        mmpaf_sum = MultipleMatchingPeakAnnotationFilesSummary([mmpaf, mmpaf])
         self.assertIn(
             "A peak annotation filename from the load file data had multiple matching files",
             str(mmpaf),
@@ -1836,7 +1837,13 @@ class ExceptionTests(TracebaseTestCase):
         )
         self.assertIn("\tdupe_filename.xlsx", str(mmpaf_sum))
         self.assertIn(
-            "\tpath/to/match1/dupe_filename.xlsx\n\t\tpath/to/match2/dupe_filename.xlsx",
+            (
+                "directory:\n"
+                "\tdupe_filename.xlsx\n"
+                "\t\tpath/to/match1/dupe_filename.xlsx\n"
+                "\t\tpath/to/match2/dupe_filename.xlsx\n"
+                "Either"
+            ),
             str(mmpaf_sum),
         )
         self.assertIn(

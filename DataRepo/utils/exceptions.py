@@ -6,7 +6,7 @@ import warnings
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
 
 from django.core.exceptions import (
     MultipleObjectsReturned,
@@ -5527,19 +5527,23 @@ class MultipleMatchingPeakAnnotationFilesSummary(Exception):
 
     def __init__(self, exceptions: List[MultipleMatchingPeakAnnotationFiles]):
         # Collect all the files in a 2D dict
-        files_dict: Dict[str, List[str]] = defaultdict(list)
+        files_dict: Dict[str, Set[str]] = defaultdict(set)
         for exc in exceptions:
             filename = os.path.basename(exc.annot_files[0])
             for file in exc.annot_files:
-                files_dict[filename].append(file)
+                files_dict[filename].add(file)
 
         # Craft the message
-        nlt = "\n\t"
-        nltt = "\n\t\t"
+        files_str = "\n\t".join(
+            [
+                name + "\n\t\t" + "\n\t\t".join(sorted(paths))
+                for name, paths in sorted(files_dict.items(), key=lambda t: t[0])
+            ]
+        )
         message = (
-            f"{len(exceptions)} peak annotation filenames from the Peak Annotation Files sheet had multiple matching "
+            f"{len(files_dict)} peak annotation filenames from the Peak Annotation Files sheet had multiple matching "
             "files found in the study directory:\n"
-            f"\t{nlt.join([name + nltt + nltt.join(paths) for name, paths in files_dict.items()])}\n"
+            f"\t{files_str}\n"
             "Either delete the duplicate(s) (recommended) or specify the path (relative to the study directory) to the "
             "desired file in the Peak Annotation Files sheet for each filename listed."
         )
