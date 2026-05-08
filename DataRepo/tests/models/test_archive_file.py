@@ -1,10 +1,8 @@
 import os
 from pathlib import Path
 
-from django.conf import settings
 from django.core.files import File
 from django.db import transaction
-from django.test import override_settings
 
 from DataRepo.models import ArchiveFile, DataFormat, DataType
 from DataRepo.models.maintained_model import MaintainedModel
@@ -15,7 +13,6 @@ from DataRepo.tests.tracebase_test_case import (
 )
 
 
-@override_settings(CACHES=settings.TEST_CACHES)
 class ArchiveFileTests(TracebaseTestCase):
     fixtures = ["data_types.yaml", "data_formats.yaml"]
 

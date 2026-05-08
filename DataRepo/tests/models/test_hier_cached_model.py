@@ -1,4 +1,5 @@
 from django.core.management import call_command
+from django.test import override_settings
 
 from DataRepo.models import (
     Animal,
@@ -8,6 +9,7 @@ from DataRepo.models import (
     Sample,
 )
 from DataRepo.models.hier_cached_model import (
+    HierCachedModel,
     delete_all_caches,
     disable_caching_retrievals,
     disable_caching_updates,
@@ -596,4 +598,124 @@ class HierCachedModelTests(TracebaseTestCase):
             rep_rec.id,
             a.id,
             msg="The root model record returned by get_root_record is directly related",
+        )
+
+    def test_get_max_cached_pk(self):
+        enable_caching_retrievals()
+        enable_caching_updates()
+
+        # The cache table should already be empty, but just in case
+        delete_all_caches()
+
+        # After deleting caches, the max pk should be None
+        self.assertIsNone(HierCachedModel.get_max_cached_pk("PeakGroupLabel"))
+
+        pgl = PeakGroup.objects.first().labels.first()
+        f = "enrichment_fraction"
+
+        # Trigger caching via decorator
+        getattr(pgl, f)
+
+        # We can't control what the primary key will be, so we just check it's an int
+        self.assertIsInstance(HierCachedModel.get_max_cached_pk("PeakGroupLabel"), int)
+
+    def test_get_final_cache_table_size(self):
+        expected = {
+            "per_model": {
+                "Animal": {
+                    "records": 1,
+                    "functions": 3,
+                    "total": 3,
+                },
+                "AnimalLabel": {
+                    "records": 1,
+                    "functions": 3,
+                    "total": 3,
+                },
+                "FCirc": {
+                    "records": 1,
+                    "functions": 12,
+                    "total": 12,
+                },
+                "Infusate": {
+                    "records": 1,
+                    "functions": 1,
+                    "total": 1,
+                },
+                "PeakGroup": {
+                    "records": 31,
+                    "functions": 3,
+                    "total": 93,
+                },
+                "PeakGroupLabel": {
+                    "records": 31,
+                    "functions": 22,
+                    "total": 682,
+                },
+                "Sample": {
+                    "records": 15,
+                    "functions": 1,
+                    "total": 15,
+                },
+            },
+            "total": 809,
+        }
+        self.assertEquivalent(expected, HierCachedModel.get_final_cache_table_size())
+
+    @override_settings(DEBUG=True)
+    def test_get_cache_table_size_per_model(self):
+        pgl = PeakGroup.objects.first().labels.first()
+        f = "enrichment_fraction"
+
+        # Trigger caching via decorator.  This builds a few values because they are used in the calculation.
+        getattr(pgl, f)
+
+        # Calling PeakGroupLabel.enrichment_fraction also sets Animal.tracers, hence the 2
+        expected = {
+            "per_model": {
+                "Animal": {
+                    "current": 1,
+                    "final": 3,
+                    "percent": 33,
+                },
+                "AnimalLabel": {
+                    "current": 0,
+                    "final": 3,
+                    "percent": 0,
+                },
+                "FCirc": {
+                    "current": 0,
+                    "final": 12,
+                    "percent": 0,
+                },
+                "Infusate": {
+                    "current": 0,
+                    "final": 1,
+                    "percent": 0,
+                },
+                "PeakGroup": {
+                    "current": 0,
+                    "final": 93,
+                    "percent": 0,
+                },
+                "PeakGroupLabel": {
+                    "current": 1,
+                    "final": 682,
+                    "percent": 0,
+                },
+                "Sample": {
+                    "current": 0,
+                    "final": 15,
+                    "percent": 0,
+                },
+            },
+            "total": {
+                "current": 2,
+                "final": 809,
+                "percent": 0,
+            },
+        }
+
+        self.assertEquivalent(
+            expected, HierCachedModel.get_cache_table_size_per_model()
         )
