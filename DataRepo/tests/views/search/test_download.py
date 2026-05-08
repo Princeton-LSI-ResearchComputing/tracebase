@@ -54,6 +54,10 @@ test_qry = {
             "name": "Fcirc",
             "tree": empty_tree,
         },
+        "mztemplate": {
+            "name": "mzXML",
+            "tree": empty_tree,
+        },
     },
 }
 
@@ -128,6 +132,8 @@ class AdvancedSearchDownloadViewTests(BaseAdvancedSearchDownloadViewTests):
             "'units': ''}]}}, 'pdtemplate': {'name': 'PeakData', 'tree': {'type': 'group', 'val': 'all', 'static': "
             "False, 'queryGroup': [{'type': 'query', 'pos': '', 'static': False, 'fld': '', 'ncmp': '', 'val': '', "
             "'units': ''}]}}, 'fctemplate': {'name': 'Fcirc', 'tree': {'type': 'group', 'val': 'all', 'static': False, "
+            "'queryGroup': [{'type': 'query', 'pos': '', 'static': False, 'fld': '', 'ncmp': '', 'val': '', 'units': "
+            "''}]}}, 'mztemplate': {'name': 'mzXML', 'tree': {'type': 'group', 'val': 'all', 'static': False, "
             "'queryGroup': [{'type': 'query', 'pos': '', 'static': False, 'fld': '', 'ncmp': '', 'val': '', 'units': "
             "''}]}}}}\n"
             "#\n"
@@ -207,7 +213,7 @@ class RecordToMzxmlTSVTests(BaseAdvancedSearchDownloadViewTests):
         row = pgtmt.msrun_sample_rec_to_row(self.res.first().msrun_sample)
         self.assertEqual(
             [
-                "2021-06-08/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl1_brain.mzXML",
+                "2021-06-08/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-502.9/xzl1_brain.mzXML",
                 "positive",
                 1.0,
                 502.9,
@@ -240,7 +246,7 @@ class RecordToMzxmlTSVTests(BaseAdvancedSearchDownloadViewTests):
         self.assertEqual(
             [
                 [
-                    "2021-06-08/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl1_brain.mzXML",
+                    "2021-06-08/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-502.9/xzl1_brain.mzXML",
                     "positive",
                     1.0,
                     502.9,
@@ -277,7 +283,7 @@ class RecordToMzxmlTSVTests(BaseAdvancedSearchDownloadViewTests):
         self.assertEqual(
             [
                 [
-                    "2020-07-22/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl5_panc.mzXML",
+                    "2020-07-22/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-502.9/xzl5_panc.mzXML",
                     "positive",
                     1.0,
                     502.9,
@@ -319,10 +325,10 @@ class AdvancedSearchDownloadMzxmlTSVViewTests(BaseAdvancedSearchDownloadViewTest
         )
         expected1 = "# Download Time: ".encode()
         expected2 = (
-            "2020-07-22/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl4_sp.mzXML\tpositive\t1.0\t502.9\t"
+            "2020-07-22/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-502.9/xzl4_sp.mzXML\tpositive\t1.0\t502.9\t"
             "xzl4_sp\tspleen\t2020-07-22\t150.0\tXianfeng Zeng\txzl4\t14.0\tM\tWT\t27.5\tPicoLab Rodent 20 5053\tfasted"
             "\tno treatment\talanine-[13C3,15N1][180]\tXianfeng Zeng\tQE2\tpolar-HILIC-25-min\t2020-07-22\r\n2020-07-22"
-            "/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl4_t.mzXML\tpositive\t1.0\t502.9\txzl4_t\t"
+            "/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-502.9/xzl4_t.mzXML\tpositive\t1.0\t502.9\txzl4_t\t"
             "serum_plasma_tail\t2020-07-22\t150.0\tXianfeng Zeng\txzl4\t14.0\tM\tWT\t27.5\tPicoLab Rodent 20 5053\t"
             "fasted\tno treatment\talanine-[13C3,15N1][180]\tXianfeng Zeng\tQE2\tpolar-HILIC-25-min\t2020-07-22\r\n"
             # There is more, but this is sufficient
@@ -346,7 +352,7 @@ class RecordToMzxmlZIPTests(BaseAdvancedSearchDownloadViewTests):
             self.res.first().msrun_sample
         )
         self.assertEqual(
-            "2021-06-08/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl1_brain.mzXML",
+            "2021-06-08/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-502.9/xzl1_brain.mzXML",
             export_path,
         )
         self.assertIn(
@@ -379,7 +385,7 @@ class RecordToMzxmlZIPTests(BaseAdvancedSearchDownloadViewTests):
             )
         )
         self.assertIn(
-            "2021-06-08/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl1_brain",
+            "2021-06-08/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-502.9/xzl1_brain",
             file_tuples[0][0],
         )
         self.assertIn(
@@ -413,7 +419,7 @@ class RecordToMzxmlZIPTests(BaseAdvancedSearchDownloadViewTests):
             )
         )
         self.assertEqual(
-            "2020-07-22/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl5_panc.mzXML",
+            "2020-07-22/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-502.9/xzl5_panc.mzXML",
             file_tuples[0][0],
         )
         self.assertIn(
@@ -447,12 +453,12 @@ class AdvancedSearchDownloadMzxmlZIPViewTests(BaseAdvancedSearchDownloadViewTest
 
         expected_mzxml_files = [
             # "PeakGroups_25.10.2024.16.39.05.tsv",  # timestamp will be different
-            "2020-07-22/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl4_sp.mzXML",
-            "2020-07-22/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl4_t.mzXML",
-            "2020-07-22/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl5_panc.mzXML",
-            "2020-07-22/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl5_t.mzXML",
-            "2021-06-08/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl1_brain.mzXML",
-            "2021-06-08/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl1_brownFat.mzXML",
+            "2020-07-22/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-502.9/xzl4_sp.mzXML",
+            "2020-07-22/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-502.9/xzl4_t.mzXML",
+            "2020-07-22/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-502.9/xzl5_panc.mzXML",
+            "2020-07-22/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-502.9/xzl5_t.mzXML",
+            "2021-06-08/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-502.9/xzl1_brain.mzXML",
+            "2021-06-08/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-502.9/xzl1_brownFat.mzXML",
         ]
 
         with BytesIO(response.getvalue()) as zip_buffer:
