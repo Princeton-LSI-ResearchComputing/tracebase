@@ -57,7 +57,7 @@ jobs:
       - name: Make the cache table
         run: python manage.py createcachetable
       - name: Run tests
-        run: python manage.py test
+        run: python manage.py test --settings=TraceBase.settings.test
       - name: Load fixtures
         run: |
           python manage.py loaddata \

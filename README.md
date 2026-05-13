@@ -26,7 +26,7 @@ See `INSTALL.md`.
 
 In brief, the main test package can be run using:
 
-    python manage.py test
+    python manage.py test --settings=TraceBase.settings.test
 
 For detailed and comprehensive testing instructions and verification, see:
 

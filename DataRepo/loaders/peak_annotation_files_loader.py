@@ -782,7 +782,11 @@ class PeakAnnotationFilesLoader(TableLoader):
             filename: str
             for filename in fileset:
                 # If the current file matches one of the supplied files
-                if any(filename.lower().endswith(ext) for ext in self.peak_annot_exts):
+                if (
+                    any(filename.lower().endswith(ext) for ext in self.peak_annot_exts)
+                    # Avoid excel cruft
+                    and not filename.startswith("~$")
+                ):
                     filepath = os.path.join(dir_path, filename)
                     potential_peak_annot_files[filename].append(filepath)
 
