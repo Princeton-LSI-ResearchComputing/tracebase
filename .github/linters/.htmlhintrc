@@ -25,6 +25,6 @@
     "head-script-disabled": true
   },
   "ignore": [
-    "docs/user/**"
+    "docs/user_guide/**"
   ]
 }

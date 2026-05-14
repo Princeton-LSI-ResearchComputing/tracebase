@@ -325,4 +325,4 @@ orphaned files in `MEDIA_ROOT` #718](https://github.com/Princeton-LSI-ResearchCo
 
 ## Development
 
-For tips on navigating and adding to the TraceBase codebase, see `docs/contributor/Development_Notes.md`.
+For tips on navigating and adding to the TraceBase codebase, see `docs/dev/Development_Notes.md`.
