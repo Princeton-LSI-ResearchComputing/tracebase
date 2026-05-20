@@ -111,7 +111,7 @@ import django
 sys.path.insert(0, os.path.abspath(".."))
 
 # Set the DJANGO_SETTINGS_MODULE environment variable
-os.environ["DJANGO_SETTINGS_MODULE"] = "TraceBase.settings"
+os.environ["DJANGO_SETTINGS_MODULE"] = "TraceBase.settings.dev"
 
 # Now we can initialize Django
 django.setup()

@@ -102,7 +102,7 @@ is pre- configured to be ignored by the repository, so do not explicitly check i
 
 Copy the TraceBase environment example:
 
-    cp TraceBase/.env.example TraceBase/.env
+    cp .env.example .env
 
 Update the .env file to reflect the new secret key and the database credentials you used when setting up Postgres.
 
@@ -260,7 +260,7 @@ All pull requests must pass new and all previous continuous integration tests,
 all JavaScript tests, and pass a migration check before merging.  Run the
 following locally before submitting a pull request:
 
-    python manage.py test
+    python manage.py test --settings=TraceBase.settings.test
     python manage.py makemigrations --check --dry-run
     python -m http.server
 

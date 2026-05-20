@@ -57,7 +57,7 @@ jobs:
       - name: Make the cache table
         run: python manage.py createcachetable
       - name: Run tests
-        run: python manage.py test
+        run: python manage.py test --settings=TraceBase.settings.test
       - name: Load fixtures
         run: |
           python manage.py loaddata \
@@ -69,3 +69,5 @@ jobs:
           python manage.py load_study \
           --infile \
           "DataRepo/data/tests/small_obob/glucose/small_obob_animal_and_sample_table.xlsx"
+      - name: Verify production ignores DEBUG env var
+        run: .github/scripts/check-prod-settings.sh
