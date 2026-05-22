@@ -71,7 +71,12 @@ from DataRepo.utils.exceptions import (
     UnknownPeakAnnotationFileFormat,
     UnknownStudyDocVersion,
 )
-from DataRepo.utils.file_utils import get_sheet_names, is_excel, read_from_file
+from DataRepo.utils.file_utils import (
+    ensure_temporary_uploaded_file,
+    get_sheet_names,
+    is_excel,
+    read_from_file,
+)
 from DataRepo.utils.infusate_name_parser import (
     parse_infusate_name_with_concs,
     parse_tracer_string,
@@ -758,13 +763,17 @@ class BuildSubmissionView(FormView):
             # We only need/allow a single mode and study_doc, which is saved only in the first rowform
             if index == 0:
                 mode = rowform["mode"]
-                study_file_object = rowform.get("study_doc")
+                study_file_object = ensure_temporary_uploaded_file(
+                    rowform.get("study_doc")
+                )
                 if study_file_object is not None:
                     study_file = study_file_object.temporary_file_path()
                     study_filename = str(study_file_object)
 
             # Process the peak annotation files
-            peak_annotation_file_object = rowform.get("peak_annotation_file")
+            peak_annotation_file_object = ensure_temporary_uploaded_file(
+                rowform.get("peak_annotation_file")
+            )
             if peak_annotation_file_object is not None:
                 peak_annot_file = peak_annotation_file_object.temporary_file_path()
                 peak_annot_filename = str(peak_annotation_file_object)

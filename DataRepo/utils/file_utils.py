@@ -1,14 +1,17 @@
 import datetime
 import pathlib
 from collections import defaultdict
-from typing import Optional
+from typing import Optional, Union
 from zipfile import BadZipFile
 
 import pandas as pd
 import yaml
 from dateutil.parser import ParserError as DateParserError
 from dateutil.parser import parse as parsedate
-from django.core.files.uploadedfile import TemporaryUploadedFile
+from django.core.files.uploadedfile import (
+    InMemoryUploadedFile,
+    TemporaryUploadedFile,
+)
 from django.core.management import CommandError
 from openpyxl.utils.exceptions import InvalidFileException
 
@@ -169,6 +172,8 @@ def _get_file_type(filepath, filetype=None):
 
     if isinstance(filepath, TemporaryUploadedFile):
         filepath = filepath.temporary_file_path()
+    elif isinstance(filepath, InMemoryUploadedFile):
+        filepath = filepath.name
 
     if filetype is None:
         ext = pathlib.Path(filepath).suffix.strip(".")
@@ -633,3 +638,36 @@ def datetime_to_string(date_in: datetime.datetime, format_str: Optional[str] = N
 def date_to_string(date_in: datetime.date, format_str: Optional[str] = None):
     format = date_format if format_str is None else format_str
     return datetime.date.strftime(date_in, format)
+
+
+def ensure_temporary_uploaded_file(
+    uploaded_file: Optional[Union[TemporaryUploadedFile, InMemoryUploadedFile]]
+):
+    """Takes an uploaded file object and returns a TemporaryUploadedFile object (or None, if the uploaded file was None)
+
+    Args:
+        uploaded_file (Optional[Union[TemporaryUploadedFile, InMemoryUploadedFile]])
+    Exceptions:
+        TypeError
+    Returns:
+        (Optional[TemporaryUploadedFile])
+    """
+    if not uploaded_file or isinstance(uploaded_file, (TemporaryUploadedFile)):
+        return uploaded_file
+
+    if isinstance(uploaded_file, InMemoryUploadedFile):
+        tmp = TemporaryUploadedFile(
+            name=uploaded_file.name,
+            content_type=uploaded_file.content_type,
+            size=uploaded_file.size,
+            charset=uploaded_file.charset,
+        )
+
+        for chunk in uploaded_file.chunks():
+            tmp.write(chunk)
+
+        tmp.seek(0)
+
+        return tmp
+
+    raise TypeError(f"Unsupported upload type: {type(uploaded_file)}")
