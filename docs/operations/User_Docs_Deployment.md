@@ -2,7 +2,7 @@
 
 Documentation for [TraceBase](https://github.com/Princeton-LSI-ResearchComputing/tracebase) users.
 
-Markdown documents stored in `docs/user` are used to generate a static site using
+Markdown documents stored in `docs/user_guide` are used to generate a static site using
 [MkDocs](https://www.mkdocs.org/) (with a [readthedocs](https://readthedocs.org/) template).
 
 ## Development
@@ -18,7 +18,7 @@ the general requirements document for tracebase):
 
 1) `cd docs`
 
-2) `mkdocs serve -f admin/mkdocs.yml --verbose` (verbose is optional but recommended)
+2) `mkdocs serve -f config/mkdocs.yml --verbose` (verbose is optional but recommended)
 
 The site can be accessed at [http://127.0.0.1:8000/repo-name/](http://127.0.0.1:8000/repo-name/). The locally served
 site updates live as changes are made to the Markdown documents.
@@ -29,7 +29,7 @@ site updates live as changes are made to the Markdown documents.
 
 Build the site to serve publicly on [GitHub Pages](https://princeton-lsi-researchcomputing.github.io/tracebase/):
 
-1) `mkdocs -f admin/mkdocs.yml gh-deploy -m "User documentation" --ignore-version`
+1) `mkdocs -f config/mkdocs.yml gh-deploy -m "User documentation" --ignore-version`
 
 Without the `--ignore-version` flag, you get an error that states:
 
@@ -54,7 +54,7 @@ github.io).  The Wiki serves a different purpose from the Pages and is incompati
 the documentation for Pages cannot be deployed to the Wiki).  The Wiki is intended for internal and contributor content,
 not user content.  That said, this is how the Wiki content is managed.  The TraceBase repository has a separate
 repository that manages the Wiki.  That repository must be cloned and the files updated based on the contents of the
-`user` directory.
+`user_guide` directory.
 
 You can manage that content by cloning the wiki repository:
 
@@ -111,7 +111,7 @@ import django
 sys.path.insert(0, os.path.abspath(".."))
 
 # Set the DJANGO_SETTINGS_MODULE environment variable
-os.environ["DJANGO_SETTINGS_MODULE"] = "TraceBase.settings"
+os.environ["DJANGO_SETTINGS_MODULE"] = "TraceBase.settings.dev"
 
 # Now we can initialize Django
 django.setup()
@@ -250,7 +250,7 @@ def setup(app):
 Generate the `rst` files using `autodoc`.  This will only generate documentation for the exceptions file:
 
 ```bash
-sphinx-apidoc -o docs -d 1 --remove-old . TraceBase user DataRepo/models DataRepo/schemas DataRepo/templates DataRepo/templatetags DataRepo/tests DataRepo/views DataRepo/widgets DataRepo/data DataRepo/fixtures DataRepo/formats DataRepo/loaders DataRepo/management DataRepo/migrations DataRepo/admin.py DataRepo/apps.py DataRepo/context_processors.py DataRepo/forms.py \
+sphinx-apidoc -o docs -d 1 --remove-old . TraceBase user_guide DataRepo/models DataRepo/schemas DataRepo/templates DataRepo/templatetags DataRepo/tests DataRepo/views DataRepo/widgets DataRepo/data DataRepo/fixtures DataRepo/formats DataRepo/loaders DataRepo/management DataRepo/migrations DataRepo/admin.py DataRepo/apps.py DataRepo/context_processors.py DataRepo/forms.py \
 DataRepo/multiforms.py DataRepo/pager.py DataRepo/urls.py DataRepo/utils/file_utils.py DataRepo/utils/func_utils.py DataRepo/utils/infusate_name_parser.py DataRepo/utils/queryset_to_pandas_dataframe.py DataRepo/utils/studies_exporter.py DataRepo/utils/text_utils.py manage.py
 ```
 

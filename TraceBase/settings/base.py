@@ -11,34 +11,22 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 import os
-import sys
 from pathlib import Path
 from typing import Dict
 
 import environ
 from django.db.backends.postgresql.psycopg_any import IsolationLevel
 
+# Build paths inside the project like this: BASE_DIR / 'subdir'.
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+ENV_FILE = BASE_DIR / ".env"
+
 env = environ.Env()
 # reading .env file
-environ.Env.read_env()
-
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
-
+environ.Env.read_env(ENV_FILE)
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
-
-# Raises django's ImproperlyConfigured exception if SECRET_KEY not in os.environ
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = env("SECRET_KEY", default="unsafe-secret-key")
-
-# SECURITY WARNING: don't run with debug turned on in production!
-# NOTE: If you want to test what you would see in production when DEBUG=False, you must start the server with:
-#     python manage.py runserver --insecure
-# because runserver will not load static files without it (whereas in a production environment, the web server would
-# serve those files).  See https://stackoverflow.com/a/5836728/2057516
-DEBUG = env.bool("DEBUG", default=False)
 
 # Setting READONLY to True disables the upload page, among other potential things.  Set it to True if the site is
 # accessible by the public and you don't want the public to be able to submit upload data, i.e. the site's only purpose
@@ -61,7 +49,6 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "DataRepo.tests.apps.test_apps.LoaderTestConfig",
 ]
 
 CUSTOM_INSTALLED_APPS = env.list("CUSTOM_INSTALLED_APPS", default=None)
@@ -154,7 +141,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Security
 # https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
@@ -183,7 +169,6 @@ USE_I18N = True
 USE_L10N = True
 USE_TZ = True
 
-
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 STATIC_URL = "static/"
@@ -192,11 +177,8 @@ STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
 # File storage location
 MEDIA_URL = "/archive/"
 MEDIA_ROOT = env.str("ARCHIVE_DIR", default=os.path.join(BASE_DIR, "archive"))
-TEST_MEDIA_ROOT = env.str(
-    "TEST_ARCHIVE_DIR", default=os.path.join(BASE_DIR, "archive_test")
-)
 
-DEFAULT_STORAGES = {
+STORAGES = {
     # Django defaults:
     "default": {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
@@ -208,30 +190,6 @@ DEFAULT_STORAGES = {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
 }
-TEST_STORAGES = {
-    "default": {
-        "BACKEND": "django.core.files.storage.InMemoryStorage",
-    },
-    "staticfiles": {
-        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
-    },
-}
-TEST_FILE_STORAGES = {
-    "default": {
-        "BACKEND": "django.core.files.storage.FileSystemStorage",
-    },
-    "staticfiles": {
-        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
-    },
-}
-
-STORAGES = DEFAULT_STORAGES
-
-# File storage handling for tests
-# https://stackoverflow.com/questions/38345977/filefield-force-using-temporaryuploadedfile
-# Added to make the submission.html form work.  Could not figure out how to specify this handler for individual fields.
-# This avoids files using the InMemoryUploadedFile, which the load script complains about.
-FILE_UPLOAD_HANDLERS = ["django.core.files.uploadhandler.TemporaryFileUploadHandler"]
 
 # Custom URLs and content
 FEEDBACK_URL = env.str("FEEDBACK_URL", default=None)
@@ -245,7 +203,7 @@ SUBMISSION_DRIVE_FOLDER = env.str(
 
 # Set up caching used by model cached_properties
 # See: https://docs.djangoproject.com/en/dev/topics/cache/#setting-up-the-cache
-PROD_CACHES = {
+CACHES: Dict[str, Dict[str, object]] = {
     "default": {
         "BACKEND": "django.core.cache.backends.db.DatabaseCache",
         "LOCATION": "tracebase_cache_table",
@@ -255,110 +213,7 @@ PROD_CACHES = {
     }
 }
 
-TEST_CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
-        "LOCATION": "tracebase_cache_table",
-        "TIMEOUT": 1200,
-        "OPTIONS": {"MAX_ENTRIES": 1000},
-        "KEY_PREFIX": "TEST",
-    }
-}
-
-CACHES_SETTING = env.str("CACHES", default="PROD_CACHES")
-
-CACHES: Dict[str, Dict] = PROD_CACHES
-if CACHES_SETTING == "TEST_CACHES":
-    CACHES = TEST_CACHES
-elif CACHES_SETTING != "PROD_CACHES":
-    print(
-        f"Invalid CACHE_SETTINGS value: {CACHES_SETTING} in .env. Defaulting to PROD_CACHES. Valid values are "
-        "TEST_CACHES and PROD_CACHES."
-    )
-
-# Define a custom test runner
-# https://docs.djangoproject.com/en/4.2/topics/testing/advanced/#using-different-testing-frameworks
-TEST_RUNNER = "TraceBase.runner.TraceBaseTestSuiteRunner"
-
-# Logging settings
-# NOTE: to print SQL, DEBUG must be True, and to print SQL during a particular test, each test method must be decorated
-# with: `@override_settings(DEBUG=True)`
-SQL_LOGGING = env.bool("SQL_LOGGING", default=False)
-if SQL_LOGGING is True:
-    LOGGING = {
-        "version": 1,
-        "filters": {
-            "require_debug_true": {
-                "()": "django.utils.log.RequireDebugTrue",
-            }
-        },
-        "handlers": {
-            "console": {
-                "level": "DEBUG",
-                "filters": ["require_debug_true"],
-                "class": "logging.StreamHandler",
-            }
-        },
-        "loggers": {
-            "django.db.backends": {
-                "level": "DEBUG",
-                "handlers": ["console"],
-            }
-        },
-    }
-
-MIDDLEWARE = [
-    "django.middleware.security.SecurityMiddleware",
-    "django.contrib.sessions.middleware.SessionMiddleware",
-    "django.middleware.common.CommonMiddleware",
-    "django.middleware.csrf.CsrfViewMiddleware",
-    "django.contrib.auth.middleware.AuthenticationMiddleware",
-    "django.contrib.messages.middleware.MessageMiddleware",
-    "django.middleware.clickjacking.XFrameOptionsMiddleware",
-]
-
-# See: django-debug-toolbar.readthedocs.io/en/latest/installation.html#disable-the-toolbar-when-running-tests-optional
-DEBUG_TOOLBAR_ENABLED = False
-DEBUG_TOOLBAR = env.bool("DEBUG_TOOLBAR", default=True)
-if DEBUG_TOOLBAR is True:
-    TESTING = "test" in sys.argv
-    try:
-        import debug_toolbar  # noqa: F401  # pylint: disable=unused-import
-
-        DEBUG_TOOLBAR_INSTALLED = True
-    except ImportError:
-        DEBUG_TOOLBAR_INSTALLED = False
-
-    if (
-        DEBUG
-        and not TESTING
-        and DEBUG_TOOLBAR_INSTALLED
-        # Static files are configured to debug_toolbar's requirements
-        and "django.contrib.staticfiles" in INSTALLED_APPS
-        and STATIC_URL == "static/"
-        # Templates are configured to debug_toolbar's requirements
-        and any(
-            [
-                template["BACKEND"] == "django.template.backends.django.DjangoTemplates"
-                and template["APP_DIRS"] is True
-                for template in TEMPLATES
-            ]
-        )
-    ):
-        # On the dev site, you need to run `python manage.py collectstatic` to be able to use the toolbar
-        # NOTE: Running collectstatic puts the aggregated static files in tracebase/static.  After running it, (which
-        # you should only need to do once), run `mv TraceBase/static static`.
-        PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
-        STATIC_ROOT = os.path.join(PROJECT_DIR, "static")
-
-        DEBUG_TOOLBAR_ENABLED = True
-        INSTALLED_APPS.append("debug_toolbar")
-        # See https://django-debug-toolbar.readthedocs.io/en/latest/installation.html#add-the-middleware
-        MIDDLEWARE.insert(0, "debug_toolbar.middleware.DebugToolbarMiddleware")
-        INTERNAL_IPS = ALLOWED_HOSTS[:]
-        # Override the debug toolbar's logic to decide whether to run or not (we're using the conditional logic above)
-        DEBUG_TOOLBAR_CONFIG = {
-            "SHOW_TOOLBAR_CALLBACK": lambda _: True,
-            "SHOW_COLLAPSED": True,
-            "SQL_WARNING_THRESHOLD": 70,
-        }
+# For backward compatibility with older branches...  This gets overwritten in prod.py.  The development site must have
+# `SetEnv DJANGO_SETTINGS_MODULE TraceBase.settings`. in the virtual host settings, but do not put it in the production
+# site's virtual host settings (so it defaults to prod).
+DEBUG = True
