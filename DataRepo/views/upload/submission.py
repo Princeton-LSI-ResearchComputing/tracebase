@@ -766,7 +766,7 @@ class BuildSubmissionView(FormView):
                 study_file_object = ensure_temporary_uploaded_file(
                     rowform.get("study_doc")
                 )
-                if study_file_object is not None:
+                if study_file_object:
                     study_file = study_file_object.temporary_file_path()
                     study_filename = str(study_file_object)
 
@@ -774,7 +774,7 @@ class BuildSubmissionView(FormView):
             peak_annotation_file_object = ensure_temporary_uploaded_file(
                 rowform.get("peak_annotation_file")
             )
-            if peak_annotation_file_object is not None:
+            if peak_annotation_file_object:
                 peak_annot_file = peak_annotation_file_object.temporary_file_path()
                 peak_annot_filename = str(peak_annotation_file_object)
 

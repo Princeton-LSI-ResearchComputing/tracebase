@@ -465,17 +465,19 @@ def create_BuildSubmissionForm() -> Type[Form]:
             allowed_delimited_exts = [".csv", ".tsv"]
 
             # Fields we need to check
-            study_doc = self.cleaned_data.get("study_doc", None)
+            study_doc = ensure_temporary_uploaded_file(
+                self.cleaned_data.get("study_doc", None)
+            )
             peak_annotation_file = ensure_temporary_uploaded_file(
                 self.cleaned_data.get("peak_annotation_file", None)
             )
 
-            if (study_doc is None and peak_annotation_file is None) or (
-                study_doc is not None and not is_excel(study_doc)
+            if (not study_doc and not peak_annotation_file) or (
+                study_doc and not is_excel(study_doc)
             ):
                 return False
 
-            if peak_annotation_file is not None:
+            if peak_annotation_file:
                 peak_annot_filepath = peak_annotation_file.temporary_file_path()
                 if not is_excel(peak_annot_filepath):
                     # Excel files do not need a specific extension, but delimited files do...
@@ -505,7 +507,9 @@ def create_BuildSubmissionForm() -> Type[Form]:
             allowed_delimited_exts = [".csv", ".tsv"]
 
             # Fields (excluding mode)
-            study_doc = self.cleaned_data.get("study_doc", None)
+            study_doc = ensure_temporary_uploaded_file(
+                self.cleaned_data.get("study_doc", None)
+            )
             peak_annotation_file = ensure_temporary_uploaded_file(
                 self.cleaned_data.get("peak_annotation_file", None)
             )
@@ -516,7 +520,7 @@ def create_BuildSubmissionForm() -> Type[Form]:
             # object containing errors cannot associate field errors with fields that do not get re-populated (and
             # they're not bothered to be repopulated because you cannot repopulate files anyway).
 
-            if study_doc is None and peak_annotation_file is None:
+            if not study_doc and not peak_annotation_file:
                 if mode is None or mode not in ["autofill", "validate"]:
                     self.add_error(
                         None,
@@ -541,7 +545,7 @@ def create_BuildSubmissionForm() -> Type[Form]:
                             code="TooFewFiles",
                         ),
                     )
-            elif study_doc is not None and not is_excel(study_doc):
+            elif study_doc and not is_excel(study_doc):
                 self.add_error(
                     None,
                     ValidationError(
@@ -550,7 +554,7 @@ def create_BuildSubmissionForm() -> Type[Form]:
                     ),
                 )
 
-            if peak_annotation_file is not None:
+            if peak_annotation_file:
                 peak_annot_filepath = peak_annotation_file.temporary_file_path()
                 if not is_excel(peak_annot_filepath):
                     # Excel files do not need a specific extension, but delimited files do...

@@ -191,6 +191,15 @@ STORAGES = {
     },
 }
 
+# File storage handling for uploaded files
+# https://stackoverflow.com/questions/38345977/filefield-force-using-temporaryuploadedfile
+# Added to make the submission.html form work.  Could not figure out how to specify this handler for individual fields.
+# This avoids files using the InMemoryUploadedFile, which the load script complains about.
+# NOTE: Temporary files are forced due to pandas and openpyxl not being able to handle these objects.  In fact, while
+# pandas functions could take a file-like object, that could be created from each object, openpyxl expects a true local
+# file path as input.
+FILE_UPLOAD_HANDLERS = ["django.core.files.uploadhandler.TemporaryFileUploadHandler"]
+
 # Custom URLs and content
 FEEDBACK_URL = env.str("FEEDBACK_URL", default=None)
 # Data submission and validation
