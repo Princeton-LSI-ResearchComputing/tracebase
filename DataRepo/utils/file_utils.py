@@ -642,7 +642,7 @@ def date_to_string(date_in: datetime.date, format_str: Optional[str] = None):
 
 
 def ensure_temporary_uploaded_file(
-    uploaded_file: Optional[Union[TemporaryUploadedFile, InMemoryUploadedFile]]
+    uploaded_file: Optional[Union[TemporaryUploadedFile, InMemoryUploadedFile]],
 ):
     """Takes an uploaded file object and returns a TemporaryUploadedFile object (or None, if the uploaded file was None)
 
