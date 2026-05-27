@@ -18,7 +18,7 @@ import environ
 from django.db.backends.postgresql.psycopg_any import IsolationLevel
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
 ENV_FILE = BASE_DIR / ".env"
 
 env = environ.Env()
