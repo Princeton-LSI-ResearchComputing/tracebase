@@ -667,7 +667,7 @@ def ensure_temporary_uploaded_file(
     Returns:
         (Optional[TemporaryUploadedFile])
     """
-    if not uploaded_file or isinstance(uploaded_file, (TemporaryUploadedFile)):
+    if not uploaded_file or isinstance(uploaded_file, TemporaryUploadedFile):
         return uploaded_file
 
     if isinstance(uploaded_file, InMemoryUploadedFile):
@@ -687,8 +687,9 @@ def ensure_temporary_uploaded_file(
         for chunk in uploaded_file.chunks():
             tmp.write(chunk)
 
+        tmp.flush()
         tmp.seek(0)
 
         return tmp
 
-    raise TypeError(f"Unsupported upload type: {type(uploaded_file)}")
+    raise TypeError(f"Unsupported upload type: {type(uploaded_file).__name__}")
