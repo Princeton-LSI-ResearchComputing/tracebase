@@ -8,6 +8,7 @@ from typing import Callable, Dict, Iterator, List, Optional, Tuple
 from django.conf import settings
 from django.db.models import Q
 from django.template.loader import get_template
+from django.utils.text import get_valid_filename
 
 from DataRepo.formats.mzxml_dataformat import MzxmlFormat
 from DataRepo.formats.search_group import SearchGroup
