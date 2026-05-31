@@ -1018,6 +1018,190 @@ class ExportsOrganizerTests(TracebaseTestCase):
                 ],
             )
 
+    def test_organize_one_study_two_dates_staged_study_added(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with override_settings(
+                MEDIA_ROOT=tmpdir,
+                FILE_UPLOAD_TEMP_DIR=tmpdir,
+            ):
+                export_dir = os.path.join(
+                    tmpdir, "two_exports_one_study_add_study_staged"
+                )
+                shutil.copytree(
+                    "DataRepo/data/tests/exports_organizer/two_exports_one_study_add_study_staged",
+                    export_dir,
+                )
+                base = Path(export_dir)
+                export_dir_contents = sorted(
+                    str(p.relative_to(base)) for p in base.rglob("*")
+                )
+                self.assertEqual(
+                    [
+                        "tb9-2026.04.17-Test_Study_1-0000-Fcirc.tsv",
+                        "tb9-2026.04.17-Test_Study_1-0000-PeakData.tsv",
+                        "tb9-2026.04.17-Test_Study_1-0000-PeakGroups.tsv",
+                        "tb9-2026.04.17-Test_Study_1-0000-mzXML.zip",
+                        "tb9-2026.04.24-Test_Study_1-0000-Fcirc.tsv.staged",
+                        "tb9-2026.04.24-Test_Study_1-0000-PeakData.tsv.staged",
+                        "tb9-2026.04.24-Test_Study_1-0000-PeakGroups.tsv.staged",
+                        "tb9-2026.04.24-Test_Study_1-0000-mzXML.zip.staged",
+                        "tb9-2026.04.24-Test_Study_2-0001-Fcirc.tsv.staged",
+                        "tb9-2026.04.24-Test_Study_2-0001-PeakData.tsv.staged",
+                        "tb9-2026.04.24-Test_Study_2-0001-PeakGroups.tsv.staged",
+                        "tb9-2026.04.24-Test_Study_2-0001-mzXML.zip.staged",
+                    ],
+                    export_dir_contents,
+                )
+                exports_organizer = ExportsOrganizer()
+                exports_organizer.organize(export_dir, staging_mode=True)
+                export_dir_contents = sorted(
+                    str(p.relative_to(base)) for p in base.rglob("*")
+                )
+                expected_files = [
+                    # Since there are no changes in the 4/24/26 files, they are removed
+                    "tb9-2026.04.17-Test_Study_1-0000-Fcirc.tsv",
+                    "tb9-2026.04.17-Test_Study_1-0000-PeakData.tsv",
+                    "tb9-2026.04.17-Test_Study_1-0000-PeakGroups.tsv",
+                    "tb9-2026.04.17-Test_Study_1-0000-mzXML.zip",
+                    "tb9-2026.04.17-Test_Study_1-alldatatypes.zip",
+                    "tb9-2026.04.17-allstudies-Fcirc.zip",
+                    "tb9-2026.04.17-allstudies-PeakData.zip",
+                    "tb9-2026.04.17-allstudies-PeakGroups.zip",
+                    "tb9-2026.04.17-allstudies-alldatatypes.zip",
+                    "tb9-2026.04.17-allstudies-mzXML.zip",
+                    "tb9-2026.04.24-Test_Study_1-alldatatypes.zip",
+                    "tb9-2026.04.24-Test_Study_2-0001-Fcirc.tsv",
+                    "tb9-2026.04.24-Test_Study_2-0001-PeakData.tsv",
+                    "tb9-2026.04.24-Test_Study_2-0001-PeakGroups.tsv",
+                    "tb9-2026.04.24-Test_Study_2-0001-mzXML.zip",
+                    "tb9-2026.04.24-Test_Study_2-alldatatypes.zip",
+                    "tb9-2026.04.24-allstudies-Fcirc.zip",
+                    "tb9-2026.04.24-allstudies-PeakData.zip",
+                    "tb9-2026.04.24-allstudies-PeakGroups.zip",
+                    "tb9-2026.04.24-allstudies-alldatatypes.zip",
+                    "tb9-2026.04.24-allstudies-mzXML.zip",
+                ]
+                self.assertEqual(
+                    expected_files,
+                    export_dir_contents,
+                )
+                self.assertTrue(
+                    all(
+                        [
+                            os.path.getsize(os.path.join(export_dir, fp)) > 0
+                            for fp in expected_files
+                        ]
+                    )
+                )
+
+            self.assert_zip_file_contents(
+                os.path.join(
+                    export_dir, "tb9-2026.04.17-Test_Study_1-alldatatypes.zip"
+                ),
+                [
+                    "tb9-2026.04.17-Test_Study_1-0000-Fcirc.tsv",
+                    "tb9-2026.04.17-Test_Study_1-0000-PeakData.tsv",
+                    "tb9-2026.04.17-Test_Study_1-0000-PeakGroups.tsv",
+                    "tb9-2026.04.17-Test_Study_1-0000-mzXML.zip",
+                ],
+            )
+            self.assert_zip_file_contents(
+                os.path.join(
+                    export_dir, "tb9-2026.04.24-Test_Study_1-alldatatypes.zip"
+                ),
+                [
+                    "tb9-2026.04.17-Test_Study_1-0000-Fcirc.tsv",
+                    "tb9-2026.04.17-Test_Study_1-0000-PeakData.tsv",
+                    "tb9-2026.04.17-Test_Study_1-0000-PeakGroups.tsv",
+                    "tb9-2026.04.17-Test_Study_1-0000-mzXML.zip",
+                ],
+            )
+            self.assert_zip_file_contents(
+                os.path.join(
+                    export_dir, "tb9-2026.04.24-Test_Study_2-alldatatypes.zip"
+                ),
+                [
+                    "tb9-2026.04.24-Test_Study_2-0001-Fcirc.tsv",
+                    "tb9-2026.04.24-Test_Study_2-0001-PeakData.tsv",
+                    "tb9-2026.04.24-Test_Study_2-0001-PeakGroups.tsv",
+                    "tb9-2026.04.24-Test_Study_2-0001-mzXML.zip",
+                ],
+            )
+            self.assert_zip_file_contents(
+                os.path.join(export_dir, "tb9-2026.04.17-allstudies-Fcirc.zip"),
+                ["tb9-2026.04.17-Test_Study_1-0000-Fcirc.tsv"],
+            )
+            self.assert_zip_file_contents(
+                os.path.join(export_dir, "tb9-2026.04.24-allstudies-Fcirc.zip"),
+                [
+                    "tb9-2026.04.17-Test_Study_1-0000-Fcirc.tsv",
+                    "tb9-2026.04.24-Test_Study_2-0001-Fcirc.tsv",
+                ],
+            )
+            self.assert_zip_file_contents(
+                os.path.join(export_dir, "tb9-2026.04.17-allstudies-PeakData.zip"),
+                [
+                    "tb9-2026.04.17-Test_Study_1-0000-PeakData.tsv",
+                ],
+            )
+            self.assert_zip_file_contents(
+                os.path.join(export_dir, "tb9-2026.04.24-allstudies-PeakData.zip"),
+                [
+                    "tb9-2026.04.17-Test_Study_1-0000-PeakData.tsv",
+                    "tb9-2026.04.24-Test_Study_2-0001-PeakData.tsv",
+                ],
+            )
+            self.assert_zip_file_contents(
+                os.path.join(export_dir, "tb9-2026.04.17-allstudies-PeakGroups.zip"),
+                ["tb9-2026.04.17-Test_Study_1-0000-PeakGroups.tsv"],
+            )
+            self.assert_zip_file_contents(
+                os.path.join(export_dir, "tb9-2026.04.24-allstudies-PeakGroups.zip"),
+                [
+                    "tb9-2026.04.17-Test_Study_1-0000-PeakGroups.tsv",
+                    "tb9-2026.04.24-Test_Study_2-0001-PeakGroups.tsv",
+                ],
+            )
+            self.assert_zip_file_contents(
+                os.path.join(
+                    export_dir,
+                    "tb9-2026.04.17-allstudies-alldatatypes.zip",
+                ),
+                [
+                    "tb9-2026.04.17-Test_Study_1-0000-Fcirc.tsv",
+                    "tb9-2026.04.17-Test_Study_1-0000-PeakData.tsv",
+                    "tb9-2026.04.17-Test_Study_1-0000-PeakGroups.tsv",
+                    "tb9-2026.04.17-Test_Study_1-0000-mzXML.zip",
+                ],
+            )
+            self.assert_zip_file_contents(
+                os.path.join(
+                    export_dir,
+                    "tb9-2026.04.24-allstudies-alldatatypes.zip",
+                ),
+                [
+                    "tb9-2026.04.17-Test_Study_1-0000-Fcirc.tsv",
+                    "tb9-2026.04.17-Test_Study_1-0000-PeakData.tsv",
+                    "tb9-2026.04.17-Test_Study_1-0000-PeakGroups.tsv",
+                    "tb9-2026.04.17-Test_Study_1-0000-mzXML.zip",
+                    "tb9-2026.04.24-Test_Study_2-0001-Fcirc.tsv",
+                    "tb9-2026.04.24-Test_Study_2-0001-PeakData.tsv",
+                    "tb9-2026.04.24-Test_Study_2-0001-PeakGroups.tsv",
+                    "tb9-2026.04.24-Test_Study_2-0001-mzXML.zip",
+                ],
+            )
+            self.assert_zip_file_contents(
+                os.path.join(export_dir, "tb9-2026.04.17-allstudies-mzXML.zip"),
+                ["tb9-2026.04.17-Test_Study_1-0000-mzXML.zip"],
+            )
+            self.assert_zip_file_contents(
+                os.path.join(export_dir, "tb9-2026.04.24-allstudies-mzXML.zip"),
+                [
+                    "tb9-2026.04.17-Test_Study_1-0000-mzXML.zip",
+                    "tb9-2026.04.24-Test_Study_2-0001-mzXML.zip",
+                ],
+            )
+
     def test_organize_exports_by_study_and_datatype(self):
         export_files = [
             # Since there are no changes in the 4/24/26 files, they are removed
@@ -1057,6 +1241,7 @@ class ExportsOrganizerTests(TracebaseTestCase):
                                 "slug": "Test_Study_1",
                                 "ext": "tsv",
                                 "data_type": "Fcirc",
+                                "staged": False,
                             },
                             {
                                 "date": "2026.04.24",
@@ -1067,6 +1252,7 @@ class ExportsOrganizerTests(TracebaseTestCase):
                                 "slug": "Test_Study_1",
                                 "ext": "tsv",
                                 "data_type": "Fcirc",
+                                "staged": False,
                             },
                         ],
                     },
@@ -1081,6 +1267,7 @@ class ExportsOrganizerTests(TracebaseTestCase):
                                 "slug": "Test_Study_2",
                                 "ext": "tsv",
                                 "data_type": "Fcirc",
+                                "staged": False,
                             },
                         ],
                         "mzXML": [
@@ -1093,6 +1280,7 @@ class ExportsOrganizerTests(TracebaseTestCase):
                                 "slug": "Test_Study_2",
                                 "ext": "tsv",
                                 "data_type": "mzXML",
+                                "staged": False,
                             },
                         ],
                     },
@@ -1104,31 +1292,47 @@ class ExportsOrganizerTests(TracebaseTestCase):
 
     def test_parse_export_filename(self):
         self.assertEqual(
-            ("tracebase", "2026.04.17", "acute_stress", "0035", "FCirc", ".tsv"),
+            ("tracebase", "2026.04.17", "acute_stress", "0035", "FCirc", ".tsv", False),
             ExportsOrganizer.parse_export_filename(
                 "tracebase-2026.04.17-acute_stress-0035-FCirc.tsv"
             ),
         )
         self.assertEqual(
-            ("tracebase", "2026.04.17", "acute_stress", "0035", "mzXML", ".zip"),
+            ("tracebase", "2026.04.17", "acute_stress", "0035", "mzXML", ".zip", False),
             ExportsOrganizer.parse_export_filename(
                 "tracebase-2026.04.17-acute_stress-0035-mzXML.zip"
             ),
         )
         self.assertEqual(
-            ("tracebase", "2026.04.17", "acute_stress", "0035", "alldatatypes", ".zip"),
+            (
+                "tracebase",
+                "2026.04.17",
+                "acute_stress",
+                "0035",
+                "alldatatypes",
+                ".zip",
+                False,
+            ),
             ExportsOrganizer.parse_export_filename(
                 "tracebase-2026.04.17-acute_stress-0035-alldatatypes.zip"
             ),
         )
         self.assertEqual(
-            ("tracebase", "2026.04.17", "allstudies", None, "alldatatypes", ".zip"),
+            (
+                "tracebase",
+                "2026.04.17",
+                "allstudies",
+                None,
+                "alldatatypes",
+                ".zip",
+                False,
+            ),
             ExportsOrganizer.parse_export_filename(
                 "tracebase-2026.04.17-allstudies-alldatatypes.zip"
             ),
         )
         self.assertEqual(
-            ("tracebase", "2026.04.17", "allstudies", None, "PeakData", ".zip"),
+            ("tracebase", "2026.04.17", "allstudies", None, "PeakData", ".zip", False),
             ExportsOrganizer.parse_export_filename(
                 "tracebase-2026.04.17-allstudies-PeakData.zip"
             ),
@@ -1171,6 +1375,7 @@ class ExportsOrganizerTests(TracebaseTestCase):
                                     "slug": "Test_Study_2",
                                     "ext": "tsv",
                                     "data_type": "Fcirc",
+                                    "staged": False,
                                 },
                                 {
                                     "date": "2026.04.24",
@@ -1184,6 +1389,7 @@ class ExportsOrganizerTests(TracebaseTestCase):
                                     "slug": "Test_Study_2",
                                     "ext": "tsv",
                                     "data_type": "Fcirc",
+                                    "staged": False,
                                 },
                             ],
                             "PeakData": [
@@ -1199,6 +1405,7 @@ class ExportsOrganizerTests(TracebaseTestCase):
                                     "slug": "Test_Study_2",
                                     "ext": "tsv",
                                     "data_type": "PeakData",
+                                    "staged": False,
                                 },
                                 {
                                     "date": "2026.04.24",
@@ -1212,6 +1419,7 @@ class ExportsOrganizerTests(TracebaseTestCase):
                                     "slug": "Test_Study_2",
                                     "ext": "tsv",
                                     "data_type": "PeakData",
+                                    "staged": False,
                                 },
                             ],
                         },
@@ -1255,6 +1463,7 @@ class ExportsOrganizerTests(TracebaseTestCase):
                             "slug": "Test_Study_2",
                             "ext": "tsv",
                             "data_type": "Fcirc",
+                            "staged": False,
                         },
                     ],
                     "PeakData": [
@@ -1266,6 +1475,7 @@ class ExportsOrganizerTests(TracebaseTestCase):
                             "slug": "Test_Study_2",
                             "ext": "tsv",
                             "data_type": "PeakData",
+                            "staged": False,
                         },
                         {
                             "date": "2026.04.24",
@@ -1275,6 +1485,7 @@ class ExportsOrganizerTests(TracebaseTestCase):
                             "slug": "Test_Study_2",
                             "ext": "tsv",
                             "data_type": "PeakData",
+                            "staged": False,
                         },
                     ],
                 },
@@ -1301,6 +1512,7 @@ class ExportsOrganizerTests(TracebaseTestCase):
                                 "slug": "Test_Study_2",
                                 "ext": "tsv",
                                 "data_type": "Fcirc",
+                                "staged": False,
                             },
                             "PeakData": {
                                 "date": "2026.04.17",
@@ -1310,6 +1522,7 @@ class ExportsOrganizerTests(TracebaseTestCase):
                                 "slug": "Test_Study_2",
                                 "ext": "tsv",
                                 "data_type": "PeakData",
+                                "staged": False,
                             },
                         },
                         "2026.04.24": {
@@ -1321,6 +1534,7 @@ class ExportsOrganizerTests(TracebaseTestCase):
                                 "slug": "Test_Study_2",
                                 "ext": "tsv",
                                 "data_type": "Fcirc",
+                                "staged": False,
                             },
                             "PeakData": {
                                 "date": "2026.04.24",
@@ -1330,6 +1544,7 @@ class ExportsOrganizerTests(TracebaseTestCase):
                                 "slug": "Test_Study_2",
                                 "ext": "tsv",
                                 "data_type": "PeakData",
+                                "staged": False,
                             },
                         },
                     },
@@ -1350,6 +1565,7 @@ class ExportsOrganizerTests(TracebaseTestCase):
                                 "slug": "Test_Study_2",
                                 "ext": "tsv",
                                 "data_type": "Fcirc",
+                                "staged": False,
                             },
                         },
                         "2026.04.24": {
@@ -1361,6 +1577,7 @@ class ExportsOrganizerTests(TracebaseTestCase):
                                 "slug": "Test_Study_2",
                                 "ext": "tsv",
                                 "data_type": "Fcirc",
+                                "staged": False,
                             },
                         },
                     },
@@ -1374,6 +1591,7 @@ class ExportsOrganizerTests(TracebaseTestCase):
                                 "slug": "Test_Study_2",
                                 "ext": "tsv",
                                 "data_type": "PeakData",
+                                "staged": False,
                             },
                         },
                         "2026.04.24": {
@@ -1385,6 +1603,7 @@ class ExportsOrganizerTests(TracebaseTestCase):
                                 "slug": "Test_Study_2",
                                 "ext": "tsv",
                                 "data_type": "PeakData",
+                                "staged": False,
                             },
                         },
                     },
@@ -1405,6 +1624,7 @@ class ExportsOrganizerTests(TracebaseTestCase):
                                 "slug": "Test_Study_2",
                                 "ext": "tsv",
                                 "data_type": "Fcirc",
+                                "staged": False,
                             },
                             "PeakData": {
                                 "date": "2026.04.17",
@@ -1414,6 +1634,7 @@ class ExportsOrganizerTests(TracebaseTestCase):
                                 "slug": "Test_Study_2",
                                 "ext": "tsv",
                                 "data_type": "PeakData",
+                                "staged": False,
                             },
                         },
                     },
@@ -1427,6 +1648,7 @@ class ExportsOrganizerTests(TracebaseTestCase):
                                 "slug": "Test_Study_2",
                                 "ext": "tsv",
                                 "data_type": "Fcirc",
+                                "staged": False,
                             },
                             "PeakData": {
                                 "date": "2026.04.24",
@@ -1436,6 +1658,7 @@ class ExportsOrganizerTests(TracebaseTestCase):
                                 "slug": "Test_Study_2",
                                 "ext": "tsv",
                                 "data_type": "PeakData",
+                                "staged": False,
                             },
                         },
                     },
@@ -1640,6 +1863,7 @@ class ExportsOrganizerTests(TracebaseTestCase):
                                     "slug": "Test_Study_2",
                                     "ext": "tsv",
                                     "data_type": "Fcirc",
+                                    "staged": False,
                                 },
                                 "PeakData": {
                                     "date": "2026.04.24",
@@ -1652,6 +1876,7 @@ class ExportsOrganizerTests(TracebaseTestCase):
                                     "slug": "Test_Study_2",
                                     "ext": "tsv",
                                     "data_type": "PeakData",
+                                    "staged": False,
                                 },
                             },
                         },
@@ -1672,6 +1897,7 @@ class ExportsOrganizerTests(TracebaseTestCase):
                                     "slug": "Test_Study_2",
                                     "ext": "tsv",
                                     "data_type": "Fcirc",
+                                    "staged": False,
                                 },
                             },
                         },
@@ -1692,6 +1918,7 @@ class ExportsOrganizerTests(TracebaseTestCase):
                                     "slug": "Test_Study_2",
                                     "ext": "tsv",
                                     "data_type": "Fcirc",
+                                    "staged": False,
                                 },
                                 "PeakData": {
                                     "date": "2026.04.24",
@@ -1704,6 +1931,7 @@ class ExportsOrganizerTests(TracebaseTestCase):
                                     "slug": "Test_Study_2",
                                     "ext": "tsv",
                                     "data_type": "PeakData",
+                                    "staged": False,
                                 },
                             },
                         },
@@ -1825,6 +2053,7 @@ class ExportsOrganizerTests(TracebaseTestCase):
                                     "slug": "Test_Study_2",
                                     "ext": "tsv",
                                     "data_type": "Fcirc",
+                                    "staged": False,
                                 },
                                 "PeakData": {
                                     "date": "2026.04.24",
@@ -1837,6 +2066,7 @@ class ExportsOrganizerTests(TracebaseTestCase):
                                     "slug": "Test_Study_2",
                                     "ext": "tsv",
                                     "data_type": "PeakData",
+                                    "staged": False,
                                 },
                             },
                         },
@@ -1944,6 +2174,7 @@ class ExportsOrganizerTests(TracebaseTestCase):
                                     "slug": "Test_Study_2",
                                     "ext": "tsv",
                                     "data_type": "Fcirc",
+                                    "staged": False,
                                 },
                             },
                         },
@@ -2048,6 +2279,7 @@ class ExportsOrganizerTests(TracebaseTestCase):
                                     "slug": "Test_Study_2",
                                     "ext": "tsv",
                                     "data_type": "Fcirc",
+                                    "staged": False,
                                 },
                                 "PeakData": {
                                     "date": "2026.04.24",
@@ -2060,6 +2292,7 @@ class ExportsOrganizerTests(TracebaseTestCase):
                                     "slug": "Test_Study_2",
                                     "ext": "tsv",
                                     "data_type": "PeakData",
+                                    "staged": False,
                                 },
                             },
                         },
@@ -2216,6 +2449,160 @@ class ExportsOrganizerTests(TracebaseTestCase):
                     "tb9-2026.04.17-Test_Study_2-0001-PeakData.tsv",
                 ],
             )
+
+    def test_package_exists(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with override_settings(
+                MEDIA_ROOT=tmpdir,
+                FILE_UPLOAD_TEMP_DIR=tmpdir,
+            ):
+                test_dir = "DataRepo/data/tests/exports_organizer/one_export"
+
+                existing_package1 = os.path.join(
+                    tmpdir,
+                    "tb9-2026.04.17-allstudies-alldatatypes.zip",
+                )
+                existing_package2 = os.path.join(
+                    tmpdir,
+                    "tb9-2026.04.24-allstudies-alldatatypes.zip",
+                )
+                nonexistent_package3 = "tb9-2026.04.10-allstudies-alldatatypes.zip"
+
+                shutil.copy2(
+                    os.path.join(
+                        test_dir,
+                        "tb9-2026.04.17-Test_Study_2-0001-mzXML.zip",
+                    ),
+                    # We're going to pretend this zip archive is an unstaged package
+                    existing_package1,
+                )
+                shutil.copy2(
+                    os.path.join(
+                        test_dir,
+                        "tb9-2026.04.17-Test_Study_2-0001-mzXML.zip",
+                    ),
+                    # We're going to pretend this zip archive is a staged package
+                    f"{existing_package2}{ExportsOrganizer.staged_ext}",
+                )
+
+                self.assertTrue(ExportsOrganizer.package_exists(existing_package1))
+                self.assertTrue(
+                    ExportsOrganizer.package_exists(
+                        f"{existing_package1}{ExportsOrganizer.staged_ext}"
+                    )
+                )
+                self.assertTrue(ExportsOrganizer.package_exists(existing_package2))
+                self.assertTrue(
+                    ExportsOrganizer.package_exists(
+                        f"{existing_package2}{ExportsOrganizer.staged_ext}"
+                    )
+                )
+                self.assertFalse(ExportsOrganizer.package_exists(nonexistent_package3))
+                self.assertFalse(
+                    ExportsOrganizer.package_exists(
+                        f"{nonexistent_package3}{ExportsOrganizer.staged_ext}"
+                    )
+                )
+
+    def test_unstage_all_files(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with override_settings(
+                MEDIA_ROOT=tmpdir,
+                FILE_UPLOAD_TEMP_DIR=tmpdir,
+            ):
+                test_dir = (
+                    "DataRepo/data/tests/exports_organizer/two_exports_one_tsv_change"
+                )
+                export_dir = os.path.join(tmpdir, "two_exports_one_tsv_change")
+                os.makedirs(export_dir, exist_ok=True)
+
+                # Copy in files that don't change and ones that do
+                for src, trg in [
+                    (
+                        "tb9-2026.04.17-Test_Study_2-0001-Fcirc.tsv",
+                        "tb9-2026.04.17-Test_Study_2-0001-Fcirc.tsv.staged",
+                    ),
+                    (
+                        "tb9-2026.04.17-Test_Study_2-0001-PeakData.tsv",
+                        "tb9-2026.04.17-Test_Study_2-0001-PeakData.tsv.staged",
+                    ),
+                    (
+                        "tb9-2026.04.24-Test_Study_2-0001-Fcirc.tsv",
+                        "tb9-2026.04.24-Test_Study_2-0001-Fcirc.tsv.staged",
+                    ),
+                    (
+                        # Null test - assert remains unchanged
+                        "tb9-2026.04.24-Test_Study_2-0001-PeakData.tsv",
+                        "tb9-2026.04.24-Test_Study_2-0001-PeakData.tsv",
+                    ),
+                    (
+                        # We will pretend this one is a zip archive package
+                        "tb9-2026.04.24-Test_Study_2-0001-mzXML.zip",
+                        "tb9-2026.04.24-allstudies-alldatatypes.zip.staged",
+                    ),
+                    (
+                        # Null test - assert remains unchanged
+                        "tb9-2026.04.17-Test_Study_2-0001-mzXML.zip",
+                        "tb9-2026.04.17-allstudies-alldatatypes.zip",
+                    ),
+                ]:
+                    shutil.copy2(
+                        os.path.join(test_dir, src), os.path.join(export_dir, trg)
+                    )
+
+                base = Path(export_dir)
+                export_dir_contents = sorted(
+                    str(p.relative_to(base)) for p in base.glob("*")
+                )
+                self.assertEqual(
+                    [
+                        "tb9-2026.04.17-Test_Study_2-0001-Fcirc.tsv.staged",
+                        "tb9-2026.04.17-Test_Study_2-0001-PeakData.tsv.staged",
+                        "tb9-2026.04.17-allstudies-alldatatypes.zip",
+                        "tb9-2026.04.24-Test_Study_2-0001-Fcirc.tsv.staged",
+                        "tb9-2026.04.24-Test_Study_2-0001-PeakData.tsv",
+                        "tb9-2026.04.24-allstudies-alldatatypes.zip.staged",
+                    ],
+                    export_dir_contents,
+                )
+
+                organize_exports = ExportsOrganizer()
+                organize_exports.export_dir = export_dir
+
+                # Confirm that when not in staging mode (the default), nothing is unstaged
+                organize_exports.unstage_all_files()
+                export_dir_contents = sorted(
+                    str(p.relative_to(base)) for p in base.glob("*")
+                )
+                self.assertEqual(
+                    [
+                        "tb9-2026.04.17-Test_Study_2-0001-Fcirc.tsv.staged",
+                        "tb9-2026.04.17-Test_Study_2-0001-PeakData.tsv.staged",
+                        "tb9-2026.04.17-allstudies-alldatatypes.zip",
+                        "tb9-2026.04.24-Test_Study_2-0001-Fcirc.tsv.staged",
+                        "tb9-2026.04.24-Test_Study_2-0001-PeakData.tsv",
+                        "tb9-2026.04.24-allstudies-alldatatypes.zip.staged",
+                    ],
+                    export_dir_contents,
+                )
+
+                # Confirm that when in staging mode, everything is unstaged
+                organize_exports.staging_mode = True
+                organize_exports.unstage_all_files()
+                export_dir_contents = sorted(
+                    str(p.relative_to(base)) for p in base.glob("*")
+                )
+                self.assertEqual(
+                    [
+                        "tb9-2026.04.17-Test_Study_2-0001-Fcirc.tsv",
+                        "tb9-2026.04.17-Test_Study_2-0001-PeakData.tsv",
+                        "tb9-2026.04.17-allstudies-alldatatypes.zip",
+                        "tb9-2026.04.24-Test_Study_2-0001-Fcirc.tsv",
+                        "tb9-2026.04.24-Test_Study_2-0001-PeakData.tsv",
+                        "tb9-2026.04.24-allstudies-alldatatypes.zip",
+                    ],
+                    export_dir_contents,
+                )
 
 
 class ExportParseErrorTests(TracebaseTestCase):
