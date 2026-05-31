@@ -1,5 +1,4 @@
 import os
-import re
 import shutil
 import tempfile
 from pathlib import Path
@@ -161,30 +160,24 @@ class ExportStudiesTests(ExportStudiesTestBase):
             host="tb9",
             date="1972-11-24",
         )
+        stdy = Study.objects.get(name="test v3 study")
         self.assertEqual(
             set(
                 [
-                    "tb9-1972.11.24-test_v3_study-0003-PeakData.tsv",
-                    "tb9-1972.11.24-test_v3_study-0003-PeakGroups.tsv",
-                    "tb9-1972.11.24-test_v3_study-0003-mzXML.zip",
-                    "tb9-1972.11.24-test_v3_study-0003-Fcirc.tsv",
+                    f"tb9-1972.11.24-test_v3_study-{stdy.id:04d}-PeakData.tsv",
+                    f"tb9-1972.11.24-test_v3_study-{stdy.id:04d}-PeakGroups.tsv",
+                    f"tb9-1972.11.24-test_v3_study-{stdy.id:04d}-mzXML.zip",
+                    f"tb9-1972.11.24-test_v3_study-{stdy.id:04d}-Fcirc.tsv",
                 ]
             ),
             set(
                 [
-                    # The study ID is random/arbitrary.  Change them all to be the same.  I chose 0003 arbitrarily,
-                    # because that's how they appear when I run the test without modifying them.
-                    re.sub(
-                        r"study_\d+",
-                        "study_0003",
-                        str(
-                            os.path.relpath(
-                                p, os.path.join(self.tmpdir, "mzxml_study_all_types")
-                            )
-                        ),
-                        count=2,
+                    str(
+                        os.path.relpath(
+                            pth, os.path.join(self.tmpdir, "mzxml_study_all_types")
+                        )
                     )
-                    for p in Path(
+                    for pth in Path(
                         os.path.join(self.tmpdir, "mzxml_study_all_types")
                     ).rglob("*/")
                 ]
