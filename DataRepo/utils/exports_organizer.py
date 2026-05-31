@@ -538,12 +538,14 @@ class ExportsOrganizer(ExportBase):
                 "files_differ is only intended to compare files with the same extension. "
                 f"'{ext1}' != '{ext2}'."
             )
+
         if ext1.lower() == ".zip":
             return cls.mzxml_zips_differ(filepath1, filepath2)
         if ext1.lower() != ".tsv":
             raise ValueError(
                 f"files_differ supports only zip and tsv files, not '{ext1}'."
             )
+
         return cls.tsv_files_differ(filepath1, filepath2)
 
     @classmethod
