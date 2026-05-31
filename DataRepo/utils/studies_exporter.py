@@ -173,9 +173,7 @@ class StudiesExporter:
 
         # For each study (ID/name)
         for study_id, study_name in study_ids_names:
-            study_str = (
-                f"{self.host}-{export_datestamp}-{study_name}-{study_id:04d}"
-            )
+            study_str = f"{self.host}-{export_datestamp}-{study_name}-{study_id:04d}"
 
             # For each data type
             for data_type in self.data_types:
