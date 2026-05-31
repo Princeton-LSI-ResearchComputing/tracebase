@@ -23,14 +23,14 @@ class StudiesExporter:
     """Exports the SearchGroup formats with one file per study and and data type combo.
 
     Output filenames will be slugified (replacing dashes with underscores) and have the following naming structure:
-        {instance_name}-{export_datestamp}-{study_name}-{study_id}-{data_type}.{extension}
+        {host_name}-{export_datestamp}-{study_name}-{study_id}-{data_type}.{extension}
 
     Example:
         tb9-pub-2026.04.11-Acute_Stress-0004-mzXML.zip
 
     The reasoning/value for each filename element:
-        instance_name (E.g. "tb9" for the tracebase-rabinowitz instance):
-            Since TraceBase instances are loaded separately, when users download exported data, including the instance
+        host_name (E.g. "tb9" for the tracebase-rabinowitz instance):
+            Since TraceBase instances are loaded separately, when users download exported data, including the host
             name can be used to differentiate between downloads from different instances.  They should theoretically be
             identical for the same study, but if any data is manually edited, knowing the source can be critical.
         export_datestamp (E.g. "2026.04.11"):
@@ -52,7 +52,7 @@ class StudiesExporter:
         header_template (Template): Used to render the commented metadata header of exported TSV files.
         row_template (Template): Used to render the content of the exported TSV files.
         datestamp_format (str): The date string used in the exported filenames.
-        default_instance (str): Hostname of the TraceBase instance (with dashes replaced with underscores).
+        default_host (str): Host/domain name of the TraceBase instance (with dashes replaced with underscores).
     Instance Attributes:
         bad_searches (Dict[str, Exception]): Query exceptions by study ID or name.
         outdir (str): Output directory.
@@ -67,7 +67,7 @@ class StudiesExporter:
     all_zipped_data_types = [MzxmlFormat.name]
     header_template = get_template("search/downloads/download_header.tsv")
     row_template = get_template("search/downloads/download_row.tsv")
-    default_instance = socket.gethostname().replace("-", "_")
+    default_host = socket.getfqdn().replace("-", "_")
 
     # NOTE: datestamp_format intentionally differs from AdvancedSearchDownloadView.datestamp_format in that it does not
     # include the time (since the intention is to run the export in a cron less than or equal to once a day) and we
@@ -80,8 +80,8 @@ class StudiesExporter:
         study_targets: Optional[List[str]] = None,
         data_types: Optional[List[str]] = None,
         overwrite: bool = False,
-        host: Optional[str] = None,
-        date: Optional[datetime] = None,
+        host: Optional[str] = None,  # Defaults to current host/domain
+        date: Optional[datetime] = None,  # Defaults to now
     ):
         self.bad_searches: Dict[str, int] = {}
 
@@ -98,7 +98,7 @@ class StudiesExporter:
         ]
         self.overwrite = overwrite
 
-        self.instance_name = host if host else self.default_instance
+        self.host = host if host else self.default_host
         self.date = date
 
         # A script on a cron-job uses the study ID in the file name to compare exported files with previously exported
@@ -174,7 +174,7 @@ class StudiesExporter:
         # For each study (ID/name)
         for study_id, study_name in study_ids_names:
             study_str = (
-                f"{self.instance_name}-{export_datestamp}-{study_name}-{study_id:04d}"
+                f"{self.host}-{export_datestamp}-{study_name}-{study_id:04d}"
             )
 
             # For each data type

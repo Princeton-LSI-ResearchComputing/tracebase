@@ -41,9 +41,9 @@ class Command(BaseCommand):
         parser.add_argument(
             "--host",
             required=False,
-            default=StudiesExporter.default_instance,
+            default=StudiesExporter.default_host,
             help=(
-                f"[{StudiesExporter.default_instance} Host name to include in the exported file names.  "
+                f"[{StudiesExporter.default_host} Host name to include in the exported file names.  "
                 "Use this so users can identify files exported from different TraceBase instances."
             ),
         )
