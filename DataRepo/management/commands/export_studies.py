@@ -13,7 +13,7 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument(
             "--outdir",
-            required=True,
+            required=False,
             default=settings.DOWNLOADS_DIR,
             help=f"[{settings.DOWNLOADS_DIR}] Directory to create and save exported files.",
         )
