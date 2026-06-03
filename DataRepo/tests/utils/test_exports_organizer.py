@@ -37,13 +37,6 @@ class ExportsOrganizerTests(TracebaseTestCase):
         self.assertEqual("allstudies", exports_organizer.allstudies_str)
         self.assertEqual("alldatatypes", exports_organizer.alldatatypes_str)
 
-    def test_get_slugified_study_names_dict(self):
-        exports_organizer = ExportsOrganizer()
-        self.assertEqual(
-            {0: "Test_Study_1", 1: "Test_Study_2"},
-            exports_organizer.slugified_study_names,
-        )
-
     def assert_zip_file_contents(self, zip_path: str, expected_root_files: List[str]):
         with zipfile.ZipFile(zip_path) as zf:
             root_files = [name for name in zf.namelist()]

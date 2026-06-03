@@ -1,11 +1,13 @@
-from collections import defaultdict
 import os
+from collections import defaultdict
 from warnings import warn
+
 from django.conf import settings
 from django.views.generic import TemplateView
 
 from DataRepo.utils.exports_organizer import ExportParseError, ExportsOrganizer
 from DataRepo.utils.file_utils import get_readable_file_size
+
 
 class DownloadsView(TemplateView):
     template_name = "downloads/downloads.html"
@@ -18,11 +20,13 @@ class DownloadsView(TemplateView):
         files = defaultdict(list)
         if os.path.exists(downloads_dir):
             filename: str
-            for filename in sorted((f for f in os.listdir(downloads_dir) if f is not None), key=str.casefold):
+            for filename in sorted(
+                (f for f in os.listdir(downloads_dir) if f is not None),
+                key=str.casefold,
+            ):
                 filepath = os.path.join(downloads_dir, filename)
-                if (
-                    not os.path.isfile(filepath)
-                    or filename.endswith(ExportsOrganizer.staged_ext)
+                if not os.path.isfile(filepath) or filename.endswith(
+                    ExportsOrganizer.staged_ext
                 ):
                     continue
 
@@ -36,14 +40,25 @@ class DownloadsView(TemplateView):
                     )
                     continue
 
-                if ExportsOrganizer.alldatatypes_str in filename and ExportsOrganizer.allstudies_str in filename:
-                    files["all"].append({"file": filename, "size": get_readable_file_size(filepath)})
+                if (
+                    ExportsOrganizer.alldatatypes_str in filename
+                    and ExportsOrganizer.allstudies_str in filename
+                ):
+                    files["all"].append(
+                        {"file": filename, "size": get_readable_file_size(filepath)}
+                    )
                 elif ExportsOrganizer.alldatatypes_str in filename:
-                    files["studies"].append({"file": filename, "size": get_readable_file_size(filepath)})
+                    files["studies"].append(
+                        {"file": filename, "size": get_readable_file_size(filepath)}
+                    )
                 elif ExportsOrganizer.allstudies_str in filename:
-                    files["datatypes"].append({"file": filename, "size": get_readable_file_size(filepath)})
+                    files["datatypes"].append(
+                        {"file": filename, "size": get_readable_file_size(filepath)}
+                    )
                 else:
-                    files["individual"].append({"file": filename, "size": get_readable_file_size(filepath)})
+                    files["individual"].append(
+                        {"file": filename, "size": get_readable_file_size(filepath)}
+                    )
 
         context["files"] = files
         context["downloads_url"] = settings.DOWNLOADS_URL

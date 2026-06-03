@@ -1,9 +1,8 @@
 import os
-import socket
 import tempfile
 from collections import defaultdict
 from datetime import datetime
-from typing import Callable, Dict, Iterator, List, Optional, Tuple
+from typing import Callable, Dict, Iterator, List, Optional
 
 from django.conf import settings
 from django.db.models import Q
@@ -13,7 +12,7 @@ from django.utils.text import get_valid_filename
 from DataRepo.formats.mzxml_dataformat import MzxmlFormat
 from DataRepo.formats.search_group import SearchGroup
 from DataRepo.models import Study
-from DataRepo.utils.exceptions import AggregatedErrors, trace
+from DataRepo.utils.exceptions import trace
 from DataRepo.utils.export_base import ExportBase
 from DataRepo.views.search.download import (
     AdvancedSearchDownloadMzxmlZIPView,
@@ -48,20 +47,33 @@ class StudiesExporter(ExportBase):
             There are 2 extensions currently: tsv and zip.  The zip extension is specific to the mzXML search format.
 
     Class Attributes:
-        sg (SearchGroup): This defines the data types and is the means by which queries are executed.
-        all_data_types (List[str]): These are the names of all of the DataFormat objects contained by sg.
-        all_zipped_data_types (List[str]):  This is the subset of all_data_types that should be exported as zip files.
-        header_template (Template): Used to render the commented metadata header of exported TSV files.
-        row_template (Template): Used to render the content of the exported TSV files.
-        datestamp_format (str): The date string used in the exported filenames.
-        default_host (str): Host/domain name of the TraceBase instance (with dashes replaced with underscores).
+        StudiesExporter (this class):
+            sg (SearchGroup): This defines the data types and is the means by which queries are executed.
+            all_data_types (List[str]): These are the names of all of the DataFormat objects contained by sg.
+            all_zipped_data_types (List[str]):  This is the subset of all_data_types that should be exported as zip
+                files.
+            header_template (Template): Used to render the commented metadata header of exported TSV files.
+            row_template (Template): Used to render the content of the exported TSV files.
+            datestamp_format (str): The date string used in the exported filenames.
+        ExportBase (superclass):
+            staged_ext (str): The string to be appended-to/removed-from export and zip archive filenames when in
+                staging_mode.
+            default_host (str): Host/domain name of the TraceBase instance (with dashes replaced with underscores).
     Instance Attributes:
-        bad_searches (Dict[str, Exception]): Query exceptions by study ID or name.
-        outdir (str): Output directory.
-        study_targets (List[str]): List of study IDs and/or names.
-        data_types (List[str]): The data types to be exported.  Must be a subset of cls.all_data_types.
-        zipped_data_types (List[str]): The zipped data types to be exported.  Must be a subset of data_types.
-        overwrite (bool) [False]: Whether to overwrite existing exported files.
+        StudiesExporter (this class):
+            bad_searches (Dict[str, Exception]): Query exceptions by study ID or name.
+            outdir (str): Output directory.
+            study_targets (List[str]): List of study IDs and/or names.
+            data_types (List[str]): The data types to be exported.  Must be a subset of cls.all_data_types.
+            zipped_data_types (List[str]): The zipped data types to be exported.  Must be a subset of data_types.
+            overwrite (bool) [False]: Whether to overwrite existing exported files.
+        ExportBase (superclass):
+            study_names (Dict[int, str]): Study ID keys mapped to actual (not slugified) study names for the current
+                host.
+            slugified_study_names (Dict[int, str]): Study ID keys mapped to slugified study names for the current host.
+            export_dir (str): The path to the existing output directory.
+            staging_mode (bool) [False]: Write outputs as .staged files and publish them (and staged files produced by
+                StudiesExporter.export()) by renaming them to their final names when processing completes.
     """
 
     sg = SearchGroup()
@@ -69,7 +81,6 @@ class StudiesExporter(ExportBase):
     all_zipped_data_types = [MzxmlFormat.name]
     header_template = get_template("search/downloads/download_header.tsv")
     row_template = get_template("search/downloads/download_row.tsv")
-    default_host = socket.getfqdn().replace("-", "_")
 
     # NOTE: datestamp_format intentionally differs from AdvancedSearchDownloadView.datestamp_format in that it does not
     # include the time (since the intention is to run the export in a cron less than or equal to once a day) and we
@@ -298,9 +309,6 @@ class StudiesExporter(ExportBase):
             )
 
     def export(self):
-        # For individual traceback prints
-        aes = AggregatedErrors()
-
         # Export time for the outfile headers
         if self.date:
             export_time = self.date
@@ -313,7 +321,7 @@ class StudiesExporter(ExportBase):
         export_datestamp = export_time.strftime(self.datestamp_format)
 
         # Identify the study records to export (by name)
-        study_ids_names = []
+        study_ids_for_export = []
         if len(self.study_targets) > 0:
             for study_target in self.study_targets:
                 # Always check for name match
@@ -325,15 +333,10 @@ class StudiesExporter(ExportBase):
                 try:
                     # Perform a `get` for each record so that non-matching values will raise an exception
                     study_rec = Study.objects.get(or_query)
-                    study_ids_names.append(
-                        (
-                            study_rec.id,
-                            get_valid_filename(study_rec.name.replace("-", "_")),
-                        )
-                    )
+                    study_ids_for_export.append(study_rec.id)
                 except Exception as e:
-                    # Buffering exception to just print the traceback
-                    aes.buffer_error(e)
+                    # Print a pseudo-trace for debugging
+                    print(f"{trace(e)}\n{type(e).__name__}: {e}")
                     # Collect the exceptions for an easier to debug and more succinct exception to raise
                     self.bad_searches[study_target] = e
 
@@ -341,15 +344,9 @@ class StudiesExporter(ExportBase):
             if len(self.bad_searches.keys()) > 0:
                 raise BadQueryTerm(self.bad_searches)
         else:
-            study_ids_names = list(
-                (
-                    stdy.id,
-                    get_valid_filename(stdy.name.replace("-", "_")),
-                )
-                for stdy in Study.objects.all()
-            )
+            study_ids_for_export = [stdy.id for stdy in Study.objects.all()]
 
-        self.check_study_names(study_ids_names)
+        self.check_study_names(study_ids_for_export)
 
         # Make output directory
         if not os.path.exists(self.outdir):
@@ -363,8 +360,11 @@ class StudiesExporter(ExportBase):
         existing_files = []
 
         # For each study (ID/name)
-        for study_id, study_name in study_ids_names:
-            study_str = f"{self.host}-{export_datestamp}-{study_name}-{study_id:04d}"
+        for study_id in study_ids_for_export:
+            slugified_study_name = self.slugified_study_names[study_id]
+            study_str = (
+                f"{self.host}-{export_datestamp}-{slugified_study_name}-{study_id:04d}"
+            )
 
             # For each data type
             for data_type in self.data_types:
@@ -383,6 +383,7 @@ class StudiesExporter(ExportBase):
                     file_exists = FileExistsError(
                         f"File {unstaged_filepath} exists.  Use the overwrite option to overwrite existing files."
                     )
+                    # Print a pseudo-trace for debugging
                     print(
                         f"{trace(file_exists)}\n{type(file_exists).__name__}: {file_exists}"
                     )
@@ -543,18 +544,27 @@ class StudiesExporter(ExportBase):
 
             raise e
 
-    def check_study_names(self, study_ids_names: List[Tuple[int, str]]):
-        """This checks the sanitized study names for uniqueness"""
+    def check_study_names(self, study_ids: List[int]):
+        """This checks the sanitized study names for uniqueness, limited to the selected studies to export.
+
+        Args:
+            study_ids (List[int]): A list of the Study model IDs for the studies being exported.
+        Exceptions:
+            DuplicateSlugifiedStudyNames - If 2 or more slugified study names collide.
+        Returns:
+            None
+        """
         unique_study_names = []
         dupe_study_names: Dict[str, int] = defaultdict(int)
-        for _, study_name in study_ids_names:
-            if study_name in unique_study_names:
-                if study_name in dupe_study_names:
-                    dupe_study_names[study_name] += 1
+        for study_id in study_ids:
+            stud_name_slug = self.slugified_study_names[study_id]
+            if stud_name_slug in unique_study_names:
+                if stud_name_slug in dupe_study_names:
+                    dupe_study_names[stud_name_slug] += 1
                 else:
-                    dupe_study_names[study_name] = 2
+                    dupe_study_names[stud_name_slug] = 2
             else:
-                unique_study_names.append(study_name)
+                unique_study_names.append(stud_name_slug)
         if dupe_study_names:
             raise DuplicateSlugifiedStudyNames(dupe_study_names)
 
