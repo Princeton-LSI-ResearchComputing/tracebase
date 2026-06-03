@@ -14,7 +14,7 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument(
             "--export-dir",
-            required=True,
+            required=False,
             default=settings.DOWNLOADS_DIR,
             help=f"[{settings.DOWNLOADS_DIR}] Directory to organize exported files into zip archives.",
         )

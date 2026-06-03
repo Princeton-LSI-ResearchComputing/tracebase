@@ -1,5 +1,6 @@
 from django.urls import path
 
+from DataRepo.views.downloads import DownloadsView
 from DataRepo.views.models.peakdata import PeakDataDetailView
 
 from .views import (
@@ -169,4 +170,5 @@ urlpatterns = [
         TracerDetailView.as_view(),
         name=TracerDetailView.model.detail_name,
     ),
+    path('downloads/', DownloadsView.as_view(), name='downloads'),
 ]
