@@ -1816,7 +1816,7 @@ class ExportsOrganizerTests(TracebaseTestCase):
     def test_compute_study_package_filename(self):
         exports_organizer = ExportsOrganizer()
         filename = exports_organizer.compute_study_package_filename(
-            "tb9", "2026.04.17", "0001"
+            "tb9", "2026.04.17", "0001", study_slug="Test_Study_2"
         )
         self.assertEqual("tb9-2026.04.17-Test_Study_2-alldatatypes.zip", filename)
 

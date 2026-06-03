@@ -30,6 +30,7 @@ class ExportBase:
 
         self.export_dir: str
         self.staging_mode = False
+        self.overwrite = False
 
     @classmethod
     def get_slugified_study_names_dict(cls):
