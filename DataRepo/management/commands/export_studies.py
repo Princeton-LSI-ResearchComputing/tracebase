@@ -53,6 +53,15 @@ class Command(BaseCommand):
             help="Date of export.  ISO format: YYYY-MM-DDTHH:MM:SS.",
             default=datetime.now(),
         )
+        parser.add_argument(
+            "--staging-mode",
+            action="store_true",
+            default=False,
+            help=(
+                "Append a '.staged' extension to output files.  Note, this will not create staged files for existing "
+                "unstaged files.  See --overwrite."
+            ),
+        )
 
     def handle(self, *args, **options):
         se = StudiesExporter(
@@ -66,5 +75,6 @@ class Command(BaseCommand):
                 if isinstance(options["date"], str) and options["date"] != ""
                 else None
             ),
+            staging_mode=options["staging_mode"],
         )
         se.export()

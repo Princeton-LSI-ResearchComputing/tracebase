@@ -5,6 +5,7 @@ from collections import defaultdict
 from datetime import datetime
 from typing import Callable, Dict, Iterator, List, Optional, Tuple
 
+from django.conf import settings
 from django.db.models import Q
 from django.template.loader import get_template
 from django.utils.text import get_valid_filename
@@ -13,13 +14,14 @@ from DataRepo.formats.mzxml_dataformat import MzxmlFormat
 from DataRepo.formats.search_group import SearchGroup
 from DataRepo.models import Study
 from DataRepo.utils.exceptions import AggregatedErrors, trace
+from DataRepo.utils.export_base import ExportBase
 from DataRepo.views.search.download import (
     AdvancedSearchDownloadMzxmlZIPView,
     AdvancedSearchDownloadView,
 )
 
 
-class StudiesExporter:
+class StudiesExporter(ExportBase):
     """Exports the SearchGroup formats with one file per study and and data type combo.
 
     Output filenames will be slugified (replacing dashes with underscores) and have the following naming structure:
@@ -82,6 +84,7 @@ class StudiesExporter:
         overwrite: bool = False,
         host: Optional[str] = None,  # Defaults to current host/domain
         date: Optional[datetime] = None,  # Defaults to now
+        staging_mode=False,
     ):
         self.bad_searches: Dict[str, int] = {}
 
@@ -97,6 +100,7 @@ class StudiesExporter:
             dt for dt in self.data_types if dt in self.all_zipped_data_types
         ]
         self.overwrite = overwrite
+        self.staging_mode = staging_mode
 
         self.host = host if host else self.default_host
         self.date = date
@@ -167,7 +171,12 @@ class StudiesExporter:
 
         # Make output directory
         if not os.path.exists(self.outdir):
-            os.mkdir(self.outdir)
+            if os.path.realpath(settings.DOWNLOADS_DIR) == os.path.realpath(
+                self.outdir
+            ):
+                os.makedirs(self.outdir)
+            else:
+                os.mkdir(self.outdir)
 
         existing_files = []
 
@@ -186,9 +195,15 @@ class StudiesExporter:
                         self.outdir, get_valid_filename(f"{study_str}-{data_type}.tsv")
                     )
 
-                if os.path.exists(filepath) and not self.overwrite:
+                unstaged_filepath = filepath
+                if self.staging_mode:
+                    filepath += self.staged_ext
+
+                if (
+                    os.path.exists(filepath) or os.path.exists(unstaged_filepath)
+                ) and not self.overwrite:
                     file_exists = FileExistsError(
-                        f"File {filepath} exists.  Use the overwrite option to overwrite existing files."
+                        f"File {unstaged_filepath} exists.  Use the overwrite option to overwrite existing files."
                     )
                     print(
                         f"{trace(file_exists)}\n{type(file_exists).__name__}: {file_exists}"

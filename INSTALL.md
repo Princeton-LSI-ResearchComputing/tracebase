@@ -199,12 +199,21 @@ TraceBase has a single `static` directory, containing:
 - Images
 - favicon.ico
 
-It also serves files from the administrator-selected archive location, which should be set up outside the `tracebase`
-code repository directory and configured with the `ARCHIVE` variable in the `TraceBase/.env` file.
+The webserver needs to be set up to allow file access to the `static` directory at the root level of the codebase.  It
+also needs to be configured as an alias in the webserver.  See **Apache Setup** below.
 
-The webserver needs to be set up to allow file access to both directories.
+#### Create the `MEDIA_ROOT` Directory
 
-Both locations need to be configured as aliases in the webserver.  See **Apache Setup** below.
+TraceBase also serves static files from the administrator-selected `MEDIA_ROOT` location, which should be set up
+outside the `tracebase` code repository directory and configured with the `MEDIA_ROOT` variable in the
+`TraceBase/.env` file.  The default directory name is `tracebase_files`.  Under it, will be created 2 subdirectories:
+
+- `archive_files`
+- `download_files`
+
+The webserver needs to be set up to allow file access to the `tracebase_files` directory at a location of your
+choosing, outside the codebase.  It also needs to be configured as an alias in the webserver.  See **Apache Setup**
+below.
 
 ## Web Server Configuration
 
