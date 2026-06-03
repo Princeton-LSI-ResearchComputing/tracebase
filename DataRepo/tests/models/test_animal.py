@@ -1,15 +1,13 @@
 from datetime import timedelta
 
-from django.conf import settings
 from django.core.management import call_command
-from django.test import override_settings, tag
+from django.test import tag
 
 from DataRepo.models import Animal, Infusate, Sample
 from DataRepo.models.study import Study
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
-@override_settings(CACHES=settings.TEST_CACHES)
 @tag("animal")
 class AnimalTests(TracebaseTestCase):
     def setUp(self):

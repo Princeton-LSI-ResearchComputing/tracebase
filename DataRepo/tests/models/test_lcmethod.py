@@ -1,14 +1,11 @@
 from datetime import timedelta
 
-from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
-from django.test import override_settings, tag
+from django.test import tag
 
 from DataRepo.models import LCMethod
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
-
-override_settings(CACHES=settings.TEST_CACHES)
 
 
 @tag("lcmethod")

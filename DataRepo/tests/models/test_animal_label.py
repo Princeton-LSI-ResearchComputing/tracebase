@@ -1,6 +1,4 @@
-from django.conf import settings
 from django.core.management import call_command
-from django.test import override_settings
 
 from DataRepo.models import (
     Animal,
@@ -14,7 +12,6 @@ from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
-@override_settings(CACHES=settings.TEST_CACHES)
 class AnimalLabelTests(TracebaseTestCase):
     fixtures = ["lc_methods.yaml", "data_types.yaml", "data_formats.yaml"]
 

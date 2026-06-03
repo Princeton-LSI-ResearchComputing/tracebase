@@ -1,7 +1,6 @@
 import pandas as pd
-from django.conf import settings
 from django.core.management import call_command
-from django.test import override_settings, tag
+from django.test import tag
 
 from DataRepo.loaders import CompoundsLoader
 from DataRepo.models import Compound, CompoundSynonym
@@ -72,7 +71,6 @@ class LoadCompoundsTests(TracebaseTestCase):
         Compound.objects.get(name__exact="C18:2")
 
 
-@override_settings(CACHES=settings.TEST_CACHES)
 @tag("compound_loading")
 class CompoundLoadingTests(TracebaseTestCase):
     @classmethod
@@ -284,7 +282,6 @@ class CompoundLoadingTests(TracebaseTestCase):
         self.assertEqual(CompoundExistsAsMismatchedSynonym, type(aes.exceptions[1]))
 
 
-@override_settings(CACHES=settings.TEST_CACHES)
 class CompoundsLoaderTests(TracebaseTestCase):
     def get_dataframe(self):
         return pd.read_csv(
@@ -374,7 +371,6 @@ class CompoundsLoaderTests(TracebaseTestCase):
         )
 
 
-@override_settings(CACHES=settings.TEST_CACHES)
 @tag("compound_loading")
 class CompoundValidationLoadingTests(TracebaseTestCase):
     def test_compounds_not_loaded_in_dry_run(self):
