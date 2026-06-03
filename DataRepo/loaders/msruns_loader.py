@@ -2412,7 +2412,8 @@ class MSRunsLoader(TableLoader):
                                 orig_exception=dne,
                             )
 
-                            return rec
+                    if rec is not None:
+                        return rec
 
                 # The mzXMLs need to be iterated to create or `UnmatchedMzXML` or `UnmatchedBlankMzXML` exceptions for
                 # each file so that this script doesn't need to be run multiple times to add files to the 'Peak
