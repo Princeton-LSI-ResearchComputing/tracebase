@@ -1,10 +1,16 @@
+from io import BytesIO
+
 import pandas as pd
-from django.core.files.uploadedfile import TemporaryUploadedFile
+from django.core.files.uploadedfile import (
+    InMemoryUploadedFile,
+    TemporaryUploadedFile,
+)
 
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.file_utils import (
     _get_file_type,
     _read_from_xlsx,
+    ensure_temporary_uploaded_file,
     get_column_dupes,
     read_headers_from_file,
     string_to_date,
@@ -136,3 +142,31 @@ class FileUtilsTests(TracebaseTestCase):
         """Assert the _get_file_type() works when supplied a TemporaryUploadedFile."""
         tuf = TemporaryUploadedFile("test.tsv", None, None, None)
         self.assertEqual("tsv", _get_file_type(tuf))
+
+    def test_ensure_temporary_uploaded_file(self):
+        """This tests that the ensure_temporary_uploaded_file method returns a TemporaryUploadedFile when given an
+        InMemoryUploadedFile, None, or a TemporaryUploadedFile
+        """
+        file_io = BytesIO(b"This will be the content of an InMemoryUploadedFile")
+        file_size = file_io.getbuffer().nbytes
+        inmemoryuploadedfile = InMemoryUploadedFile(
+            file=file_io,
+            field_name="file_field_name",
+            name="myfile.txt",
+            content_type="text/plain",
+            size=file_size,
+            charset="utf-8",
+        )
+        file_io.seek(0)
+
+        self.assertIsInstance(
+            ensure_temporary_uploaded_file(inmemoryuploadedfile),
+            TemporaryUploadedFile,
+        )
+        self.assertIsInstance(
+            ensure_temporary_uploaded_file(
+                TemporaryUploadedFile("test.tsv", None, None, None)
+            ),
+            TemporaryUploadedFile,
+        )
+        self.assertIsNone(ensure_temporary_uploaded_file(None))

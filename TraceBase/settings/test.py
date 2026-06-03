@@ -37,12 +37,6 @@ TEST_FILE_STORAGES = {
     },
 }
 
-# File storage handling for tests
-# https://stackoverflow.com/questions/38345977/filefield-force-using-temporaryuploadedfile
-# Added to make the submission.html form work.  Could not figure out how to specify this handler for individual fields.
-# This avoids files using the InMemoryUploadedFile, which the load script complains about.
-FILE_UPLOAD_HANDLERS = ["django.core.files.uploadhandler.TemporaryFileUploadHandler"]
-
 # NOTE: TEST_CACHES is used in various tests as an argument to @override_settings()
 TEST_CACHES: Dict[str, Dict[str, object]] = {
     "default": {

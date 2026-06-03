@@ -23,7 +23,11 @@ from DataRepo.formats.peakdata_dataformat import PeakDataFormat
 from DataRepo.formats.peakgroups_dataformat import PeakGroupsFormat
 from DataRepo.formats.search_group import SearchGroup
 from DataRepo.models import LCMethod, MSRunSequence, Researcher
-from DataRepo.utils.file_utils import date_to_string, is_excel
+from DataRepo.utils.file_utils import (
+    date_to_string,
+    ensure_temporary_uploaded_file,
+    is_excel,
+)
 from DataRepo.widgets.base import AutoCompleteTextInput, MultipleFileInput
 from DataRepo.widgets.search import RowsPerPageSelectWidget
 
@@ -461,8 +465,12 @@ def create_BuildSubmissionForm() -> Type[Form]:
             allowed_delimited_exts = [".csv", ".tsv"]
 
             # Fields we need to check
-            study_doc = self.cleaned_data.get("study_doc", None)
-            peak_annotation_file = self.cleaned_data.get("peak_annotation_file", None)
+            study_doc = ensure_temporary_uploaded_file(
+                self.cleaned_data.get("study_doc", None)
+            )
+            peak_annotation_file = ensure_temporary_uploaded_file(
+                self.cleaned_data.get("peak_annotation_file", None)
+            )
 
             if (study_doc is None and peak_annotation_file is None) or (
                 study_doc is not None and not is_excel(study_doc)
@@ -499,8 +507,12 @@ def create_BuildSubmissionForm() -> Type[Form]:
             allowed_delimited_exts = [".csv", ".tsv"]
 
             # Fields (excluding mode)
-            study_doc = self.cleaned_data.get("study_doc", None)
-            peak_annotation_file = self.cleaned_data.get("peak_annotation_file", None)
+            study_doc = ensure_temporary_uploaded_file(
+                self.cleaned_data.get("study_doc", None)
+            )
+            peak_annotation_file = ensure_temporary_uploaded_file(
+                self.cleaned_data.get("peak_annotation_file", None)
+            )
             mode = self.cleaned_data.get("mode", None)
 
             # NOTE: All of these errors are added as non-field-errors because the form is processed as a form inside a
