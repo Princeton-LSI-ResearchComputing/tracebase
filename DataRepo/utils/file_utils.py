@@ -765,13 +765,15 @@ def get_readable_file_size(file_path):
     num_bytes = Path(file_path).stat().st_size
 
     for unit, decs in [
-        ("B", 0),
-        ("K", 0),
-        ("M", 1),
-        ("G", 2),
-        ("T", 3),
-        ("P", 4),
-        ("Y", 5),
+        ("B", 0),  # Bytes
+        ("K", 0),  # Kilobytes
+        ("M", 1),  # Megabytes
+        ("G", 2),  # Gigabytes
+        ("T", 3),  # Terabytes
+        ("P", 4),  # Petabytes
+        ("E", 5),  # Exabytes
+        ("Z", 6),  # Zettabytes
+        ("Y", 7),  # Yottabytes
     ]:
         if num_bytes < 1024.0:
             return f"{num_bytes:.{decs}f} {unit}"
