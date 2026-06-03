@@ -27,10 +27,17 @@ class Command(BaseCommand):
                 "unstaged files.  See --overwrite."
             ),
         )
+        parser.add_argument(
+            "--overwrite",
+            action="store_true",
+            default=False,
+            help="Overwrite existing zip packages (not study exports).",
+        )
 
     def handle(self, *args, **options):
         eo = ExportsOrganizer()
         eo.organize(
             options["export_dir"],
             staging_mode=options["staging_mode"],
+            overwrite=options["overwrite"],
         )

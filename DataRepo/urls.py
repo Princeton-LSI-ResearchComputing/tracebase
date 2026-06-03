@@ -170,5 +170,5 @@ urlpatterns = [
         TracerDetailView.as_view(),
         name=TracerDetailView.model.detail_name,
     ),
-    path('downloads/', DownloadsView.as_view(), name='downloads'),
+    path("downloads/", DownloadsView.as_view(), name="downloads"),
 ]

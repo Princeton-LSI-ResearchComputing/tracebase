@@ -764,7 +764,15 @@ def ensure_temporary_uploaded_file(
 def get_readable_file_size(file_path):
     num_bytes = Path(file_path).stat().st_size
 
-    for unit, decs in [("B", 0), ("K", 0), ("M", 1), ("G", 2), ("T", 3), ("P", 4), ("Y", 5)]:
+    for unit, decs in [
+        ("B", 0),
+        ("K", 0),
+        ("M", 1),
+        ("G", 2),
+        ("T", 3),
+        ("P", 4),
+        ("Y", 5),
+    ]:
         if num_bytes < 1024.0:
             return f"{num_bytes:.{decs}f} {unit}"
         num_bytes /= 1024.0
