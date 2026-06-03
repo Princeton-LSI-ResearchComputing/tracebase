@@ -23,6 +23,7 @@ from DataRepo.models import (
     Tissue,
 )
 from DataRepo.models.compound import Compound
+from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.tests.tracebase_test_case import (
     TracebaseArchiveTestCase,
     TracebaseTestCase,
@@ -30,7 +31,10 @@ from DataRepo.tests.tracebase_test_case import (
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     AllMzxmlSequenceUnknown,
+    AmbiguousMzxmlSampleMatches,
     ConditionallyRequiredArgs,
+    FatalStudyLoadWarning,
+    FileFromInputNotFound,
     InfileError,
     MissingSamples,
     MutuallyExclusiveArgs,
@@ -79,6 +83,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
     fixtures = ["lc_methods.yaml", "data_types.yaml", "data_formats.yaml"]
 
     @classmethod
+    @MaintainedModel.no_autoupdates()
     def setUpTestData(cls):
         cls.anml, cls.tsu = create_animal_and_tissue_records()
         cls.smpl = Sample.objects.create(
@@ -577,6 +582,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertEqual(0, len(msrl.aggregated_errors_object.exceptions))
         self.assertEqual(self.msr.msrun_sequence, seq)
 
+    @MaintainedModel.no_autoupdates()
     def test_get_msrun_sequence_no_default(self):
         """This test ensures that when there is no default, there is an error when sequence names are not provided.
 
@@ -628,6 +634,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         # NOTE: See test_check_mzxml_files_buffers_exc_for_every_unmatched_file for testing the handling of unmatched
         # mzXML exceptions added by this method
 
+    @MaintainedModel.no_autoupdates()
     def test_get_or_create_msrun_sample_from_mzxml_success(self):
         msrl = MSRunsLoader()
         sample = self.msr.sample
@@ -757,6 +764,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertEqual(ArchiveFile, type(rawaf_rec))
         self.assertTrue(rawaf_created)
 
+    @MaintainedModel.no_autoupdates()
     def test_get_or_create_msrun_sample_from_row_creating_placeholder_no_placeholder_exists(
         self,
     ):
@@ -827,6 +835,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertIsNone(rec.ms_data_file)
         self.assertFalse(created)
 
+    @MaintainedModel.no_autoupdates()
     def test_get_or_create_msrun_sample_from_row_no_concrete_no_placeholder(
         self,
     ):
@@ -924,6 +933,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         )
         self.assertFalse(created)
 
+    @MaintainedModel.no_autoupdates()
     def test_get_or_create_msrun_sample_from_row_no_concrete_placeholder_all_pgs_match(
         self,
     ):
@@ -977,6 +987,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertGreater(rec.peak_groups.count(), 0)
         self.assertEqual(0, MSRunSample.objects.filter(id=ph_id).count())
 
+    @MaintainedModel.no_autoupdates()
     def test_get_create_or_update_msrun_sample_from_row_concrete_exists_no_pgs_placeholder_all_pgs_match(
         self,
     ):
@@ -1051,6 +1062,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertGreater(empty_concrete_rec.peak_groups.count(), 0)
         self.assertEqual(0, self.msr.peak_groups.count())
 
+    @MaintainedModel.no_autoupdates()
     def test_get_or_create_msrun_sample_from_row_concrete_exists_with_pgs_placeholder_all_pgs_match(
         self,
     ):
@@ -1143,6 +1155,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         # Check that the existing placeholder record was deleted
         self.assertEqual(0, MSRunSample.objects.filter(id=placeholder_rec_id).count())
 
+    @MaintainedModel.no_autoupdates()
     def test_get_or_create_msrun_sample_from_row_no_concrete_placeholder_exists_but_no_pgs_match(
         self,
     ):
@@ -1213,6 +1226,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         # And that the concrete record got both peak groups
         self.assertEqual(2, rec.peak_groups.count())
 
+    @MaintainedModel.no_autoupdates()
     def test_get_or_create_msrun_sample_from_row_concrete_exists_placeholder_exists_but_no_pgs_match(
         self,
     ):
@@ -1287,6 +1301,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         # And that it still has both peak groups
         self.assertEqual(2, concrete_rec.peak_groups.count())
 
+    @MaintainedModel.no_autoupdates()
     def test_get_or_create_msrun_sample_from_row_no_concrete_placeholder_exists_some_pgs_match(
         self,
     ):
@@ -1339,6 +1354,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         # And that the concrete record was given the peak groups
         self.assertEqual(2, rec.peak_groups.count())
 
+    @MaintainedModel.no_autoupdates()
     def test_get_or_create_msrun_sample_from_row_concrete_exists_placeholder_exists_some_pgs_match(
         self,
     ):
@@ -1409,6 +1425,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         # And that the concrete record was given all of the peak groups
         self.assertEqual(2, rec.peak_groups.count())
 
+    @MaintainedModel.no_autoupdates()
     def test_get_or_create_msrun_sample_from_row_header_to_sample_name_skips_none(
         self,
     ):
@@ -1484,6 +1501,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
             str(aes.exceptions[0]),
         )
 
+    @MaintainedModel.no_autoupdates()
     def test_constructor_sequences_loader_error(self):
         """Trigger an error from the SequencesLoader class, which exists as an instance inside the MSRunsLoader, to
         ensure that the errors it buffers are extracted and incorporated into the MSRunsLoader object.
@@ -1572,6 +1590,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         ]
         self.assertEqual(set(expected), set(mzxml_files))
 
+    @MaintainedModel.no_autoupdates()
     def test_msrunsamples_created_for_mzxmls_with_same_name_using_default_seq(self):
         """This tests that MSRunSample records are created using the default sequence arguments and sample records
         matching the mzXML filenames."""
@@ -1597,7 +1616,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         msrs_before = MSRunSample.objects.count()
         msrl.load_data()
         self.assertEqual(0, len(msrl.aggregated_errors_object.exceptions))
-        self.assertDictEqual(
+        self.assertEquivalent(
             {
                 "ArchiveFile": {
                     "created": 3,  # Both files have the same raw file
@@ -1609,7 +1628,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
                     "warned": 0,
                 },
                 "MSRunSample": {
-                    "created": 2,
+                    "created": 3,  # 1 placeholder and 2 concrete
                     "existed": 0,
                     "skipped": 0,
                     "updated": 0,
@@ -1630,8 +1649,9 @@ class MSRunsLoaderTests(TracebaseTestCase):
             msrl.record_counts,
         )
         self.assertEqual(af_before + 3, ArchiveFile.objects.count())
-        self.assertEqual(msrs_before + 2, MSRunSample.objects.count())
+        self.assertEqual(msrs_before + 3, MSRunSample.objects.count())
 
+    @MaintainedModel.no_autoupdates()
     def test_msrunsamples_created_for_mzxmls_with_same_name_using_dir_dict_and_sample_from_infile(
         self,
     ):
@@ -1673,6 +1693,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertEqual(2, msrl.record_counts["MSRunSample"]["created"])
         self.assertEqual(0, msrl.record_counts["MSRunSample"]["errored"])
 
+    @MaintainedModel.no_autoupdates()
     def test_msrunsamples_created_for_mzxmls_with_same_name_using_dir_dict_from_infile(
         self,
     ):
@@ -1717,11 +1738,11 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertEqual(0, len(msrl.aggregated_errors_object.exceptions))
 
         self.assertEqual(3, ArchiveFile.objects.count() - af_before)
-        self.assertEqual(2, MSRunSample.objects.count() - msrs_before)
+        self.assertEqual(3, MSRunSample.objects.count() - msrs_before)
 
         self.assertEqual(3, msrl.record_counts["ArchiveFile"]["created"])
         self.assertEqual(1, msrl.record_counts["ArchiveFile"]["existed"])
-        self.assertEqual(2, msrl.record_counts["MSRunSample"]["created"])
+        self.assertEqual(3, msrl.record_counts["MSRunSample"]["created"])
         self.assertEqual(0, msrl.record_counts["MSRunSample"]["errored"])
 
     def test_get_msrun_sequence_from_dir_success(self):
@@ -2092,11 +2113,26 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertIsInstance(aes.exceptions[1], UnmatchedMzXML)
         self.assertEqual("scan2/unknown_sample.mzXML", aes.exceptions[1].mzxml_file)
         # Assert that aes contains 2 warnings for "unknown_blank.mzXML" and "scan2/unknown_blank.mzXML"
-        self.assertEqual(2, aes.num_warnings)
+        self.assertEqual(3, aes.num_warnings)
         self.assertIsInstance(aes.exceptions[2], UnmatchedBlankMzXML)
         self.assertEqual("unknown_blank.mzXML", aes.exceptions[2].mzxml_file)
         self.assertIsInstance(aes.exceptions[3], UnmatchedBlankMzXML)
         self.assertEqual("scan2/unknown_blank.mzXML", aes.exceptions[3].mzxml_file)
+        self.assertIsInstance(aes.exceptions[4], FatalStudyLoadWarning)
+
+    def test_check_mzxml_files_does_not_buffer_check_mzxml_files_fatalstudyloadwarning_in_validate(
+        self,
+    ):
+        mrl = MSRunsLoader(
+            df=pd.DataFrame.from_dict({}),
+            file="DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",  # Peak Annotation Dtls not used
+            mzxml_files=["unknown_sample.mzXML"],
+            _validate=True,
+        )
+        with self.assertRaises(AggregatedErrors) as ar:
+            mrl.check_mzxml_files()
+        aes = ar.exception
+        self.assertFalse(aes.exception_type_exists(FatalStudyLoadWarning))
 
     def test_check_mzxml_files_does_not_error_when_skipped(self):
         """Test that there is no error about sample 'some_unknown_sample' not existing."""
@@ -2261,12 +2297,13 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertIsNone(msruns_loader.mzxml_dir)
         self.assertEqual([], msruns_loader.mzxml_files)
 
+    @MaintainedModel.no_autoupdates()
     def test_load_data_ambiguous_match(self):
         """This tests loading 4 mzxml files that have the same name.  In the details sheet, 2 are assigned a peak
         annotation file, each mapping to different samples, but also there are 2 extra mzXML files with the same name in
         different directories that initially lead to a misleading `PossibleDuplicateSamples` warning.  Another warning
         about assigning a sequence suggests adding the sequences to the details sheet.  The expected outcome is that an
-        AmbiguousMzxmlSampleMatch error is buffered and no PossibleDuplicateSamples is buffered.
+        AmbiguousMzxmlSampleMatches error is buffered and no PossibleDuplicateSamples is buffered.
 
         Normally, this would happen due to unanalyzed mzXML files that mapped to different samples in the details sheet
         via *different* mzXML files that loaded fine.  E.g. There are 2 biological samples, each with 2 mzXML files.
@@ -2279,7 +2316,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
                 mzxml_files that includes the 2 in the df, plus two extras, all with the same name
                 A default sequence
             Call load_data, expecting an AggregatedErrors exception to be raised
-            Test that load_data buffers AmbiguousMzxmlSampleMatch
+            Test that load_data buffers AmbiguousMzxmlSampleMatches
         """
 
         MSRunSequence.objects.create(
@@ -2381,12 +2418,14 @@ class MSRunsLoaderTests(TracebaseTestCase):
             )
         )
 
-        # BUG: There is a bug in PR #1714 that prevents this test from passing.  It will be fixed in the next PR.
-        # BUG: See the BUG comment here for details: DataRepo.loaders.msruns_loader.MSRunsLoader
-        # BUG: .get_matching_mzxml_metadata
-        # BUG: Uncomment these when the bug is fixed in the next PR
-        # self.assertEqual(2, len(msrl.aggregated_errors_object.exceptions))
-        # self.assertIsInstance(msrl.aggregated_errors_object.exceptions[0], AmbiguousMzxmlSampleMatch)
+        expected_exc_types = set(
+            [AmbiguousMzxmlSampleMatches.__name__, MzxmlSampleHeaderMismatch.__name__]
+        )
+        exc_types = set(
+            [e.__name__ for e in msrl.aggregated_errors_object.get_exception_types()]
+        )
+        self.assertEqual(expected_exc_types, exc_types)
+        self.assertEqual(2, len(msrl.aggregated_errors_object.exceptions))
 
     def test_set_mzxml_metadata(self):
         """This is a unit test for the MSRunsLoader.set_mzxml_metadata method.  It ensures that the mzxml_dict_by_header
@@ -2424,36 +2463,39 @@ class MSRunsLoaderTests(TracebaseTestCase):
 
         self.assertEquivalent(expected, msrl.mzxml_dict_by_header)
 
-    # BUG: This is fixed in PR: #1718.  This change (to get_or_create_msrun_sample_from_row) was made in PR #1714.  Once
-    # BUG: I get to #1718, uncomment and/or adjust this test.
-    # def test_mzxml_file_does_not_exist_caught(self):
-    #     """Assert that mzXML files provided in the details that don't actually exist, are gracefully handled using
-    #     FileFromInputNotFound.
-    #
-    #     Test Design:
-    #         Supply a row to get_or_create_msrun_sample_from_row that contains an mzXML with a path to a file that does
-    #             not exist
-    #         Assert that FileFromInputNotFound is buffered
-    #     """
-    #
-    #     # Set up the loader object
-    #     msrl = MSRunsLoader()
-    #
-    #     row = pd.Series(
-    #         {
-    #             MSRunsLoader.DataHeaders.SEQNAME: self.seqname,
-    #             MSRunsLoader.DataHeaders.SAMPLENAME: self.sample_with_no_msr.name,
-    #             MSRunsLoader.DataHeaders.SAMPLEHEADER: f"{self.sample_with_no_msr.name}_pos",
-    #             MSRunsLoader.DataHeaders.MZXMLNAME: "does_not_exist/does_not_exist.mzXML",
-    #             MSRunsLoader.DataHeaders.ANNOTNAME: "accucor_file.xlsx",
-    #         }
-    #     )
-    #
-    #     with self.assertRaises(AggregatedErrors):
-    #         msrl.get_or_create_msrun_sample_from_row(row)
-    #
-    #     self.assertEqual(1, len(msrl.aggregated_errors_object.exceptions))
-    #     self.assertIsInstance(msrl.aggregated_errors_object.exceptions[0], FileFromInputNotFound)
+    def test_mzxml_file_does_not_exist_caught(self):
+        """Assert that mzXML files provided in the details that don't actually exist, are gracefully handled using
+        FileFromInputNotFound.
+
+        Test Design:
+            Supply a row to get_or_create_msrun_sample_from_row that contains an mzXML with a path to a file that does
+                not exist
+            Assert that FileFromInputNotFound is buffered
+        """
+
+        # Set up the loader object and supply it a real mzXML file that does not match the row we will process
+        msrl = MSRunsLoader(
+            mzxml_files=[
+                "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML"
+            ]
+        )
+
+        row = pd.Series(
+            {
+                MSRunsLoader.DataHeaders.SEQNAME: self.seqname,
+                MSRunsLoader.DataHeaders.SAMPLENAME: self.sample_with_no_msr.name,
+                MSRunsLoader.DataHeaders.SAMPLEHEADER: "does_not_exist",
+                MSRunsLoader.DataHeaders.MZXMLNAME: "does_not_exist/does_not_exist.mzXML",
+                MSRunsLoader.DataHeaders.ANNOTNAME: "accucor_file.xlsx",
+            }
+        )
+
+        msrl.get_or_create_msrun_sample_from_row(row)
+
+        self.assertEqual(1, len(msrl.aggregated_errors_object.exceptions))
+        self.assertIsInstance(
+            msrl.aggregated_errors_object.exceptions[0], FileFromInputNotFound
+        )
 
     def test_get_matching_mzxml_metadata_matches_with_sample_and_path(self):
         """Assert that get_matching_mzxml_metadata works when provided with just the sample name and mzXML path (no

@@ -1,4 +1,5 @@
 import datetime
+import os
 import pathlib
 from collections import defaultdict
 from typing import Optional
@@ -633,3 +634,68 @@ def datetime_to_string(date_in: datetime.datetime, format_str: Optional[str] = N
 def date_to_string(date_in: datetime.date, format_str: Optional[str] = None):
     format = DATE_FORMAT if format_str is None else format_str
     return datetime.date.strftime(date_in, format)
+
+
+def get_real_path(input_path: str, real_dir: Optional[str]):
+    """Given a real directory (where a file is expected to be) and an input path that may be an absolute path, a path
+    relative to the real_dir, a path relative to the current dir, or no path at all, return a path that resolves the
+    input path that correctly finds the file - whether it is relative to the real_dir or the current dir.  If the file
+    cannot be found (and it's not an absolute path), return the path relative to the real_dir, so that errors reflect
+    the expected path.
+
+    Examples:
+        Example 1 (no input path info provided):
+            Args:
+                input_path = "test.mzXML" (no path info provided)
+                real_dir = "/staging/study"
+            Note:
+                actual input path = "/staging/study/test/test.mzXML"
+                current dir: "/staging", but input_path is expected to either be relative to real_dir or not contain a
+                    subdir because there are multiple files with the same name under "/staging/study"
+                Multiple files may exist with the same name under "/staging/study"
+            Returns:
+                "/staging/study/test.mzXML" (Incorrect path expected)
+        Example 2 (input path info provided):
+            Args:
+                input_path = "test/test.mzXML" (no path info provided)
+                real_dir = "/staging/study"
+            Note:
+                actual input path = "/staging/study/test/test.mzXML"
+                current dir: "/staging", but input_path is expected to either be relative to real_dir or not contain a
+                    subdir because there are multiple files with the same name under "/staging/study"
+                There should be only 1 file with this path relative to "/staging/study"
+            Returns:
+                "/staging/study/test/test.mzXML" (Correct/confirmed path expected)
+    Args:
+        input_path (str): A file that may or may not contain any path information that is either absolute or expected to
+            be relative to the real_dir.
+        real_dir (Optional[str]): A trusted directory path (absolute or relative), under which the file referred to by
+            the input_path is expected to exist.
+    Exceptions:
+        None
+    Returns:
+        real_path (str)
+    """
+
+    # This will be replaced by an actual good path
+    real_path = input_path
+
+    if real_dir is not None:
+        if os.path.isabs(input_path):
+            # In case the path is absolute
+            real_path = input_path
+        elif os.path.isfile(os.path.join(real_dir, input_path)):
+            # In case the path is actually directly relative to the provided directory
+            real_path = os.path.join(real_dir, input_path)
+        elif os.path.isfile(input_path):
+            # In case the path is relative to the current directory
+            real_path = input_path
+        else:
+            # Assuming the path cannot be resolved, make any ensuing error shows the path relative to the real
+            # directory, which we should encourange users to use.
+            real_path = os.path.join(real_dir, input_path)
+    else:
+        # Default to the path provided
+        real_path = input_path
+
+    return real_path

@@ -1,3 +1,5 @@
+import os
+
 import pandas as pd
 from django.core.files.uploadedfile import TemporaryUploadedFile
 
@@ -6,6 +8,7 @@ from DataRepo.utils.file_utils import (
     _get_file_type,
     _read_from_xlsx,
     get_column_dupes,
+    get_real_path,
     read_headers_from_file,
     string_to_date,
 )
@@ -136,3 +139,135 @@ class FileUtilsTests(TracebaseTestCase):
         """Assert the _get_file_type() works when supplied a TemporaryUploadedFile."""
         tuf = TemporaryUploadedFile("test.tsv", None, None, None)
         self.assertEqual("tsv", _get_file_type(tuf))
+
+    def test_get_real_path(self):
+        """get_real_path ensures that the path returned is correct when it corresponds to a real file, but makes the
+        returned path relative to the provided directory even if that directory is wrong or the subdir in the provided
+        file (that is supposed to be relative to the provided directory) is incorrect.  Note that if the current
+        directory is not the same as the provided directory, the returned path is assumed to be relative to the provided
+        directory even if the file cannot be confirmed to exist (because the provided directory is not relative to the
+        current directory)."""
+
+        # No path info provided, real_dir is correct, current dir is the repo root
+        real_path = get_real_path(
+            "BAT-xz971.mzXML", "DataRepo/data/tests/same_name_mzxmls"
+        )
+        # Incorrect full path expected:
+        self.assertEqual(
+            "DataRepo/data/tests/same_name_mzxmls/BAT-xz971.mzXML", real_path
+        )
+
+        # Correct sub-dir provided, real_dir is correct, current dir is the repo root
+        real_path = get_real_path(
+            "mzxmls/BAT-xz971.mzXML", "DataRepo/data/tests/same_name_mzxmls"
+        )
+        # Correct full path expected:
+        self.assertEqual(
+            "DataRepo/data/tests/same_name_mzxmls/mzxmls/BAT-xz971.mzXML", real_path
+        )
+
+        # Incorrect sub-dir provided, real_dir is correct, current dir is the repo root
+        real_path = get_real_path(
+            "wrong/BAT-xz971.mzXML", "DataRepo/data/tests/same_name_mzxmls"
+        )
+        # Incorrect full path expected:
+        self.assertEqual(
+            "DataRepo/data/tests/same_name_mzxmls/wrong/BAT-xz971.mzXML", real_path
+        )
+
+        # This accounts for the case where the current directory is not the same as the provided directory
+        # The problem that this method solves is that scripts should be able to be run from any directory and the paths
+        # returned should all be relative to the provided directory
+
+        # No path info provided, real_dir is incorrect, current dir is the repo root
+        real_path = get_real_path("BAT-xz971.mzXML", "same_name_mzxmls")
+        # Incorrect relative path expected:
+        self.assertEqual("same_name_mzxmls/BAT-xz971.mzXML", real_path)
+
+        # Correct sub-dir provided, real_dir is incorrect, current dir is the repo root
+        real_path = get_real_path("mzxmls/BAT-xz971.mzXML", "same_name_mzxmls")
+        # Incorrect relative path expected:
+        self.assertEqual("same_name_mzxmls/mzxmls/BAT-xz971.mzXML", real_path)
+
+        # Incorrect sub-dir provided, real_dir is incorrect, current dir is the repo root
+        real_path = get_real_path("wrong/BAT-xz971.mzXML", "same_name_mzxmls")
+        # Incorrect relative path expected:
+        self.assertEqual("same_name_mzxmls/wrong/BAT-xz971.mzXML", real_path)
+
+        # Now test an absolute path
+
+        abs_cur_dir = os.path.abspath(os.curdir)
+
+        # Correct sub-dir provided, real_dir is correct, current dir is the repo root
+        real_path = get_real_path(
+            os.path.join(
+                abs_cur_dir,
+                "DataRepo/data/tests/same_name_mzxmls",
+                "mzxmls/BAT-xz971.mzXML",
+            ),
+            "DataRepo/data/tests/same_name_mzxmls",
+        )
+        # Correct path expected:
+        self.assertEqual(
+            os.path.join(
+                abs_cur_dir,
+                "DataRepo/data/tests/same_name_mzxmls",
+                "mzxmls/BAT-xz971.mzXML",
+            ),
+            real_path,
+        )
+
+        # Incorrect sub-dir provided, real_dir is correct, current dir is the repo root
+        real_path = get_real_path(
+            os.path.join(
+                abs_cur_dir,
+                "DataRepo/data/tests/same_name_mzxmls",
+                "wrong/BAT-xz971.mzXML",
+            ),
+            "DataRepo/data/tests/same_name_mzxmls",
+        )
+        # Incorrect path expected:
+        self.assertEqual(
+            os.path.join(
+                abs_cur_dir,
+                "DataRepo/data/tests/same_name_mzxmls",
+                "wrong/BAT-xz971.mzXML",
+            ),
+            real_path,
+        )
+
+        # Correct sub-dir provided, real_dir is correct, current dir is the repo root
+        real_path = get_real_path(
+            "mzxmls/BAT-xz971.mzXML",
+            os.path.join(
+                abs_cur_dir,
+                "DataRepo/data/tests/same_name_mzxmls",
+            ),
+        )
+        # Correct path expected:
+        self.assertEqual(
+            os.path.join(
+                abs_cur_dir,
+                "DataRepo/data/tests/same_name_mzxmls",
+                "mzxmls/BAT-xz971.mzXML",
+            ),
+            real_path,
+        )
+
+        # Incorrect sub-dir provided, real_dir is correct, current dir is the repo root
+        real_path = get_real_path(
+            "wrong/BAT-xz971.mzXML",
+            os.path.join(
+                abs_cur_dir,
+                "DataRepo/data/tests/same_name_mzxmls",
+            ),
+        )
+        # Incorrect path expected:
+        self.assertEqual(
+            os.path.join(
+                abs_cur_dir,
+                "DataRepo/data/tests/same_name_mzxmls",
+                "wrong/BAT-xz971.mzXML",
+            ),
+            real_path,
+        )
