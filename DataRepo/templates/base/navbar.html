@@ -13,22 +13,9 @@
             <li class="nav-item">
                 <a class="nav-link" href="{% url 'home' %}">Home</a>
             </li>
-            <li class="nav-item dropdown">
-                <a class="nav-link dropdown-toggle" href="#" id="dropdown-download-data" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                    Download
-                </a>
-                <ul class="dropdown-menu" aria-labelledby="dropdown-download-data">
-                    {% getDownloadQrys as qrys %}
-                    {% for qry in qrys %}
-                        <li>
-                            <form action="/DataRepo/search_advanced_tsv/" method="POST">
-                                {% csrf_token %}
-                                <input type="hidden" name="qryjson" value="{{ qry.json }}">
-                                <button type="submit" class="dropdown-item">All {{ qry.name }} Data</button>
-                            </form>
-                        </li>
-                    {% endfor %}
-                </ul>
+
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'downloads' %}">Download</a>
             </li>
 
             {% if not READONLY %}

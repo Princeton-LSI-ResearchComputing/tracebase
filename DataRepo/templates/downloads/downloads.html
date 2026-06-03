@@ -1,0 +1,56 @@
+{% extends "base/base.html" %}
+{% load static %}
+
+{% block content %}
+    <h2>Downloads</h2>
+
+    {% load static %}
+    {% if files %}
+        {% if files.all %}
+            <h4>All Data</h4>
+            <ul class="list-unstyled  ms-3">
+                {% for file_dict in files.all %}
+                    <li>
+                        <a class="font-monospace" href="{{ downloads_url }}/{{ file_dict.file }}" download>
+                            {{ file_dict.file }}</a> ({{ file_dict.size }})
+                    </li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+        {% if files.datatypes %}
+            <h4>By Data Type</h4>
+            <ul class="list-unstyled  ms-3">
+                {% for file_dict in files.datatypes %}
+                    <li>
+                        <a class="font-monospace" href="{{ downloads_url }}/{{ file_dict.file }}" download>
+                            {{ file_dict.file }}</a> ({{ file_dict.size }})
+                    </li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+        {% if files.studies %}
+            <h4>By Study</h4>
+            <ul class="list-unstyled  ms-3">
+                {% for file_dict in files.studies %}
+                    <li>
+                        <a class="font-monospace" href="{{ downloads_url }}/{{ file_dict.file }}" download>
+                            {{ file_dict.file }}</a> ({{ file_dict.size }})
+                    </li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+        {% if files.individual %}
+            <h4>Individual Files</h4>
+            <ul class="list-unstyled  ms-3">
+                {% for file_dict in files.individual %}
+                    <li>
+                        <a class="font-monospace" href="{{ downloads_url }}/{{ file_dict.file }}" download>
+                            {{ file_dict.file }}</a> ({{ file_dict.size }})
+                    </li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    {% else %}
+        <p>No files available for download.</p>
+    {% endif %}
+{% endblock %}
