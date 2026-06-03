@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Union
+from typing import Optional, Union
 
 from django import template
 from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
@@ -238,7 +238,9 @@ def convert_iso_date(value):
 
 
 @register.filter
-def format_date(date: Union[datetime, str], fmt: str):
+def format_date(date: Optional[Union[datetime, str]], fmt: str):
+    if date is None:
+        return None
     fdate = dateparse.parse_datetime(str(date))
     return fdate.strftime(fmt) if fdate is not None else str(date)
 
@@ -419,7 +421,7 @@ def polarity_name_to_sign(name: str):
 @register.filter
 def sigdig(num, digits=3) -> str:
     """Return the supplied num with the significant number of digits."""
-    return f"{num:.{digits}g}"
+    return f"{num:.{digits}g}" if num else num
 
 
 @register.simple_tag

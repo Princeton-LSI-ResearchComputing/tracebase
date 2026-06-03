@@ -1,4 +1,5 @@
 import os
+import shutil
 import tempfile
 
 from django.core.management import call_command
@@ -21,6 +22,12 @@ class ExportStudiesTestBase(TracebaseTestCase):
     def tearDownClass(cls):  # pylint: disable=invalid-name
         cls.tmpdir_obj.cleanup()
         super().tearDownClass()
+
+    def tearDown(self):
+        for filename in os.listdir(self.tmpdir):
+            file_path = os.path.join(self.tmpdir, filename)
+            shutil.rmtree(file_path, ignore_errors=True)
+        super().tearDown()
 
     @classmethod
     def setUpTestData(cls):
@@ -101,17 +108,42 @@ class ExportStudiesTests(ExportStudiesTestBase):
         self.assertIn("DoesNotExist", str(exc))
 
     def test_dir_exists(self):
+        outdir = os.path.join(self.tmpdir, "test_dir_exists")
+        os.mkdir(outdir)
+        # No FileExistsError
         call_command(
             "export_studies",
-            outdir=os.path.join(self.tmpdir, "test_dir_exists"),
+            outdir=outdir,
+            data_type=["Fcirc"],
+        )
+
+    def test_file_exists_no_overwrite(self):
+        outdir = os.path.join(self.tmpdir, "test_dir")
+        call_command(
+            "export_studies",
+            outdir=outdir,
             data_type=["Fcirc"],
         )
         with self.assertRaises(FileExistsError):
             call_command(
                 "export_studies",
-                outdir=os.path.join(self.tmpdir, "test_dir_exists"),
+                outdir=outdir,
                 data_type=["Fcirc"],
             )
+
+    def test_file_exists_overwrite(self):
+        call_command(
+            "export_studies",
+            outdir=os.path.join(self.tmpdir, "test_dir"),
+            data_type=["Fcirc"],
+        )
+        # No FileExistsError
+        call_command(
+            "export_studies",
+            outdir=os.path.join(self.tmpdir, "test_dir"),
+            data_type=["Fcirc"],
+            overwrite=True,
+        )
 
 
 class ExportStudiesMissingDataTests(ExportStudiesTestBase):

@@ -182,7 +182,7 @@ class MSRunSample(HierCachedModel, MaintainedModel):
             self.msrun_sequence.instrument,
             self.msrun_sequence.lc_method.name,
             self.polarity,
-            f"{sigfig(self.mz_min)}-{sigfig(self.mz_max)}",
+            f"{sigfig(self.mz_min, figures=4)}-{sigfig(self.mz_max, figures=4)}",
             self.ms_data_file.filename,
         )
 
