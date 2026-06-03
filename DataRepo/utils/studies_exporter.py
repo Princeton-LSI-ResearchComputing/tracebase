@@ -97,6 +97,8 @@ class StudiesExporter(ExportBase):
         date: Optional[datetime] = None,  # Defaults to now
         staging_mode=False,
     ):
+        super().__init__()
+
         self.bad_searches: Dict[str, int] = {}
 
         if isinstance(data_types, str):
