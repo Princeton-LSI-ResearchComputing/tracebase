@@ -8,7 +8,6 @@ from django.views.generic import TemplateView
 from DataRepo.utils.exports_organizer import ExportParseError, ExportsOrganizer
 from DataRepo.utils.file_utils import get_readable_file_size
 
-
 class DownloadsView(TemplateView):
     template_name = "downloads/downloads.html"
 
