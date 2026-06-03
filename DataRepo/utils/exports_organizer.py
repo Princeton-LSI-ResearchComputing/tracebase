@@ -125,28 +125,20 @@ class ExportsOrganizer(ExportBase):
         """
         self.export_dir = export_dir
         self.staging_mode = staging_mode
-        print(f"Y {export_dir}")
-        print(f"Z {[f for f in os.listdir(export_dir)]}")
         files = [
             os.path.join(export_dir, f)
             for f in os.listdir(export_dir)
             if os.path.isfile(os.path.join(export_dir, f))
         ]
-        print(f"A {files}")
         exports_by_study = self.organize_exports_by_study_and_datatype(files)
-        print(f"B {exports_by_study}")
 
         package_dates_by_host = self.remove_unchanged_exports(exports_by_study)
-        print(f"C {package_dates_by_host} {exports_by_study}")
 
         (
             study_packages,
             datatype_packages,
             all_packages,
         ) = self.assemble_export_packages(package_dates_by_host, exports_by_study)
-        print(f"D {study_packages}")
-        print(f"E {datatype_packages}")
-        print(f"F {all_packages}")
 
         self.zip_export_combos(study_packages, datatype_packages, all_packages)
 
@@ -403,7 +395,6 @@ class ExportsOrganizer(ExportBase):
                         ):
                             # Delete the last file and set the last dict's file to the previous
                             os.remove(file_dict["file"])
-                            print(f'H REMOVING {file_dict["file"]}')
                         else:
                             prev_file_dict = file_dict
                             package_dates_by_host[host].add(file_dict["date"])
@@ -472,25 +463,16 @@ class ExportsOrganizer(ExportBase):
 
         # Assemble the file dicts for each package for the identified export dates (the dates where at least 1 thing
         # changed).  Note, the export dates of each file must be on or before each export date.
-        print("G1")
         for host, package_dates in package_dates_by_host.items():
-            print(f"G2 {host} {package_dates}")
             for package_date in sorted(package_dates):
-                print(f"G3 {package_date}")
                 for study_id, datatype_dict in exports_by_study[host].items():
-                    print(f"G4 {study_id} {datatype_dict}")
                     for data_type, file_dict_list in datatype_dict.items():
-                        print(f"G5 {data_type} {file_dict_list}")
                         for file_dict in sorted(
                             file_dict_list, key=lambda d: d["date"], reverse=True
                         ):
                             if file_dict["date"] > package_date:
-                                print(f'G {file_dict["date"]} > {package_date}')
                                 continue
                             else:
-                                print(
-                                    f"G {host} {package_date} {study_id} {data_type} {file_dict}"
-                                )
                                 all_packages_by_differing_dates[host][package_date][
                                     study_id
                                 ][data_type] = file_dict
@@ -646,7 +628,6 @@ class ExportsOrganizer(ExportBase):
         Returns:
             (bool): Whether the file objects differ by anything other than export date
         """
-        print(f"I Comparing files: {file1_obj} {file2_obj}")
         # Create generators that skip comments
         file1_generator = (line for line in file1_obj if not str(line).startswith("#"))
         file2_generator = (line for line in file2_obj if not str(line).startswith("#"))
@@ -857,11 +838,8 @@ class ExportsOrganizer(ExportBase):
         """
         # Create study zips (which is all data types of 1 study)
         for host, study_dict in study_packages.items():
-            print(f"H1 {host} {study_dict}")
             for study_id, package_dict in study_dict.items():
-                print(f"H2 {study_id} {package_dict}")
                 for package_date, datatype_dict in package_dict.items():
-                    print(f"H3 {package_date} {datatype_dict}")
                     study_package_file = os.path.join(
                         self.export_dir,
                         self.compute_study_package_filename(
@@ -870,10 +848,8 @@ class ExportsOrganizer(ExportBase):
                             study_id,
                         ),
                     )
-                    print(f"H4 {study_package_file}")
                     if not self.package_exists(study_package_file):
                         datatype_files = [d["file"] for d in datatype_dict.values()]
-                        print(f"H5 {datatype_files}")
                         self.filepaths_to_zip(datatype_files, study_package_file)
 
     @classmethod
@@ -925,11 +901,8 @@ class ExportsOrganizer(ExportBase):
         """
         # Create datatype zips (which is all study data of 1 data type)
         for host, datatype_dict in datatype_packages.items():
-            print(f"K0 {host} {datatype_dict}")
             for data_type, package_dict in datatype_dict.items():
-                print(f"K1 {data_type} {package_dict}")
                 for package_date, study_dict in package_dict.items():
-                    print(f"K2 {package_date} {study_dict}")
                     datatype_package_file = os.path.join(
                         self.export_dir,
                         self.compute_datatype_package_filename(
@@ -938,12 +911,10 @@ class ExportsOrganizer(ExportBase):
                             data_type,
                         ),
                     )
-                    print(f"K3 {datatype_package_file}")
                     if not self.package_exists(datatype_package_file):
                         study_files = [
                             cast(str, d["file"]) for d in study_dict.values()
                         ]
-                        print(f"K4 {study_files}")
                         self.filepaths_to_zip(study_files, datatype_package_file)
 
     def zip_everything_packages(
@@ -1035,10 +1006,8 @@ class ExportsOrganizer(ExportBase):
             return
 
         export_dir_obj = Path(self.export_dir)
-        print(f"P0 {self.export_dir}")
         for staged_filepath in export_dir_obj.glob(f"*{self.staged_ext}"):
             unstaged_filepath = os.path.splitext(staged_filepath)[0]
-            print(f"P1 {staged_filepath} {unstaged_filepath}")
             os.replace(staged_filepath, unstaged_filepath)
 
 

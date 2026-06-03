@@ -254,7 +254,6 @@ class ExportsOrganizerTests(TracebaseTestCase):
                     "DataRepo/data/tests/exports_organizer/two_exports_one_mzxml_change",
                     export_dir,
                 )
-                print(f"L {export_dir}")
                 base = Path(export_dir)
                 export_dir_contents = sorted(
                     str(p.relative_to(base)) for p in base.rglob("*")
@@ -1288,7 +1287,6 @@ class ExportsOrganizerTests(TracebaseTestCase):
             },
             exports_by_study,
         )
-        print(f"M {exports_by_study}")
 
     def test_parse_export_filename(self):
         self.assertEqual(
