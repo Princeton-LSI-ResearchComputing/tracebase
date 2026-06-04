@@ -49,6 +49,93 @@ class ExportsOrganizerTests(TracebaseTestCase):
             root_files = [name for name in zf.namelist()]
         self.assertEqual(expected_root_files, root_files)
 
+    def test_organize_exports_by_study_and_datatype(self):
+        export_files = [
+            # Since there are no changes in the 4/24/26 files, they are removed
+            "tb9-2026.04.17-Test_Study_1-0000-Fcirc.tsv",
+            "tb9-2026.04.17-Test_Study_1-alldatatypes.zip",
+            "tb9-2026.04.17-allstudies-Fcirc.zip",
+            "tb9-2026.04.17-allstudies-PeakData.zip",
+            "tb9-2026.04.17-allstudies-PeakGroups.zip",
+            "tb9-2026.04.17-allstudies-alldatatypes.zip",
+            "tb9-2026.04.17-allstudies-mzXML.zip",
+            "tb9-2026.04.24-Test_Study_1-0000-Fcirc.tsv",
+            "tb9-2026.04.24-Test_Study_1-alldatatypes.zip",
+            "tb9-2026.04.24-Test_Study_2-0001-Fcirc.tsv",
+            "tb9-2026.04.24-Test_Study_2-0001-mzXML.zip",
+            "tb9-2026.04.24-Test_Study_2-alldatatypes.zip",
+            "tb9-2026.04.24-allstudies-Fcirc.zip",
+            "tb9-2026.04.24-allstudies-PeakData.zip",
+            "tb9-2026.04.24-allstudies-PeakGroups.zip",
+            "tb9-2026.04.24-allstudies-alldatatypes.zip",
+            "tb9-2026.04.24-allstudies-mzXML.zip",
+        ]
+        exports_organizer = ExportsOrganizer()
+        exports_by_study = exports_organizer.organize_exports_by_study_and_datatype(
+            export_files
+        )
+        self.assertEquivalent(
+            {
+                "tb9": {
+                    "0000": {
+                        "Fcirc": [
+                            {
+                                "date": "2026.04.17",
+                                # We passed in relative paths, so we get relative paths
+                                "file": "tb9-2026.04.17-Test_Study_1-0000-Fcirc.tsv",
+                                "id": 0,
+                                "name": "Test Study 1",
+                                "slug": "Test_Study_1",
+                                "ext": "tsv",
+                                "data_type": "Fcirc",
+                                "staged": False,
+                            },
+                            {
+                                "date": "2026.04.24",
+                                # We passed in relative paths, so we get relative paths
+                                "file": "tb9-2026.04.24-Test_Study_1-0000-Fcirc.tsv",
+                                "id": 0,
+                                "name": "Test Study 1",
+                                "slug": "Test_Study_1",
+                                "ext": "tsv",
+                                "data_type": "Fcirc",
+                                "staged": False,
+                            },
+                        ],
+                    },
+                    "0001": {
+                        "Fcirc": [
+                            {
+                                "date": "2026.04.24",
+                                # We passed in relative paths, so we get relative paths
+                                "file": "tb9-2026.04.24-Test_Study_2-0001-Fcirc.tsv",
+                                "id": 1,
+                                "name": "Test Study 2",
+                                "slug": "Test_Study_2",
+                                "ext": "tsv",
+                                "data_type": "Fcirc",
+                                "staged": False,
+                            },
+                        ],
+                        "mzXML": [
+                            {
+                                "date": "2026.04.24",
+                                # We passed in relative paths, so we get relative paths
+                                "file": "tb9-2026.04.24-Test_Study_2-0001-mzXML.tsv",
+                                "id": 1,
+                                "name": "Test Study 2",
+                                "slug": "Test_Study_2",
+                                "ext": "tsv",
+                                "data_type": "mzXML",
+                                "staged": False,
+                            },
+                        ],
+                    },
+                }
+            },
+            exports_by_study,
+        )
+
     def test_parse_export_filename(self):
         self.assertEqual(
             ("tracebase", "2026.04.17", "acute_stress", "0035", "FCirc", ".tsv", False),
@@ -289,6 +376,224 @@ class ExportsOrganizerTests(TracebaseTestCase):
             export_dir, "tb9-2026.04.24-Test_Study_2-0001-mzXML.zip"
         )
         self.assertTrue(ExportsOrganizer.mzxml_zips_differ(diff_file1, diff_file2))
+
+    def test_assemble_export_packages(self):
+        package_dates_by_host = {"tb9": set(["2026.04.17", "2026.04.24"])}
+        exports_by_study = {
+            "tb9": {
+                "0001": {
+                    "Fcirc": [
+                        {
+                            "date": "2026.04.17",
+                            "file": "tb9-2026.04.17-Test_Study_2-0001-Fcirc.tsv",
+                            "id": 1,
+                            "name": "Test Study 2",
+                            "slug": "Test_Study_2",
+                            "ext": "tsv",
+                            "data_type": "Fcirc",
+                            "staged": False,
+                        },
+                    ],
+                    "PeakData": [
+                        {
+                            "date": "2026.04.17",
+                            "file": "tb9-2026.04.17-Test_Study_2-0001-PeakData.tsv",
+                            "id": 1,
+                            "name": "Test Study 2",
+                            "slug": "Test_Study_2",
+                            "ext": "tsv",
+                            "data_type": "PeakData",
+                            "staged": False,
+                        },
+                        {
+                            "date": "2026.04.24",
+                            "file": "tb9-2026.04.24-Test_Study_2-0001-PeakData.tsv",
+                            "id": 1,
+                            "name": "Test Study 2",
+                            "slug": "Test_Study_2",
+                            "ext": "tsv",
+                            "data_type": "PeakData",
+                            "staged": False,
+                        },
+                    ],
+                },
+            },
+        }
+        exports_organizer = ExportsOrganizer()
+        (
+            study_packages_by_differing_dates,
+            datatype_packages_by_differing_dates,
+            all_packages_by_differing_dates,
+        ) = exports_organizer.assemble_export_packages(
+            package_dates_by_host, exports_by_study
+        )
+        self.assertEqual(
+            {
+                "tb9": {
+                    "0001": {
+                        "2026.04.17": {
+                            "Fcirc": {
+                                "date": "2026.04.17",
+                                "file": "tb9-2026.04.17-Test_Study_2-0001-Fcirc.tsv",
+                                "id": 1,
+                                "name": "Test Study 2",
+                                "slug": "Test_Study_2",
+                                "ext": "tsv",
+                                "data_type": "Fcirc",
+                                "staged": False,
+                            },
+                            "PeakData": {
+                                "date": "2026.04.17",
+                                "file": "tb9-2026.04.17-Test_Study_2-0001-PeakData.tsv",
+                                "id": 1,
+                                "name": "Test Study 2",
+                                "slug": "Test_Study_2",
+                                "ext": "tsv",
+                                "data_type": "PeakData",
+                                "staged": False,
+                            },
+                        },
+                        "2026.04.24": {
+                            "Fcirc": {
+                                "date": "2026.04.17",
+                                "file": "tb9-2026.04.17-Test_Study_2-0001-Fcirc.tsv",
+                                "id": 1,
+                                "name": "Test Study 2",
+                                "slug": "Test_Study_2",
+                                "ext": "tsv",
+                                "data_type": "Fcirc",
+                                "staged": False,
+                            },
+                            "PeakData": {
+                                "date": "2026.04.24",
+                                "file": "tb9-2026.04.24-Test_Study_2-0001-PeakData.tsv",
+                                "id": 1,
+                                "name": "Test Study 2",
+                                "slug": "Test_Study_2",
+                                "ext": "tsv",
+                                "data_type": "PeakData",
+                                "staged": False,
+                            },
+                        },
+                    },
+                },
+            },
+            study_packages_by_differing_dates,
+        )
+        self.assertEqual(
+            {
+                "tb9": {
+                    "Fcirc": {
+                        "2026.04.17": {
+                            "0001": {
+                                "date": "2026.04.17",
+                                "file": "tb9-2026.04.17-Test_Study_2-0001-Fcirc.tsv",
+                                "id": 1,
+                                "name": "Test Study 2",
+                                "slug": "Test_Study_2",
+                                "ext": "tsv",
+                                "data_type": "Fcirc",
+                                "staged": False,
+                            },
+                        },
+                        "2026.04.24": {
+                            "0001": {
+                                "date": "2026.04.17",
+                                "file": "tb9-2026.04.17-Test_Study_2-0001-Fcirc.tsv",
+                                "id": 1,
+                                "name": "Test Study 2",
+                                "slug": "Test_Study_2",
+                                "ext": "tsv",
+                                "data_type": "Fcirc",
+                                "staged": False,
+                            },
+                        },
+                    },
+                    "PeakData": {
+                        "2026.04.17": {
+                            "0001": {
+                                "date": "2026.04.17",
+                                "file": "tb9-2026.04.17-Test_Study_2-0001-PeakData.tsv",
+                                "id": 1,
+                                "name": "Test Study 2",
+                                "slug": "Test_Study_2",
+                                "ext": "tsv",
+                                "data_type": "PeakData",
+                                "staged": False,
+                            },
+                        },
+                        "2026.04.24": {
+                            "0001": {
+                                "date": "2026.04.24",
+                                "file": "tb9-2026.04.24-Test_Study_2-0001-PeakData.tsv",
+                                "id": 1,
+                                "name": "Test Study 2",
+                                "slug": "Test_Study_2",
+                                "ext": "tsv",
+                                "data_type": "PeakData",
+                                "staged": False,
+                            },
+                        },
+                    },
+                },
+            },
+            datatype_packages_by_differing_dates,
+        )
+        self.assertEqual(
+            {
+                "tb9": {
+                    "2026.04.17": {
+                        "0001": {
+                            "Fcirc": {
+                                "date": "2026.04.17",
+                                "file": "tb9-2026.04.17-Test_Study_2-0001-Fcirc.tsv",
+                                "id": 1,
+                                "name": "Test Study 2",
+                                "slug": "Test_Study_2",
+                                "ext": "tsv",
+                                "data_type": "Fcirc",
+                                "staged": False,
+                            },
+                            "PeakData": {
+                                "date": "2026.04.17",
+                                "file": "tb9-2026.04.17-Test_Study_2-0001-PeakData.tsv",
+                                "id": 1,
+                                "name": "Test Study 2",
+                                "slug": "Test_Study_2",
+                                "ext": "tsv",
+                                "data_type": "PeakData",
+                                "staged": False,
+                            },
+                        },
+                    },
+                    "2026.04.24": {
+                        "0001": {
+                            "Fcirc": {
+                                "date": "2026.04.17",
+                                "file": "tb9-2026.04.17-Test_Study_2-0001-Fcirc.tsv",
+                                "id": 1,
+                                "name": "Test Study 2",
+                                "slug": "Test_Study_2",
+                                "ext": "tsv",
+                                "data_type": "Fcirc",
+                                "staged": False,
+                            },
+                            "PeakData": {
+                                "date": "2026.04.24",
+                                "file": "tb9-2026.04.24-Test_Study_2-0001-PeakData.tsv",
+                                "id": 1,
+                                "name": "Test Study 2",
+                                "slug": "Test_Study_2",
+                                "ext": "tsv",
+                                "data_type": "PeakData",
+                                "staged": False,
+                            },
+                        },
+                    },
+                },
+            },
+            all_packages_by_differing_dates,
+        )
 
     def test_tsv_files_differ(self):
         export_dir = "DataRepo/data/tests/exports_organizer/two_exports_one_tsv_change"
