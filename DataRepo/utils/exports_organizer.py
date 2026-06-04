@@ -1,7 +1,11 @@
+import hashlib
+import io
 import os
 import zipfile
+from collections import defaultdict
+from itertools import zip_longest
 from pathlib import Path
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, List, Optional, Set, TextIO, cast
 
 from django.utils.text import get_valid_filename
 
@@ -181,6 +185,237 @@ class ExportsOrganizer(ExportBase):
             raise ExportParseError(filename)
 
         return (host, date_str, slugged_study_name, study_id, data_type, ext, staged)
+
+    def remove_unchanged_exports(
+        self, exports_by_study: Dict[str, Dict[str, Dict[str, List[Dict[str, str]]]]]
+    ):
+        """This compares export files generated on different dates and if they do not differ (other than by date), keeps
+        the older one.  It removes the newer file from the file system and from the exports_by_study dict.  It returns
+        data structures defining all the files that should go into study and datatype packages by date.
+        """
+        package_dates_by_host: Dict[str, Set[str]] = defaultdict(set)
+
+        # Go through all the exports and cull any later exports that have not changed compared to previous exports
+        for host, study_dict in exports_by_study.items():
+            for datatype_dict in study_dict.values():
+                for data_type, file_dict_list in datatype_dict.items():
+
+                    # We're going to be culling the list for identical exports (aside from export date).  We will
+                    # replace the current list with this new one.
+                    new_file_dict_list = []
+
+                    # Sort the file_dict_list by export date.  (NOTE: Technically, file_dict_list is already sorted by
+                    # date because the files were sorted and the filename starts with (the host, then) the date, but
+                    # we're soring here because we don't want to assume the list was constructed correctly.)
+                    date_sorted_file_dict_list = sorted(
+                        file_dict_list, key=lambda d: d["date"]
+                    )
+                    prev_file_dict = date_sorted_file_dict_list[0]
+                    new_file_dict_list.append(prev_file_dict)
+
+                    # The first date is a package because if "differs" from the previous export (no export)
+                    package_dates_by_host[host].add(
+                        date_sorted_file_dict_list[0]["date"]
+                    )
+
+                    for file_dict in date_sorted_file_dict_list[1:]:
+
+                        # Remove newer exports that do not differ from previous exports
+                        if not self.files_differ(
+                            prev_file_dict["file"], file_dict["file"]
+                        ):
+                            # Delete the last file and set the last dict's file to the previous
+                            os.remove(file_dict["file"])
+                        else:
+                            prev_file_dict = file_dict
+                            package_dates_by_host[host].add(file_dict["date"])
+                            new_file_dict_list.append(file_dict)
+
+                    datatype_dict[data_type] = new_file_dict_list
+
+        return package_dates_by_host
+
+    @classmethod
+    def files_differ(cls, filepath1: str, filepath2: str):
+        """This is a wrapper for mzxml_zips_differ and tsv_files_differ, which are called based on the value of zip.  It
+        only works for tsv and zip files and ignores commented lines (in order to ignore different export dates in the
+        commented header).
+
+        Args:
+            filepath1 (str)
+            filepath2 (str)
+        Exceptions:
+            ValueError: When there's a problem with the file extensions.
+        Returns:
+            (bool): Whether TraceBase export the files differ or not (by anoything other than export date)
+        """
+        filepath1_basename, ext1 = os.path.splitext(filepath1)
+        # Account for the "staged" extension
+        if ext1 == cls.staged_ext:
+            ext1 = os.path.splitext(filepath1_basename)[1]
+
+        filepath2_basename, ext2 = os.path.splitext(filepath2)
+        # Account for the "staged" extension
+        if ext2 == cls.staged_ext:
+            ext2 = os.path.splitext(filepath2_basename)[1]
+
+        if ext1 != ext2:
+            raise ValueError(
+                "files_differ is only intended to compare files with the same extension. "
+                f"'{ext1}' != '{ext2}'."
+            )
+
+        if ext1.lower() == ".zip":
+            return cls.mzxml_zips_differ(filepath1, filepath2)
+        if ext1.lower() != ".tsv":
+            raise ValueError(
+                f"files_differ supports only zip and tsv files, not '{ext1}'."
+            )
+
+        return cls.tsv_files_differ(filepath1, filepath2)
+
+    @classmethod
+    def mzxml_zips_differ(cls, filepath1: str, filepath2: str):
+        """Determines if 2 mzXML zip export files differ by anything other than export date.  It specifically looks at
+        the mzXML files themselves and the single tsv metadata file at the top level of the zip archive.
+
+        Args:
+            filepath1 (str)
+            filepath2 (str)
+        Exceptions:
+            NotOneMzxmlMetadataFile
+        Returns:
+            (bool): Whether the files differ by anything other than export date
+        """
+        differs = False
+
+        with (
+            zipfile.ZipFile(filepath1, "r") as zp,
+            zipfile.ZipFile(filepath2, "r") as zn,
+        ):
+            # This avoids retrieving zip archive metadata files by restricting to matches in the root level directory
+            prev_tsv_files = [
+                name
+                for name in zp.namelist()
+                if (name.endswith(".tsv") or name.endswith(f".tsv{cls.staged_ext}"))
+                and len(name.split("/")) == 2
+            ]
+            current_tsv_files = [
+                name
+                for name in zn.namelist()
+                if (name.endswith(".tsv") or name.endswith(f".tsv{cls.staged_ext}"))
+                and len(name.split("/")) == 2
+            ]
+
+            if len(prev_tsv_files) != 1:
+                raise NotOneMzxmlMetadataFile(filepath1, prev_tsv_files)
+
+            if len(current_tsv_files) != 1:
+                raise NotOneMzxmlMetadataFile(filepath2, current_tsv_files)
+
+            prev_tsv = prev_tsv_files[0]
+            current_tsv = current_tsv_files[0]
+
+            # Access the member as a binary file-like object
+            with (
+                zp.open(prev_tsv) as prev_binary_file,
+                zn.open(current_tsv) as current_binary_file,
+            ):
+                # Wrap the binary stream to handle text decoding
+                with (
+                    io.TextIOWrapper(
+                        prev_binary_file, encoding="utf-8"
+                    ) as prev_file_obj,
+                    io.TextIOWrapper(
+                        current_binary_file, encoding="utf-8"
+                    ) as current_file_obj,
+                ):
+                    differs = cls.tsv_file_objs_differ(prev_file_obj, current_file_obj)
+                    if differs:
+                        return differs
+
+        # If the tsvs are the same, also check if the actual mzXML files changed
+        prev_mzxml_checksums = cls.get_mzxml_zip_checksums(filepath1)
+        next_mzxml_checksums = cls.get_mzxml_zip_checksums(filepath2)
+
+        return prev_mzxml_checksums.items() != next_mzxml_checksums.items()
+
+    @classmethod
+    def tsv_files_differ(cls, filepath1: str, filepath2: str):
+        """Determines if 2 tsv export files differ by anything other than export date.  It ignores commented lines to
+        avoid the different export dates in the commented header.
+
+        Args:
+            filepath1 (str)
+            filepath2 (str)
+        Exceptions:
+            None
+        Returns:
+            (bool): Whether the files differ by anything other than export date
+        """
+        with open(filepath1, "r") as f1, open(filepath2, "r") as f2:
+            return cls.tsv_file_objs_differ(f1, f2)
+
+    @classmethod
+    def tsv_file_objs_differ(cls, file1_obj: TextIO, file2_obj: TextIO):
+        """Determines if 2 tsv export file objects differ by anything other than export date.  It ignores commented
+        lines to avoid the different export dates in the commented header.
+
+        Args:
+            file1_obj (TextIO)
+            file2_obj (TextIO)
+        Exceptions:
+            NotOneMzxmlMetadataFile
+        Returns:
+            (bool): Whether the file objects differ by anything other than export date
+        """
+        # Create generators that skip comments
+        file1_generator = (line for line in file1_obj if not str(line).startswith("#"))
+        file2_generator = (line for line in file2_obj if not str(line).startswith("#"))
+
+        # compare line by line; return False immediately if a mismatch is found
+        for file1_line, file2_line in zip_longest(file1_generator, file2_generator):
+            if file1_line != file2_line:
+                return True
+
+        return False
+
+    @classmethod
+    def get_mzxml_zip_checksums(cls, zip_path: str):
+        """Takes a zip archive filepath and returns a dict of all the mzXML filepaths mapped to their checksums.
+
+        The intended use is to determine of any mzXML files changed inside the archive when compared to another archive.
+
+        Args:
+            zip_path (str): The file path of the zip archive
+        Exceptions:
+            None
+        Returns:
+            checksums (Dict[str, str])
+        """
+        checksums: Dict[str, str] = {}
+        with zipfile.ZipFile(zip_path, "r") as zip_h:
+            # Filter files by extension
+            mzxml_files = [
+                filepath
+                for filepath in zip_h.namelist()
+                if (
+                    filepath.lower().endswith(".mzxml")
+                    # Avoid zip metadata, (that start with "._")
+                    and not os.path.basename(filepath).startswith("._")
+                )
+            ]
+
+            for file_name in mzxml_files:
+                # Open file in-memory without extracting to disk
+                with zip_h.open(file_name) as f:
+                    sha256_hash = hashlib.sha256()
+                    # Read in chunks for memory efficiency with large files
+                    for byte_block in iter(lambda: f.read(4096), b""):
+                        sha256_hash.update(byte_block)
+                    checksums[file_name] = sha256_hash.hexdigest()
+
+        return checksums
 
     def compute_all_package_filename(self, host: str, package_date: str):
         """Given the host name and the package date, returns a zip archive filename representing all data exported on or
@@ -525,3 +760,13 @@ class ExportsOrganizer(ExportBase):
 class ExportParseError(Exception):
     def __init__(self, filename: str):
         super().__init__(f"Unable to parse export filename: '{filename}'.")
+
+
+class NotOneMzxmlMetadataFile(Exception):
+    def __init__(self, zip_archive_file: str, metadata_files: List[str]):
+        message = (
+            f"Zip archive '{zip_archive_file}' was expected to have 1 TSV file (for metadata), but was found to have "
+            f"{len(metadata_files)}"
+        )
+        message += "." if len(metadata_files) == 0 else f": {metadata_files}."
+        super().__init__(message)
