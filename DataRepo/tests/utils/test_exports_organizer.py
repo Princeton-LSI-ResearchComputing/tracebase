@@ -49,6 +49,502 @@ class ExportsOrganizerTests(TracebaseTestCase):
             root_files = [name for name in zf.namelist()]
         self.assertEqual(expected_root_files, root_files)
 
+    def test_organize_one_study_one_date(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with override_settings(
+                MEDIA_ROOT=tmpdir,
+                FILE_UPLOAD_TEMP_DIR=tmpdir,
+            ):
+                export_dir = os.path.join(tmpdir, "one_export")
+                shutil.copytree(
+                    "DataRepo/data/tests/exports_organizer/one_export", export_dir
+                )
+                base = Path(export_dir)
+                export_dir_contents = sorted(
+                    str(p.relative_to(base)) for p in base.rglob("*")
+                )
+                self.assertEqual(
+                    [
+                        "tb9-2026.04.17-Test_Study_2-0001-Fcirc.tsv",
+                        "tb9-2026.04.17-Test_Study_2-0001-PeakData.tsv",
+                        "tb9-2026.04.17-Test_Study_2-0001-PeakGroups.tsv",
+                        "tb9-2026.04.17-Test_Study_2-0001-mzXML.zip",
+                    ],
+                    export_dir_contents,
+                )
+                exports_organizer = ExportsOrganizer()
+                exports_organizer.organize(export_dir)
+                export_dir_contents = sorted(
+                    str(p.relative_to(base)) for p in base.rglob("*")
+                )
+                expected_files = [
+                    "tb9-2026.04.17-Test_Study_2-0001-Fcirc.tsv",
+                    "tb9-2026.04.17-Test_Study_2-0001-PeakData.tsv",
+                    "tb9-2026.04.17-Test_Study_2-0001-PeakGroups.tsv",
+                    "tb9-2026.04.17-Test_Study_2-0001-mzXML.zip",
+                    "tb9-2026.04.17-Test_Study_2-alldatatypes.zip",
+                    "tb9-2026.04.17-allstudies-Fcirc.zip",
+                    "tb9-2026.04.17-allstudies-PeakData.zip",
+                    "tb9-2026.04.17-allstudies-PeakGroups.zip",
+                    "tb9-2026.04.17-allstudies-alldatatypes.zip",
+                    "tb9-2026.04.17-allstudies-mzXML.zip",
+                ]
+                self.assertEqual(
+                    expected_files,
+                    export_dir_contents,
+                )
+                self.assertTrue(
+                    all(
+                        [
+                            os.path.getsize(os.path.join(export_dir, fp)) > 0
+                            for fp in expected_files
+                        ]
+                    )
+                )
+
+                self.assert_zip_file_contents(
+                    os.path.join(
+                        export_dir, "tb9-2026.04.17-Test_Study_2-alldatatypes.zip"
+                    ),
+                    [
+                        "tb9-2026.04.17-Test_Study_2-0001-Fcirc.tsv",
+                        "tb9-2026.04.17-Test_Study_2-0001-PeakData.tsv",
+                        "tb9-2026.04.17-Test_Study_2-0001-PeakGroups.tsv",
+                        "tb9-2026.04.17-Test_Study_2-0001-mzXML.zip",
+                    ],
+                )
+                self.assert_zip_file_contents(
+                    os.path.join(export_dir, "tb9-2026.04.17-allstudies-Fcirc.zip"),
+                    ["tb9-2026.04.17-Test_Study_2-0001-Fcirc.tsv"],
+                )
+                self.assert_zip_file_contents(
+                    os.path.join(export_dir, "tb9-2026.04.17-allstudies-PeakData.zip"),
+                    ["tb9-2026.04.17-Test_Study_2-0001-PeakData.tsv"],
+                )
+                self.assert_zip_file_contents(
+                    os.path.join(
+                        export_dir, "tb9-2026.04.17-allstudies-PeakGroups.zip"
+                    ),
+                    ["tb9-2026.04.17-Test_Study_2-0001-PeakGroups.tsv"],
+                )
+                self.assert_zip_file_contents(
+                    os.path.join(
+                        export_dir,
+                        "tb9-2026.04.17-allstudies-alldatatypes.zip",
+                    ),
+                    [
+                        "tb9-2026.04.17-Test_Study_2-0001-Fcirc.tsv",
+                        "tb9-2026.04.17-Test_Study_2-0001-PeakData.tsv",
+                        "tb9-2026.04.17-Test_Study_2-0001-PeakGroups.tsv",
+                        "tb9-2026.04.17-Test_Study_2-0001-mzXML.zip",
+                    ],
+                )
+                self.assert_zip_file_contents(
+                    os.path.join(export_dir, "tb9-2026.04.17-allstudies-mzXML.zip"),
+                    ["tb9-2026.04.17-Test_Study_2-0001-mzXML.zip"],
+                )
+
+    def test_organize_one_study_two_dates_no_change(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with override_settings(
+                MEDIA_ROOT=tmpdir,
+                FILE_UPLOAD_TEMP_DIR=tmpdir,
+            ):
+                export_dir = os.path.join(tmpdir, "two_exports_no_change")
+                shutil.copytree(
+                    "DataRepo/data/tests/exports_organizer/two_exports_no_change",
+                    export_dir,
+                )
+                base = Path(export_dir)
+                export_dir_contents = sorted(
+                    str(p.relative_to(base)) for p in base.rglob("*")
+                )
+                self.assertEqual(
+                    [
+                        "tb9-2026.04.17-Test_Study_2-0001-Fcirc.tsv",
+                        "tb9-2026.04.17-Test_Study_2-0001-PeakData.tsv",
+                        "tb9-2026.04.17-Test_Study_2-0001-PeakGroups.tsv",
+                        "tb9-2026.04.17-Test_Study_2-0001-mzXML.zip",
+                        "tb9-2026.04.24-Test_Study_2-0001-Fcirc.tsv",
+                        "tb9-2026.04.24-Test_Study_2-0001-PeakData.tsv",
+                        "tb9-2026.04.24-Test_Study_2-0001-PeakGroups.tsv",
+                        "tb9-2026.04.24-Test_Study_2-0001-mzXML.zip",
+                    ],
+                    export_dir_contents,
+                )
+                exports_organizer = ExportsOrganizer()
+                exports_organizer.organize(export_dir)
+                export_dir_contents = sorted(
+                    str(p.relative_to(base)) for p in base.rglob("*")
+                )
+                expected_files = [
+                    # Since there are no changes in the 4/24/26 files, they are removed
+                    "tb9-2026.04.17-Test_Study_2-0001-Fcirc.tsv",
+                    "tb9-2026.04.17-Test_Study_2-0001-PeakData.tsv",
+                    "tb9-2026.04.17-Test_Study_2-0001-PeakGroups.tsv",
+                    "tb9-2026.04.17-Test_Study_2-0001-mzXML.zip",
+                    "tb9-2026.04.17-Test_Study_2-alldatatypes.zip",
+                    "tb9-2026.04.17-allstudies-Fcirc.zip",
+                    "tb9-2026.04.17-allstudies-PeakData.zip",
+                    "tb9-2026.04.17-allstudies-PeakGroups.zip",
+                    "tb9-2026.04.17-allstudies-alldatatypes.zip",
+                    "tb9-2026.04.17-allstudies-mzXML.zip",
+                ]
+                self.assertEqual(
+                    expected_files,
+                    export_dir_contents,
+                )
+                self.assertTrue(
+                    all(
+                        [
+                            os.path.getsize(os.path.join(export_dir, fp)) > 0
+                            for fp in expected_files
+                        ]
+                    )
+                )
+
+            self.assert_zip_file_contents(
+                os.path.join(
+                    export_dir, "tb9-2026.04.17-Test_Study_2-alldatatypes.zip"
+                ),
+                [
+                    "tb9-2026.04.17-Test_Study_2-0001-Fcirc.tsv",
+                    "tb9-2026.04.17-Test_Study_2-0001-PeakData.tsv",
+                    "tb9-2026.04.17-Test_Study_2-0001-PeakGroups.tsv",
+                    "tb9-2026.04.17-Test_Study_2-0001-mzXML.zip",
+                ],
+            )
+            self.assert_zip_file_contents(
+                os.path.join(export_dir, "tb9-2026.04.17-allstudies-Fcirc.zip"),
+                ["tb9-2026.04.17-Test_Study_2-0001-Fcirc.tsv"],
+            )
+            self.assert_zip_file_contents(
+                os.path.join(export_dir, "tb9-2026.04.17-allstudies-PeakData.zip"),
+                ["tb9-2026.04.17-Test_Study_2-0001-PeakData.tsv"],
+            )
+            self.assert_zip_file_contents(
+                os.path.join(export_dir, "tb9-2026.04.17-allstudies-PeakGroups.zip"),
+                ["tb9-2026.04.17-Test_Study_2-0001-PeakGroups.tsv"],
+            )
+            self.assert_zip_file_contents(
+                os.path.join(
+                    export_dir,
+                    "tb9-2026.04.17-allstudies-alldatatypes.zip",
+                ),
+                [
+                    "tb9-2026.04.17-Test_Study_2-0001-Fcirc.tsv",
+                    "tb9-2026.04.17-Test_Study_2-0001-PeakData.tsv",
+                    "tb9-2026.04.17-Test_Study_2-0001-PeakGroups.tsv",
+                    "tb9-2026.04.17-Test_Study_2-0001-mzXML.zip",
+                ],
+            )
+            self.assert_zip_file_contents(
+                os.path.join(export_dir, "tb9-2026.04.17-allstudies-mzXML.zip"),
+                ["tb9-2026.04.17-Test_Study_2-0001-mzXML.zip"],
+            )
+
+    def test_organize_one_study_two_dates_one_mzxml_change(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with override_settings(
+                MEDIA_ROOT=tmpdir,
+                FILE_UPLOAD_TEMP_DIR=tmpdir,
+            ):
+                export_dir = os.path.join(tmpdir, "two_exports_one_mzxml_change")
+                shutil.copytree(
+                    "DataRepo/data/tests/exports_organizer/two_exports_one_mzxml_change",
+                    export_dir,
+                )
+                base = Path(export_dir)
+                export_dir_contents = sorted(
+                    str(p.relative_to(base)) for p in base.rglob("*")
+                )
+                self.assertEqual(
+                    [
+                        "tb9-2026.04.17-Test_Study_2-0001-Fcirc.tsv",
+                        "tb9-2026.04.17-Test_Study_2-0001-PeakData.tsv",
+                        "tb9-2026.04.17-Test_Study_2-0001-PeakGroups.tsv",
+                        "tb9-2026.04.17-Test_Study_2-0001-mzXML.zip",
+                        "tb9-2026.04.24-Test_Study_2-0001-Fcirc.tsv",
+                        "tb9-2026.04.24-Test_Study_2-0001-PeakData.tsv",
+                        "tb9-2026.04.24-Test_Study_2-0001-PeakGroups.tsv",
+                        "tb9-2026.04.24-Test_Study_2-0001-mzXML.zip",
+                    ],
+                    export_dir_contents,
+                )
+                exports_organizer = ExportsOrganizer()
+                exports_organizer.organize(export_dir)
+                export_dir_contents = sorted(
+                    str(p.relative_to(base)) for p in base.rglob("*")
+                )
+                expected_files = [
+                    # Since there are no changes in the 4/24/26 files, they are removed
+                    "tb9-2026.04.17-Test_Study_2-0001-Fcirc.tsv",
+                    "tb9-2026.04.17-Test_Study_2-0001-PeakData.tsv",
+                    "tb9-2026.04.17-Test_Study_2-0001-PeakGroups.tsv",
+                    "tb9-2026.04.17-Test_Study_2-0001-mzXML.zip",
+                    "tb9-2026.04.17-Test_Study_2-alldatatypes.zip",
+                    "tb9-2026.04.17-allstudies-Fcirc.zip",
+                    "tb9-2026.04.17-allstudies-PeakData.zip",
+                    "tb9-2026.04.17-allstudies-PeakGroups.zip",
+                    "tb9-2026.04.17-allstudies-alldatatypes.zip",
+                    "tb9-2026.04.17-allstudies-mzXML.zip",
+                    # The zip had a changed mzXML, so it is retained and the other file types from that date removed
+                    "tb9-2026.04.24-Test_Study_2-0001-mzXML.zip",
+                    # All of the zip packages are made for the new date since one file changes
+                    "tb9-2026.04.24-Test_Study_2-alldatatypes.zip",
+                    "tb9-2026.04.24-allstudies-Fcirc.zip",
+                    "tb9-2026.04.24-allstudies-PeakData.zip",
+                    "tb9-2026.04.24-allstudies-PeakGroups.zip",
+                    "tb9-2026.04.24-allstudies-alldatatypes.zip",
+                    "tb9-2026.04.24-allstudies-mzXML.zip",
+                ]
+                self.assertEqual(
+                    expected_files,
+                    export_dir_contents,
+                )
+                self.assertTrue(
+                    all(
+                        [
+                            os.path.getsize(os.path.join(export_dir, fp)) > 0
+                            for fp in expected_files
+                        ]
+                    )
+                )
+
+            self.assert_zip_file_contents(
+                os.path.join(
+                    export_dir, "tb9-2026.04.17-Test_Study_2-alldatatypes.zip"
+                ),
+                [
+                    "tb9-2026.04.17-Test_Study_2-0001-Fcirc.tsv",
+                    "tb9-2026.04.17-Test_Study_2-0001-PeakData.tsv",
+                    "tb9-2026.04.17-Test_Study_2-0001-PeakGroups.tsv",
+                    "tb9-2026.04.17-Test_Study_2-0001-mzXML.zip",
+                ],
+            )
+            self.assert_zip_file_contents(
+                os.path.join(export_dir, "tb9-2026.04.17-allstudies-Fcirc.zip"),
+                ["tb9-2026.04.17-Test_Study_2-0001-Fcirc.tsv"],
+            )
+            self.assert_zip_file_contents(
+                os.path.join(export_dir, "tb9-2026.04.17-allstudies-PeakData.zip"),
+                ["tb9-2026.04.17-Test_Study_2-0001-PeakData.tsv"],
+            )
+            self.assert_zip_file_contents(
+                os.path.join(export_dir, "tb9-2026.04.17-allstudies-PeakGroups.zip"),
+                ["tb9-2026.04.17-Test_Study_2-0001-PeakGroups.tsv"],
+            )
+            self.assert_zip_file_contents(
+                os.path.join(
+                    export_dir,
+                    "tb9-2026.04.17-allstudies-alldatatypes.zip",
+                ),
+                [
+                    "tb9-2026.04.17-Test_Study_2-0001-Fcirc.tsv",
+                    "tb9-2026.04.17-Test_Study_2-0001-PeakData.tsv",
+                    "tb9-2026.04.17-Test_Study_2-0001-PeakGroups.tsv",
+                    "tb9-2026.04.17-Test_Study_2-0001-mzXML.zip",
+                ],
+            )
+            self.assert_zip_file_contents(
+                os.path.join(export_dir, "tb9-2026.04.17-allstudies-mzXML.zip"),
+                ["tb9-2026.04.17-Test_Study_2-0001-mzXML.zip"],
+            )
+
+            self.assert_zip_file_contents(
+                os.path.join(
+                    export_dir, "tb9-2026.04.24-Test_Study_2-alldatatypes.zip"
+                ),
+                [
+                    "tb9-2026.04.17-Test_Study_2-0001-Fcirc.tsv",
+                    "tb9-2026.04.17-Test_Study_2-0001-PeakData.tsv",
+                    "tb9-2026.04.17-Test_Study_2-0001-PeakGroups.tsv",
+                    # This is the one file that changed
+                    "tb9-2026.04.24-Test_Study_2-0001-mzXML.zip",
+                ],
+            )
+            self.assert_zip_file_contents(
+                os.path.join(export_dir, "tb9-2026.04.24-allstudies-Fcirc.zip"),
+                ["tb9-2026.04.17-Test_Study_2-0001-Fcirc.tsv"],
+            )
+            self.assert_zip_file_contents(
+                os.path.join(export_dir, "tb9-2026.04.24-allstudies-PeakData.zip"),
+                ["tb9-2026.04.17-Test_Study_2-0001-PeakData.tsv"],
+            )
+            self.assert_zip_file_contents(
+                os.path.join(export_dir, "tb9-2026.04.24-allstudies-PeakGroups.zip"),
+                ["tb9-2026.04.17-Test_Study_2-0001-PeakGroups.tsv"],
+            )
+            self.assert_zip_file_contents(
+                os.path.join(
+                    export_dir,
+                    "tb9-2026.04.24-allstudies-alldatatypes.zip",
+                ),
+                [
+                    "tb9-2026.04.17-Test_Study_2-0001-Fcirc.tsv",
+                    "tb9-2026.04.17-Test_Study_2-0001-PeakData.tsv",
+                    "tb9-2026.04.17-Test_Study_2-0001-PeakGroups.tsv",
+                    # This is the one file that changed
+                    "tb9-2026.04.24-Test_Study_2-0001-mzXML.zip",
+                ],
+            )
+            self.assert_zip_file_contents(
+                os.path.join(export_dir, "tb9-2026.04.24-allstudies-mzXML.zip"),
+                # This is the one file that changed
+                ["tb9-2026.04.24-Test_Study_2-0001-mzXML.zip"],
+            )
+
+    def test_organize_one_study_two_dates_one_mzxmltsv_change(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with override_settings(
+                MEDIA_ROOT=tmpdir,
+                FILE_UPLOAD_TEMP_DIR=tmpdir,
+            ):
+                export_dir = os.path.join(tmpdir, "two_exports_one_mzxmltsv_change")
+                shutil.copytree(
+                    "DataRepo/data/tests/exports_organizer/two_exports_one_mzxmltsv_change",
+                    export_dir,
+                )
+                base = Path(export_dir)
+                export_dir_contents = sorted(
+                    str(p.relative_to(base)) for p in base.rglob("*")
+                )
+                self.assertEqual(
+                    [
+                        "tb9-2026.04.17-Test_Study_2-0001-Fcirc.tsv",
+                        "tb9-2026.04.17-Test_Study_2-0001-PeakData.tsv",
+                        "tb9-2026.04.17-Test_Study_2-0001-PeakGroups.tsv",
+                        "tb9-2026.04.17-Test_Study_2-0001-mzXML.zip",
+                        "tb9-2026.04.24-Test_Study_2-0001-Fcirc.tsv",
+                        "tb9-2026.04.24-Test_Study_2-0001-PeakData.tsv",
+                        "tb9-2026.04.24-Test_Study_2-0001-PeakGroups.tsv",
+                        "tb9-2026.04.24-Test_Study_2-0001-mzXML.zip",
+                    ],
+                    export_dir_contents,
+                )
+                exports_organizer = ExportsOrganizer()
+                exports_organizer.organize(export_dir)
+                export_dir_contents = sorted(
+                    str(p.relative_to(base)) for p in base.rglob("*")
+                )
+                expected_files = [
+                    # Since there are no changes in the 4/24/26 files, they are removed
+                    "tb9-2026.04.17-Test_Study_2-0001-Fcirc.tsv",
+                    "tb9-2026.04.17-Test_Study_2-0001-PeakData.tsv",
+                    "tb9-2026.04.17-Test_Study_2-0001-PeakGroups.tsv",
+                    "tb9-2026.04.17-Test_Study_2-0001-mzXML.zip",
+                    "tb9-2026.04.17-Test_Study_2-alldatatypes.zip",
+                    "tb9-2026.04.17-allstudies-Fcirc.zip",
+                    "tb9-2026.04.17-allstudies-PeakData.zip",
+                    "tb9-2026.04.17-allstudies-PeakGroups.zip",
+                    "tb9-2026.04.17-allstudies-alldatatypes.zip",
+                    "tb9-2026.04.17-allstudies-mzXML.zip",
+                    # The zip had a changed tsv, so it is retained and the other file types from that date removed
+                    "tb9-2026.04.24-Test_Study_2-0001-mzXML.zip",
+                    # All of the zip packages are made for the new date since one file changes
+                    "tb9-2026.04.24-Test_Study_2-alldatatypes.zip",
+                    "tb9-2026.04.24-allstudies-Fcirc.zip",
+                    "tb9-2026.04.24-allstudies-PeakData.zip",
+                    "tb9-2026.04.24-allstudies-PeakGroups.zip",
+                    "tb9-2026.04.24-allstudies-alldatatypes.zip",
+                    "tb9-2026.04.24-allstudies-mzXML.zip",
+                ]
+                self.assertEqual(
+                    expected_files,
+                    export_dir_contents,
+                )
+                self.assertTrue(
+                    all(
+                        [
+                            os.path.getsize(os.path.join(export_dir, fp)) > 0
+                            for fp in expected_files
+                        ]
+                    )
+                )
+
+            self.assert_zip_file_contents(
+                os.path.join(
+                    export_dir, "tb9-2026.04.17-Test_Study_2-alldatatypes.zip"
+                ),
+                [
+                    "tb9-2026.04.17-Test_Study_2-0001-Fcirc.tsv",
+                    "tb9-2026.04.17-Test_Study_2-0001-PeakData.tsv",
+                    "tb9-2026.04.17-Test_Study_2-0001-PeakGroups.tsv",
+                    "tb9-2026.04.17-Test_Study_2-0001-mzXML.zip",
+                ],
+            )
+            self.assert_zip_file_contents(
+                os.path.join(export_dir, "tb9-2026.04.17-allstudies-Fcirc.zip"),
+                ["tb9-2026.04.17-Test_Study_2-0001-Fcirc.tsv"],
+            )
+            self.assert_zip_file_contents(
+                os.path.join(export_dir, "tb9-2026.04.17-allstudies-PeakData.zip"),
+                ["tb9-2026.04.17-Test_Study_2-0001-PeakData.tsv"],
+            )
+            self.assert_zip_file_contents(
+                os.path.join(export_dir, "tb9-2026.04.17-allstudies-PeakGroups.zip"),
+                ["tb9-2026.04.17-Test_Study_2-0001-PeakGroups.tsv"],
+            )
+            self.assert_zip_file_contents(
+                os.path.join(
+                    export_dir,
+                    "tb9-2026.04.17-allstudies-alldatatypes.zip",
+                ),
+                [
+                    "tb9-2026.04.17-Test_Study_2-0001-Fcirc.tsv",
+                    "tb9-2026.04.17-Test_Study_2-0001-PeakData.tsv",
+                    "tb9-2026.04.17-Test_Study_2-0001-PeakGroups.tsv",
+                    "tb9-2026.04.17-Test_Study_2-0001-mzXML.zip",
+                ],
+            )
+            self.assert_zip_file_contents(
+                os.path.join(export_dir, "tb9-2026.04.17-allstudies-mzXML.zip"),
+                ["tb9-2026.04.17-Test_Study_2-0001-mzXML.zip"],
+            )
+
+            self.assert_zip_file_contents(
+                os.path.join(
+                    export_dir, "tb9-2026.04.24-Test_Study_2-alldatatypes.zip"
+                ),
+                [
+                    "tb9-2026.04.17-Test_Study_2-0001-Fcirc.tsv",
+                    "tb9-2026.04.17-Test_Study_2-0001-PeakData.tsv",
+                    "tb9-2026.04.17-Test_Study_2-0001-PeakGroups.tsv",
+                    # This is the one file that changed
+                    "tb9-2026.04.24-Test_Study_2-0001-mzXML.zip",
+                ],
+            )
+            self.assert_zip_file_contents(
+                os.path.join(export_dir, "tb9-2026.04.24-allstudies-Fcirc.zip"),
+                ["tb9-2026.04.17-Test_Study_2-0001-Fcirc.tsv"],
+            )
+            self.assert_zip_file_contents(
+                os.path.join(export_dir, "tb9-2026.04.24-allstudies-PeakData.zip"),
+                ["tb9-2026.04.17-Test_Study_2-0001-PeakData.tsv"],
+            )
+            self.assert_zip_file_contents(
+                os.path.join(export_dir, "tb9-2026.04.24-allstudies-PeakGroups.zip"),
+                ["tb9-2026.04.17-Test_Study_2-0001-PeakGroups.tsv"],
+            )
+            self.assert_zip_file_contents(
+                os.path.join(
+                    export_dir,
+                    "tb9-2026.04.24-allstudies-alldatatypes.zip",
+                ),
+                [
+                    "tb9-2026.04.17-Test_Study_2-0001-Fcirc.tsv",
+                    "tb9-2026.04.17-Test_Study_2-0001-PeakData.tsv",
+                    "tb9-2026.04.17-Test_Study_2-0001-PeakGroups.tsv",
+                    # This is the one file that changed
+                    "tb9-2026.04.24-Test_Study_2-0001-mzXML.zip",
+                ],
+            )
+            self.assert_zip_file_contents(
+                os.path.join(export_dir, "tb9-2026.04.24-allstudies-mzXML.zip"),
+                # This is the one file that changed
+                ["tb9-2026.04.24-Test_Study_2-0001-mzXML.zip"],
+            )
+
     def test_organize_exports_by_study_and_datatype(self):
         export_files = [
             # Since there are no changes in the 4/24/26 files, they are removed
@@ -295,88 +791,6 @@ class ExportsOrganizerTests(TracebaseTestCase):
                     {"tb9": set(["2026.04.17", "2026.04.24"])}, package_dates_by_host
                 )
 
-    def test_files_differ(self):
-        export_dir = "DataRepo/data/tests/exports_organizer/two_exports_one_tsv_change"
-
-        same_file1 = os.path.join(
-            export_dir, "tb9-2026.04.17-Test_Study_2-0001-Fcirc.tsv"
-        )
-        same_file2 = os.path.join(
-            export_dir, "tb9-2026.04.24-Test_Study_2-0001-Fcirc.tsv"
-        )
-        self.assertFalse(ExportsOrganizer.files_differ(same_file1, same_file2))
-
-        same_file1 = os.path.join(
-            export_dir, "tb9-2026.04.17-Test_Study_2-0001-mzXML.zip"
-        )
-        same_file2 = os.path.join(
-            export_dir, "tb9-2026.04.24-Test_Study_2-0001-mzXML.zip"
-        )
-        self.assertFalse(ExportsOrganizer.files_differ(same_file1, same_file2))
-
-        diff_file1 = os.path.join(
-            export_dir, "tb9-2026.04.17-Test_Study_2-0001-PeakData.tsv"
-        )
-        diff_file2 = os.path.join(
-            export_dir, "tb9-2026.04.24-Test_Study_2-0001-PeakData.tsv"
-        )
-        self.assertTrue(ExportsOrganizer.files_differ(diff_file1, diff_file2))
-
-        # Check the mzXML zip files that differ
-        export_dir = (
-            "DataRepo/data/tests/exports_organizer/two_exports_one_mzxml_change"
-        )
-        diff_file1 = os.path.join(
-            export_dir, "tb9-2026.04.17-Test_Study_2-0001-mzXML.zip"
-        )
-        diff_file2 = os.path.join(
-            export_dir, "tb9-2026.04.24-Test_Study_2-0001-mzXML.zip"
-        )
-        self.assertTrue(ExportsOrganizer.files_differ(diff_file1, diff_file2))
-
-        export_dir = (
-            "DataRepo/data/tests/exports_organizer/two_exports_one_mzxmltsv_change"
-        )
-        diff_file1 = os.path.join(
-            export_dir, "tb9-2026.04.17-Test_Study_2-0001-mzXML.zip"
-        )
-        diff_file2 = os.path.join(
-            export_dir, "tb9-2026.04.24-Test_Study_2-0001-mzXML.zip"
-        )
-        self.assertTrue(ExportsOrganizer.files_differ(diff_file1, diff_file2))
-
-    def test_mzxml_zips_differ(self):
-        export_dir = "DataRepo/data/tests/exports_organizer/two_exports_one_tsv_change"
-        same_file1 = os.path.join(
-            export_dir, "tb9-2026.04.17-Test_Study_2-0001-mzXML.zip"
-        )
-        same_file2 = os.path.join(
-            export_dir, "tb9-2026.04.24-Test_Study_2-0001-mzXML.zip"
-        )
-        self.assertFalse(ExportsOrganizer.mzxml_zips_differ(same_file1, same_file2))
-
-        export_dir = (
-            "DataRepo/data/tests/exports_organizer/two_exports_one_mzxml_change"
-        )
-        diff_file1 = os.path.join(
-            export_dir, "tb9-2026.04.17-Test_Study_2-0001-mzXML.zip"
-        )
-        diff_file2 = os.path.join(
-            export_dir, "tb9-2026.04.24-Test_Study_2-0001-mzXML.zip"
-        )
-        self.assertTrue(ExportsOrganizer.mzxml_zips_differ(diff_file1, diff_file2))
-
-        export_dir = (
-            "DataRepo/data/tests/exports_organizer/two_exports_one_mzxmltsv_change"
-        )
-        diff_file1 = os.path.join(
-            export_dir, "tb9-2026.04.17-Test_Study_2-0001-mzXML.zip"
-        )
-        diff_file2 = os.path.join(
-            export_dir, "tb9-2026.04.24-Test_Study_2-0001-mzXML.zip"
-        )
-        self.assertTrue(ExportsOrganizer.mzxml_zips_differ(diff_file1, diff_file2))
-
     def test_assemble_export_packages(self):
         package_dates_by_host = {"tb9": set(["2026.04.17", "2026.04.24"])}
         exports_by_study = {
@@ -594,6 +1008,88 @@ class ExportsOrganizerTests(TracebaseTestCase):
             },
             all_packages_by_differing_dates,
         )
+
+    def test_files_differ(self):
+        export_dir = "DataRepo/data/tests/exports_organizer/two_exports_one_tsv_change"
+
+        same_file1 = os.path.join(
+            export_dir, "tb9-2026.04.17-Test_Study_2-0001-Fcirc.tsv"
+        )
+        same_file2 = os.path.join(
+            export_dir, "tb9-2026.04.24-Test_Study_2-0001-Fcirc.tsv"
+        )
+        self.assertFalse(ExportsOrganizer.files_differ(same_file1, same_file2))
+
+        same_file1 = os.path.join(
+            export_dir, "tb9-2026.04.17-Test_Study_2-0001-mzXML.zip"
+        )
+        same_file2 = os.path.join(
+            export_dir, "tb9-2026.04.24-Test_Study_2-0001-mzXML.zip"
+        )
+        self.assertFalse(ExportsOrganizer.files_differ(same_file1, same_file2))
+
+        diff_file1 = os.path.join(
+            export_dir, "tb9-2026.04.17-Test_Study_2-0001-PeakData.tsv"
+        )
+        diff_file2 = os.path.join(
+            export_dir, "tb9-2026.04.24-Test_Study_2-0001-PeakData.tsv"
+        )
+        self.assertTrue(ExportsOrganizer.files_differ(diff_file1, diff_file2))
+
+        # Check the mzXML zip files that differ
+        export_dir = (
+            "DataRepo/data/tests/exports_organizer/two_exports_one_mzxml_change"
+        )
+        diff_file1 = os.path.join(
+            export_dir, "tb9-2026.04.17-Test_Study_2-0001-mzXML.zip"
+        )
+        diff_file2 = os.path.join(
+            export_dir, "tb9-2026.04.24-Test_Study_2-0001-mzXML.zip"
+        )
+        self.assertTrue(ExportsOrganizer.files_differ(diff_file1, diff_file2))
+
+        export_dir = (
+            "DataRepo/data/tests/exports_organizer/two_exports_one_mzxmltsv_change"
+        )
+        diff_file1 = os.path.join(
+            export_dir, "tb9-2026.04.17-Test_Study_2-0001-mzXML.zip"
+        )
+        diff_file2 = os.path.join(
+            export_dir, "tb9-2026.04.24-Test_Study_2-0001-mzXML.zip"
+        )
+        self.assertTrue(ExportsOrganizer.files_differ(diff_file1, diff_file2))
+
+    def test_mzxml_zips_differ(self):
+        export_dir = "DataRepo/data/tests/exports_organizer/two_exports_one_tsv_change"
+        same_file1 = os.path.join(
+            export_dir, "tb9-2026.04.17-Test_Study_2-0001-mzXML.zip"
+        )
+        same_file2 = os.path.join(
+            export_dir, "tb9-2026.04.24-Test_Study_2-0001-mzXML.zip"
+        )
+        self.assertFalse(ExportsOrganizer.mzxml_zips_differ(same_file1, same_file2))
+
+        export_dir = (
+            "DataRepo/data/tests/exports_organizer/two_exports_one_mzxml_change"
+        )
+        diff_file1 = os.path.join(
+            export_dir, "tb9-2026.04.17-Test_Study_2-0001-mzXML.zip"
+        )
+        diff_file2 = os.path.join(
+            export_dir, "tb9-2026.04.24-Test_Study_2-0001-mzXML.zip"
+        )
+        self.assertTrue(ExportsOrganizer.mzxml_zips_differ(diff_file1, diff_file2))
+
+        export_dir = (
+            "DataRepo/data/tests/exports_organizer/two_exports_one_mzxmltsv_change"
+        )
+        diff_file1 = os.path.join(
+            export_dir, "tb9-2026.04.17-Test_Study_2-0001-mzXML.zip"
+        )
+        diff_file2 = os.path.join(
+            export_dir, "tb9-2026.04.24-Test_Study_2-0001-mzXML.zip"
+        )
+        self.assertTrue(ExportsOrganizer.mzxml_zips_differ(diff_file1, diff_file2))
 
     def test_tsv_files_differ(self):
         export_dir = "DataRepo/data/tests/exports_organizer/two_exports_one_tsv_change"
