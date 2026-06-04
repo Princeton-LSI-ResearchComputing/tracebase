@@ -1281,6 +1281,11 @@ class ExportsOrganizerTests(TracebaseTestCase):
             exports_by_study,
         )
 
+    def assert_zip_file_contents(self, zip_path: str, expected_root_files: List[str]):
+        with zipfile.ZipFile(zip_path) as zf:
+            root_files = [name for name in zf.namelist()]
+        self.assertEqual(expected_root_files, root_files)
+
     def test_parse_export_filename(self):
         self.assertEqual(
             ("tracebase", "2026.04.17", "acute_stress", "0035", "FCirc", ".tsv", False),
