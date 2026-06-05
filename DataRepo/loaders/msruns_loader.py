@@ -3277,7 +3277,7 @@ class MSRunsLoader(TableLoader):
                     KeyError(
                         f"Unrecognized instrument name encountered in mzXML file [{str(mzxml_path_obj)}].  "
                         f"Expected one of: [{list(cls.MZXML_INSTRUMENTS.keys())}].  If you are seeing this error, "
-                        f"{__class__.__name__}.MZXML_INSTRUMENTS must be ammended to include this instrument name."
+                        f"{__class__.__name__}.MZXML_INSTRUMENTS must be amended to include this instrument name."
                     ).with_traceback(ke.__traceback__)
                 )
 
