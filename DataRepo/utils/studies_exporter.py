@@ -228,9 +228,14 @@ class StudiesExporter(ExportBase):
                         file_exists = FileExistsError(
                             f"File {unstaged_filepath} exists.  Use the overwrite option to overwrite existing files."
                         )
-                        # Print a pseudo-trace for debugging
+                        if settings.DEBUG:
+                            # Print a pseudo-trace for debugging
+                            print(
+                                f"{trace(file_exists)}\n{type(file_exists).__name__}: {file_exists}"
+                            )
                         print(
-                            f"{trace(file_exists)}\n{type(file_exists).__name__}: {file_exists}"
+                            f"SKIPPING: {unstaged_filepath} "
+                            "(File exists.  Use the overwrite option to rewrite all files.)"
                         )
                         existing_files.append(filepath)
                         continue
