@@ -198,84 +198,95 @@ class StudiesExporter(ExportBase):
             else:
                 os.mkdir(self.outdir)
 
+        # Making the temporary directory used by the atomic operations be the same disk/mount can prevent an OSError
+        # due to small system disk space allocations.
+        tmpdir = os.path.join(self.outdir, "tmp")
+        os.mkdir(tmpdir)
+
         existing_files = []
 
-        # For each study (ID/name)
-        for study_id in study_ids_for_export:
-            slugified_study_name = self.slugified_study_names[study_id]
-            study_str = (
-                f"{self.host}-{export_datestamp}-{slugified_study_name}-{study_id:04d}"
-            )
+        try:
+            # For each study (ID/name)
+            for study_id in study_ids_for_export:
+                slugified_study_name = self.slugified_study_names[study_id]
+                study_str = f"{self.host}-{export_datestamp}-{slugified_study_name}-{study_id:04d}"
 
-            # For each data type
-            for data_type in self.data_types:
-                suffix = "zip" if data_type in self.zipped_data_types else "tsv"
-                filepath = os.path.join(
-                    self.outdir, get_valid_filename(f"{study_str}-{data_type}.{suffix}")
-                )
-
-                unstaged_filepath = filepath
-                if self.staging_mode:
-                    filepath += self.staged_ext
-
-                if (
-                    os.path.exists(filepath) or os.path.exists(unstaged_filepath)
-                ) and not self.overwrite:
-                    file_exists = FileExistsError(
-                        f"File {unstaged_filepath} exists.  Use the overwrite option to overwrite existing files."
-                    )
-                    # Print a pseudo-trace for debugging
-                    print(
-                        f"{trace(file_exists)}\n{type(file_exists).__name__}: {file_exists}"
-                    )
-                    existing_files.append(filepath)
-                    continue
-
-                # A data type name corresponds to a format key
-                data_type_key = self.sg.format_name_or_key_to_key(data_type)
-
-                # Construct a query object understood by the format
-                # NOTE: This *assumes* every format in self.sg includes Study.id as searchable
-                qry = self.sg.create_new_basic_query(
-                    "Study",
-                    "id",
-                    "exact",
-                    study_id,
-                    data_type_key,
-                    "identity",
-                    search_again=False,
-                )
-
-                # Do the query of the format (ignoring count and optional stats)
-                results, _, _ = self.sg.perform_query(qry, data_type_key)
-
-                if data_type in self.zipped_data_types:
-                    # Create an AdvancedSearchDownloadMzxmlZIPView instance to prepare the download and pass its
-                    # iterator.
-                    asdmzv = AdvancedSearchDownloadMzxmlZIPView()
-                    asdmzv.prepare_download(qry, res=results)
-
-                    # Output a zip file of files plus a metadata file about the files
-                    self.atomic_binary_file_write_and_move(
-                        filepath,
-                        asdmzv.mzxml_zip_iterator,
-                        asdmzv.metadata_content,
+                # For each data type
+                for data_type in self.data_types:
+                    suffix = "zip" if data_type in self.zipped_data_types else "tsv"
+                    filepath = os.path.join(
+                        self.outdir, get_valid_filename(f"{study_str}-{data_type}.{suffix}")
                     )
 
-                else:
-                    # Compose a list of output lines.  We do this because it's way more efficient to do 1 write
-                    # operation on the entire file content than it is to write each line, due to the system calls
-                    # involved.
-                    content_list = []
-                    for line in AdvancedSearchDownloadView.tsv_template_iterator(
-                        self.row_template, self.header_template, results, qry, dt_string
-                    ):
-                        content_list.append(line)
+                    unstaged_filepath = filepath
+                    if self.staging_mode:
+                        filepath += self.staged_ext
 
-                    # Output a text file
-                    self.atomic_text_file_write_and_move(
-                        filepath, "".join(content_list)
+                    if (
+                        os.path.exists(filepath) or os.path.exists(unstaged_filepath)
+                    ) and not self.overwrite:
+                        file_exists = FileExistsError(
+                            f"File {unstaged_filepath} exists.  Use the overwrite option to overwrite existing files."
+                        )
+                        # Print a pseudo-trace for debugging
+                        print(
+                            f"{trace(file_exists)}\n{type(file_exists).__name__}: {file_exists}"
+                        )
+                        existing_files.append(filepath)
+                        continue
+
+                    # A data type name corresponds to a format key
+                    data_type_key = self.sg.format_name_or_key_to_key(data_type)
+
+                    # Construct a query object understood by the format
+                    # NOTE: This *assumes* every format in self.sg includes Study.id as searchable
+                    qry = self.sg.create_new_basic_query(
+                        "Study",
+                        "id",
+                        "exact",
+                        study_id,
+                        data_type_key,
+                        "identity",
+                        search_again=False,
                     )
+
+                    # Do the query of the format (ignoring count and optional stats)
+                    results, _, _ = self.sg.perform_query(qry, data_type_key)
+
+                    if data_type in self.zipped_data_types:
+                        # Create an AdvancedSearchDownloadMzxmlZIPView instance to prepare the download and pass its
+                        # iterator.
+                        asdmzv = AdvancedSearchDownloadMzxmlZIPView()
+                        asdmzv.prepare_download(qry, res=results)
+
+                        # Output a zip file of files plus a metadata file about the files
+                        self.atomic_binary_file_write_and_move(
+                            filepath,
+                            asdmzv.mzxml_zip_iterator,
+                            asdmzv.metadata_content,
+                            tmpdir=tmpdir,
+                        )
+
+                    else:
+                        # Compose a list of output lines.  We do this because it's way more efficient to do 1 write
+                        # operation on the entire file content than it is to write each line, due to the system calls
+                        # involved.
+                        content_list = []
+                        for line in AdvancedSearchDownloadView.tsv_template_iterator(
+                            self.row_template,
+                            self.header_template,
+                            results,
+                            qry,
+                            dt_string,
+                        ):
+                            content_list.append(line)
+
+                        # Output a text file
+                        self.atomic_text_file_write_and_move(
+                            filepath, "".join(content_list), tmpdir=tmpdir
+                        )
+        finally:
+            shutil.rmtree(tmpdir)
 
         if len(existing_files) > 0:
             nlt = "\n\t"
@@ -286,7 +297,11 @@ class StudiesExporter(ExportBase):
             )
 
     def atomic_text_file_write_and_move(
-        self, final_destination_path: str, content: str, encoding="utf-8"
+        self,
+        final_destination_path: str,
+        content: str,
+        encoding="utf-8",
+        tmpdir: Optional[str] = None,
     ):
         """Writes a string to a temporary file and then moves it to the final destination path.
 
@@ -296,6 +311,7 @@ class StudiesExporter(ExportBase):
         Args:
             final_destination_path (str): Path of the file to ultimately output to.
             content (str): One string containing all the file content.
+            tmpdir (Optional[str]): The temporary directory to use for atomic operations.
             encoding (str) ["utf-8"]
         Exceptions:
             No explicit exceptions, but some may arise from the file system, like FileExistsError
@@ -308,7 +324,11 @@ class StudiesExporter(ExportBase):
         try:
             suffix = os.path.basename(final_destination_path)
             with tempfile.NamedTemporaryFile(
-                mode="w+t", delete=False, encoding=encoding, suffix=suffix
+                mode="w+t",
+                delete=False,
+                encoding=encoding,
+                suffix=suffix,
+                dir=tmpdir,
             ) as temp_file:
                 temp_path = temp_file.name
                 # Write data to the temporary file
@@ -339,6 +359,7 @@ class StudiesExporter(ExportBase):
         final_destination_path: str,
         iterator: Callable[[str], Iterator[bytes]],
         metadata: str,
+        tmpdir: Optional[str] = None,
     ):
         """Traverses a supplied binary content iterator to write its content to a temporary file and then moves it to
         the final destination path.
@@ -357,6 +378,7 @@ class StudiesExporter(ExportBase):
                 binary file buffer content it produces.
             metadata (str): A string of metadata about the binary files in the buffer that is supplied as an argument to
                 the iterator.
+            tmpdir (Optional[str]): The temporary directory to use for atomic operations.
         Exceptions:
             No explicit exceptions, but some may arise from the file system, like FileExistsError
         Returns:
@@ -366,7 +388,7 @@ class StudiesExporter(ExportBase):
             suffix = os.path.basename(final_destination_path)
             temp_path = ""
             with tempfile.NamedTemporaryFile(
-                mode="w+b", delete=False, suffix=suffix
+                mode="w+b", delete=False, suffix=suffix, dir=tmpdir
             ) as temp_file:
                 temp_path = temp_file.name
                 for content in iterator(metadata):
