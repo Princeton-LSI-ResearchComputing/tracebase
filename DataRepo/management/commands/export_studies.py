@@ -50,7 +50,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--date",
             type=datetime.fromisoformat,
-            help="Date of export.  ISO format: YYYY-MM-DDTHH:MM:SS.",
+            help="Date of export.  ISO format: YYYY-MM-DD.  E.g. '1977-05-04'.",
             default=datetime.now(),
         )
         parser.add_argument(
