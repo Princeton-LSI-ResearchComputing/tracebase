@@ -72,7 +72,7 @@ class Command(BaseCommand):
             host=options["host"],
             date=(
                 datetime.fromisoformat(options["date"])
-                if isinstance(options["date"], str) and options["date"] != ""
+                if isinstance(options["date"], datetime)
                 else None
             ),
             staging_mode=options["staging_mode"],
