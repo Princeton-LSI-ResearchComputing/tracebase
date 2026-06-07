@@ -70,11 +70,7 @@ class Command(BaseCommand):
             data_types=options["data_type"],
             overwrite=options["overwrite"],
             host=options["host"],
-            date=(
-                datetime.fromisoformat(options["date"])
-                if isinstance(options["date"], datetime)
-                else None
-            ),
+            date=options["date"],
             staging_mode=options["staging_mode"],
         )
         se.export()
