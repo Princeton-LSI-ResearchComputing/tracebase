@@ -28,7 +28,7 @@ This document is written for system administrators and software developers.
   - Operating system: RHEL version `9`
   - Database: PostgreSQL version `13`
   - Web server: Apache version `2.4.62`
-  - Language: [Python version `3.10`](https://www.python.org/downloads/)
+  - Language: [Python version `3.11`](https://www.python.org/downloads/)
   - Package manager: pip version `25.3`
 
 ## Installation
@@ -40,10 +40,10 @@ Create a `tracebase` user account that belongs to a `tracebase` group that we wi
 
 ### Environment Setup
 
-Ensure you are using Python 3.10, e.g.:
+Ensure you are using Python 3.11, e.g.:
 
     python3 --version
-    # Python 3.10.11
+    # Python 3.11.9
 
 Create a virtual environment (from a Bash shell) in `/usr/local` and activate it, for example:
 
