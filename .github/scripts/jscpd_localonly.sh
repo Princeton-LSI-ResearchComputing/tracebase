@@ -13,7 +13,7 @@ FILE_EXT_RE='\.(py|js)$'
 # Files to exclude
 EXCLUDE_PATS=(
     '(^|/)migrations(/|$)'
-    '(^|/)\.venv(/|$)'
+    '(^|/)\.venv'
     '^static/bootstrap-[^/]+/'
 )
 
