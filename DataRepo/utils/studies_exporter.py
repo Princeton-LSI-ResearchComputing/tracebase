@@ -4,7 +4,7 @@ import socket
 import tempfile
 from collections import defaultdict
 from datetime import datetime
-from typing import Callable, Dict, Iterator, List, Optional, Tuple
+from typing import Callable, Dict, Iterator, List, Optional, Union
 
 from django.conf import settings
 from django.db.models import Q
@@ -102,7 +102,7 @@ class StudiesExporter(ExportBase):
         data_types: Optional[List[str]] = None,
         overwrite: bool = False,
         host: Optional[str] = None,  # Defaults to current host/domain
-        date: Optional[datetime] = None,  # Defaults to now
+        date: Optional[Union[datetime, str]] = None,  # Defaults to now
         staging_mode=False,
     ):
         super().__init__()
@@ -124,7 +124,11 @@ class StudiesExporter(ExportBase):
         self.staging_mode = staging_mode
 
         self.host = host if host else self.default_host
-        self.date = date
+        self.date = (
+            date
+            if date is None or isinstance(date, datetime)
+            else datetime.fromisoformat(str(date))
+        )
 
         # A script on a cron-job uses the study ID in the file name to compare exported files with previously exported
         # versions.  It does this by splitting on dash and taking the study ID from the file name, relative to the end
