@@ -235,39 +235,51 @@ class StudiesExporter(ExportBase):
                     # Do the query of the format (ignoring count and optional stats)
                     results, _, _ = self.sg.perform_query(qry, data_type_key)
 
-                    if data_type in self.zipped_data_types:
-                        # Create an AdvancedSearchDownloadMzxmlZIPView instance to prepare the download and pass its
-                        # iterator.
-                        asdmzv = AdvancedSearchDownloadMzxmlZIPView()
-                        asdmzv.prepare_download(qry, res=results)
+                    try:
+                        if data_type in self.zipped_data_types:
+                            # Create an AdvancedSearchDownloadMzxmlZIPView instance to prepare the download and pass its
+                            # iterator.
+                            asdmzv = AdvancedSearchDownloadMzxmlZIPView()
+                            asdmzv.prepare_download(qry, res=results)
 
-                        # Output a zip file of files plus a metadata file about the files
-                        self.atomic_binary_file_write_and_move(
-                            filepath,
-                            asdmzv.mzxml_zip_iterator,
-                            asdmzv.metadata_content,
-                            tmpdir=tmpdir,
+                            # Output a zip file of files plus a metadata file about the files
+                            self.atomic_binary_file_write_and_move(
+                                filepath,
+                                asdmzv.mzxml_zip_iterator,
+                                asdmzv.metadata_content,
+                                tmpdir=tmpdir,
+                            )
+
+                        else:
+                            # Compose a list of output lines.  We do this because it's way more efficient to do 1 write
+                            # operation on the entire file content than it is to write each line, due to the system
+                            # calls involved.
+                            content_list = []
+                            for (
+                                line
+                            ) in AdvancedSearchDownloadView.tsv_template_iterator(
+                                self.row_template,
+                                self.header_template,
+                                results,
+                                qry,
+                                dt_string,
+                            ):
+                                content_list.append(line)
+
+                            # Output a text file
+                            self.atomic_text_file_write_and_move(
+                                filepath, "".join(content_list), tmpdir=tmpdir
+                            )
+                        os.chmod(filepath, 0o644)
+                    except Exception as e:
+                        if os.path.exists(filepath):
+                            os.remove(filepath)
+
+                        print(
+                            f"Cleaned up temporary file {filepath} due to exception {type(e).__name__}."
                         )
 
-                    else:
-                        # Compose a list of output lines.  We do this because it's way more efficient to do 1 write
-                        # operation on the entire file content than it is to write each line, due to the system calls
-                        # involved.
-                        content_list = []
-                        for line in AdvancedSearchDownloadView.tsv_template_iterator(
-                            self.row_template,
-                            self.header_template,
-                            results,
-                            qry,
-                            dt_string,
-                        ):
-                            content_list.append(line)
-
-                        # Output a text file
-                        self.atomic_text_file_write_and_move(
-                            filepath, "".join(content_list), tmpdir=tmpdir
-                        )
-                    os.chmod(filepath, 0o644)
+                        raise e
         finally:
             shutil.rmtree(tmpdir)
 
@@ -297,45 +309,36 @@ class StudiesExporter(ExportBase):
             tmpdir (Optional[str]): The temporary directory to use for atomic operations.
             encoding (str) ["utf-8"]
         Exceptions:
-            No explicit exceptions, but some may arise from the file system, like FileExistsError
+            No explicit exceptions, but some may arise from the file system, like:
+                FileExistsError
+                OSError
         Returns:
             None
         """
         # Use NamedTemporaryFile to get a file with a visible name in the filesystem.
         # Set delete=False to keep the file after it's closed, so it can be moved.
         # 'w+t' mode is for text; use 'w+b' for binary data.
+        suffix = os.path.basename(final_destination_path)
+        with tempfile.NamedTemporaryFile(
+            mode="w+t",
+            delete=False,
+            encoding=encoding,
+            suffix=suffix,
+            dir=tmpdir,
+        ) as temp_file:
+            temp_path = temp_file.name
+            # Write data to the temporary file
+            temp_file.write(content)
+            # File is automatically flushed when exiting the 'with' block
+
+        # Move the file to the final destination.
         try:
-            suffix = os.path.basename(final_destination_path)
-            with tempfile.NamedTemporaryFile(
-                mode="w+t",
-                delete=False,
-                encoding=encoding,
-                suffix=suffix,
-                dir=tmpdir,
-            ) as temp_file:
-                temp_path = temp_file.name
-                # Write data to the temporary file
-                temp_file.write(content)
-                # File is automatically flushed when exiting the 'with' block
+            os.replace(temp_path, final_destination_path)
+        except OSError:
+            shutil.move(temp_path, final_destination_path)
 
-            # Move the file to the final destination.
-            try:
-                os.replace(temp_path, final_destination_path)
-            except OSError:
-                shutil.move(temp_path, final_destination_path)
-
-            # Print the filepaths to the console as they are exported, so the user can see progress.
-            print(final_destination_path)
-
-        except Exception as e:
-            if os.path.exists(temp_path):
-                os.remove(temp_path)
-
-            print(
-                f"Cleaned up temporary file {temp_path} due to exception {type(e).__name__}."
-            )
-
-            raise e
+        # Print the filepaths to the console as they are exported, so the user can see progress.
+        print(final_destination_path)
 
     def atomic_binary_file_write_and_move(
         self,
@@ -363,38 +366,29 @@ class StudiesExporter(ExportBase):
                 the iterator.
             tmpdir (Optional[str]): The temporary directory to use for atomic operations.
         Exceptions:
-            No explicit exceptions, but some may arise from the file system, like FileExistsError
+            No explicit exceptions, but some may arise from the file system, like:
+                FileExistsError
+                OSError
         Returns:
             None
         """
+        suffix = os.path.basename(final_destination_path)
+        temp_path = ""
+        with tempfile.NamedTemporaryFile(
+            mode="w+b", delete=False, suffix=suffix, dir=tmpdir
+        ) as temp_file:
+            temp_path = temp_file.name
+            for content in iterator(metadata):
+                temp_file.write(content)
+
+        # Move the zip to the final destination.
         try:
-            suffix = os.path.basename(final_destination_path)
-            temp_path = ""
-            with tempfile.NamedTemporaryFile(
-                mode="w+b", delete=False, suffix=suffix, dir=tmpdir
-            ) as temp_file:
-                temp_path = temp_file.name
-                for content in iterator(metadata):
-                    temp_file.write(content)
+            os.replace(temp_path, final_destination_path)
+        except OSError:
+            shutil.move(temp_path, final_destination_path)
 
-            # Move the zip to the final destination.
-            try:
-                os.replace(temp_path, final_destination_path)
-            except OSError:
-                shutil.move(temp_path, final_destination_path)
-
-            # Print the filepaths to the console as they are exported, so the user can see progress.
-            print(final_destination_path)
-
-        except Exception as e:
-            if os.path.exists(temp_path):
-                os.remove(temp_path)
-
-            print(
-                f"Cleaned up temporary file {temp_path} due to exception {type(e).__name__}."
-            )
-
-            raise e
+        # Print the filepaths to the console as they are exported, so the user can see progress.
+        print(final_destination_path)
 
     def check_study_names(self, study_ids: List[int]):
         """This checks the sanitized study names for uniqueness, limited to the selected studies to export.
