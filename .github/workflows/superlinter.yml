@@ -62,7 +62,8 @@ jobs:
           PYTHON_LINT_REQUIREMENTS_FILE: .github/linters/python-lint-requirements.txt
           DJANGO_SETTINGS_MODULE: TraceBase.settings.dev
 
-          # The new version of JSCPD checks between files and there is no way to disable it alone
+          # The new version of JSCPD checks between files and there is no way to disable it alone.
+          # This is now run in a separate workflow: .github/workflows/jscpd_localonly.yml
           VALIDATE_JSCPD: false
 
           # New linters
