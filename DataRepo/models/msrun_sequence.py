@@ -24,6 +24,8 @@ class MSRunSequence(Model):
         ("Exploris240", "Exploris 240"),
         ("Exploris480", "Exploris 480"),
         ("ExplorisMX", "Exploris MX"),
+        ("OrbitrapExploris240", "Orbitrap Exploris 240"),
+        ("OrbitrapExploris480", "Orbitrap Exploris 480"),
         ("unknown", "Unknown"),
     ]
     # Note, INSTRUMENT_DEFAULT is not used as a "default" value for loading.  It is used for the following reasons:

@@ -1725,7 +1725,7 @@ class MSRunsLoader(TableLoader):
         mzxml_metadata = None
         errs: AggregatedErrors
         try:
-            mzxml_metadata, errs = self.parse_mzxml(mzxml_file)
+            mzxml_metadata, errs = self.parse_mzxml(mzxml_file, debug=self.debug)
         except FileNotFoundError as fnfe:
             self.buffer_infile_exception(fnfe)
             raised = True
@@ -1897,6 +1897,8 @@ class MSRunsLoader(TableLoader):
             mzxml_metadata["mz_min"] = None
         if "mz_max" not in mzxml_metadata.keys():
             mzxml_metadata["mz_max"] = None
+        if "instrument" not in mzxml_metadata.keys():
+            mzxml_metadata["instrument"] = None
 
         # Add in the ArchiveFile record objects, if supplied (and not already set)
         if "mzaf_record" not in mzxml_metadata.keys() or mzaf_rec is not None:
@@ -2500,6 +2502,7 @@ class MSRunsLoader(TableLoader):
                     "mz_max": 100.0,
                     "raw_file_name": "sample1.raw",
                     "raw_file_sha1": "KJCWVQUWEKENF",
+                    "instrument": "QE",
                     "mzaf_record": mzxml_rec,
                     "rawaf_record": raw_rec,
                     "mzxml_dir": "some/path/to/file",
@@ -3183,7 +3186,7 @@ class MSRunsLoader(TableLoader):
         return matching_qs, unmatching_qs
 
     @classmethod
-    def parse_mzxml(cls, mzxml_path, full_dict=False):
+    def parse_mzxml(cls, mzxml_path, full_dict=False, debug=False):
         """Creates a dict of select data parsed from an mzXML file
 
         This extracts the raw file name, raw file's sha1, and the polarity from an mzxml file and returns a condensed
@@ -3258,7 +3261,7 @@ class MSRunsLoader(TableLoader):
             ).name
             raw_file_sha1 = mzxml_dict["mzXML"]["msRun"]["parentFile"]["@fileSha1"]
             if raw_file_type != "RAWData":
-                errs_buffer.buffer_error(
+                errs_buffer.buffer_exception(
                     ValueError(
                         f"Unsupported file type [{raw_file_type}] encountered in mzXML file [{str(mzxml_path_obj)}].  "
                         "Expected: [RAWData]."
@@ -3274,12 +3277,16 @@ class MSRunsLoader(TableLoader):
                 instrument = cls.MZXML_INSTRUMENTS[tmp_instrument]
             except KeyError as ke:
                 instrument = tmp_instrument
-                errs_buffer.buffer_error(
+                errs_buffer.buffer_exception(
                     KeyError(
                         f"Unrecognized instrument name encountered in mzXML file [{str(mzxml_path_obj)}].  "
-                        f"Expected one of: [{list(cls.MZXML_INSTRUMENTS.keys())}].  If you are seeing this error, "
-                        f"{__class__.__name__}.MZXML_INSTRUMENTS must be amended to include this instrument name."
-                    ).with_traceback(ke.__traceback__)
+                        f"Expected one of: [{list(cls.MZXML_INSTRUMENTS.keys())}].  If you are seeing this exception, "
+                        f"{__class__.__name__}.MZXML_INSTRUMENTS must be ammended to include this instrument name."
+                    ).with_traceback(ke.__traceback__),
+                    orig_exception=ke,
+                    # Fatal error if running in debug mode, because this needs to be fixed
+                    is_error=debug,
+                    is_fatal=debug,
                 )
 
             symbol_polarity = ""
