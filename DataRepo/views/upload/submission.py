@@ -1007,7 +1007,7 @@ class BuildSubmissionView(FormView):
                         "errors."
                     ),
                 ),
-                self.study_filename,
+                "Autofill Note",
                 top=False,
                 default_is_error=False,
                 default_is_fatal=True,
@@ -1043,7 +1043,7 @@ class BuildSubmissionView(FormView):
                         "errors."
                     ),
                 ),
-                self.study_filename,
+                "Autofill Note",
                 top=False,
                 default_is_error=False,
                 default_is_fatal=True,
@@ -2826,7 +2826,7 @@ class BuildSubmissionView(FormView):
                             "other error."
                         ),
                     ),
-                    self.study_filename,
+                    "Autofill Note",
                     top=False,
                     # This isn't a load error.  It is autofill.  Might pass validation if the row is otherwise empty.
                     default_is_error=False,
