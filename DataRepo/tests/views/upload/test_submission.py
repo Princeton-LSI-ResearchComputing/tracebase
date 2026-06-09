@@ -1182,7 +1182,8 @@ class BuildSubmissionViewTests2(TracebaseTransactionTestCase):
         # Test the get_validation_results function
         # This call indirectly tests that ValidationView.validate_stody returns a MultiLoadStatus object on success
         # It also indirectly ensures that create_yaml(dir) puts a loading.yaml file in the dir
-        [results, valid, exceptions, _, _] = self.validate_some_files(sf, afs)
+        vo = BuildSubmissionView()
+        [results, valid, exceptions, _, _] = self.validate_some_files(vo, sf, afs)
 
         # There is a researcher named "anonymous", but that name is ignored
         self.assertTrue(
@@ -1193,6 +1194,42 @@ class BuildSubmissionViewTests2(TracebaseTransactionTestCase):
         # researchers named "anonymous" (case-insensitive)
         self.assertEqual("PASSED", results[sfkey])
         self.assertEqual(0, len(exceptions[sfkey]))
+
+        # Check the accucor file details
+        self.assert_accucor_files_pass([af1key, af2key], results, exceptions)
+
+    def test_validate_good_files_with_autofill_warnings(self):
+        """Assert that any exceptions present before validating the study are preserved."""
+        # Files/inputs we will test
+        sf = "DataRepo/data/tests/data_submission/animal_sample_good_v3.xlsx"
+        afs = [
+            "DataRepo/data/tests/data_submission/accucor1.xlsx",
+            "DataRepo/data/tests/data_submission/accucor2.xlsx",
+        ]
+
+        sfkey = "animal_sample_good_v3.xlsx"
+        af1key = "accucor1.xlsx"
+        af2key = "accucor2.xlsx"
+
+        # Test the get_validation_results function
+        # This call indirectly tests that ValidationView.validate_stody returns a MultiLoadStatus object on success
+        # It also indirectly ensures that create_yaml(dir) puts a loading.yaml file in the dir
+        vo = BuildSubmissionView()
+        vo.load_status_data.set_load_exception(
+            ValueError("Test"), sfkey, default_is_error=False
+        )
+        [results, valid, exceptions, _, _] = self.validate_some_files(vo, sf, afs)
+
+        # There is a researcher named "anonymous", but that name is ignored
+        self.assertFalse(
+            valid, msg=f"There should be 1 value error in '{sfkey}': {exceptions}"
+        )
+
+        # The sample file's researcher is "Anonymous" and it's not in the database, but the researcher check ignores
+        # researchers named "anonymous" (case-insensitive)
+        self.assertEqual("WARNING", results[sfkey])
+        self.assertEqual(1, len(exceptions[sfkey]))
+        self.assertEqual(exceptions[sfkey][0]["type"], "ValueError")
 
         # Check the accucor file details
         self.assert_accucor_files_pass([af1key, af2key], results, exceptions)
@@ -1227,13 +1264,14 @@ class BuildSubmissionViewTests2(TracebaseTransactionTestCase):
         af2key = "accucor2.xlsx"
 
         # Test the get_validation_results function
+        vo = BuildSubmissionView()
         [
             results,
             valid,
             exceptions,
             num_errors,
             num_warnings,
-        ] = self.validate_some_files(sf, afs)
+        ] = self.validate_some_files(vo, sf, afs)
 
         # NOTE: When the unknown researcher error is raised, the sample table load would normally be rolled back.  The
         # subsequent accucor load would then fail (to find any more errors), because it can't find the same names in
@@ -1282,13 +1320,14 @@ class BuildSubmissionViewTests2(TracebaseTransactionTestCase):
             "DataRepo/data/tests/data_submission/accucor2.xlsx",
         ]
 
+        vo = BuildSubmissionView()
         [
             _,
             valid,
             _,
             _,
             _,
-        ] = self.validate_some_files(sample_file, accucor_files)
+        ] = self.validate_some_files(vo, sample_file, accucor_files)
 
         # Test case is for passing data, so it only works if it passes
         self.assertTrue(valid)
@@ -1321,13 +1360,14 @@ class BuildSubmissionViewTests2(TracebaseTransactionTestCase):
         ]
         sfkey = "small_obob_animal_and_sample_table.xlsx"
         afkey = "small_obob_maven_6eaas_inf_req_prefix.xlsx"
+        vo = BuildSubmissionView()
         [
             results,
             valid,
             exceptions,
             num_errors,
             num_warnings,
-        ] = self.validate_some_files(sample_file, accucor_files)
+        ] = self.validate_some_files(vo, sample_file, accucor_files)
 
         # Sample file should be OK.  It's loaded first.
         self.assertTrue(sfkey in results)
@@ -1397,9 +1437,8 @@ class BuildSubmissionViewTests2(TracebaseTransactionTestCase):
 
         self.assertFalse(valid)
 
-    def validate_some_files(self, sample_file, accucor_files):
+    def validate_some_files(self, vo: BuildSubmissionView, sample_file, accucor_files):
         # Test the get_validation_results function
-        vo = BuildSubmissionView()
         vo.set_files(study_file=sample_file, peak_annot_files=accucor_files)
         # Now try validating the load files
         vo.validate_study()
