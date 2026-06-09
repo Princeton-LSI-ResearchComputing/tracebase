@@ -1786,6 +1786,28 @@ class MultiLoadStatus(Exception):
                     load_key,
                 )
 
+    def merge(self, instance: MultiLoadStatus):
+        """Merge the statuses from the supplied MultiLoadStatus object into this object.
+
+        Args:
+            instance (MultiLoadStatus): An existing MultiLoadStatus object
+        Exceptions:
+            None
+        Returns:
+            None
+        """
+        for load_key in instance.statuses.keys():
+            self.update_load(load_key)
+        for load_key in instance.statuses.keys():
+            if (
+                instance.statuses[load_key]["aggregated_errors"] is not None
+                and len(instance.statuses[load_key]["aggregated_errors"].exceptions) > 0
+            ):
+                self.set_load_exception(
+                    instance.statuses[load_key]["aggregated_errors"],
+                    load_key,
+                )
+
 
 class AggregatedErrorsSet(Exception):
     """Contains multiple AggregatedErrors exceptions in a dict keyed on a string.  The string is arbitrary, but is

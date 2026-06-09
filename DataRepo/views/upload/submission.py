@@ -59,15 +59,16 @@ from DataRepo.utils.exceptions import (
     AllMissingTreatments,
     DuplicatePeakAnnotationFileName,
     FileFromInputNotFound,
+    InfileError,
     InvalidDtypeDict,
     InvalidPeakAnnotationFileFormat,
     InvalidStudyDocVersion,
-    IsotopeParsingError,
     MissingDataAdded,
     MultiLoadStatus,
     MultiplePeakAnnotationFileFormats,
     MultipleStudyDocVersions,
     NoSamples,
+    ParsingError,
     UnknownPeakAnnotationFileFormat,
     UnknownStudyDocVersion,
 )
@@ -866,7 +867,9 @@ class BuildSubmissionView(FormView):
         elif mode == "validate":
             page = "Validate"
         else:
-            raise ProgrammingError(f"Invalid mode: {mode}")
+            raise ProgrammingError(
+                f"Invalid mode: {mode}.  Try force-reloading the page to clear the cache."
+            )
 
         # We need a new regular form (not a formset)
         form_class = self.get_form_class()
@@ -928,8 +931,6 @@ class BuildSubmissionView(FormView):
                 retain_as_warnings=not self.autofill_only_mode,
             )
 
-        self.format_results_for_template()
-
         self.add_extracted_autofill_data()
 
         self.add_dynamic_dropdown_data()
@@ -948,29 +949,80 @@ class BuildSubmissionView(FormView):
 
         study_data = base64.b64encode(study_stream.read()).decode("utf-8")
 
+        # Some of the above methods can buffer errors/warnings, so we process those results last
+        self.format_results_for_template()
+
         return study_data
 
     def init_row_group_nums(self):
+        inf_row_group_nums = []
+        bad_inf_row_group_nums = []
         # We need to get the next available infusates sheet row group number
-        inf_row_group_nums = [
-            int(i)
-            for i in self.dfs_dict[InfusatesLoader.DataSheetName][
+        for row_index, i in enumerate(
+            self.dfs_dict[InfusatesLoader.DataSheetName][
                 InfusatesLoader.DataHeaders.ID
             ].values()
-            if i is not None
-        ]
+        ):
+            try:
+                inf_row_group_nums.append(int(i))
+            except ValueError:
+                bad_inf_row_group_nums.append(row_index + 2)
+
+        if len(bad_inf_row_group_nums) > 0:
+            self.load_status_data.set_load_exception(
+                AutoFillError(
+                    "Invalid values encountered in %s.  Must be an integer.",
+                    file=self.study_filename,
+                    sheet=InfusatesLoader.DataSheetName,
+                    column=InfusatesLoader.DataHeaders.ID,
+                    rownum=bad_inf_row_group_nums,
+                    suggestion=(
+                        "Note, this is an auto-fill warning.  The file still may pass validation if there are no other "
+                        "errors."
+                    ),
+                ),
+                self.study_filename,
+                top=False,
+                default_is_error=False,
+                default_is_fatal=True,
+            )
+
         self.next_infusate_row_group_num = 1
         if len(inf_row_group_nums) > 0:
             self.next_infusate_row_group_num = max(inf_row_group_nums) + 1
 
+        trcr_row_group_nums = []
+        bad_trcr_row_group_nums = []
         # We need to get the next available tracers sheet row group number
-        trcr_row_group_nums = [
-            int(i)
-            for i in self.dfs_dict[TracersLoader.DataSheetName][
+        for row_index, i in enumerate(
+            self.dfs_dict[TracersLoader.DataSheetName][
                 TracersLoader.DataHeaders.ID
             ].values()
-            if str(i) not in self.none_vals
-        ]
+        ):
+            try:
+                trcr_row_group_nums.append(int(i))
+            except ValueError:
+                bad_trcr_row_group_nums.append(row_index + 2)
+
+        if len(bad_trcr_row_group_nums) > 0:
+            self.load_status_data.set_load_exception(
+                AutoFillError(
+                    "Invalid values encountered in %s.  Must be an integer.",
+                    file=self.study_filename,
+                    sheet=TracersLoader.DataSheetName,
+                    column=TracersLoader.DataHeaders.ID,
+                    rownum=bad_trcr_row_group_nums,
+                    suggestion=(
+                        "Note, this is an auto-fill warning.  The file still may pass validation if there are no other "
+                        "errors."
+                    ),
+                ),
+                self.study_filename,
+                top=False,
+                default_is_error=False,
+                default_is_fatal=True,
+            )
+
         self.next_tracer_row_group_num = 1
         if len(trcr_row_group_nums) > 0:
             self.next_tracer_row_group_num = max(trcr_row_group_nums) + 1
@@ -2720,27 +2772,38 @@ class BuildSubmissionView(FormView):
 
         # Get all the tracers from the tracers sheet (which is assumed to have already been populated by
         # add_dynamic_dropdown_tracer_data)
-        tracer_names = dict(
-            (name, 0)
-            for name in list(
-                self.dfs_dict[TracersLoader.DataSheetName][
-                    TracersLoader.DataHeaders.NAME
-                ].values()
-            )
-        )
+        tracer_names = defaultdict(list)
+        # We need to get the next available tracers sheet row group number
+        for index, name in enumerate(
+            self.dfs_dict[TracersLoader.DataSheetName][
+                TracersLoader.DataHeaders.NAME
+            ].values()
+        ):
+            tracer_names[str(name)].append(index + 2)
 
         # Create a list of all the tracer record IDs present in the Tracers sheet
         tracer_ids = []
 
-        for tn in tracer_names.keys():
+        for tn, rows in tracer_names.items():
             try:
                 td = parse_tracer_string(tn)
-            except IsotopeParsingError as ipe:
+            except ParsingError as pe:
                 self.load_status_data.set_load_exception(
-                    ipe,
-                    "Autofill Note",
+                    AutoFillError(
+                        f"{type(pe).__name__}: {pe}",
+                        file=self.study_filename,
+                        sheet=TracersLoader.DataSheetName,
+                        column=TracersLoader.DataHeaders.NAME,
+                        rownum=rows,
+                        suggestion=(
+                            "Note, this is an auto-fill warning.  The file still may pass validation if there is no "
+                            "other error."
+                        ),
+                    ),
+                    self.study_filename,
                     top=False,
-                    default_is_error=True,
+                    # This isn't a load error.  It is autofill.  Might pass validation if the row is otherwise empty.
+                    default_is_error=False,
                     default_is_fatal=True,
                 )
                 continue
@@ -3277,7 +3340,7 @@ class BuildSubmissionView(FormView):
         except MultiLoadStatus as mls:
             load_status_data = mls
 
-        self.load_status_data = load_status_data
+        self.load_status_data.merge(load_status_data)
 
         return dfs_dict
 
@@ -3413,7 +3476,7 @@ class BuildSubmissionView(FormView):
                 self.study_filename, FileFromInputNotFound
             )
 
-        self.load_status_data = load_status_data
+        self.load_status_data.merge(load_status_data)
 
         return self.load_status_data.is_valid
 
@@ -3597,3 +3660,7 @@ class BuildSubmissionView(FormView):
                 ).check_dataframe_headers()
             )
         )
+
+
+class AutoFillError(InfileError):
+    pass
