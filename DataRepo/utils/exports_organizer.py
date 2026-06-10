@@ -1,6 +1,7 @@
 import os
+import zipfile
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, List, Optional, cast
 
 from django.utils.text import get_valid_filename
 
@@ -281,6 +282,87 @@ class ExportsOrganizer(ExportBase):
 
         return "-".join([host, package_date, self.allstudies_str, data_type_with_ext])
 
+    def zip_export_combos(
+        self,
+        study_packages: Dict[str, Dict[str, Dict[str, Dict[str, Dict[str, Any]]]]],
+        datatype_packages: Dict[str, Dict[str, Dict[str, Dict[str, Dict[str, Any]]]]],
+        all_packages: Dict[str, Dict[str, Dict[str, Dict[str, Dict[str, Any]]]]],
+    ):
+        """Creates zip archives for all study, datatype, and all-data packages, as described in the supplied package
+        dictionaries.  This method is a wrapper for the methods that make each set of zip archive types.
+
+        Example Argument Structure:
+            study_packages     [host][study_id][package_date][data_type] = file_dict
+            datatype_packages  [host][data_type][package_date][study_id] = file_dict
+            all_packages       [host][package_date][study_id][data_type] = file_dict
+
+        Example Filename Accessed Inside the above file_dict's:
+            {hostname}-{datestamp}-{study_name}-{study_id}-{data_type}.{extension}
+
+        Example Zip Archive Filename Structure:
+            study_packages     {hostname}-{datestamp}-{study_name}-{study_id}-alldatatypes.zip
+            datatype_packages  {hostname}-{datestamp}-allstudies-{data_type}.zip
+            all_packages       {hostname}-{datestamp}-allstudies-alldatatypes.zip
+
+        Args:
+            study_packages (Dict[str, Dict[str, Dict[str, Dict[str, Dict[str, Any]]]]]):
+                Dictionary of file dictionaries that describe a all-data zip archives, keyed by: host, package_date,
+                study_id, and data_type
+            datatype_packages (Dict[str, Dict[str, Dict[str, Dict[str, Dict[str, Any]]]]]):
+                Dictionary of file dictionaries that describe study zip archives, keyed by: host, study_id,
+                package_date, and data_type
+            all_packages (Dict[str, Dict[str, Dict[str, Dict[str, Dict[str, Any]]]]]):
+                Dictionary of file dictionaries that describe datatype zip archives, keyed by: host, data_type,
+                package_date, and study_id
+        Exceptions:
+            None
+        Returns:
+            None
+        """
+        self.zip_study_packages(study_packages)
+        self.zip_datatype_packages(datatype_packages)
+        self.zip_everything_packages(all_packages)
+
+    def zip_study_packages(
+        self,
+        study_packages: Dict[str, Dict[str, Dict[str, Dict[str, Dict[str, Any]]]]],
+    ):
+        """Creates zip archives for study packages, as described in the supplied package dictionary.
+
+        Example Argument Structure:
+            study_packages[host][study_id][package_date][data_type] = file_dict
+
+        Example filename accessed inside the file_dict:
+            {hostname}-{datestamp}-{study_name}-{study_id}-{data_type}.{extension}
+
+        Example Zip Archive Filename:
+            study_packages: {hostname}-{datestamp}-{study_name}-{study_id}-alldatatypes.zip
+
+        Args:
+            study_packages (Dict[str, Dict[str, Dict[str, Dict[str, Dict[str, Any]]]]]):
+                Dictionary of file dictionaries that describe a all-data zip archives, keyed by: host, package_date,
+                study_id, and data_type
+        Exceptions:
+            None
+        Returns:
+            None
+        """
+        # Create study zips (which is all data types of 1 study)
+        for host, study_dict in study_packages.items():
+            for study_id, package_dict in study_dict.items():
+                for package_date, datatype_dict in package_dict.items():
+                    study_package_file = os.path.join(
+                        self.export_dir,
+                        self.compute_study_package_filename(
+                            host,
+                            package_date,
+                            study_id,
+                        ),
+                    )
+                    if not self.package_exists(study_package_file):
+                        datatype_files = [d["file"] for d in datatype_dict.values()]
+                        self.filepaths_to_zip(datatype_files, study_package_file)
+
     @classmethod
     def package_exists(cls, filepath: str):
         """Determine if the zip archive package already exists (accounting for staging mode).
@@ -303,6 +385,123 @@ class ExportsOrganizer(ExportBase):
                 and os.path.exists(f"{filepath}{cls.staged_ext}")
             )
         )
+
+    def zip_datatype_packages(
+        self,
+        datatype_packages: Dict[str, Dict[str, Dict[str, Dict[str, Dict[str, Any]]]]],
+    ):
+        """Creates zip archives for datatype packages, as described in the supplied package dictionary.
+
+        Example Argument Structure:
+            datatype_packages[host][data_type][package_date][study_id] = file_dict
+
+        Example Filename Accessed Inside the above file_dict's:
+            {hostname}-{datestamp}-{study_name}-{study_id}-{data_type}.{extension}
+
+        Example Zip Archive Filename Structure:
+            datatype_packages: {hostname}-{datestamp}-allstudies-{data_type}.zip
+
+        Args:
+            datatype_packages (Dict[str, Dict[str, Dict[str, Dict[str, Dict[str, Any]]]]]):
+                Dictionary of file dictionaries that describe study zip archives, keyed by: host, study_id,
+                package_date, and data_type
+        Exceptions:
+            None
+        Returns:
+            None
+        """
+        # Create datatype zips (which is all study data of 1 data type)
+        for host, datatype_dict in datatype_packages.items():
+            for data_type, package_dict in datatype_dict.items():
+                for package_date, study_dict in package_dict.items():
+                    datatype_package_file = os.path.join(
+                        self.export_dir,
+                        self.compute_datatype_package_filename(
+                            host,
+                            package_date,
+                            data_type,
+                        ),
+                    )
+                    if not self.package_exists(datatype_package_file):
+                        study_files = [
+                            cast(str, d["file"]) for d in study_dict.values()
+                        ]
+                        self.filepaths_to_zip(study_files, datatype_package_file)
+
+    def zip_everything_packages(
+        self,
+        all_packages: Dict[str, Dict[str, Dict[str, Dict[str, Dict[str, Any]]]]],
+    ):
+        """Creates zip archives for all-data packages, as described in the supplied package dictionary.
+
+        Example Argument Structure:
+            all_packages[host][package_date][study_id][data_type] = file_dict
+
+        Example Filename Accessed Inside the above file_dict's:
+            {hostname}-{datestamp}-{study_name}-{study_id}-{data_type}.{extension}
+
+        Example Zip Archive Filename Structure:
+            all_packages: {hostname}-{datestamp}-allstudies-alldatatypes.zip
+
+        Args:
+            all_packages (Dict[str, Dict[str, Dict[str, Dict[str, Dict[str, Any]]]]]):
+                Dictionary of file dictionaries that describe datatype zip archives, keyed by: host, data_type,
+                package_date, and study_id
+        Exceptions:
+            None
+        Returns:
+            None
+        """
+
+        # Create "all" zips (which is all data from all studies [for each host and change-date])
+        for host, package_dict in all_packages.items():
+            for package_date, study_dict in package_dict.items():
+                all_package_file = os.path.join(
+                    self.export_dir,
+                    self.compute_all_package_filename(
+                        host,
+                        package_date,
+                    ),
+                )
+                if not self.package_exists(all_package_file):
+                    all_files = [
+                        cast(str, file_dict["file"])
+                        for datatype_dict in study_dict.values()
+                        for file_dict in datatype_dict.values()
+                    ]
+                    self.filepaths_to_zip(all_files, all_package_file)
+
+    def filepaths_to_zip(self, filepaths: List[str], zip_filepath: str):
+        """Create a zip archive of the files in filepaths.
+
+        Args:
+            filepaths (List[str]): Paths to files to be included in the zip archive.  May be absolute paths, but only
+                paths relative to the self.export_dir will be in the archive.
+            zip_filepath (str): Output filepath of the zip archive.
+        Exceptions:
+            TypeError: if the arguments are the wrong type.
+        Returns:
+            None
+        """
+        if not isinstance(filepaths, list):
+            raise TypeError(
+                f"file_paths must be a list, not '{type(filepaths).__name__}'."
+            )
+        elif not isinstance(zip_filepath, str):
+            raise TypeError(
+                f"zip_filepath must be a str, not '{type(zip_filepath).__name__}'."
+            )
+
+        with zipfile.ZipFile(
+            zip_filepath, "w", compression=zipfile.ZIP_DEFLATED
+        ) as zipf:
+            for file_path in filepaths:
+                zipf.write(
+                    file_path,
+                    arcname=os.path.relpath(
+                        file_path, start=self.export_dir
+                    ).removesuffix(self.staged_ext),
+                )
 
     def unstage_all_files(self):
         """Remove the ".staged" suffix from all staged files under the self.export_dir.
