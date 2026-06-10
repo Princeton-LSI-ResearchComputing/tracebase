@@ -206,7 +206,7 @@ class ExportsOrganizer(ExportBase):
 
                     # Sort the file_dict_list by export date.  (NOTE: Technically, file_dict_list is already sorted by
                     # date because the files were sorted and the filename starts with (the host, then) the date, but
-                    # we're soring here because we don't want to assume the list was constructed correctly.)
+                    # we're sorting here because we don't want to assume the list was constructed correctly.)
                     date_sorted_file_dict_list = sorted(
                         file_dict_list, key=lambda d: d["date"]
                     )
@@ -247,7 +247,7 @@ class ExportsOrganizer(ExportBase):
         Exceptions:
             ValueError: When there's a problem with the file extensions.
         Returns:
-            (bool): Whether TraceBase export the files differ or not (by anoything other than export date)
+            (bool): Whether TraceBase export the files differ or not (by anything other than export date)
         """
         filepath1_basename, ext1 = os.path.splitext(filepath1)
         # Account for the "staged" extension
