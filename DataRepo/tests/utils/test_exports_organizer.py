@@ -1,5 +1,6 @@
 import os
 import shutil
+import stat
 import tempfile
 import zipfile
 from pathlib import Path
@@ -2124,6 +2125,15 @@ class ExportsOrganizerTests(TracebaseTestCase):
                         ]
                     )
                 )
+                self.assertTrue(
+                    all(
+                        [
+                            stat.S_IMODE(os.stat(os.path.join(export_dir, fp)).st_mode)
+                            == 0o644
+                            for fp in expected_files
+                        ]
+                    )
+                )
 
             self.assert_zip_file_contents(
                 os.path.join(
@@ -2230,6 +2240,15 @@ class ExportsOrganizerTests(TracebaseTestCase):
                     all(
                         [
                             os.path.getsize(os.path.join(export_dir, fp)) > 0
+                            for fp in expected_files
+                        ]
+                    )
+                )
+                self.assertTrue(
+                    all(
+                        [
+                            stat.S_IMODE(os.stat(os.path.join(export_dir, fp)).st_mode)
+                            == 0o644
                             for fp in expected_files
                         ]
                     )
@@ -2346,6 +2365,15 @@ class ExportsOrganizerTests(TracebaseTestCase):
                     all(
                         [
                             os.path.getsize(os.path.join(export_dir, fp)) > 0
+                            for fp in expected_files
+                        ]
+                    )
+                )
+                self.assertTrue(
+                    all(
+                        [
+                            stat.S_IMODE(os.stat(os.path.join(export_dir, fp)).st_mode)
+                            == 0o644
                             for fp in expected_files
                         ]
                     )
