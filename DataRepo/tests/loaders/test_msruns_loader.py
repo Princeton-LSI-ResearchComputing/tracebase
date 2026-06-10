@@ -2457,6 +2457,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
                         "raw_file_name": None,
                         "rawaf_record": self.BAT_xz971_raw_af,
                         "sample_name": None,
+                        "instrument": None,
                     },
                 ],
             },
