@@ -84,7 +84,7 @@ class StudiesExporter(ExportBase):
     all_zipped_data_types = [MzxmlFormat.name]
     header_template = get_template("search/downloads/download_header.tsv")
     row_template = get_template("search/downloads/download_row.tsv")
-    default_instance = socket.gethostname().replace("-", "_")
+    default_host = socket.gethostname().replace("-", "_")
 
     # NOTE: datestamp_format intentionally differs from AdvancedSearchDownloadView.datestamp_format in that it does not
     # include the time (since the intention is to run the export in a cron less than or equal to once a day) and we
@@ -130,19 +130,6 @@ class StudiesExporter(ExportBase):
             if date is None or isinstance(date, datetime)
             else datetime.fromisoformat(str(date))
         )
-
-        # A script on a cron-job uses the study ID in the file name to compare exported files with previously exported
-        # versions.  It does this by splitting on dash and taking the study ID from the file name, relative to the end
-        # of the file, thus the format value at the end of the file name may not have dashes.
-        if any("-" in datatype_name for datatype_name in self.all_data_types):
-            bad_format_names = [dtn for dtn in self.all_data_types if "-" in dtn]
-            raise ValueError(
-                "The following SearchGroup format names contain dashes ('-') which are not allowed in order to parse "
-                f"export file names: {bad_format_names}."
-            )
-
-        self.instance_name = host if host else self.default_instance
-        self.date = date
 
         # A script on a cron-job uses the study ID in the file name to compare exported files with previously exported
         # versions.  It does this by splitting on dash and taking the study ID from the file name, relative to the end
@@ -220,7 +207,8 @@ class StudiesExporter(ExportBase):
                 for data_type in self.data_types:
                     suffix = "zip" if data_type in self.zipped_data_types else "tsv"
                     filepath = os.path.join(
-                        self.outdir, get_valid_filename(f"{study_str}-{data_type}.{suffix}")
+                        self.outdir,
+                        get_valid_filename(f"{study_str}-{data_type}.{suffix}"),
                     )
 
                     unstaged_filepath = filepath
