@@ -127,7 +127,7 @@ class ExportStudiesTests(ExportStudiesTestBase):
             outdir=outdir,
             data_type=["Fcirc"],
         )
-        with self.assertRaises(FileExistsError):
+        with self.assertWarns(UserWarning):
             call_command(
                 "export_studies",
                 outdir=outdir,
