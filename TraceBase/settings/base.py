@@ -100,7 +100,7 @@ DATABASES = {
         "PORT": env("DATABASE_PORT"),
         # Remove the isolation_level option if your DB does not support IsolationLevel.REPEATABLE_READ.
         "OPTIONS": {
-            # See: https://www.postgresql.org/docs/13/transaction-iso.html#XACT-REPEATABLE-READ
+            # See: https://www.postgresql.org/docs/15/transaction-iso.html#XACT-REPEATABLE-READ
             # NOTE: Django's default isolation_level is READ_COMMITTED.  REPEATABLE_READ is a stricter isolation level.
             # SERIALIZABLE is even stricter still (the highest isolation).  They ostensibly cause concurrent database
             # writes to not block, and if there is a conflict, the winner is the first one to write.  The loser

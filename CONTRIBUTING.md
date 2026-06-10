@@ -31,11 +31,11 @@ Test to make sure that the `python` command now shows your latest python install
 Install Postgres via package installer from [https://www.postgresql.org](https://www.postgresql.org).  Be sure to make
 note of where it installs the `psql` command-line utility, so you can add it to your PATH, e.g. if you see:
 
-    Command Line Tools Installation Directory: /Library/PostgreSQL/13
+    Command Line Tools Installation Directory: /Library/PostgreSQL/15
 
 Then, add this to your PATH:
 
-    /Library/PostgreSQL/13/bin
+    /Library/PostgreSQL/15/bin
 
 Configuration:
 

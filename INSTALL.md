@@ -26,7 +26,7 @@ This document is written for system administrators and software developers.
   - A mount for the archive whose size corresponds to the lab's current rate of mzXML raw file accumulation is advised.
 - Software Requirements:
   - Operating system: RHEL version `9`
-  - Database: PostgreSQL version `13`
+  - Database: PostgreSQL version `15`
   - Web server: Apache version `2.4.62`
   - Language: [Python version `3.11`](https://www.python.org/downloads/)
   - Package manager: pip version `25.3`
