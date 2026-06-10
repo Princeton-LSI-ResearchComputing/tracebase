@@ -1,4 +1,5 @@
 import os
+import shutil
 import tempfile
 from collections import defaultdict
 from datetime import datetime
@@ -116,188 +117,6 @@ class StudiesExporter(ExportBase):
         self.staging_mode = staging_mode
 
         self.host = host if host else self.default_host
-        self.date = date
-
-        # A script on a cron-job uses the study ID in the file name to compare exported files with previously exported
-        # versions.  It does this by splitting on dash and taking the study ID from the file name, relative to the end
-        # of the file, thus the format value at the end of the file name may not have dashes.
-        if any("-" in datatype_name for datatype_name in self.all_data_types):
-            bad_format_names = [dtn for dtn in self.all_data_types if "-" in dtn]
-            raise ValueError(
-                "The following SearchGroup format names contain dashes ('-') which are not allowed in order to parse "
-                f"export file names: {bad_format_names}."
-            )
-
-        self.instance_name = host if host else self.default_instance
-        self.date = date
-
-        # A script on a cron-job uses the study ID in the file name to compare exported files with previously exported
-        # versions.  It does this by splitting on dash and taking the study ID from the file name, relative to the end
-        # of the file, thus the format value at the end of the file name may not have dashes.
-        if any("-" in datatype_name for datatype_name in self.all_data_types):
-            bad_format_names = [dtn for dtn in self.all_data_types if "-" in dtn]
-            raise ValueError(
-                "The following SearchGroup format names contain dashes ('-') which are not allowed in order to parse "
-                f"export file names: {bad_format_names}."
-            )
-
-        self.instance_name = host if host else self.default_instance
-        self.date = date
-
-        # A script on a cron-job uses the study ID in the file name to compare exported files with previously exported
-        # versions.  It does this by splitting on dash and taking the study ID from the file name, relative to the end
-        # of the file, thus the format value at the end of the file name may not have dashes.
-        if any("-" in datatype_name for datatype_name in self.all_data_types):
-            bad_format_names = [dtn for dtn in self.all_data_types if "-" in dtn]
-            raise ValueError(
-                "The following SearchGroup format names contain dashes ('-') which are not allowed in order to parse "
-                f"export file names: {bad_format_names}."
-            )
-
-        self.instance_name = host if host else self.default_instance
-        self.date = date
-
-        # A script on a cron-job uses the study ID in the file name to compare exported files with previously exported
-        # versions.  It does this by splitting on dash and taking the study ID from the file name, relative to the end
-        # of the file, thus the format value at the end of the file name may not have dashes.
-        if any("-" in datatype_name for datatype_name in self.all_data_types):
-            bad_format_names = [dtn for dtn in self.all_data_types if "-" in dtn]
-            raise ValueError(
-                "The following SearchGroup format names contain dashes ('-') which are not allowed in order to parse "
-                f"export file names: {bad_format_names}."
-            )
-
-        self.instance_name = host if host else self.default_instance
-        self.date = date
-
-        # A script on a cron-job uses the study ID in the file name to compare exported files with previously exported
-        # versions.  It does this by splitting on dash and taking the study ID from the file name, relative to the end
-        # of the file, thus the format value at the end of the file name may not have dashes.
-        if any("-" in datatype_name for datatype_name in self.all_data_types):
-            bad_format_names = [dtn for dtn in self.all_data_types if "-" in dtn]
-            raise ValueError(
-                "The following SearchGroup format names contain dashes ('-') which are not allowed in order to parse "
-                f"export file names: {bad_format_names}."
-            )
-
-        self.instance_name = host if host else self.default_instance
-        self.date = date
-
-        # A script on a cron-job uses the study ID in the file name to compare exported files with previously exported
-        # versions.  It does this by splitting on dash and taking the study ID from the file name, relative to the end
-        # of the file, thus the format value at the end of the file name may not have dashes.
-        if any("-" in datatype_name for datatype_name in self.all_data_types):
-            bad_format_names = [dtn for dtn in self.all_data_types if "-" in dtn]
-            raise ValueError(
-                "The following SearchGroup format names contain dashes ('-') which are not allowed in order to parse "
-                f"export file names: {bad_format_names}."
-            )
-
-        self.instance_name = host if host else self.default_instance
-        self.date = date
-
-        # A script on a cron-job uses the study ID in the file name to compare exported files with previously exported
-        # versions.  It does this by splitting on dash and taking the study ID from the file name, relative to the end
-        # of the file, thus the format value at the end of the file name may not have dashes.
-        if any("-" in datatype_name for datatype_name in self.all_data_types):
-            bad_format_names = [dtn for dtn in self.all_data_types if "-" in dtn]
-            raise ValueError(
-                "The following SearchGroup format names contain dashes ('-') which are not allowed in order to parse "
-                f"export file names: {bad_format_names}."
-            )
-
-        self.instance_name = host if host else self.default_instance
-        self.date = date
-
-        # A script on a cron-job uses the study ID in the file name to compare exported files with previously exported
-        # versions.  It does this by splitting on dash and taking the study ID from the file name, relative to the end
-        # of the file, thus the format value at the end of the file name may not have dashes.
-        if any("-" in datatype_name for datatype_name in self.all_data_types):
-            bad_format_names = [dtn for dtn in self.all_data_types if "-" in dtn]
-            raise ValueError(
-                "The following SearchGroup format names contain dashes ('-') which are not allowed in order to parse "
-                f"export file names: {bad_format_names}."
-            )
-
-        self.instance_name = host if host else self.default_instance
-        self.date = date
-
-        # A script on a cron-job uses the study ID in the file name to compare exported files with previously exported
-        # versions.  It does this by splitting on dash and taking the study ID from the file name, relative to the end
-        # of the file, thus the format value at the end of the file name may not have dashes.
-        if any("-" in datatype_name for datatype_name in self.all_data_types):
-            bad_format_names = [dtn for dtn in self.all_data_types if "-" in dtn]
-            raise ValueError(
-                "The following SearchGroup format names contain dashes ('-') which are not allowed in order to parse "
-                f"export file names: {bad_format_names}."
-            )
-
-        self.instance_name = host if host else self.default_instance
-        self.date = date
-
-        # A script on a cron-job uses the study ID in the file name to compare exported files with previously exported
-        # versions.  It does this by splitting on dash and taking the study ID from the file name, relative to the end
-        # of the file, thus the format value at the end of the file name may not have dashes.
-        if any("-" in datatype_name for datatype_name in self.all_data_types):
-            bad_format_names = [dtn for dtn in self.all_data_types if "-" in dtn]
-            raise ValueError(
-                "The following SearchGroup format names contain dashes ('-') which are not allowed in order to parse "
-                f"export file names: {bad_format_names}."
-            )
-
-        self.instance_name = host if host else self.default_host
-        self.date = date
-
-        # A script on a cron-job uses the study ID in the file name to compare exported files with previously exported
-        # versions.  It does this by splitting on dash and taking the study ID from the file name, relative to the end
-        # of the file, thus the format value at the end of the file name may not have dashes.
-        if any("-" in datatype_name for datatype_name in self.all_data_types):
-            bad_format_names = [dtn for dtn in self.all_data_types if "-" in dtn]
-            raise ValueError(
-                "The following SearchGroup format names contain dashes ('-') which are not allowed in order to parse "
-                f"export file names: {bad_format_names}."
-            )
-
-        self.instance_name = host if host else self.default_instance
-        self.date = date
-
-        # A script on a cron-job uses the study ID in the file name to compare exported files with previously exported
-        # versions.  It does this by splitting on dash and taking the study ID from the file name, relative to the end
-        # of the file, thus the format value at the end of the file name may not have dashes.
-        if any("-" in datatype_name for datatype_name in self.all_data_types):
-            bad_format_names = [dtn for dtn in self.all_data_types if "-" in dtn]
-            raise ValueError(
-                "The following SearchGroup format names contain dashes ('-') which are not allowed in order to parse "
-                f"export file names: {bad_format_names}."
-            )
-
-        self.instance_name = host if host else self.default_instance
-        self.date = date
-
-        # A script on a cron-job uses the study ID in the file name to compare exported files with previously exported
-        # versions.  It does this by splitting on dash and taking the study ID from the file name, relative to the end
-        # of the file, thus the format value at the end of the file name may not have dashes.
-        if any("-" in datatype_name for datatype_name in self.all_data_types):
-            bad_format_names = [dtn for dtn in self.all_data_types if "-" in dtn]
-            raise ValueError(
-                "The following SearchGroup format names contain dashes ('-') which are not allowed in order to parse "
-                f"export file names: {bad_format_names}."
-            )
-
-        self.instance_name = host if host else self.default_host
-        self.date = date
-
-        # A script on a cron-job uses the study ID in the file name to compare exported files with previously exported
-        # versions.  It does this by splitting on dash and taking the study ID from the file name, relative to the end
-        # of the file, thus the format value at the end of the file name may not have dashes.
-        if any("-" in datatype_name for datatype_name in self.all_data_types):
-            bad_format_names = [dtn for dtn in self.all_data_types if "-" in dtn]
-            raise ValueError(
-                "The following SearchGroup format names contain dashes ('-') which are not allowed in order to parse "
-                f"export file names: {bad_format_names}."
-            )
-
-        self.instance_name = host if host else self.default_host
         self.date = date
 
         # A script on a cron-job uses the study ID in the file name to compare exported files with previously exported
@@ -477,7 +296,10 @@ class StudiesExporter(ExportBase):
                 # File is automatically flushed when exiting the 'with' block
 
             # Move the file to the final destination.
-            os.replace(temp_path, final_destination_path)
+            try:
+                os.replace(temp_path, final_destination_path)
+            except OSError:
+                shutil.move(temp_path, final_destination_path)
 
             # Print the filepaths to the console as they are exported, so the user can see progress.
             print(final_destination_path)
@@ -531,7 +353,10 @@ class StudiesExporter(ExportBase):
                     temp_file.write(content)
 
             # Move the zip to the final destination.
-            os.replace(temp_path, final_destination_path)
+            try:
+                os.replace(temp_path, final_destination_path)
+            except OSError:
+                shutil.move(temp_path, final_destination_path)
 
             # Print the filepaths to the console as they are exported, so the user can see progress.
             print(final_destination_path)
