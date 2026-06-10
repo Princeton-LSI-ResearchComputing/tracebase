@@ -26,7 +26,7 @@ class StudiesExporter:
         {host_name}-{export_datestamp}-{study_name}-{study_id}-{data_type}.{extension}
 
     Example:
-        tb9-pub-2026.04.11-Acute_Stress-0004-mzXML.zip
+        tb9_pub-2026.04.11-Acute_Stress-0004-mzXML.zip
 
     The reasoning/value for each filename element:
         host_name (E.g. "tb9" for the tracebase-rabinowitz instance):
