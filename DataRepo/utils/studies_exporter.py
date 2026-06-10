@@ -98,14 +98,10 @@ class StudiesExporter:
             for data_type in self.data_types:
                 datatype_slug = slugify(data_type)
 
-                if data_type in self.zipped_data_types:
-                    filepath = os.path.join(
-                        study_dir, f"{study_id_str}-{datatype_slug}.zip"
-                    )
-                else:
-                    filepath = os.path.join(
-                        study_dir, f"{study_id_str}-{datatype_slug}.tsv"
-                    )
+                suffix = "zip" if data_type in self.zipped_data_types else "tsv"
+                filepath = os.path.join(
+                    study_dir, f"{study_id_str}-{datatype_slug}.{suffix}"
+                )
 
                 if os.path.exists(filepath) and not self.overwrite:
                     file_exists = FileExistsError(
