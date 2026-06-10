@@ -5,6 +5,7 @@ import tempfile
 from collections import defaultdict
 from datetime import datetime
 from typing import Callable, Dict, Iterator, List, Optional, Union
+from warnings import warn
 
 from django.conf import settings
 from django.db.models import Q
@@ -294,12 +295,13 @@ class StudiesExporter(ExportBase):
                         self.atomic_text_file_write_and_move(
                             filepath, "".join(content_list), tmpdir=tmpdir
                         )
+                    os.chmod(filepath, 0o644)
         finally:
             shutil.rmtree(tmpdir)
 
         if len(existing_files) > 0:
             nlt = "\n\t"
-            raise FileExistsError(
+            warn(
                 "The following files exist and were skipped.  You can ignore this error if you do not want to "
                 "overwrite these files.  Use the overwrite option to overwrite existing files.\n"
                 f"\t{nlt.join(existing_files)}"

@@ -876,6 +876,10 @@ class ExportsOrganizer(ExportBase):
                         self.filepaths_to_zip(datatype_files, study_package_file)
                     elif exists:
                         print(f"SKIPPING: {target_file}.")
+                    if self.staging_mode:
+                        os.chmod(target_file + self.staged_ext, 0o644)
+                    else:
+                        os.chmod(target_file, 0o644)
 
     @classmethod
     def package_exists(cls, filepath: str):
@@ -948,6 +952,10 @@ class ExportsOrganizer(ExportBase):
                         self.filepaths_to_zip(study_files, datatype_package_file)
                     elif exists:
                         print(f"SKIPPING: {target_file}.")
+                    if self.staging_mode:
+                        os.chmod(target_file + self.staged_ext, 0o644)
+                    else:
+                        os.chmod(target_file, 0o644)
 
     def zip_everything_packages(
         self,
@@ -997,6 +1005,10 @@ class ExportsOrganizer(ExportBase):
                     self.filepaths_to_zip(all_files, all_package_file)
                 elif exists:
                     print(f"SKIPPING: {target_file}.")
+                if self.staging_mode:
+                    os.chmod(target_file + self.staged_ext, 0o644)
+                else:
+                    os.chmod(target_file, 0o644)
 
     def filepaths_to_zip(self, filepaths: List[str], zip_filepath: str):
         """Create a zip archive of the files in filepaths.
