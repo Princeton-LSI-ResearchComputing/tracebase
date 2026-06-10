@@ -115,7 +115,7 @@ class StudiesExporter(ExportBase):
                 f"export file names: {bad_format_names}."
             )
 
-        self.instance_name = host if host else self.default_instance
+        self.instance_name = host if host else self.default_host
         self.date = date
 
         # A script on a cron-job uses the study ID in the file name to compare exported files with previously exported

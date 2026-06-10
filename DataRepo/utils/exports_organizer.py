@@ -185,8 +185,9 @@ class ExportsOrganizer(ExportBase):
         """Given the host name and the package date, returns a zip archive filename representing all data exported on or
         before a given date and host.
 
-        None of the arguments should contain dashes.
-
+        Assumptions:
+            1. None of the arguments contain dashes.  The date is assumed to have been formatted with dots and the host
+               is assumpd to have had dashes converted to underscores, each of which happens before we get here.
         Args:
             host (str)
             package_date (str)
@@ -215,8 +216,10 @@ class ExportsOrganizer(ExportBase):
         """Given the host name, the package date, and a study key (with leading zeroes), returns a zip archive filename
         representing all data exported for a particular study on or before a given date and host.
 
-        None of the arguments should contain dashes.
-
+        Assumptions:
+            1. None of the arguments contain dashes.  The date is assumed to have been formatted with dots, the host is
+               assumed to have had dashes converted to underscores, and the study key is assumed to have had dashes and
+               spaces converted to underscores, all of which happens before we get here.
         Args:
             host (str)
             package_date (str)
@@ -252,8 +255,10 @@ class ExportsOrganizer(ExportBase):
         """Given the host name, the package date, and a study key (with leading zeroes), returns a zip archive filename
         representing all data exported for a particular study on or before a given date and host.
 
-        None of the arguments should contain dashes.
-
+        Assumptions:
+            1. None of the arguments contain dashes.  The date is assumed to have been formatted with dots, the host is
+               assumed to have had dashes converted to underscores, and the study key is assumed to have had dashes and
+               spaces converted to underscores, all of which happens before we get here.
         Args:
             host (str)
             package_date (str)
