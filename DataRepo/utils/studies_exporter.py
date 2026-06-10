@@ -1,6 +1,5 @@
 import os
 import shutil
-import socket
 import tempfile
 from collections import defaultdict
 from datetime import datetime
@@ -83,12 +82,6 @@ class StudiesExporter(ExportBase):
     all_zipped_data_types = [MzxmlFormat.name]
     header_template = get_template("search/downloads/download_header.tsv")
     row_template = get_template("search/downloads/download_row.tsv")
-    default_host = socket.gethostname().replace("-", "_")
-
-    # NOTE: datestamp_format intentionally differs from AdvancedSearchDownloadView.datestamp_format in that it does not
-    # include the time (since the intention is to run the export in a cron less than or equal to once a day) and we
-    # would like the dates to sort chronologically (i.e. numeric year-month-day)
-    datestamp_format = "%Y.%m.%d"
 
     # NOTE: datestamp_format intentionally differs from AdvancedSearchDownloadView.datestamp_format in that it does not
     # include the time (since the intention is to run the export in a cron less than or equal to once a day) and we
