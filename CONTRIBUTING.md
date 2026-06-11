@@ -56,9 +56,7 @@ Manually create the tracebase database (`tracebase`) in postgres:
 
 Create a tracebase postgres user:
 
-    > create user tracebase with encrypted password 'mypass';
-    > ALTER USER tracebase CREATEDB;
-    > grant all privileges on database tracebase to tracebase;
+    createuser --pwprompt --createdb tracebase
 
 ### Setup the TraceBase project
 
