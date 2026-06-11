@@ -326,7 +326,12 @@ def resolve_field_path(
     elif isinstance(field_or_expression, Expression):
         field_reps: List[str] = []
         for fld in field_or_expression.get_source_expressions():
-            if isinstance(fld, str) and fld != "":
+            if fld is None:
+                # Django 5.2 now returns None values among the expressions returned by get_source_expressions.
+                # The return types in 4.2 were: Union[str, Combinable, DeferredAttribute, Field, Q, List[str]].
+                # We can safely ignore None, as it is not a field or expression.
+                continue
+            elif isinstance(fld, str) and fld != "":
                 field_reps.append(fld)
             else:
                 tmp_field_reps = resolve_field_path(fld, _level=_level + 1, all=all)
