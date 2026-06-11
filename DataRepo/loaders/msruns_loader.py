@@ -3415,7 +3415,11 @@ class MSRunsLoader(TableLoader):
         pattern = cls.get_scan_pattern(
             scan_patterns=scan_patterns, add_patterns=add_patterns
         )
-        return re.sub(pattern, "", mzxml_basename)
+        # The pattern is applied twice due to the possibility of prepended scan labels,
+        # e.g. "neg-scan2-scan3-sample9-mouse5"
+        # Applied once, it would only result in "scan2-sample9-mouse5"
+        # This is a limitation of re.
+        return re.sub(pattern, "", re.sub(pattern, "", mzxml_basename))
 
     def clean_up_created_mzxmls_in_archive(self):
         """Call this method when rollback did/will happen in order to delete mzXML files added to the archive on disk.
