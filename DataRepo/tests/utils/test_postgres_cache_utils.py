@@ -94,8 +94,12 @@ class PostgresCacheUtilsTests(TracebaseTestCase):
         cache_settings, cache_data = dump_cache_table_keys()
         self.assertEqual(expected_cache_settings, cache_settings)
         self.assertEqual(779, len(cache_data))
-        self.assertIn("PROD:1:Animal.", cache_data[0][0])
-        self.assertIn(".tracers", cache_data[0][0])
+        matching_entries = [
+            row
+            for row in cache_data
+            if "PROD:1:Animal." in row[0] and ".tracers" in row[0]
+        ]
+        self.assertEqual(1, len(matching_entries))
         self.assertEqual(
             datetime.datetime(9999, 12, 31, 23, 59, 59, tzinfo=datetime.timezone.utc),
             cache_data[0][1],
