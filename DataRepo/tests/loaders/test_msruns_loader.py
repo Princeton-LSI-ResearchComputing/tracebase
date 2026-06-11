@@ -1814,15 +1814,16 @@ class MSRunsLoaderTests(TracebaseTestCase):
         sp1 = MSRunsLoader.get_scan_pattern()
         self.assertEqual(
             re.compile(
-                "([\\-_]pos(?=[\\-_]|$)|[\\-_]neg(?=[\\-_]|$)|[\\-_]scan[0-9]+(?=[\\-_]|$))+"
+                "([\\-_]pos(?=[\\-_]|$)|[\\-_]neg(?=[\\-_]|$)|[\\-_]scan[0-9]+(?=[\\-_]|$)|"
+                "^pos[\\-_]|^neg[\\-_]|^scan[0-9]+[\\-_])+"
             ),
             sp1,
         )
         sp2 = MSRunsLoader.get_scan_pattern(scan_patterns=["positive"])
         self.assertEqual(
             re.compile(
-                "([\\-_]pos(?=[\\-_]|$)|[\\-_]neg(?=[\\-_]|$)|[\\-_]scan[0-9]+(?=[\\-_]|$)|[\\-_]positive(?=[\\-_]|"
-                "$))+"
+                "([\\-_]pos(?=[\\-_]|$)|[\\-_]neg(?=[\\-_]|$)|[\\-_]scan[0-9]+(?=[\\-_]|$)|[\\-_]positive(?=[\\-_]|$)|"
+                "^pos[\\-_]|^neg[\\-_]|^scan[0-9]+[\\-_]|^positive[\\-_])+"
             ),
             sp2,
         )
@@ -1830,7 +1831,10 @@ class MSRunsLoaderTests(TracebaseTestCase):
             scan_patterns=["positive", "negative"], add_patterns=False
         )
         self.assertEqual(
-            re.compile("([\\-_]positive(?=[\\-_]|$)|[\\-_]negative(?=[\\-_]|$))+"), sp3
+            re.compile(
+                "([\\-_]positive(?=[\\-_]|$)|[\\-_]negative(?=[\\-_]|$)|^positive[\\-_]|^negative[\\-_])+"
+            ),
+            sp3,
         )
 
     # NOTE: check_reassign_peak_groups is tested indirectly by the test_get_or_create_msrun_sample_from_row_* tests
