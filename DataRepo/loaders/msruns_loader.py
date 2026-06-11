@@ -2921,6 +2921,16 @@ class MSRunsLoader(TableLoader):
             r"[\-_]"  # dash or underscore (also removed)
             r"(?=[\-_]|$)"  # followed by dash or underscore or end of string (not removed)
 
+        Examples:
+            pattern = MSRunsLoader.get_scan_pattern(scan_patterns=["pos", "neg", "scan[0-9]+"])
+            re.sub(pattern, "", "sample3_pos_scan25")
+            # -> "sample3"
+            re.sub(pattern, "", "sample5-neg-mouse2")
+            # -> "sample5-mouse2"
+            re.sub(pattern, "", "scan2-sample7")
+            # -> "sample7"
+            re.sub(pattern, "", "neg-sample9-scan3-mouse5")
+            # -> "sample9-mouse5"
         Args:
             scan_patterns (list of regular expression strings)
             add_patterns (boolean): Whether to add the supplied patterns to the defaults or replace them.
@@ -2932,8 +2942,11 @@ class MSRunsLoader(TableLoader):
         delim = cls.DEFAULT_SCAN_DELIM_PATTERN
         scan_labels = cls.DEFAULT_SCAN_LABEL_PATTERNS
 
-        pre_pat = delim
-        post_pat = r"(?=" + delim + r"|$)"
+        pre_pat1 = r"^"
+        post_pat1 = delim
+
+        pre_pat2 = delim
+        post_pat2 = r"(?=" + delim + r"|$)"
 
         if scan_patterns is not None:
             if add_patterns:
@@ -2941,11 +2954,12 @@ class MSRunsLoader(TableLoader):
             else:
                 scan_labels = scan_patterns
 
-        # Examples, if scan_patterns = ["pos", "neg", "scan[0-9]+"]:
-        #   "sample3_pos_scan25" -> "sample3"
-        #   "sample5-neg-mouse2" -> "sample5-mouse2"
         return re.compile(
-            r"(" + "|".join([pre_pat + pat + post_pat for pat in scan_labels]) + r")+"
+            r"("
+            + "|".join([pre_pat2 + pat + post_pat2 for pat in scan_labels])
+            + r"|"
+            + "|".join([pre_pat1 + pat + post_pat1 for pat in scan_labels])
+            + r")+"
         )
 
     @classmethod
