@@ -3,10 +3,8 @@ var cookieViewPrefix = null // eslint-disable-line no-var
 // To use this code, static/js/cookies.js must be imported.
 
 /**
- * Gets a cookie specific to this view/page.
- * @param {*} name Cookie name.
- * @param {*} defval Default if cookie not found.
- * @returns Cookie value.
+ * Initialize this package.
+ * @param {*} cookieViewPrefix Cookie prefix for the view.
  */
 function initViewCookies (cookieViewPrefix) { // eslint-disable-line no-unused-vars
   globalThis.cookieViewPrefix = cookieViewPrefix

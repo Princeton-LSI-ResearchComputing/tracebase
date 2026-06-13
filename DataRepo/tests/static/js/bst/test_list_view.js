@@ -11,10 +11,9 @@ QUnit.test('updatePage', function (assert) {
 
   setViewCookie('page', 5)
   setViewCookie('limit', 25)
-  const url = getPageURL(2, 10, 'text')
+  const url = getPageURL(2, 10)
   assert.true(url.includes('page=2'))
   assert.true(url.includes('limit=10'))
-  assert.true(url.includes('export=text'))
 
   // Test that other parameters are preserved
   // urlParams is the global variable from list_view.js
@@ -22,7 +21,6 @@ QUnit.test('updatePage', function (assert) {
   const url2 = getPageURL()
   assert.true(url2.includes('page=5'))
   assert.true(url2.includes('limit=25'))
-  assert.false(url2.includes('export=text'))
   assert.true(url2.includes('category=electronics'))
 })
 
@@ -39,7 +37,6 @@ QUnit.test('onRowsPerPageChange', function (assert) {
   // Gets closest page
   assert.true(url.includes('page=6'))
   assert.true(url.includes('limit=20'))
-  assert.false(url.includes('export'))
 })
 
 QUnit.test('resetTable', function (assert) {
@@ -56,7 +53,6 @@ QUnit.test('resetTable', function (assert) {
   assert.true(url.includes('page=1'))
   // Defaults to djangoPerPage = 15
   assert.true(url.includes('limit=15'))
-  assert.false(url.includes('export'))
 })
 
 // Table content collapse tests
@@ -133,6 +129,22 @@ function createTestTable () {
   table.appendChild(thead)
   table.appendChild(tbody)
   fixture.append(table)
+
+  // Create the export types JSON element consumed by initExporter()
+  const exportTypesElem = document.createElement('script')
+  exportTypesElem.id = 'exportTypes'
+  exportTypesElem.type = 'application/json'
+  exportTypesElem.textContent = JSON.stringify([
+    {
+      name: 'CSV',
+      url: '/export/csv'
+    },
+    {
+      name: 'Excel',
+      url: '/export/xlsx'
+    }
+  ])
+  fixture.append(exportTypesElem)
 
   return fixture
 }
@@ -277,7 +289,11 @@ QUnit.test('setCollapse', function (assert) {
 })
 
 QUnit.test('customButtonsFunction', function (assert) {
+  globalThis.exportEnabled = true
+  globalThis.exportSelect = '<div>dummy export html</div>'
+
   const buttonsObj = customButtonsFunction()
+
   assert.true(buttonsObj.btnClear.text.includes('Reset'))
   assert.equal('bi-house', buttonsObj.btnClear.icon)
   assert.true(Object.hasOwn(buttonsObj.btnClear, 'event'))
@@ -287,6 +303,15 @@ QUnit.test('customButtonsFunction', function (assert) {
   assert.equal('bi-arrows-expand', buttonsObj.btnCollapse.icon)
   assert.true(Object.hasOwn(buttonsObj.btnCollapse, 'event'))
   assert.true(buttonsObj.btnCollapse.attributes.title.includes('line-wrap'))
+
+  assert.true(Object.hasOwn(buttonsObj, 'btnExportAll'))
+  assert.true(Object.hasOwn(buttonsObj.btnExportAll, 'html'))
+  assert.equal(typeof buttonsObj.btnExportAll.html, 'string')
+  assert.true(buttonsObj.btnExportAll.html.length > 0)
+
+  globalThis.exportEnabled = false
+  const buttonsObj2 = customButtonsFunction()
+  assert.false(Object.hasOwn(buttonsObj2, 'btnExportAll'))
 })
 
 // Initialization tests
@@ -436,6 +461,8 @@ QUnit.test('initBST', function (assert) {
   const alerts = []
   const alertBackup = window.alert
   window.alert = alertOverride(alerts)
+  globalThis.exportEnabled = false
+  globalThis.exportSelect = ''
 
   // Set a test cookie to ensure it gets deleted.  Do so without setting the view cookie prefix & providing it manually,
   // because we also want to test that initBST sets the cookie prefix.
@@ -450,7 +477,7 @@ QUnit.test('initBST', function (assert) {
   initBST(
     10, // limit
     15, // limitDefault
-    'TTID', // tableID
+    'bstlistviewtable', // tableID
     'PFX-', // cookiePrefix
     2, // pageNumber
     10, // perPage
@@ -467,7 +494,9 @@ QUnit.test('initBST', function (assert) {
     'filter', // filter cookie name
     'visible', // visible cookie name
     'limit', // limit cookie name
-    'page' // page cookie name
+    'page', // page cookie name
+    true, // exportEnabled
+    'exportTypes' // export types element name
   )
 
   // NOTE: No need to test that cookiePrefix is set.  If it is not, none of the cookie tests would work.
@@ -491,12 +520,23 @@ QUnit.test('initBST', function (assert) {
   // Reset the alerts
   alerts.splice(0, alerts.length)
 
+  // Assert the exportTypes element was correctly parsed
+  assert.equal(exportTypes.length, 2)
+  assert.equal(exportTypes[0].name, 'CSV')
+  assert.equal(exportTypes[0].url, '/export/csv')
+
+  // Assert exportEnabled and exportSelect were set
+  assert.true(exportEnabled)
+  assert.equal(typeof exportSelect, 'string')
+  assert.true(exportSelect.length > 0)
+
   // Second call - this satisfies the tests for the limit being 0 and the clearCookies test
+  globalThis.exportSelect = ''
   setViewCookie('TC', 'xx')
   initBST(
     0, // limit
     15, // limitDefault
-    'TTID', // tableID
+    'invalid', // tableID - tests that initExporter doesn't run and throw an error when exportEnabled is false
     'PFX-', // cookiePrefix
     2, // pageNumber
     10, // perPage
@@ -513,13 +553,19 @@ QUnit.test('initBST', function (assert) {
     'filter', // filter cookie name
     'visible', // visible cookie name
     'limit', // limit cookie name
-    'page' // page cookie name
+    'page', // page cookie name
+    false, // exportEnabled
+    'exportTypes' // export types element name
   )
   // A limit of 0 is allowed when there is no URL parameter override and it's not coming from a cookie.
   assert.equal(getViewCookie('limit'), '0')
   // Test that clearCookies deletes all cookies (before setting limit and page) by testing an invalid one previously set
   // for the view
   assert.equal(getViewCookie('TC'), '')
+
+  // Assert exportSelect was NOT set
+  assert.false(exportEnabled)
+  assert.true(exportSelect.length === 0)
 
   // Third call - this satisfies the tests for the limit cookie being 0, which is overridden to be the limitDefault so
   // that a user can't get locked out of the page be requesting 'all' rows, but there are too many to load and it times
@@ -529,7 +575,7 @@ QUnit.test('initBST', function (assert) {
     10, // limit
     15, // limitDefault
     // The rest of the parameters don't matter for this test, but they are required.
-    'TTID', // tableID
+    'bstlistviewtable', // tableID
     'PFX-', // cookiePrefix
     2, // pageNumber
     10, // perPage
@@ -546,7 +592,9 @@ QUnit.test('initBST', function (assert) {
     'filter', // filter cookie name
     'visible', // visible cookie name
     'limit', // limit cookie name
-    'page' // page cookie name
+    'page', // page cookie name
+    false, // exportEnabled
+    'invalidExportTypes' // export types element name
   )
   // A limit of 0 is allowed when there is no URL parameter override.
   assert.equal(getViewCookie('limit'), '15')
