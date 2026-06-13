@@ -41,4 +41,71 @@ QUnit.test('generateExportSelect', function (assert) {
   )
 })
 
+QUnit.test('checkBuiltinExport alerts when builtin export enabled', function (assert) {
+  const originalAlert = window.alert
+
+  let alertMsg = null
+  window.alert = function (msg) {
+    alertMsg = msg
+  }
+
+  const fixture = document.getElementById('qunit-fixture')
+  fixture.innerHTML = `
+    <table id="testtable" data-show-export="true"></table>
+  `
+
+  $('#testtable').data('show-export', true)
+
+  checkBuiltinExport('testtable')
+
+  assert.ok(alertMsg)
+  assert.ok(alertMsg.includes('data-show-export must be false'))
+
+  window.alert = originalAlert
+})
+
+QUnit.test('initExporter returns export menu html', function (assert) {
+  // Stub checkBuiltinExport (as we're not testing this)
+  const originalCheckBuiltinExport = window.checkBuiltinExport
+  window.checkBuiltinExport = function () {}
+
+  const fixture = document.getElementById('qunit-fixture')
+
+  fixture.innerHTML = `
+    <script id="export_types" type="application/json">
+      [
+        {"name":"CSV","url":"/export/csv"},
+        {"name":"Excel","url":"/export/xlsx"}
+      ]
+    </script>
+
+    <table id="testtable"></table>\n`
+
+  const html = initExporter(
+    'export_types',
+    'testtable'
+  )
+
+  const expectedHtml = `
+              <div class="btn-group">
+                    <button type="button"
+                            class="btn btn-primary dropdown-toggle"
+                            data-bs-toggle="dropdown"
+                            aria-expanded="false">
+                        <i class="bi bi-download"></i>
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a href="/export/csv" class="dropdown-item">CSV</a></li>
+                        <li><a href="/export/xlsx" class="dropdown-item">Excel</a></li>
+                    </ul>
+              </div>\n`
+
+  assert.strictEqual(
+    normalize(html),
+    normalize(expectedHtml)
+  )
+
+  window.checkBuiltinExport = originalCheckBuiltinExport
+})
+
 /* eslint-enable no-undef */
