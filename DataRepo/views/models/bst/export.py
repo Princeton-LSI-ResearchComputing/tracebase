@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Dict, Optional
 from warnings import warn
 
+from django.urls import reverse
+
 from DataRepo.utils.exceptions import DeveloperWarning
 from DataRepo.views.models.bst.query import BSTListView
 
@@ -48,7 +50,31 @@ class BSTExportedListView(BSTListView):
 
     @classmethod
     def get_exporter_classes(cls):
-        return [c for c in cls.__subclasses__() if getattr(c, "is_exporter", False)]
+        """Generator to plumb the hierarchy and yield concrete/leaf exporter classes that are derived from this class
+        and from BSTExportView.
+
+        Uses BSTExportView.is_exporter to determine derivation.
+
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            (List[Type[BSTExportView]]): A list of derived classes that are also derived from BSTExportView.
+        """
+
+        def concrete_exporters(c):
+            subclasses = c.__subclasses__()
+
+            if not subclasses:
+                if getattr(c, "is_exporter", False):
+                    yield c
+                return
+
+            for subcls in subclasses:
+                yield from concrete_exporters(subcls)
+
+        return list(concrete_exporters(cls))
 
     @classmethod
     def gather_exporters(cls) -> Dict[str, BSTExportView]:
@@ -101,6 +127,27 @@ class BSTExportedListView(BSTListView):
         """Optional derived class method.  Must be overridden in BSTExportView.
         See gather_exporters for how these exporters are collected."""
         pass
+
+    def get_context_data(self, **kwargs):
+        """Retrieve context data for export functionality.
+        See design in: https://princeton-university.atlassian.net/wiki/x/GQAgH
+        """
+        context = super().get_context_data()
+
+        # List of dicts containing the export type name and its URL
+        export_types = list(
+            {"name": exp.name, "url": reverse(type(exp).__name__)}
+            for exp in self.exporters
+        )
+
+        context.update(
+            {
+                self.export_enabled_var_name: self.export_enabled,
+                self.export_types_var_name: export_types,
+            }
+        )
+
+        return context
 
 
 class NoExporters(Exception):

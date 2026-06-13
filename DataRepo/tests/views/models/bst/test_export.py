@@ -1,4 +1,6 @@
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
+
+from django.test import RequestFactory
 
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import DeveloperWarning
@@ -61,7 +63,16 @@ class BSTExportedListViewTests(TracebaseTestCase):
         self.assertIn("js/bst/exporter.js", bstelv.javascripts)
 
     def test_get_exporter_classes(self):
-        self.assertEqual([BSTExportView], BSTExportedListView.get_exporter_classes())
+        class ExpView(BSTExportView):
+            pass
+
+        class ExtendedFeatureView(BSTExportedListView):
+            pass
+
+        classes = BSTExportedListView.get_exporter_classes()
+
+        self.assertIn(ExpView, classes)
+        self.assertNotIn(ExtendedFeatureView, classes)
 
     def test_gather_exporters_works(self):
         """Asserts that gather_exporters builds a dict of exporter classes keyed on export name."""
@@ -118,3 +129,57 @@ class BSTExportedListViewTests(TracebaseTestCase):
     def test_get_exporters(self):
         """Assert that get_exporters in the bas class is not implemented (i.e. should only contain `pass`)."""
         self.assertIsNone(BSTExportedListView.get_exporters())
+
+    @patch("DataRepo.views.models.bst.export.reverse")
+    def test_get_context_data(self, mock_reverse: MagicMock):
+        mock_reverse.side_effect = lambda name: f"/url/{name}/"
+
+        # This creates a GET request.  The URL argument doesn't matter.  We just want the request object, with a little
+        # bit of setup.
+        request = RequestFactory().get("/")
+
+        class BSTCSVExportView(BSTExportView):
+            name = "CSV"
+
+            @classmethod
+            def get_exporters(cls):
+                return {"csv": __class__}
+
+        class BSTTSVExportView(BSTExportView):
+            name = "TSV"
+
+            @classmethod
+            def get_exporters(cls):
+                return {"tsv": __class__}
+
+        with patch.object(
+            BSTExportedListView,
+            "get_exporter_classes",
+            return_value=[BSTCSVExportView, BSTTSVExportView],
+        ):
+            bstelv = BSTExportedListView(request=request)
+            bstelv.export_enabled = True
+            bstelv.export_enabled_var_name = "export_enabled"
+            bstelv.export_types_var_name = "export_types"
+            bstelv.exporters = [BSTCSVExportView(), BSTTSVExportView()]
+            bstelv.object_list = []
+
+        context = bstelv.get_context_data()
+
+        self.assertTrue(context[bstelv.export_enabled_var_name])
+
+        self.assertEqual(
+            [
+                {
+                    "name": "CSV",
+                    "url": "/url/BSTCSVExportView/",
+                },
+                {
+                    "name": "TSV",
+                    "url": "/url/BSTTSVExportView/",
+                },
+            ],
+            context[bstelv.export_types_var_name],
+        )
+
+        self.assertEqual(2, mock_reverse.call_count)
