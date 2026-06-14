@@ -1,3 +1,4 @@
+from io import StringIO
 from unittest.mock import MagicMock, patch
 
 from django.db.models import CharField
@@ -348,20 +349,24 @@ class BSTListViewTests(BaseTemplateTests):
 
         class BSTCSVExportView(BSTExportView):
             name = "CSV"
+            content_type = "text/csv"
+            buffer = StringIO
+            extension = "csv"
 
-            @classmethod
-            def get_exporters(cls):
-                return {"csv": __class__}
+            def buffer_file(self, header_content: str):
+                pass
 
         class BSTTSVExportView(BSTExportView):
             name = "TSV"
+            content_type = "text/tsv"
+            buffer = StringIO
+            extension = "tsv"
 
-            @classmethod
-            def get_exporters(cls):
-                return {"tsv": __class__}
+            def buffer_file(self, header_content: str):
+                pass
 
         with patch.object(
-            BSTExportedListView,
+            BSTExportView,
             "get_exporter_classes",
             return_value=[BSTCSVExportView, BSTTSVExportView],
         ):
@@ -369,7 +374,7 @@ class BSTListViewTests(BaseTemplateTests):
             eslv.export_enabled = True
             eslv.export_enabled_var_name = "export_enabled"
             eslv.export_types_var_name = "export_types"
-            eslv.exporters = [BSTCSVExportView(), BSTTSVExportView()]
+            eslv.exporters = {"CSV": BSTCSVExportView, "TSV": BSTTSVExportView}
             eslv.object_list = []
 
         eslv.init_interface()
