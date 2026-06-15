@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, Type
+from typing import Dict, List, Type
 
 from django.db.models import Model
 from django.urls import reverse
@@ -139,3 +139,39 @@ class BSTExportedListView(BSTListView):
                 return str(col.get_model_object(val))
             else:
                 return str(val)
+
+    def row_headers(self):
+        return [col.header for col in self.columns.values() if col.exported]
+
+    def rows_iterator(self, headers=True):
+        """Takes a queryset of records and returns a list of lists of column data.  Note that delimited many-related
+        values are converted to strings, but everything else in the returned list of lists is the original type.
+
+        Args:
+            headers (bool): Whether to include the header row.
+        Exceptions:
+            None
+        Returns:
+            (List[list])
+        """
+        if headers:
+            yield self.row_headers()
+        rec: Model
+        for rec in self.get_queryset():
+            yield self.rec_to_row(rec)
+
+    def rec_to_row(self, rec: Model) -> List[str]:
+        """Takes a Model record and returns a list of values for a file.
+
+        Args:
+            rec (Model)
+        Exceptions:
+            None
+        Returns:
+            (List[str])
+        """
+        return [
+            self.get_column_val(rec, col)
+            for col in self.columns.values()
+            if col.exported
+        ]

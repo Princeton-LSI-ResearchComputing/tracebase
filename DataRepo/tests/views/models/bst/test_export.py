@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from io import StringIO
 from unittest.mock import MagicMock, patch
 
@@ -70,6 +71,28 @@ BSTELVTreatmentTestModel = create_test_model(
     "BSTELVTreatmentTestModel",
     {"name": CharField(unique=True), "desc": CharField()},
 )
+
+
+# Must create a concrete export view because the AnimalWithMultipleStudyColsLV constructor calls
+# self.export_view_class.gather_exporters()
+class BSTTSVExportView(BSTExportView):
+    name = "TSV"
+    content_type = "text/tsv"
+    buffer = StringIO
+    extension = "tsv"
+
+    def buffer_file(self, _: str):
+        pass
+
+
+@contextmanager
+def patch_exporter_classes(*exporter_classes):
+    with patch.object(
+        BSTExportView,
+        "get_exporter_classes",
+        return_value=list(exporter_classes),
+    ):
+        yield
 
 
 class AnimalWithMultipleStudyColsLV(BSTExportedListView):
@@ -210,22 +233,7 @@ class BSTExportedListViewTests(TracebaseTestCase):
         """Asserts that get_column_val can retrieve values for all 4 column types from the root model in the
         BSTExportedListView"""
 
-        # Must create a concrete export view because the AnimalWithMultipleStudyColsLV constructor calls
-        # self.export_view_class.gather_exporters()
-        class BSTTSVExportView(BSTExportView):
-            name = "TSV"
-            content_type = "text/tsv"
-            buffer = StringIO
-            extension = "tsv"
-
-            def buffer_file(self, _: str):
-                pass
-
-        with patch.object(
-            BSTExportView,
-            "get_exporter_classes",
-            return_value=[BSTTSVExportView],
-        ):
+        with patch_exporter_classes(BSTTSVExportView):
             bealv = AnimalWithMultipleStudyColsLV()
             bealv.init_interface()
             qs = bealv.get_queryset()
@@ -255,3 +263,57 @@ class BSTExportedListViewTests(TracebaseTestCase):
             )
             stdycntval = bealv.get_column_val(animal_rec, stdycntcol)
             self.assertEqual("1", stdycntval)
+
+    def test_row_headers(self):
+        bealv = AnimalWithMultipleStudyColsLV()
+        row_headers = bealv.row_headers()
+        self.assertEqual(
+            [
+                "BSTELV Animal Test Model",
+                "Desc",
+                "Treatment",
+                "Studies Count",
+                "Studies",
+                "Descs",
+            ],
+            row_headers,
+        )
+
+    def test_rows_iterator(self):
+        with patch.object(
+            BSTExportView,
+            "get_exporter_classes",
+            return_value=[BSTTSVExportView],
+        ):
+            bealv = AnimalWithMultipleStudyColsLV()
+            bealv.init_interface()
+
+            rows = [r for r in bealv.rows_iterator()]
+            self.assertEqual(
+                [
+                    [
+                        "BSTELV Animal Test Model",
+                        "Desc",
+                        "Treatment",
+                        "Studies Count",
+                        "Studies",
+                        "Descs",
+                    ],
+                    ["A2", "a2", "oddball", "2", "S1; S2", "s1; s2"],
+                    ["A1", "a1", "T1", "1", "S1", "s1"],
+                ],
+                rows,
+            )
+
+    def test_rec_to_row(self):
+        with patch_exporter_classes(BSTTSVExportView):
+            bealv = AnimalWithMultipleStudyColsLV()
+            bealv.init_interface()
+            qs = bealv.get_queryset()
+            for rec in qs.all():
+                if rec.name == "A1":
+                    animal_rec = rec
+                    break
+
+            row = bealv.rec_to_row(animal_rec)
+            self.assertEqual(["A1", "a1", "T1", "1", "S1", "s1"], row)
