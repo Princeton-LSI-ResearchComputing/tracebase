@@ -9,6 +9,7 @@ from DataRepo.tests.tracebase_test_case import (
     TracebaseTestCase,
     create_test_model,
 )
+from DataRepo.views.models.bst.export import BSTExportedListView
 from DataRepo.views.models.bst.exporters.exporters import BSTExportView
 
 BSTEVStudyTestModel = create_test_model(
@@ -25,6 +26,10 @@ BSTEVStudyTestModel = create_test_model(
         ),
     },
 )
+
+
+class StudyELV(BSTExportedListView):
+    model = BSTEVStudyTestModel
 
 
 class BSTExportViewTests(TracebaseTestCase):
@@ -194,3 +199,46 @@ class BSTExportViewTests(TracebaseTestCase):
         ):
             with self.assertRaises(KeyError):
                 BSTExportView.gather_exporters()
+
+    def test_get_header_context(self):
+        class BSTTSVExportView(BSTExportView):
+            name = "TSV"
+            content_type = "text/tsv"
+            buffer = StringIO
+            extension = "tsv"
+
+            def buffer_file(self, _: str):
+                pass
+
+        with patch.object(
+            BSTExportView,
+            "get_exporter_classes",
+            return_value=[BSTTSVExportView],
+        ):
+            source_view = StudyELV()
+            btev = BSTTSVExportView(source_view.model)
+            context = btev.get_header_context(source_view)
+            self.assertEqual(
+                set(
+                    [
+                        "asc",
+                        "columns",
+                        "export_filters",
+                        "search",
+                        "sortcol",
+                        "table_name",
+                        "timestamp",
+                        "total",
+                    ]
+                ),
+                set(context.keys()),
+            )
+            self.assertTrue(context["asc"])
+            self.assertEqual(2, len(context["columns"]))
+            self.assertEqual({}, context["export_filters"])
+            self.assertIsNone(context["search"])
+            self.assertEqual("name", context["sortcol"].name)
+            self.assertEqual("BSTLV Study Test Models", context["table_name"])
+            self.assertIn("-", context["timestamp"])
+            self.assertIn(":", context["timestamp"])
+            self.assertEqual(0, context["total"])

@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from inspect import isabstract
 from io import IOBase
-from typing import ClassVar, Dict, Final, Optional, Type, cast
+from typing import TYPE_CHECKING, ClassVar, Dict, Final, Optional, Type, cast
 from warnings import warn
 
 from django.db.models import Model
@@ -12,6 +12,9 @@ from django.template import loader
 from django.template.backends.django import Template
 
 from DataRepo.utils.exceptions import DeveloperWarning
+
+if TYPE_CHECKING:
+    from DataRepo.views.models.bst.export import BSTExportedListView
 
 _MISSING: Final = object()
 
@@ -214,6 +217,38 @@ class BSTExportView(ABC):
             )
 
         return export_types
+
+    def get_header_context(self, source_view: BSTExportedListView):
+        """Context for rendering the download metadata in a commented file header using template:
+        DataRepo/templates/models/bst/download_metadata_header.txt
+
+        Args:
+            source_view (BSTExportedListView): The concrete view where the Bootstrap Table export menu was clicked.
+        Exceptions:
+            None
+        Returns:
+            (Dict[str, str])
+        """
+        # Needed for the file header
+        export_filters = dict(
+            (column.name, column.filterer.initial)
+            for column in source_view.columns.values()
+            if column.filterable and column.filterer.initial
+        )
+        return {
+            source_view.title_var_name: (
+                source_view.model_title_plural
+                if source_view.title is None
+                else source_view.title
+            ),
+            self.timestamp_var_name: self.fileheader_timestamp,
+            source_view.total_var_name: source_view.total,
+            source_view.search_cookie_name: source_view.search_term,
+            source_view.columns_var_name: source_view.columns,
+            source_view.sortcol_cookie_name: source_view.sort_col,
+            source_view.asc_cookie_name: source_view.asc,
+            "export_filters": export_filters,
+        }
 
 
 class NoExporters(Exception):
