@@ -97,7 +97,7 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
         *args,
         list_attr_name: Optional[str] = None,
         count_attr_name: Optional[str] = None,
-        delim: Optional[str] = delimiter,
+        delim: str = delimiter,
         limit: int = limit,
         unique: Optional[bool] = None,
         sort_expression: Optional[Union[Combinable, Field, str]] = None,
