@@ -61,7 +61,15 @@ class BSTExportedListView(BSTListView):
 
         # List of dicts containing the export type name and its URL
         export_types = list(
-            {"name": name, "url": reverse(cls.__name__)}
+            {
+                "name": name,
+                "url": (
+                    # This is the URL path of the BSTExportView
+                    f"{reverse(cls.__name__)}"
+                    # This is the source view needed by the exporter to execute the query
+                    f"?source={self.request.resolver_match.view_name}"
+                ),
+            }
             for name, cls in self.exporters.items()
         )
 

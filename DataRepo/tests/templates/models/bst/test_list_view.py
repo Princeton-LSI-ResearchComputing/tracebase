@@ -1,4 +1,5 @@
 from io import StringIO
+from typing import cast
 from unittest.mock import MagicMock, patch
 
 from django.db.models import CharField
@@ -346,23 +347,28 @@ class BSTListViewTests(BaseTemplateTests):
         mock_reverse.side_effect = lambda name: f"/url/{name}/"
 
         request = HttpRequest()
+        request.resolver_match = MagicMock(view_name="test-view")
 
         class BSTCSVExportView(BSTExportView):
             name = "CSV"
             content_type = "text/csv"
-            buffer = StringIO
+            buffer_class = StringIO
             extension = "csv"
 
-            def buffer_file(self, header_content: str):
+            def buffer_file(
+                self, source_view: BSTExportedListView, header_content: str
+            ):
                 pass
 
         class BSTTSVExportView(BSTExportView):
             name = "TSV"
             content_type = "text/tsv"
-            buffer = StringIO
+            buffer_class = StringIO
             extension = "tsv"
 
-            def buffer_file(self, header_content: str):
+            def buffer_file(
+                self, source_view: BSTExportedListView, header_content: str
+            ):
                 pass
 
         with patch.object(
@@ -374,7 +380,11 @@ class BSTListViewTests(BaseTemplateTests):
             eslv.export_enabled = True
             eslv.export_enabled_var_name = "export_enabled"
             eslv.export_types_var_name = "export_types"
-            eslv.exporters = {"CSV": BSTCSVExportView, "TSV": BSTTSVExportView}
+            eslv.exporters = {
+                # mypy has issues typing ABC-derived concrete classes defined in methods.
+                "CSV": cast(type[BSTExportView], BSTCSVExportView),
+                "TSV": cast(type[BSTExportView], BSTTSVExportView),
+            }
             eslv.object_list = []
 
         eslv.init_interface()
@@ -385,7 +395,13 @@ class BSTListViewTests(BaseTemplateTests):
         self.assertNotIn("data-export-types", template_str)
         self.assertNotIn("data-export-data-type", template_str)
         self.assertIn('<script id="exportTypes" ', template_str)
-        self.assertIn('[{"name": "CSV", "url": "/url/BSTCSVExportView/"}', template_str)
-        self.assertIn('{"name": "TSV", "url": "/url/BSTTSVExportView/"}]', template_str)
+        self.assertIn(
+            '[{"name": "CSV", "url": "/url/BSTCSVExportView/?source=test-view"}',
+            template_str,
+        )
+        self.assertIn(
+            '{"name": "TSV", "url": "/url/BSTTSVExportView/?source=test-view"}]',
+            template_str,
+        )
         self.assertIn("'True',", template_str)
         self.assertIn("'exportTypes',", template_str)

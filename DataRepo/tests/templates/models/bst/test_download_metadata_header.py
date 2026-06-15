@@ -1,4 +1,6 @@
+from contextlib import contextmanager
 from io import StringIO
+from unittest.mock import patch
 
 from django.http import HttpRequest
 from django.template.loader import render_to_string
@@ -18,11 +20,21 @@ class StudyELV(BSTExportedListView):
 class StudyBSTCSVExportView(BSTExportView):
     name = "CSV"
     content_type = "text/csv"
-    buffer = StringIO
+    buffer_class = StringIO
     extension = "csv"
 
-    def buffer_file(self, header_content: str):
+    def buffer_file(self, source_view: BSTExportedListView, header_content: str):
         pass
+
+
+@contextmanager
+def patch_exporter_classes(*exporter_classes):
+    with patch.object(
+        BSTExportView,
+        "get_exporter_classes",
+        return_value=list(exporter_classes),
+    ):
+        yield
 
 
 class BSTExportViewTemplateTests(BaseTemplateTests):
@@ -75,10 +87,13 @@ class BSTExportViewTemplateTests(BaseTemplateTests):
                 f"{StudyELV.__name__}-{StudyELV.filter_cookie_name}-name": "S1",
             }
         )
-        source_view = StudyELV(request=request)
-        source_view.init_interface()
 
-        view = StudyBSTCSVExportView(BTTStudyTestModel)
+        with patch_exporter_classes(StudyBSTCSVExportView):
+            source_view = StudyELV(request=request)
+            source_view.init_interface()
+
+        view = StudyBSTCSVExportView()
+        view.init_export(source_view)
 
         template_str = self.render_export_header_view_template(view, source_view)
 
@@ -96,10 +111,12 @@ class BSTExportViewTemplateTests(BaseTemplateTests):
     def test_header_render_empty(self):
         request = HttpRequest()
 
-        source_view = StudyELV(request=request)
-        source_view.init_interface()
+        with patch_exporter_classes(StudyBSTCSVExportView):
+            source_view = StudyELV(request=request)
+            source_view.init_interface()
 
-        view = StudyBSTCSVExportView(BTTStudyTestModel)
+        view = StudyBSTCSVExportView()
+        view.init_export(source_view)
 
         template_str = self.render_export_header_view_template(view, source_view)
 

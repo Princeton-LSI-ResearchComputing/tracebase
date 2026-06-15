@@ -1,6 +1,7 @@
 from contextlib import contextmanager
 from io import StringIO
-from unittest.mock import MagicMock, patch
+from typing import cast
+from unittest.mock import MagicMock, Mock, patch
 
 from django.db.models import (
     CASCADE,
@@ -78,10 +79,10 @@ BSTELVTreatmentTestModel = create_test_model(
 class BSTTSVExportView(BSTExportView):
     name = "TSV"
     content_type = "text/tsv"
-    buffer = StringIO
+    buffer_class = StringIO
     extension = "tsv"
 
-    def buffer_file(self, _: str):
+    def buffer_file(self, source_view: BSTExportedListView, header_content: str):
         pass
 
 
@@ -154,10 +155,12 @@ class BSTExportedListViewTests(TracebaseTestCase):
         class BSTCSVExportView:
             name = "CSV"
             content_type = "text/csv"
-            buffer = StringIO
+            buffer_class = StringIO
             extension = "csv"
 
-            def buffer_file(self, header_content: str):
+            def buffer_file(
+                self, source_view: BSTExportedListView, header_content: str
+            ):
                 pass
 
         # Control the conditions by overriding the behavior of get_exporter_classes
@@ -178,23 +181,28 @@ class BSTExportedListViewTests(TracebaseTestCase):
         # This creates a GET request.  The URL argument doesn't matter.  We just want the request object, with a little
         # bit of setup.
         request = RequestFactory().get("/")
+        request.resolver_match = Mock(view_name="test-view")
 
         class BSTCSVExportView(BSTExportView):
             name = "CSV"
             content_type = "text/csv"
-            buffer = StringIO
+            buffer_class = StringIO
             extension = "csv"
 
-            def buffer_file(self, header_content: str):
+            def buffer_file(
+                self, source_view: BSTExportedListView, header_content: str
+            ):
                 pass
 
         class BSTTSVExportView(BSTExportView):
             name = "TSV"
             content_type = "text/Tsv"
-            buffer = StringIO
+            buffer_class = StringIO
             extension = "tsv"
 
-            def buffer_file(self, header_content: str):
+            def buffer_file(
+                self, source_view: BSTExportedListView, header_content: str
+            ):
                 pass
 
         with patch.object(
@@ -206,7 +214,11 @@ class BSTExportedListViewTests(TracebaseTestCase):
             bstelv.export_enabled = True
             bstelv.export_enabled_var_name = "export_enabled"
             bstelv.export_types_var_name = "export_types"
-            bstelv.exporters = {"CSV": BSTCSVExportView, "TSV": BSTTSVExportView}
+            bstelv.exporters = {
+                # mypy has issues typing ABC-derived concrete classes defined in methods.
+                "CSV": cast(type[BSTExportView], BSTCSVExportView),
+                "TSV": cast(type[BSTExportView], BSTTSVExportView),
+            }
             bstelv.object_list = []
 
         context = bstelv.get_context_data()
@@ -217,11 +229,11 @@ class BSTExportedListViewTests(TracebaseTestCase):
             [
                 {
                     "name": "CSV",
-                    "url": "/url/BSTCSVExportView/",
+                    "url": "/url/BSTCSVExportView/?source=test-view",
                 },
                 {
                     "name": "TSV",
-                    "url": "/url/BSTTSVExportView/",
+                    "url": "/url/BSTTSVExportView/?source=test-view",
                 },
             ],
             context[bstelv.export_types_var_name],
@@ -265,7 +277,12 @@ class BSTExportedListViewTests(TracebaseTestCase):
             self.assertEqual("1", stdycntval)
 
     def test_row_headers(self):
-        bealv = AnimalWithMultipleStudyColsLV()
+        with patch.object(
+            BSTExportView,
+            "get_exporter_classes",
+            return_value=[BSTTSVExportView],
+        ):
+            bealv = AnimalWithMultipleStudyColsLV()
         row_headers = bealv.row_headers()
         self.assertEqual(
             [
