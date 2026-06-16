@@ -424,114 +424,114 @@
                 <th colspan="2" data-sortable="false" class="intact nonorm">Mouse<br>Normalized<br>(nmol/min)</th>
             </tr>
             <tr>
-                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Status-data-visible' 'true' %}" data-field="Status">
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Status-data-visible' 'true' %}" data-field="Status" data-switchable-label="?">
                     <p title="FCirc Calculation Status - Note: This status is not included in the data download."><img src="{% static 'images/status-question.png' %}" alt="Status" width="20"></p>
                 </th>
-                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Studies-data-visible' 'true' %}" data-field="Studies">
-                    {% with "Studies" as colhead %}
+                {% with colhead="Studies" %}
+                    <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Studies-data-visible' 'true' %}" data-field="Studies" data-switchable-label="{{ colhead }}">
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="serum_sample__animal__studies__name">{{ colhead }}</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
-                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Animal-data-visible' 'true' %}" data-field="Animal">
-                    {% with "Animal" as colhead %}
+                    </th>
+                {% endwith %}
+                {% with colhead="Animal" %}
+                    <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Animal-data-visible' 'true' %}" data-field="Animal" data-switchable-label="{{ colhead }}">
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="serum_sample__animal__name">{{ colhead }}</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
-                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'SerumSample-data-visible' 'true' %}" data-field="Serum_Sample">
-                    {% with "Serum<br>Sample" as colhead %}
+                    </th>
+                {% endwith %}
+                {% with colhead="Serum<br>Sample" collabel="Serum Sample" %}
+                    <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'SerumSample-data-visible' 'true' %}" data-field="Serum_Sample" data-switchable-label="{{ collabel }}">
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="serum_sample__name">{{ colhead }}</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
-                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Genotype-data-visible' 'true' %}" data-field="Genotype">
-                    {% with "Genotype" as colhead %}
+                    </th>
+                {% endwith %}
+                {% with colhead="Genotype" %}
+                    <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Genotype-data-visible' 'true' %}" data-field="Genotype" data-switchable-label="{{ colhead }}">
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="serum_sample__animal__genotype">{{ colhead }}</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
-                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="numericOnly" data-visible="{% get_template_cookie selfmt 'Body_Weight-data-visible' 'false' %}" data-field="Body_Weight">
-                    {% with "Body<br>Weight<br>(g)" as colhead %}
+                    </th>
+                {% endwith %}
+                {% with colhead="Body<br>Weight<br>(g)" collabel="Body Weight (g)" %}
+                    <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="numericOnly" data-visible="{% get_template_cookie selfmt 'Body_Weight-data-visible' 'false' %}" data-field="Body_Weight" data-switchable-label="{{ collabel }}">
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="serum_sample__animal__body_weight">{{ colhead }}</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
-                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Age-data-visible' 'false' %}" data-field="Age">
-                    {% with "Age<br>(weeks)" as colhead %}
+                    </th>
+                {% endwith %}
+                {% with colhead="Age<br>(weeks)" collabel="Age (weeks)" %}
+                    <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Age-data-visible' 'false' %}" data-field="Age" data-switchable-label="{{ collabel }}">
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="serum_sample__animal__age">{{ colhead }}</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
-                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Sex-data-visible' 'false' %}" data-field="Sex">
-                    {% with "Sex" as colhead %}
+                    </th>
+                {% endwith %}
+                {% with colhead="Sex" %}
+                    <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Sex-data-visible' 'false' %}" data-field="Sex" data-switchable-label="{{ colhead }}">
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="serum_sample__animal__sex">{{ colhead }}</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
-                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Diet-data-visible' 'false' %}" data-field="Diet">
-                    {% with "Diet" as colhead %}
+                    </th>
+                {% endwith %}
+                {% with colhead="Diet" %}
+                    <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Diet-data-visible' 'false' %}" data-field="Diet" data-switchable-label="{{ colhead }}">
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="serum_sample__animal__diet">{{ colhead }}</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
-                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Feeding_Status-data-visible' 'true' %}" data-field="Feeding_Status">
-                    {% with "Feeding<br>Status" as colhead %}
+                    </th>
+                {% endwith %}
+                {% with colhead="Feeding<br>Status" collabel="Feeding Status" %}
+                    <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Feeding_Status-data-visible' 'true' %}" data-field="Feeding_Status" data-switchable-label="{{ collabel }}">
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="serum_sample__animal__feeding_status">Feeding<br>Status</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
-                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Treatment-data-visible' 'true' %}" data-field="Treatment">
-                    {% with "Treatment" as colhead %}
+                    </th>
+                {% endwith %}
+                {% with colhead="Treatment" %}
+                    <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Treatment-data-visible' 'true' %}" data-field="Treatment" data-switchable-label="{{ colhead }}">
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="serum_sample__animal__treatment__name">{{ colhead }}</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
-                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Tracer-data-visible' 'true' %}" data-field="Tracer">
-                    {% with "Tracer" as colhead %}
+                    </th>
+                {% endwith %}
+                {% with colhead="Tracer" %}
+                    <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Tracer-data-visible' 'true' %}" data-field="Tracer" data-switchable-label="{{ colhead }}">
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="tracer__name">{{ colhead }}</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
-                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Labeled_Element-data-visible' 'true' %}" data-field="Labeled_Element">
-                    {% with "Labeled<br>Element" as colhead %}
+                    </th>
+                {% endwith %}
+                {% with colhead="Labeled<br>Element" collabel="Labeled Element" %}
+                    <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Labeled_Element-data-visible' 'true' %}" data-field="Labeled_Element" data-switchable-label="{{ collabel }}">
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="element">{{ colhead }}</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
-                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="numericOnly" data-visible="{% get_template_cookie selfmt 'Infusion_Rate-data-visible' 'true' %}" data-field="Infusion_Rate">
-                    {% with "Infusion<br>Rate<br>(ul/m/g)" as colhead %}
+                    </th>
+                {% endwith %}
+                {% with colhead="Infusion<br>Rate<br>(ul/m/g)" collabel="Infusion Rate (ul/m/g)" %}
+                    <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="numericOnly" data-visible="{% get_template_cookie selfmt 'Infusion_Rate-data-visible' 'true' %}" data-field="Infusion_Rate" data-switchable-label="{{ collabel }}">
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="serum_sample__animal__infusion_rate">{{ colhead }}</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
-                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="numericOnly" data-visible="{% get_template_cookie selfmt 'Tracer_Concentration-data-visible' 'true' %}" data-field="Tracer_Concentration">
-                    {% with "Tracer<br>Concentration<br>(mM)" as colhead %}
+                    </th>
+                {% endwith %}
+                {% with colhead="Tracer<br>Concentration<br>(mM)" collabel="Tracer Concentration (mM)" %}
+                    <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="numericOnly" data-visible="{% get_template_cookie selfmt 'Tracer_Concentration-data-visible' 'true' %}" data-field="Tracer_Concentration" data-switchable-label="{{ collabel }}">
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="serum_sample__animal__infusate__tracer_links__concentration">{{ colhead }}</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
-                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Time_Collected-data-visible' 'true' %}" data-field="Time_Collected">
-                    {% with "Time<br>Collected<br>(m)" as colhead %}
+                    </th>
+                {% endwith %}
+                {% with colhead="Time<br>Collected<br>(m)" collabel="Time Collected (m)" %}
+                    <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Time_Collected-data-visible' 'true' %}" data-field="Time_Collected" data-switchable-label="{{ collabel }}">
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="serum_sample__time_collected">{{ colhead }}</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
+                    </th>
+                {% endwith %}
                 <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="numericOnly" data-visible="true" data-switchable="false" data-field="Average_Weight_Normalized_Ra" data-title-tooltip="Average_Weight_Normalized_Ra" class="average weight ra">
                     Ra
                 </th>
