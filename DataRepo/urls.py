@@ -1,5 +1,6 @@
 from django.urls import path
 
+from DataRepo.views.models.bst.exporters.exporters import CSVBSTExportView, TSVBSTExportView
 from DataRepo.views.models.peakdata import PeakDataDetailView
 
 from .views import (
@@ -168,5 +169,15 @@ urlpatterns = [
         "tracers/<int:pk>/",
         TracerDetailView.as_view(),
         name=TracerDetailView.model.detail_name,
+    ),
+    path(
+        "export_bstlv_tsv/",
+        TSVBSTExportView.as_view(),
+        name="tsv_list_export",
+    ),
+    path(
+        "export_bstlv_csv/",
+        CSVBSTExportView.as_view(),
+        name="csv_list_export",
     ),
 ]

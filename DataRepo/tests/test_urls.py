@@ -27,3 +27,7 @@ class UrlTests(TracebaseTestCase):
             "/DataRepo/protocols/animal_treatments/", reverse("animal_treatment_list")
         )
         self.assertEqual("/DataRepo/search_advanced/", reverse("search_advanced"))
+
+    def test_list_export_urls(self):
+        self.assertEqual("/DataRepo/export_bstlv_tsv/", reverse("tsv_list_export"))
+        self.assertEqual("/DataRepo/export_bstlv_csv/", reverse("csv_list_export"))
