@@ -31,3 +31,4 @@ class UrlTests(TracebaseTestCase):
     def test_list_export_urls(self):
         self.assertEqual("/DataRepo/export_bstlv_tsv/", reverse("tsv_list_export"))
         self.assertEqual("/DataRepo/export_bstlv_csv/", reverse("csv_list_export"))
+        self.assertEqual("/DataRepo/export_bstlv_excel/", reverse("excel_list_export"))

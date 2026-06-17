@@ -2,6 +2,7 @@ from django.urls import path
 
 from DataRepo.views.models.bst.exporters.exporters import (
     CSVBSTExportView,
+    ExcelBSTExportView,
     TSVBSTExportView,
 )
 from DataRepo.views.models.peakdata import PeakDataDetailView
@@ -176,11 +177,16 @@ urlpatterns = [
     path(
         "export_bstlv_tsv/",
         TSVBSTExportView.as_view(),
-        name="tsv_list_export",
+        name=TSVBSTExportView.view_name,
     ),
     path(
         "export_bstlv_csv/",
         CSVBSTExportView.as_view(),
-        name="csv_list_export",
+        name=CSVBSTExportView.view_name,
+    ),
+    path(
+        "export_bstlv_excel/",
+        ExcelBSTExportView.as_view(),
+        name=ExcelBSTExportView.view_name,
     ),
 ]

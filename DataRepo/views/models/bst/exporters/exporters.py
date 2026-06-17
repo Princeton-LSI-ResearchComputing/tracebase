@@ -10,6 +10,7 @@ from typing import (
     ClassVar,
     Dict,
     Final,
+    List,
     Optional,
     Type,
     Union,
@@ -18,6 +19,7 @@ from typing import (
 from warnings import warn
 
 import _csv
+import pandas as pd
 from django.db.models import Model
 from django.http import HttpResponse
 from django.template import loader
@@ -264,22 +266,41 @@ class BSTExportView(View, ABC):
             for column in source_view.columns.values()
             if column.filterable and column.filterer.initial
         )
-        return {
-            source_view.title_var_name: (
-                source_view.model_title_plural
-                if source_view.title is None
-                else source_view.title
-            ),
-            self.timestamp_var_name: self.fileheader_timestamp,
-            source_view.total_var_name: source_view.total,
-            source_view.search_cookie_name: source_view.search_term,
-            source_view.columns_var_name: source_view.columns,
-            source_view.sortcol_cookie_name: source_view.sort_col,
-            source_view.asc_cookie_name: source_view.asc,
-            "export_filters": export_filters,
-        }
+        try:
+            context = {
+                source_view.title_var_name: (
+                    source_view.model_title_plural
+                    if source_view.title is None
+                    else source_view.title
+                ),
+                self.timestamp_var_name: self.fileheader_timestamp,
+                source_view.total_var_name: source_view.total,
+                source_view.search_cookie_name: source_view.search_term,
+                source_view.columns_var_name: source_view.columns,
+                source_view.sortcol_cookie_name: source_view.sort_col,
+                source_view.asc_cookie_name: source_view.asc,
+                "export_filters": export_filters,
+            }
+        except AttributeError as ae:
+            raise AttributeError(
+                f"{ae}.  Be sure to call init_export before calling get_header_context."
+            ).with_traceback(ae.__traceback__)
+        return context
 
     def init_export(self, source_view: BSTExportedListView):
+        """Initialize export state derived from the source view.
+
+        This prepares the exporter for file generation by storing the source model, generating timestamps for the file
+        header and export filename, constructing the export filename, and creating the in-memory buffer used to build
+        the exported file.
+
+        Args:
+            source_view (BSTExportedListView): The view supplying the data to be exported.
+        Exceptions:
+            None
+        Returns:
+            None
+        """
         self.model = source_view.model
 
         now = datetime.now()
@@ -295,6 +316,22 @@ class BSTExportView(View, ABC):
         self.buffer = self.buffer_class()
 
     def get(self, request, **kwargs) -> HttpResponse:
+        """Generate and return an exported file response.
+
+        This resolves the source view from the request, initializes export state, generates the export contents using
+        the derived exporter implementation, and returns the resulting file as an HTTP download response.
+
+        If a download metadata header template is configured, the rendered metadata is supplied to the exporter as a
+        header content string.
+
+        Args:
+            request (HTTPRequest): The HTTP request containing the source view name.
+            kwargs (Dict[str, Any]): Additional Django view arguments.
+        Exceptions:
+            None
+        Returns:
+            (HttpResponse): A download response containing the generated export file.
+        """
         source_view: BSTExportedListView = self.get_source_view(request)
 
         self.init_export(source_view)
@@ -380,12 +417,67 @@ class TSVBSTExportView(TextBSTExportView):
     name = "TSV"
     extension = "tsv"
     delim = "\t"
+    view_name = "tsv_list_export"
 
 
 class CSVBSTExportView(TextBSTExportView):
     name = "CSV"
     extension = "csv"
     delim = ","
+    view_name = "csv_list_export"
+
+
+class ExcelBSTExportView(BSTExportView):
+    name = "Excel"
+    buffer_class = BytesIO
+    extension = "xlsx"
+    content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    view_name = "excel_list_export"
+
+    def buffer_file(self, source_view: BSTExportedListView, header_content: str):
+        # TODO: This cast is a type hack.  Fix it.
+        buffer = cast(BytesIO, self.buffer)
+
+        # pylint false positive abstract-class-instantiated triggered because pandas.ExcelWriter acts as an abstract
+        # base class behind the scenes, but dynamically returns a concrete subclass
+        xlsx_writer = pd.ExcelWriter(  # pylint: disable=abstract-class-instantiated
+            buffer, engine="xlsxwriter"
+        )
+
+        sheet = source_view.model_title_plural
+        columns = source_view.row_headers()
+
+        xlsx_writer.book.set_properties(
+            {
+                "title": sheet,
+                "author": "Robert Leach",
+                "company": "Princeton University",
+                "comments": header_content,
+            }
+        )
+
+        # Build the dict by iterating over the row lists
+        qs_dict_by_index: Dict[int, List[str]] = dict(
+            (i, []) for i in range(len(columns))
+        )
+        for row in source_view.rows_iterator(headers=False):
+            for i, val in enumerate(row):
+                qs_dict_by_index[i].append(str(val))
+
+        export_dict = {}
+        # Now convert the indexes to the headers
+        for i, col in enumerate(columns):
+            export_dict[col] = qs_dict_by_index[i]
+
+        # Create a dataframe and add it as an excel object to an xlsx_writer sheet
+        pd.DataFrame.from_dict(export_dict).to_excel(
+            excel_writer=xlsx_writer,
+            sheet_name=sheet,
+            columns=columns,
+            index=False,
+        )
+        xlsx_writer.sheets[sheet].autofit()
+        xlsx_writer.save()
 
 
 class NoExporters(Exception):
