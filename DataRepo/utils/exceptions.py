@@ -6,7 +6,7 @@ import warnings
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
 
 from django.core.exceptions import (
     MultipleObjectsReturned,
@@ -418,7 +418,7 @@ class RequiredValueError(InfileError, SummarizableError):
 class RequiredColumnValues(Exception):
     """Summary of every RequiredColumnValue exception.
 
-    DEV_SECTION - Everything above this delimiter is user-facing.  See docs/README.md
+    DEV_SECTION - Everything above this delimiter is user-facing.  See docs/operations/User_Docs_Deployment.md
 
     Args:
         exceptions (List[RequiredColumnValue])
@@ -4105,7 +4105,7 @@ class AssumedMzxmlSampleMatch(InfileError, SummarizableError):
 class AmbiguousMzxmlSampleMatches(Exception):
     """Summary of `AmbiguousMzxmlSampleMatch` exceptions.
 
-    DEV_SECTION - Everything above this delimiter is user-facing.  See docs/README.md
+    DEV_SECTION - Everything above this delimiter is user-facing.  See docs/operations/User_Docs_Deployment.md
 
     Args:
         exceptions (List[AmbiguousMzxmlSampleMatch])
@@ -4203,7 +4203,7 @@ class AmbiguousMzxmlSampleMatch(InfileError, SummarizableError):
       as long as the warnings don't indicate a data problem and that the automatic handling is accurate, the warnings
       are harmless.
 
-    DEV_SECTION - Everything above this delimiter is user-facing.  See docs/README.md
+    DEV_SECTION - Everything above this delimiter is user-facing.  See docs/operations/User_Docs_Deployment.md
 
     Args:
         sample_names (List[str]): A list of 2 or more sample names that an mzXML file is ambiguously associated with.
@@ -5805,7 +5805,8 @@ class InvalidPeakAnnotationFileFormat(InfileError):
     """The peak annotation file format code is either unrecognized, or doesn't appear to match the auto-detected format
     of the supplied file.
 
-    This exception is raised as an error on the Upload **Start** page only.
+    This exception is raised as an error on the Upload **Start** page.  It can also occur during loading on the command
+    line.
 
     To resolve this issue, select the format code using the dropdown menus in the `File Format` column of the
     `Peak Annotation Files` sheet in the Study Doc that corresponds to the reported file.
@@ -5933,6 +5934,68 @@ class PeakAnnotationFileConflict(Exception):
             "curation team that the original file must be used in the load of your supplemental data submission."
         )
         super().__init__(message)
+
+
+class MultipleMatchingPeakAnnotationFilesSummary(Exception):
+    """One or more peak annotation filenames supplied in the Peak Annotation Files sheet had multiple matching files
+    found in the study directory.
+
+    To resolve this issue, either delete the duplicates (recommended) or specify the path (relative to the study
+    directory) to the desired file in the Peak Annotation Files sheet.
+
+    TraceBase requires that peak annotation filenames be globally unique to avoid ambiguities when sharing or
+    referencing data files.
+    """
+
+    def __init__(self, exceptions: List[MultipleMatchingPeakAnnotationFiles]):
+        # Collect all the files in a 2D dict
+        files_dict: Dict[str, Set[str]] = defaultdict(set)
+        for exc in exceptions:
+            filename = os.path.basename(exc.annot_files[0])
+            for file in exc.annot_files:
+                files_dict[filename].add(file)
+
+        # Craft the message
+        files_str = "\n\t".join(
+            [
+                name + "\n\t\t" + "\n\t\t".join(sorted(paths))
+                for name, paths in sorted(files_dict.items(), key=lambda t: t[0])
+            ]
+        )
+        message = (
+            f"{len(files_dict)} peak annotation filenames from the Peak Annotation Files sheet had multiple matching "
+            "files found in the study directory:\n"
+            f"\t{files_str}\n"
+            "Either delete the duplicate(s) (recommended) or specify the path (relative to the study directory) to the "
+            "desired file in the Peak Annotation Files sheet for each filename listed."
+        )
+        super().__init__(message)
+        self.exceptions = exceptions
+
+
+class MultipleMatchingPeakAnnotationFiles(InfileError, SummarizableError):
+    """A peak annotation filename supplied in the Peak Annotation Files sheet had multiple matching files found in the
+    study directory.
+
+    To resolve this issue, either delete the duplicates (recommended) or specify the path (relative to the study
+    directory) to the desired file in the Peak Annotation Files sheet.
+
+    TraceBase requires that peak annotation filenames be globally unique to avoid ambiguities when sharing or
+    referencing data files.
+    """
+
+    SummarizerExceptionClass = MultipleMatchingPeakAnnotationFilesSummary
+
+    def __init__(self, annot_files: List[str], **kwargs):
+        nltt = "\n\t\t"
+        message = (
+            f"A peak annotation filename from %s had multiple matching files found in the study directory:\n"
+            f"\t{os.path.basename(annot_files[0])}\n\t\t{nltt.join(annot_files)}\n"
+            "Either delete the duplicate(s) (recommended) or specify the path (relative to the study directory) to the "
+            "desired file in the Peak Annotation Files sheet for each file listed."
+        )
+        super().__init__(message, **kwargs)
+        self.annot_files = annot_files
 
 
 class InvalidStudyDocVersion(Exception):
@@ -6236,7 +6299,7 @@ class MultipleConflictingValueMatches(InfileError, SummarizableError):
     NOTE: This exception is analogous to the ConflictingValueError, but is specifically for the case when a single
     offending database record cannot be identified.
 
-    DEV_SECTION - Everything above this delimiter is user-facing.  See docs/README.md
+    DEV_SECTION - Everything above this delimiter is user-facing.  See docs/operations/User_Docs_Deployment.md
 
     If this exception ever occurs, or occurs repeatedly, there are a couple options to avoid it and make a regular
     ConflictingValueError occur instead.  The inability to identify the exact offending record and report the precise
@@ -6749,7 +6812,7 @@ class AnimalsWithoutSamples(Exception):
     Lists the names of animals (and the locations in the study doc in which they can be found) that have no samples and
     suggests how to resolve the issue.
 
-    DEV_SECTION - Everything above this delimiter is user-facing.  See docs/README.md
+    DEV_SECTION - Everything above this delimiter is user-facing.  See docs/operations/User_Docs_Deployment.md
 
     Args:
         exceptions (List[AnimalWithoutSamples])
@@ -6810,7 +6873,7 @@ class AnimalWithoutSamples(InfileError, SummarizableError):
 
     Summarized in `AnimalsWithoutSamples`.
 
-    DEV_SECTION - Everything above this delimiter is user-facing.  See docs/README.md
+    DEV_SECTION - Everything above this delimiter is user-facing.  See docs/operations/User_Docs_Deployment.md
 
     Args:
         animal (str): Name of an animal without samples.
@@ -6849,7 +6912,7 @@ class AnimalsWithoutSerumSamples(Exception):
     Lists the names of animals (and the locations in the study doc in which they can be found) that have no serum
     samples, explains why they're important, and suggests how to resolve the issue.
 
-    DEV_SECTION - Everything above this delimiter is user-facing.  See docs/README.md
+    DEV_SECTION - Everything above this delimiter is user-facing.  See docs/operations/User_Docs_Deployment.md
 
     Args:
         exceptions (List[AnimalWithoutSerumSamples])
@@ -6919,7 +6982,7 @@ class AnimalWithoutSerumSamples(InfileError, SummarizableError):
 
     Summarized in `AnimalsWithoutSerumSamples`.
 
-    DEV_SECTION - Everything above this delimiter is user-facing.  See docs/README.md
+    DEV_SECTION - Everything above this delimiter is user-facing.  See docs/operations/User_Docs_Deployment.md
 
     Args:
         animal (str): Name of an animal without serum samples.

@@ -65,206 +65,206 @@
 
         <thead>
             <tr>
-                <th data-valign="top" class="idgrp" data-visible="{% get_template_cookie selfmt 'Animal-data-visible' 'false' %}" data-field="Animal">
-                    {% with "Animal" as colhead %}
+                {% with colhead="Animal" collabel="Animal" %}
+                    <th data-valign="top" class="idgrp" data-visible="{% get_template_cookie selfmt 'Animal-data-visible' 'false' %}" data-field="Animal" data-switchable-label="{{ collabel }}">
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="peak_group__msrun_sample__sample__animal__name">{{ colhead }}</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
-                <th data-valign="top" class="idgrp" data-visible="{% get_template_cookie selfmt 'Sample-data-visible' 'true' %}" data-field="Sample" data-switchable="false">
-                    {% with "Sample" as colhead %}
+                    </th>
+                {% endwith %}
+                {% with colhead="Sample" collabel="Sample" %}
+                    <th data-valign="top" class="idgrp" data-visible="{% get_template_cookie selfmt 'Sample-data-visible' 'true' %}" data-field="Sample" data-switchable="false" data-switchable-label="{{ collabel }}">
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="peak_group__msrun_sample__sample__name">{{ colhead }}</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
-                <th data-valign="top" class="idgrp" data-visible="{% get_template_cookie selfmt 'Tissue-data-visible' 'true' %}" data-field="Tissue">
-                    {% with "Tissue" as colhead %}
+                    </th>
+                {% endwith %}
+                {% with colhead="Tissue" collabel="Tissue" %}
+                    <th data-valign="top" class="idgrp" data-visible="{% get_template_cookie selfmt 'Tissue-data-visible' 'true' %}" data-field="Tissue" data-switchable-label="{{ collabel }}">
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="peak_group__msrun_sample__sample__tissue__name">{{ colhead }}</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
-                <th data-valign="top" class="idgrp" data-visible="{% get_template_cookie selfmt 'Time_Collected-data-visible' 'false' %}" data-field="Time_Collected">
-                    {% with "Time<br>Collected<br>(m)" as colhead %}
+                    </th>
+                {% endwith %}
+                {% with colhead="Time<br>Collected<br>(m)" collabel="Time Collected (m)" %}
+                    <th data-valign="top" class="idgrp" data-visible="{% get_template_cookie selfmt 'Time_Collected-data-visible' 'false' %}" data-field="Time_Collected" data-switchable-label="{{ collabel }}">
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="peak_group__msrun_sample__sample__time_collected">{{ colhead }}</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
-                <th data-valign="top" class="idgrp" data-visible="{% get_template_cookie selfmt 'Peak_Group-data-visible' 'false' %}" data-field="Peak_Group">
-                    {% with "Peak Group" as colhead %}
+                    </th>
+                {% endwith %}
+                {% with colhead="Peak Group" collabel="Peak Group" %}
+                    <th data-valign="top" class="idgrp" data-visible="{% get_template_cookie selfmt 'Peak_Group-data-visible' 'false' %}" data-field="Peak_Group" data-switchable-label="{{ collabel }}">
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="peak_group__name">{{ colhead }}</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
-                <th data-valign="top" class="idgrp" data-visible="{% get_template_cookie selfmt 'Measured_Compounds-data-visible' 'true' %}" data-field="Measured_Compounds">
-                    {% with "Measured<br>Compound(s)" as colhead %}
+                    </th>
+                {% endwith %}
+                {% with colhead="Measured<br>Compound(s)" collabel="Measured Compound(s)" %}
+                    <th data-valign="top" class="idgrp" data-visible="{% get_template_cookie selfmt 'Measured_Compounds-data-visible' 'true' %}" data-field="Measured_Compounds" data-switchable-label="{{ collabel }}">
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="peak_group__compounds__name">{{ colhead }}</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
-                <th data-valign="top" class="idgrp" data-visible="{% get_template_cookie selfmt 'Measured_Compound_Synonyms-data-visible' 'false' %}" data-field="Measured_Compound_Synonyms">
-                    {% with "Measured<br>Compound<br>Synonym(s)" as colhead %}
+                    </th>
+                {% endwith %}
+                {% with colhead="Measured<br>Compound<br>Synonym(s)" collabel="Measured Compound Synonym(s)" %}
+                    <th data-valign="top" class="idgrp" data-visible="{% get_template_cookie selfmt 'Measured_Compound_Synonyms-data-visible' 'false' %}" data-field="Measured_Compound_Synonyms" data-switchable-label="{{ collabel }}">
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="peak_group__compounds__synonyms__name">{{ colhead }}</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
-                <th data-valign="top" class="idgrp" data-visible="{% get_template_cookie selfmt 'Labeled_Element_Count-data-visible' 'true' %}" data-field="Labeled_Element_Count">
-                    {% with colhead1="Labeled<br>Element:<br>" colhead2="Count" %}
+                    </th>
+                {% endwith %}
+                {% with colhead1="Labeled<br>Element:<br>" colhead2="Count" collabel="Labeled Element:Count" %}
+                    <th data-valign="top" class="idgrp" data-visible="{% get_template_cookie selfmt 'Labeled_Element_Count-data-visible' 'true' %}" data-field="Labeled_Element_Count" data-switchable-label="{{ collabel }}">
                         {% if mode == "view" %}{{ colhead1 }}{{ colhead2 }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="labels__element">{{ colhead1 }}</div><div onclick="sortColumn(this)" class="sortable" id="labels__count">{{ colhead2 }}</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
-                <th data-valign="top" data-sortable="false" data-visible="{% get_template_cookie selfmt 'MZ_Filenames-data-visible' 'false' %}" data-field="MZ_Filenames" class="idgrp">
+                    </th>
+                {% endwith %}
+                <th data-valign="top" data-sortable="false" data-visible="{% get_template_cookie selfmt 'MZ_Filenames-data-visible' 'false' %}" data-field="MZ_Filenames" class="idgrp" data-switchable-label="MZ Data File(s)">
                     <!-- Cannot sort based on the mz files, because the MSRunSample table is traversed twice to get all
                     neighbors, and since django requires sort fields to be made distinct, sorting would cause multiple
                     duplicate rows. -->
                     MZ Data File(s)
                 </th>
-                <th data-valign="top" class="idgrp" data-visible="{% get_template_cookie selfmt 'Peak_Group_Set_Filename-data-visible' 'false' %}" data-field="Peak_Group_Set_Filename">
-                    {% with "Peak Annotation Filename" as colhead %}
+                {% with colhead="Peak Annotation Filename" collabel="Peak Annotation Filename" %}
+                    <th data-valign="top" class="idgrp" data-visible="{% get_template_cookie selfmt 'Peak_Group_Set_Filename-data-visible' 'false' %}" data-field="Peak_Group_Set_Filename" data-switchable-label="{{ collabel }}">
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="peak_group__peak_annotation_file__filename">{{ colhead }}</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
+                    </th>
+                {% endwith %}
 
-                <th data-valign="top" class="datagrp" data-visible="{% get_template_cookie selfmt 'Raw_Abundance-data-visible' 'false' %}" data-field="Raw_Abundance">
-                    {% with "Raw<br>Abundance" as colhead %}
+                {% with colhead="Raw<br>Abundance" collabel="Raw Abundance" %}
+                    <th data-valign="top" class="datagrp" data-visible="{% get_template_cookie selfmt 'Raw_Abundance-data-visible' 'false' %}" data-field="Raw_Abundance" data-switchable-label="{{ collabel }}">
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="raw_abundance">{{ colhead }}</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
-                <th data-valign="top" class="datagrp" data-visible="{% get_template_cookie selfmt 'Corrected_Abundance-data-visible' 'true' %}" data-field="Corrected_Abundance">
-                    {% with "Corrected<br>Abundance" as colhead %}
+                    </th>
+                {% endwith %}
+                {% with colhead="Corrected<br>Abundance" collabel="Corrected Abundance" %}
+                    <th data-valign="top" class="datagrp" data-visible="{% get_template_cookie selfmt 'Corrected_Abundance-data-visible' 'true' %}" data-field="Corrected_Abundance" data-switchable-label="{{ collabel }}">
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="corrected_abundance">{{ colhead }}</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
+                    </th>
+                {% endwith %}
                 <th data-valign="top" class="datagrp" data-visible="{% get_template_cookie selfmt 'Fraction-data-visible' 'true' %}" data-field="Fraction" data-switchable="false">
                     Fraction
                 </th>
-                <th data-valign="top" class="datagrp" data-visible="{% get_template_cookie selfmt 'Median_MZ-data-visible' 'false' %}" data-field="Median_MZ">
-                    {% with "Median<br>M/Z" as colhead %}
+                {% with colhead="Median<br>M/Z" collabel="Median M/Z" %}
+                    <th data-valign="top" class="datagrp" data-visible="{% get_template_cookie selfmt 'Median_MZ-data-visible' 'false' %}" data-field="Median_MZ" data-switchable-label="{{ collabel }}">
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="med_mz">{{ colhead }}</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
-                <th data-valign="top" class="datagrp" data-visible="{% get_template_cookie selfmt 'Median_RT-data-visible' 'false' %}" data-field="Median_RT">
-                    {% with "Median<br>RT" as colhead %}
+                    </th>
+                {% endwith %}
+                {% with colhead="Median<br>RT" collabel="Median RT" %}
+                    <th data-valign="top" class="datagrp" data-visible="{% get_template_cookie selfmt 'Median_RT-data-visible' 'false' %}" data-field="Median_RT" data-switchable-label="{{ collabel }}">
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="med_rt">{{ colhead }}</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
+                    </th>
+                {% endwith %}
 
-                <th data-valign="top" class="metagrp" data-visible="{% get_template_cookie selfmt 'Formula-data-visible' 'false' %}" data-field="Formula">
-                    {% with "Formula" as colhead %}
+                {% with colhead="Formula" collabel="Formula" %}
+                    <th data-valign="top" class="metagrp" data-visible="{% get_template_cookie selfmt 'Formula-data-visible' 'false' %}" data-field="Formula" data-switchable-label="{{ collabel }}">
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="peak_group__formula">{{ colhead }}</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
-                <th data-valign="top" class="metagrp" data-visible="{% get_template_cookie selfmt 'Genotype-data-visible' 'true' %}" data-field="Genotype">
-                    {% with "Genotype" as colhead %}
+                    </th>
+                {% endwith %}
+                {% with colhead="Genotype" collabel="Genotype" %}
+                    <th data-valign="top" class="metagrp" data-visible="{% get_template_cookie selfmt 'Genotype-data-visible' 'true' %}" data-field="Genotype" data-switchable-label="{{ collabel }}">
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="peak_group__msrun_sample__sample__animal__genotype">{{ colhead }}</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
-                <th data-valign="top" class="metagrp" data-visible="{% get_template_cookie selfmt 'Sex-data-visible' 'false' %}" data-field="Sex">
-                    {% with "Sex" as colhead %}
+                    </th>
+                {% endwith %}
+                {% with colhead="Sex" collabel="Sex" %}
+                    <th data-valign="top" class="metagrp" data-visible="{% get_template_cookie selfmt 'Sex-data-visible' 'false' %}" data-field="Sex" data-switchable-label="{{ collabel }}">
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="peak_group__msrun_sample__sample__animal__sex">{{ colhead }}</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
-                <th data-valign="top" class="metagrp" data-visible="{% get_template_cookie selfmt 'Age-data-visible' 'false' %}" data-field="Age">
-                    {% with "Age<br>(weeks)" as colhead %}
+                    </th>
+                {% endwith %}
+                {% with colhead="Age<br>(weeks)" collabel="Age (weeks)" %}
+                    <th data-valign="top" class="metagrp" data-visible="{% get_template_cookie selfmt 'Age-data-visible' 'false' %}" data-field="Age" data-switchable-label="{{ collabel }}">
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="peak_group__msrun_sample__sample__animal__age">{{ colhead }}</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
-                <th data-valign="top" class="metagrp" data-visible="{% get_template_cookie selfmt 'Body_Weight-data-visible' 'false' %}" data-field="Body_Weight">
-                    {% with "Body<br>Weight<br>(g)" as colhead %}
+                    </th>
+                {% endwith %}
+                {% with colhead="Body<br>Weight<br>(g)" collabel="Body Weight (g)" %}
+                    <th data-valign="top" class="metagrp" data-visible="{% get_template_cookie selfmt 'Body_Weight-data-visible' 'false' %}" data-field="Body_Weight" data-switchable-label="{{ collabel }}">
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="peak_group__msrun_sample__sample__animal__body_weight">{{ colhead }}</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
-                <th data-valign="top" class="metagrp" data-visible="{% get_template_cookie selfmt 'Feeding_Status-data-visible' 'true' %}" data-field="Feeding_Status">
-                    {% with "Feeding<br>Status" as colhead %}
+                    </th>
+                {% endwith %}
+                {% with colhead="Feeding<br>Status" collabel="Feeding Status" %}
+                    <th data-valign="top" class="metagrp" data-visible="{% get_template_cookie selfmt 'Feeding_Status-data-visible' 'true' %}" data-field="Feeding_Status" data-switchable-label="{{ collabel }}">
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="peak_group__msrun_sample__sample__animal__feeding_status">{{ colhead }}</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
-                <th data-valign="top" class="metagrp" data-visible="{% get_template_cookie selfmt 'Treatment-data-visible' 'true' %}" data-field="Treatment">
-                    {% with "Treatment" as colhead %}
+                    </th>
+                {% endwith %}
+                {% with colhead="Treatment" collabel="Treatment" %}
+                    <th data-valign="top" class="metagrp" data-visible="{% get_template_cookie selfmt 'Treatment-data-visible' 'true' %}" data-field="Treatment" data-switchable-label="{{ collabel }}">
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="peak_group__msrun_sample__sample__animal__treatment__name">{{ colhead }}</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
-                <th data-valign="top" class="metagrp" data-visible="{% get_template_cookie selfmt 'Diet-data-visible' 'false' %}" data-field="Diet">
-                    {% with "Diet" as colhead %}
+                    </th>
+                {% endwith %}
+                {% with colhead="Diet" collabel="Diet" %}
+                    <th data-valign="top" class="metagrp" data-visible="{% get_template_cookie selfmt 'Diet-data-visible' 'false' %}" data-field="Diet" data-switchable-label="{{ collabel }}">
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="peak_group__msrun_sample__sample__animal__diet">{{ colhead }}</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
-                <th data-valign="top" class="metagrp" data-visible="{% get_template_cookie selfmt 'Infusate-data-visible' 'true' %}" data-field="Infusate" data-switchable="false">
-                    {% with "Infusate" as colhead %}
+                    </th>
+                {% endwith %}
+                {% with colhead="Infusate" collabel="Infusate" %}
+                    <th data-valign="top" class="metagrp" data-visible="{% get_template_cookie selfmt 'Infusate-data-visible' 'true' %}" data-field="Infusate" data-switchable="false" data-switchable-label="{{ collabel }}">
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="peak_group__msrun_sample__sample__animal__infusate__name">{{ colhead }}</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
-                <th data-valign="top" class="metagrp" data-visible="{% get_template_cookie selfmt 'Tracers-data-visible' 'true' %}" data-field="Tracers">
-                    {% with "Tracer(s)" as colhead %}
+                    </th>
+                {% endwith %}
+                {% with colhead="Tracer(s)" collabel="Tracer(s)" %}
+                    <th data-valign="top" class="metagrp" data-visible="{% get_template_cookie selfmt 'Tracers-data-visible' 'true' %}" data-field="Tracers" data-switchable-label="{{ collabel }}">
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="peak_group__msrun_sample__sample__animal__infusate__tracer_links__tracer__name">{{ colhead }}</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
-                <th data-valign="top" class="metagrp" data-visible="{% get_template_cookie selfmt 'TracerCompounds-data-visible' 'true' %}" data-field="TracerCompounds">
-                    {% with "Tracer<br>Compound(s)" as colhead %}
+                    </th>
+                {% endwith %}
+                {% with colhead="Tracer<br>Compound(s)" collabel="Tracer Compound(s)" %}
+                    <th data-valign="top" class="metagrp" data-visible="{% get_template_cookie selfmt 'TracerCompounds-data-visible' 'true' %}" data-field="TracerCompounds" data-switchable-label="{{ collabel }}">
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="peak_group__msrun_sample__sample__animal__infusate__tracer_links__tracer__compound__name">{{ colhead }}</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
-                <th data-valign="top" class="metagrp" data-visible="{% get_template_cookie selfmt 'TracerConcentrations-data-visible' 'true' %}" data-field="Tracer_Concentrations">
-                    {% with "Tracer<br>Concentration(s)<br>(mM)" as colhead %}
+                    </th>
+                {% endwith %}
+                {% with colhead="Tracer<br>Concentration(s)<br>(mM)" collabel="Tracer Concentration(s) (mM)" %}
+                    <th data-valign="top" class="metagrp" data-visible="{% get_template_cookie selfmt 'TracerConcentrations-data-visible' 'true' %}" data-field="Tracer_Concentrations" data-switchable-label="{{ collabel }}">
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="peak_group__msrun_sample__sample__animal__infusate__tracer_links__concentration">{{ colhead }}</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
-                <th data-valign="top" class="metagrp" data-visible="{% get_template_cookie selfmt 'Infusion_Rate-data-visible' 'false' %}" data-field="Infusion_Rate">
-                    {% with "Infusion<br>Rate<br>(ul/min/g)" as colhead %}
+                    </th>
+                {% endwith %}
+                {% with colhead="Infusion<br>Rate<br>(ul/min/g)" collabel="Infusion Rate (ul/min/g)" %}
+                    <th data-valign="top" class="metagrp" data-visible="{% get_template_cookie selfmt 'Infusion_Rate-data-visible' 'false' %}" data-field="Infusion_Rate" data-switchable-label="{{ collabel }}">
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="peak_group__msrun_sample__sample__animal__infusion_rate">{{ colhead }}</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
-                <th data-valign="top" class="metagrp" data-visible="{% get_template_cookie selfmt 'Study-data-visible' 'true' %}" data-field="Study">
-                    {% with "Studies" as colhead %}
+                    </th>
+                {% endwith %}
+                {% with colhead="Studies" collabel="Studies" %}
+                    <th data-valign="top" class="metagrp" data-visible="{% get_template_cookie selfmt 'Study-data-visible' 'true' %}" data-field="Study" data-switchable-label="{{ collabel }}">
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="peak_group__msrun_sample__sample__animal__studies__name">{{ colhead }}</div>
                         {% endif %}
-                    {% endwith %}
-                </th>
+                    </th>
+                {% endwith %}
             </tr>
         </thead>
 

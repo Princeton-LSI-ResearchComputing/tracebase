@@ -26,9 +26,9 @@ This document is written for system administrators and software developers.
   - A mount for the archive whose size corresponds to the lab's current rate of mzXML raw file accumulation is advised.
 - Software Requirements:
   - Operating system: RHEL version `9`
-  - Database: PostgreSQL version `13`
+  - Database: PostgreSQL version `15`
   - Web server: Apache version `2.4.62`
-  - Language: [Python version `3.10`](https://www.python.org/downloads/)
+  - Language: [Python version `3.11`](https://www.python.org/downloads/)
   - Package manager: pip version `25.3`
 
 ## Installation
@@ -40,10 +40,10 @@ Create a `tracebase` user account that belongs to a `tracebase` group that we wi
 
 ### Environment Setup
 
-Ensure you are using Python 3.10, e.g.:
+Ensure you are using Python 3.11, e.g.:
 
     python3 --version
-    # Python 3.10.11
+    # Python 3.11.9
 
 Create a virtual environment (from a Bash shell) in `/usr/local` and activate it, for example:
 
@@ -135,7 +135,7 @@ Create a tracebase postgres user:
     > ALTER USER tracebase CREATEDB;
     > grant all privileges on database tracebase to tracebase;
 
-See **TraceBase Setup** below for adding these `tracebase` user credentials to the `TraceBase/.env` file.
+See **TraceBase Setup** below for adding these `tracebase` user credentials to the `.env` file.
 
 ### TraceBase Setup
 
@@ -147,13 +147,13 @@ Ensure you are the `tracebase` user, the environment is activated, and that you 
 
 Create a TraceBase environment file using the example file in the repository:
 
-    cp TraceBase/.env.example TraceBase/.env
+    cp .env.example .env
 
-Create a secret token for secure API access.  This will be saved in the `TraceBase/.env` file.
+Create a secret token for secure API access.  This will be saved in the `.env` file.
 
     python -c "import secrets; print(secrets.token_urlsafe())"
 
-Update the `TraceBase/.env` file to:
+Update the `.env` file to:
 
 - Add the new `SECRET_KEY` that was just generated above.
 - Add the `tracebase` user database credentials you used in the **Postgres Setup** section.
@@ -200,7 +200,7 @@ TraceBase has a single `static` directory, containing:
 - favicon.ico
 
 It also serves files from the administrator-selected archive location, which should be set up outside the `tracebase`
-code repository directory and configured with the `ARCHIVE` variable in the `TraceBase/.env` file.
+code repository directory and configured with the `ARCHIVE` variable in the `.env` file.
 
 The webserver needs to be set up to allow file access to both directories.
 
@@ -238,7 +238,7 @@ The following is an example `/etc/httpd/conf.d/tracebase.conf` file:
         <Directory /var/www/tracebase/static>
             Require all granted
         </Directory>
-        # Set TraceBase/.env: MEDIA_ROOT=/tracebase_files
+        # Set .env: MEDIA_ROOT=/tracebase_files
         Alias /files /tracebase_files
         <Directory /tracebase_files>
             Require all granted
@@ -246,14 +246,17 @@ The following is an example `/etc/httpd/conf.d/tracebase.conf` file:
         </Directory>
     </VirtualHost>
 
-Note that it:
+Note:
 
-- Creates an alias for the archive, which should be independent of any other tracebase instances (if you intend to run a
-  public instance for sharing data).
-  - Be sure that the MEDIA_ROOT variable in `/var/www/tracebase/TraceBase/.env` matches the alias.
-- Creates an `alias` to match the `/var/www/tracebase/static` directory.
-- Sets the gateway timeout to match what's in the `TraceBase/.env` file.  This allows the software to end gracefully if
+- This creates an alias for the archive, which should be independent of any other tracebase instances (if you intend to
+  run a public instance for sharing data).
+  - Be sure that the ARCHIVE_DIR variable in `/var/www/tracebase/.env` matches the alias.
+- This creates an `alias` to match the `/var/www/tracebase/static` directory.
+- This sets the gateway timeout to match what's in the `.env` file.  This allows the software to end gracefully if
   submission processing takes too long.
+- If you want to set up a development server using apache/nginx, `DJANGO_SETTINGS_MODULE` must be set as a system
+  environment variable to "`TraceBase.settings.dev`", but this only works if all virtual hosts on that machine use this
+  same setting.  Using `SetEnv` in the virtual host settings will not work.
 
 ## Authorization and Security
 
@@ -264,8 +267,7 @@ Note that it:
 TraceBase does not provide differential public versus private access.  To "publish" any study data, a separate public
 instance of TraceBase must be created that must be separately loaded with the studies that have been selected to be
 "public"/published.  To create a public instance, follow these installation instructions, but do not apply any
-authentication mechanism.  It is also recommended that you set the `READONLY` environment variable in `TraceBase/.env`
-to `True`.
+authentication mechanism.  It is also recommended that you set the `READONLY` environment variable in `.env` to True.
 
 NOTE: Retain copies of submitted study docs and all associated data for this purpose.
 
@@ -292,7 +294,7 @@ You can create multiple admin users, each with this command, which will prompt f
 Verify the installation by checking the Django version:
 
     python3 -m django --version
-    4.2.29
+    5.2.15
 
 You can check your environment to ensure it is set up securely using the following command:
 
@@ -300,7 +302,7 @@ You can check your environment to ensure it is set up securely using the followi
 
 Running the test suite will verify everything is installed correctly.  Note, this can take up to 20 minutes:
 
-    python manage.py test
+    python manage.py test --settings=TraceBase.settings.test
 
 ### Backups
 
@@ -320,7 +322,7 @@ regularly.
 
         mv tracebase tracebase-old
         tar -zxvf tracebase-vX.X.X.tar.gz
-        cp tracebase-old/TraceBase/.env tracebase/TraceBase/
+        cp tracebase-old/.env tracebase/
 
 3. Update the virtual environment.
 
@@ -331,10 +333,10 @@ regularly.
 
         python manage.py migrate
 
-5. Update for new or deleted environment variables in `TraceBase/.env` by comparing it with `TraceBase/.env.example`.
+5. Update for new or deleted environment variables in `.env` by comparing it with `.env.example`.
 
-        diff --side-by-side TraceBase/.env TraceBase/.env.example
-        vi TraceBase/.env
+        diff --side-by-side .env .env.example
+        vi .env
 
 8. Check the deployment for security issues.
 

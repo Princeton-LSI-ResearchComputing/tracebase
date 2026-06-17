@@ -60,7 +60,7 @@ jobs:
           # pylint-django has a new way to be installed
           PYTHON_PYLINT_CONFIG_FILE: .pylintrc
           PYTHON_LINT_REQUIREMENTS_FILE: .github/linters/python-lint-requirements.txt
-          DJANGO_SETTINGS_MODULE: TraceBase.settings
+          DJANGO_SETTINGS_MODULE: TraceBase.settings.dev
 
           # The new version of JSCPD checks between files and there is no way to disable it alone
           VALIDATE_JSCPD: false

@@ -22,7 +22,11 @@ from DataRepo.models import (
     Tissue,
 )
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
-from DataRepo.utils.exceptions import AggregatedErrorsSet, InfileError
+from DataRepo.utils.exceptions import (
+    AggregatedErrorsSet,
+    InfileError,
+    MultipleMatchingPeakAnnotationFiles,
+)
 from DataRepo.utils.file_utils import read_from_file
 from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
 
@@ -450,3 +454,119 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
             },
             dtsd,
         )
+
+    def test_find_annot_file_success_when_multiple(self):
+        """This tests that when there are multiple files with the same name, but one was fully specified, there is no
+        error and that file is returned."""
+        pafl = PeakAnnotationFilesLoader(
+            file="DataRepo/data/tests/small_obob/study.xlsx"
+        )
+        exp_file = "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_serum/small_obob_maven_6eaas_serum.xlsx"
+        file = pafl.find_annot_file(exp_file, "DataRepo/data/tests/small_obob")
+        self.assertEqual(exp_file, file)
+        self.assertEqual(0, len(pafl.aggregated_errors_object.exceptions))
+
+    def test_find_annot_file_success_found_no_path(self):
+        # NOTE: The study doc supplied here doesn't exist, but that doesn't matter because we're not testing the load.
+        # I only selected that study dir because it had multiple files with the same name under it, and that's the only
+        # test data dir that does.
+        pafl = PeakAnnotationFilesLoader(
+            file="DataRepo/data/tests/multiple_representations/study.xlsx"
+        )
+        exp_file = "DataRepo/data/tests/multiple_representations/resolution_handling/negative_cor.xlsx"
+        file = pafl.find_annot_file(
+            "negative_cor.xlsx", "DataRepo/data/tests/multiple_representations"
+        )
+        self.assertEqual(exp_file, file)
+        self.assertEqual(0, len(pafl.aggregated_errors_object.exceptions))
+
+    def test_find_annot_file_success_found_bad_path(self):
+        # NOTE: The study doc supplied here doesn't exist, but that doesn't matter because we're not testing the load.
+        # I only selected that study dir because it had multiple files with the same name under it, and that's the only
+        # test data dir that does.
+        pafl = PeakAnnotationFilesLoader(
+            file="DataRepo/data/tests/multiple_representations/study.xlsx"
+        )
+        exp_file = "DataRepo/data/tests/multiple_representations/resolution_handling/negative_cor.xlsx"
+        file = pafl.find_annot_file(
+            "bad/path/negative_cor.xlsx", "DataRepo/data/tests/multiple_representations"
+        )
+        self.assertEqual(exp_file, file)
+        self.assertEqual(1, len(pafl.aggregated_errors_object.exceptions))
+        self.assertIsInstance(pafl.aggregated_errors_object.exceptions[0], InfileError)
+        self.assertEqual(1, pafl.aggregated_errors_object.num_warnings)
+        self.assertIn(
+            "filepath supplied 'bad/path/negative_cor.xlsx' was incorrect",
+            str(pafl.aggregated_errors_object.exceptions[0]),
+        )
+        self.assertIn(
+            "a file matching this filename was found in the study directory",
+            str(pafl.aggregated_errors_object.exceptions[0]),
+        )
+
+    def test_find_annot_file_not_found(self):
+        """This test asserts that the supplied file (with optional path) is returned as-is without error.
+
+        When a file is not found, the supplied file (with optional path) is returned as-is and the caller handles the
+        fact that the file does not exist.  This is because the validate page has no access to the study directory and
+        an error would make no sense in that context.  When an actual load occurs, a FileFromInputNotFound error will be
+        issued.
+        """
+        # NOTE: The study doc supplied here doesn't exist, but that doesn't matter because we're not testing the load.
+        # I only selected that study dir because it had multiple files with the same name under it, and that's the only
+        # test data dir that does.
+        pafl = PeakAnnotationFilesLoader(
+            file="DataRepo/data/tests/multiple_representations/study.xlsx"
+        )
+        exp_file = "doesnotexist.xlsx"
+        file = pafl.find_annot_file(
+            exp_file, "DataRepo/data/tests/multiple_representations"
+        )
+        self.assertEqual(exp_file, file)
+        self.assertEqual(0, len(pafl.aggregated_errors_object.exceptions))
+
+    def test_find_annot_file_multiple_found(self):
+        """This ensures that the original supplied file (without a path) is returned and a warning is buffered.  Note
+        that the surrounding code will issue a FileFromInputNotFound error (which is why this is a warning, because
+        otherwise, it would be fully redundant).  This was a change made to accommodate a review issue about using a
+        single return type."""
+        pafl = PeakAnnotationFilesLoader(
+            file="DataRepo/data/tests/small_obob/study.xlsx"
+        )
+        filename = "small_obob_maven_6eaas_serum.xlsx"
+        file = pafl.find_annot_file(filename, "DataRepo/data/tests/small_obob")
+        self.assertEqual(filename, file)
+        self.assertEqual(1, len(pafl.aggregated_errors_object.exceptions))
+        self.assertEqual(1, pafl.aggregated_errors_object.num_warnings)
+        self.assertIsInstance(
+            pafl.aggregated_errors_object.exceptions[0],
+            MultipleMatchingPeakAnnotationFiles,
+        )
+
+    def test_map_peak_annot_files(self):
+        pafl = PeakAnnotationFilesLoader(
+            file="DataRepo/data/tests/submission_v3/study.xlsx"
+        )
+        expected = {
+            "study_no_defs.xlsx": [
+                "DataRepo/data/tests/submission_v3/study_no_defs.xlsx"
+            ],
+            "lcprotocols.tsv": ["DataRepo/data/tests/submission_v3/lcprotocols.tsv"],
+            "study_with_autofill_seeds.xlsx": [
+                "DataRepo/data/tests/submission_v3/study_with_autofill_seeds.xlsx"
+            ],
+            "sequences.tsv": ["DataRepo/data/tests/submission_v3/sequences.tsv"],
+            "defaults.tsv": ["DataRepo/data/tests/submission_v3/defaults.tsv"],
+            "study.xlsx": [
+                "DataRepo/data/tests/submission_v3/study.xlsx",
+                "DataRepo/data/tests/submission_v3/multitracer_v3/study.xlsx",
+            ],
+            "alaglu_cor.xlsx": [
+                "DataRepo/data/tests/submission_v3/multitracer_v3/alaglu_cor.xlsx"
+            ],
+            "study_missing_data.xlsx": [
+                "DataRepo/data/tests/submission_v3/multitracer_v3/study_missing_data.xlsx"
+            ],
+        }
+        ptntl_annot_fls = pafl.map_potential_peak_annot_files()
+        self.assertEqual(expected, ptntl_annot_fls)

@@ -9,33 +9,33 @@ developing/contributing.
 
 #### Python
 
-TraceBase has been tested with Python 3.7 through 3.10.  TraceBase may work with later Python versions, but currently
+TraceBase has been tested with Python 3.7 through 3.11.  TraceBase may work with later Python versions, but currently
 there are dependency issues with Python 3.14.
 
-Install a Python version that is 3.9.1 or greater (3.10 is the current recommendation) from:
+Install a Python version that is 3.9.1 or greater (3.11 is the current recommendation) from:
 
     https://www.python.org/downloads/
 
 Make sure that version of python is in your path:
 
     $ python --version
-    Python 3.10.11
+    Python 3.11.9
 
 Test to make sure that the `python` command now shows your latest python install:
 
     $ python --version
-    Python 3.10.11
+    Python 3.11.9
 
 #### Postgres
 
 Install Postgres via package installer from [https://www.postgresql.org](https://www.postgresql.org).  Be sure to make
 note of where it installs the `psql` command-line utility, so you can add it to your PATH, e.g. if you see:
 
-    Command Line Tools Installation Directory: /Library/PostgreSQL/13
+    Command Line Tools Installation Directory: /Library/PostgreSQL/15
 
 Then, add this to your PATH:
 
-    /Library/PostgreSQL/13/bin
+    /Library/PostgreSQL/15/bin
 
 Configuration:
 
@@ -87,7 +87,7 @@ Install Django and psycopg2 dependencies as well as linters and other developmen
 Django:
 
     python3 -m django --version
-    4.2.29
+    5.2.15
 
 ### Configure TraceBase
 
@@ -102,7 +102,7 @@ is pre- configured to be ignored by the repository, so do not explicitly check i
 
 Copy the TraceBase environment example:
 
-    cp TraceBase/.env.example TraceBase/.env
+    cp .env.example .env
 
 Update the .env file to reflect the new secret key and the database credentials you used when setting up Postgres.
 
@@ -260,7 +260,7 @@ All pull requests must pass new and all previous continuous integration tests,
 all JavaScript tests, and pass a migration check before merging.  Run the
 following locally before submitting a pull request:
 
-    python manage.py test
+    python manage.py test --settings=TraceBase.settings.test
     python manage.py makemigrations --check --dry-run
     python -m http.server
 
@@ -316,7 +316,7 @@ using a custom test runner `Tracebase/runner.py`. The test runner changes the
 temporary location on local file storage.
 
 Per the
-[`FileField.delete()`](https://docs.djangoproject.com/en/4.2/ref/models/fields/#django.db.models.fields.files.FieldFile.delete)
+[`FileField.delete()`](https://docs.djangoproject.com/en/5.2/ref/models/fields/#django.db.models.fields.files.FieldFile.delete)
 documentation, when a model is deleted, related files are not deleted. If you
 need to cleanup orphaned files, you’ll need to handle it yourself (for
 instance, with a custom management command that can be run manually or
@@ -325,4 +325,4 @@ orphaned files in `MEDIA_ROOT` #718](https://github.com/Princeton-LSI-ResearchCo
 
 ## Development
 
-For tips on navigating and adding to the TraceBase codebase, see `docs/contributor/Development_Notes.md`.
+For tips on navigating and adding to the TraceBase codebase, see `docs/dev/Development_Notes.md`.

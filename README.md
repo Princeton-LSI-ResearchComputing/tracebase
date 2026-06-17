@@ -13,7 +13,7 @@ simple to browse, collate, compare, and download the data.
 
 - `DataRepo` - Django App Folder for the TraceBase Database Interface: This is the main application package.
 - `TraceBase` - Django Project Folder: Contains core configuration files.
-- `docs` - Documentation by user type.
+- `docs` - Documentation by topic.
 - `requirements` - Python dependencies by deployment type.
 - `static` - Media and JavaScript files.
 - `.github` - GitHub settings.
@@ -26,7 +26,7 @@ See `INSTALL.md`.
 
 In brief, the main test package can be run using:
 
-    python manage.py test
+    python manage.py test --settings=TraceBase.settings.test
 
 For detailed and comprehensive testing instructions and verification, see:
 
@@ -37,13 +37,13 @@ For detailed and comprehensive testing instructions and verification, see:
 
 - Using the site.
   - See our [online user guide](https://princeton-lsi-researchcomputing.github.io/tracebase/).
-  - Mirrored in `/docs/user/`.
+  - Mirrored in `/docs/user_guide/`.
 - Loading Study data.
-  - See `docs/curator/Loading.md`.
+  - See `docs/operations/Loading.md`.
 
 ## Contributing
 
-See `CONTRIBUTING.md`.  Helpful tips can be found in `docs/contributor/Development_Notes.md`.
+See `CONTRIBUTING.md`.  Helpful tips can be found in `docs/dev/Development_Notes.md`.
 
 ## License
 

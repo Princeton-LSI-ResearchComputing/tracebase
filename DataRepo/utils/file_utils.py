@@ -2,14 +2,18 @@ import datetime
 import os
 import pathlib
 from collections import defaultdict
-from typing import Optional
+from typing import Optional, Union
+from warnings import warn
 from zipfile import BadZipFile
 
 import pandas as pd
 import yaml
 from dateutil.parser import ParserError as DateParserError
 from dateutil.parser import parse as parsedate
-from django.core.files.uploadedfile import TemporaryUploadedFile
+from django.core.files.uploadedfile import (
+    InMemoryUploadedFile,
+    TemporaryUploadedFile,
+)
 from django.core.management import CommandError
 from openpyxl.utils.exceptions import InvalidFileException
 
@@ -170,6 +174,8 @@ def _get_file_type(filepath, filetype=None):
 
     if isinstance(filepath, TemporaryUploadedFile):
         filepath = filepath.temporary_file_path()
+    elif isinstance(filepath, InMemoryUploadedFile):
+        filepath = filepath.name
 
     if filetype is None:
         ext = pathlib.Path(filepath).suffix.strip(".")
@@ -699,3 +705,57 @@ def get_real_path(input_path: str, real_dir: Optional[str]):
         real_path = input_path
 
     return real_path
+
+
+def ensure_temporary_uploaded_file(
+    uploaded_file: Optional[Union[TemporaryUploadedFile, InMemoryUploadedFile]],
+):
+    """Takes an uploaded file object and returns a TemporaryUploadedFile object (or None, if the uploaded file was None)
+
+    NOTE: Temporary files are forced due to pandas and openpyxl not being able to handle these objects.  This method is
+    a fallback in case this setting forcing temporary files from TraceBase/settings/base.py gets inadvertently removed:
+
+    FILE_UPLOAD_HANDLERS = ["django.core.files.uploadhandler.TemporaryFileUploadHandler"]
+
+    While pandas functions could take a file-like object, that could be created from each object, openpyxl expects a
+    true local file path as input.  The code base thus forces a TemporaryFileUploadHandler and obtains the file path
+    from that object where needed.
+
+    Usage:
+        # Do this whenever you get an uploaded file from a form submission
+        tmp_file_obj = ensure_temporary_uploaded_file(form.get("file_form_field"))
+        if tmp_file_obj:
+            filepath = tmp_file_obj.temporary_file_path()
+    Args:
+        uploaded_file (Optional[Union[TemporaryUploadedFile, InMemoryUploadedFile]])
+    Exceptions:
+        TypeError
+    Returns:
+        (Optional[TemporaryUploadedFile])
+    """
+    if not uploaded_file or isinstance(uploaded_file, TemporaryUploadedFile):
+        return uploaded_file
+
+    if isinstance(uploaded_file, InMemoryUploadedFile):
+        warn(
+            f'It appears that uploaded file "{uploaded_file.name}" is an InMemoryUploadedFile.  Fallbacking back to '
+            "conversion to a TemporaryUploadedFile object.  Please ensure this is in the project settings: "
+            'FILE_UPLOAD_HANDLERS = ["django.core.files.uploadhandler.TemporaryFileUploadHandler"].'
+        )
+
+        tmp = TemporaryUploadedFile(
+            name=uploaded_file.name,
+            content_type=uploaded_file.content_type,
+            size=uploaded_file.size,
+            charset=uploaded_file.charset,
+        )
+
+        for chunk in uploaded_file.chunks():
+            tmp.write(chunk)
+
+        tmp.flush()
+        tmp.seek(0)
+
+        return tmp
+
+    raise TypeError(f"Unsupported upload type: {type(uploaded_file).__name__}")
