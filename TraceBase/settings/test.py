@@ -12,7 +12,7 @@ INSTALLED_APPS.extend(
 
 # NOTE: TEST_MEDIA_ROOT is used in DataRepo/tests/tracebase_test_case.py
 TEST_MEDIA_ROOT = env.str(
-    "TEST_ARCHIVE_DIR", default=os.path.join(BASE_DIR, "archive_test")
+    "TEST_MEDIA_ROOT", default=os.path.join(BASE_DIR, "tracebase_files_test")
 )
 
 DEFAULT_STORAGES = deepcopy(STORAGES)

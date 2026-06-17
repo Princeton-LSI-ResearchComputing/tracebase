@@ -175,8 +175,16 @@ STATIC_URL = "static/"
 STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
 
 # File storage location
-MEDIA_URL = "/archive/"
-MEDIA_ROOT = env.str("ARCHIVE_DIR", default=os.path.join(BASE_DIR, "archive"))
+MEDIA_URL = "/files/"
+
+# OLD_MEDIA_ROOT is for backwards compatibility
+OLD_MEDIA_ROOT = env.str(
+    "ARCHIVE_DIR", default=os.path.join(BASE_DIR, "tracebase_files")
+)
+MEDIA_ROOT = env.str("MEDIA_ROOT", default=OLD_MEDIA_ROOT)
+
+ARCHIVE_DIR = os.path.join(MEDIA_ROOT, "archive_files")
+DOWNLOADS_DIR = os.path.join(MEDIA_ROOT, "download_files")
 
 STORAGES = {
     # Django defaults:
