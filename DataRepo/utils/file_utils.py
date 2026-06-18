@@ -1,15 +1,9 @@
 import datetime
-<<<<<<< HEAD
 import os
 from collections import defaultdict
 from pathlib import Path
 from typing import Optional, Union
 from warnings import warn
-=======
-from collections import defaultdict
-from pathlib import Path
-from typing import Optional
->>>>>>> Updates to make the scripts be able to handle downloads for studies not on the current host.
 from zipfile import BadZipFile
 
 import pandas as pd
