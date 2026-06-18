@@ -179,7 +179,7 @@ class ExportStudiesTests(ExportStudiesTestBase):
                     )
                     for pth in Path(
                         os.path.join(self.tmpdir, "mzxml_study_all_types")
-                    ).rglob("*/")
+                    ).rglob("*")
                 ]
             ),
         )
