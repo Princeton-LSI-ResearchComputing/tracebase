@@ -184,7 +184,7 @@ class ExportStudiesTests(ExportStudiesTestBase):
                     )
                     for p in Path(
                         os.path.join(self.tmpdir, "mzxml_study_all_types")
-                    ).rglob("*/*/")
+                    ).rglob("*/*")
                 ]
             ),
         )
