@@ -1,10 +1,10 @@
 from django.views.generic import DetailView
 
 from DataRepo.models import PeakGroup
-from DataRepo.views.models.bst.query import BSTListView
+from DataRepo.views.models.bst.export import BSTExportedListView
 
 
-class PeakGroupListView(BSTListView):
+class PeakGroupListView(BSTExportedListView):
     model = PeakGroup
     exclude = ["id", "peak_data", "msrun_sample"]
     column_settings = {

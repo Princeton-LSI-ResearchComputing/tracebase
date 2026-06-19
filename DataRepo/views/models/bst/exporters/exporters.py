@@ -65,6 +65,7 @@ class BSTExportView(View, ABC):
             name (str): A format name, e.g. 'CSV', unique to that derived class, E.g. 'TSV'.
             buffer_class (Type[Union[StringIO, BytesIO]]): An IO buffer class for the downloaded file, E.g. BytesIO.
             extension (str): A file extension for the downloaded file, E.g. 'tsv'.
+            view_name (str): The name of the view, used to resolve the URL and set in urls.py as the 'name' argument.
         Regular:
             download_header_template_name (str): The template file path relative to the templates folder.
             download_header_template (_BaseTemplate): The template object from Django.
@@ -95,6 +96,7 @@ class BSTExportView(View, ABC):
         _MISSING,
     )
     extension: ClassVar[str] = cast(str, _MISSING)  # E.g. 'tsv'
+    view_name: ClassVar[str] = cast(str, _MISSING)  # E.g. 'tsv_list_export'
 
     def __init__(self, **kwargs):
         View.__init__(self, **kwargs)
@@ -162,6 +164,14 @@ class BSTExportView(View, ABC):
             raise TypeError(
                 f"Class attribute 'extension' must be a '{str.__name__}', "
                 f"not '{type(cls.extension).__name__}'."
+            )
+
+        if cls.view_name is _MISSING:
+            raise TypeError(f"{cls.__name__} must define class attribute 'view_name'.")
+        if not isinstance(cls.view_name, str):
+            raise TypeError(
+                f"Class attribute 'view_name' must be a '{str.__name__}', "
+                f"not '{type(cls.view_name).__name__}'."
             )
 
     @abstractmethod
@@ -333,6 +343,8 @@ class BSTExportView(View, ABC):
             (HttpResponse): A download response containing the generated export file.
         """
         source_view: BSTExportedListView = self.get_source_view(request)
+        # Getting the queryset initializes the stats for the metadata header
+        source_view.get_queryset()
 
         self.init_export(source_view)
 
@@ -352,7 +364,7 @@ class BSTExportView(View, ABC):
             self.buffer.getvalue(),
             headers={
                 "Content-Type": self.content_type,
-                "Content-Disposition": f"attachment; filename='{self.export_file}'",
+                "Content-Disposition": f'attachment; filename="{self.export_file}"',
             },
         )
 
@@ -373,6 +385,7 @@ class BSTExportView(View, ABC):
 
             # 4. Create and set up the source view object
             source_view: BSTExportedListView = source_view_class()
+            source_view.request = request
             source_view.init_interface()
 
         except (NoReverseMatch, Resolver404, AttributeError) as oe:
@@ -404,7 +417,9 @@ class TextBSTExportView(BSTExportView, ABC):
     def buffer_file(self, source_view: BSTExportedListView, header_content: str):
         # TODO: This cast is a type hack.  Fix it.
         buffer = cast(StringIO, self.buffer)
-        writer: "_csv._writer" = csv.writer(buffer, delimiter=self.delim)
+        writer: "_csv._writer" = csv.writer(
+            buffer, delimiter=self.delim, lineterminator="\n"
+        )
 
         # Commented metadata header containing download date and info
         buffer.write(header_content)

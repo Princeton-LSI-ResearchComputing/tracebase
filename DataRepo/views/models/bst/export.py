@@ -65,7 +65,7 @@ class BSTExportedListView(BSTListView):
                 "name": name,
                 "url": (
                     # This is the URL path of the BSTExportView
-                    f"{reverse(cls.__name__)}"
+                    f"{reverse(cls.view_name)}"
                     # This is the source view needed by the exporter to execute the query
                     f"?source={self.request.resolver_match.view_name}"
                 ),

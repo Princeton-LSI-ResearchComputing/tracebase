@@ -2,10 +2,10 @@ from django.views.generic import DetailView
 
 from DataRepo.models import Compound, PeakGroup
 from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
-from DataRepo.views.models.bst.query import BSTListView
+from DataRepo.views.models.bst.export import BSTExportedListView
 
 
-class CompoundListView(BSTListView):
+class CompoundListView(BSTExportedListView):
     model = Compound
     exclude = ["id", "peak_groups", "tracers"]
     column_ordering = [
@@ -27,6 +27,17 @@ class CompoundListView(BSTListView):
         "synonyms_mm_count": {"visible": False},
         "animals_by_tracer": {"header": "Total Animals by Parent Tracer Compound"},
     }
+
+    def get_column_val(self, rec, col):
+        """Do not include fake HMDB IDs in the exported download files."""
+        # TODO: There is a plan to make the hmdb_id optional.  When that happens, and the fake IDs are made null, remove
+        # this method.
+        val = super().get_column_val(rec, col)
+
+        if col.name == "hmdb_id" and val is not None and str(val).startswith("Fake"):
+            return None
+
+        return val
 
 
 class CompoundDetailView(DetailView):

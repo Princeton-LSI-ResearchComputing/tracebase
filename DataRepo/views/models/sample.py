@@ -9,10 +9,10 @@ from DataRepo.models import (
     Researcher,
     Sample,
 )
-from DataRepo.views.models.bst.query import BSTListView
+from DataRepo.views.models.bst.export import BSTExportedListView
 
 
-class SampleListView(BSTListView):
+class SampleListView(BSTExportedListView):
     model = Sample
 
     # Column order

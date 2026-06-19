@@ -12,10 +12,11 @@ from django.db.models.aggregates import Count, Min
 from django.views.generic import DetailView
 
 from DataRepo.models import DATETIME_FORMAT, DBSTRING_FUNCTION, ArchiveFile
-from DataRepo.views.models.bst.query import BSTListView, QueryMode
+from DataRepo.views.models.bst.export import BSTExportedListView
+from DataRepo.views.models.bst.query import QueryMode
 
 
-class ArchiveFileListView(BSTListView):
+class ArchiveFileListView(BSTExportedListView):
     model = ArchiveFile
 
     # The subquery strategy is multiple orders of magnitude faster for this model, given the multiple M:M relationships

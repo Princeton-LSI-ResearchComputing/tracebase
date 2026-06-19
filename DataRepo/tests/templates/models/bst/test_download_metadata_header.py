@@ -22,6 +22,7 @@ class StudyBSTCSVExportView(BSTExportView):
     content_type = "text/csv"
     buffer_class = StringIO
     extension = "csv"
+    view_name = "tsv_exp_list_view"
 
     def buffer_file(self, source_view: BSTExportedListView, header_content: str):
         pass

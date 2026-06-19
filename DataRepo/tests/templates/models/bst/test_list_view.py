@@ -339,9 +339,9 @@ class BSTListViewTests(BaseTemplateTests):
         self.assert_substrings_in_order(expected_ordered_substrings, template_str)
 
     @patch("DataRepo.views.models.bst.export.reverse")
-    def test_bst_export_restrictions(self, mock_reverse: MagicMock):
+    def test_bst_export_interface(self, mock_reverse: MagicMock):
         """Test that the template removes the Bootstrap export types, the export types JSON, and adds export args to the
-        initBST call.
+        initBST call and the bootstrap table toolbar has an export button.
         See design and test list in: https://princeton-university.atlassian.net/wiki/x/GQAgH
         """
         mock_reverse.side_effect = lambda name: f"/url/{name}/"
@@ -354,6 +354,7 @@ class BSTListViewTests(BaseTemplateTests):
             content_type = "text/csv"
             buffer_class = StringIO
             extension = "csv"
+            view_name = "csv_exp_list_view"
 
             def buffer_file(
                 self, source_view: BSTExportedListView, header_content: str
@@ -365,6 +366,7 @@ class BSTListViewTests(BaseTemplateTests):
             content_type = "text/tsv"
             buffer_class = StringIO
             extension = "tsv"
+            view_name = "tsv_exp_list_view"
 
             def buffer_file(
                 self, source_view: BSTExportedListView, header_content: str
@@ -396,11 +398,11 @@ class BSTListViewTests(BaseTemplateTests):
         self.assertNotIn("data-export-data-type", template_str)
         self.assertIn('<script id="exportTypes" ', template_str)
         self.assertIn(
-            '[{"name": "CSV", "url": "/url/BSTCSVExportView/?source=test-view"}',
+            '[{"name": "CSV", "url": "/url/csv_exp_list_view/?source=test-view"},',
             template_str,
         )
         self.assertIn(
-            '{"name": "TSV", "url": "/url/BSTTSVExportView/?source=test-view"}]',
+            '{"name": "TSV", "url": "/url/tsv_exp_list_view/?source=test-view"}]',
             template_str,
         )
         self.assertIn("'True',", template_str)
