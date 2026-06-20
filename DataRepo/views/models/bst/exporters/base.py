@@ -1,27 +1,12 @@
 from __future__ import annotations
 
-import csv
-from abc import ABC, abstractmethod
+from abc import ABC
 from datetime import datetime
 from inspect import isabstract
-from io import BytesIO, StringIO
-from typing import (
-    TYPE_CHECKING,
-    ClassVar,
-    Dict,
-    Final,
-    List,
-    Optional,
-    Type,
-    Union,
-    cast,
-)
+from typing import TYPE_CHECKING, ClassVar, Dict, Optional, Type
 from warnings import warn
 
-import _csv
-import pandas as pd
 from django.db.models import Model
-from django.http import HttpResponse
 from django.template import loader
 from django.template.backends.django import Template
 from django.urls import NoReverseMatch, Resolver404, resolve, reverse
@@ -31,13 +16,6 @@ from DataRepo.utils.exceptions import DeveloperWarning
 
 if TYPE_CHECKING:
     from DataRepo.views.models.bst.export import BSTExportedListView
-
-
-class _Missing:
-    pass
-
-
-_MISSING: Final = _Missing
 
 
 class BSTExportView(View, ABC):
@@ -52,7 +30,7 @@ class BSTExportView(View, ABC):
       - format name
       - An IO class
       - file extension
-      - A method to buffer the file in memory to prepare for download
+      - A get method (needed by the View superclass)
     - Its constructor will
       - set the download time
       - check the derived class's class attributes
@@ -63,7 +41,6 @@ class BSTExportView(View, ABC):
         Abstract:
             content_type (str): A content type for the downloaded file, E.g. 'text/csv'.
             name (str): A format name, e.g. 'CSV', unique to that derived class, E.g. 'TSV'.
-            buffer_class (Type[Union[StringIO, BytesIO]]): An IO buffer class for the downloaded file, E.g. BytesIO.
             extension (str): A file extension for the downloaded file, E.g. 'tsv'.
             view_name (str): The name of the view, used to resolve the URL and set in urls.py as the 'name' argument.
         Regular:
@@ -88,37 +65,35 @@ class BSTExportView(View, ABC):
     header_time_format: str = "%Y-%m-%d %H:%M:%S"
     filename_time_format: str = "%Y.%m.%d.%H.%M.%S"
 
-    # Abstract class attributes.  (_MISSING is a sentinel, so that these attributes exist in the base class at run time)
-    content_type: ClassVar[str] = cast(str, _MISSING)  # E.g. 'text/csv'
-    name: ClassVar[str] = cast(str, _MISSING)  # E.g. 'TSV'
-    buffer_class: ClassVar[Type[Union[StringIO, BytesIO]]] = cast(
-        Type[Union[StringIO, BytesIO]],
-        _MISSING,
-    )
-    extension: ClassVar[str] = cast(str, _MISSING)  # E.g. 'tsv'
-    view_name: ClassVar[str] = cast(str, _MISSING)  # E.g. 'tsv_list_export'
+    # Abstract class attributes
+    content_type: ClassVar[str]  # E.g. 'text/csv'
+    name: ClassVar[str]  # E.g. 'TSV'
+    extension: ClassVar[str]  # E.g. 'tsv'
+    view_name: ClassVar[str]  # E.g. 'tsv_list_export'
 
     def __init__(self, **kwargs):
+        self._validate_class()
         View.__init__(self, **kwargs)
 
         # These are the instance attributes
         self.model: Model
         self.fileheader_timestamp: str
         self.export_file: str
-        self.buffer: Union[StringIO, BytesIO]
 
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
+    @classmethod
+    def _validate_class(cls):
+        """Enforce class attributes that are not natively supprted by python or ABC (yet).
 
-        # Do not check if we're not at a concrete class yet
-        if (
-            isabstract(cls)
-            or ABC in cls.__bases__
-            or any(
-                getattr(v, "__isabstractmethod__", False) for v in cls.__dict__.values()
-            )
-        ):
-            return
+        NOTE: __init_sublass__ has limitations when child classes are a mix of abstract and concrete, as is the case in
+        this hierarchy.
+
+        Args:
+            None
+        Exceptions:
+            TyperError - When a concrete class attribute does not exist or is the wrong type.
+        Returns:
+            None
+        """
 
         cls.download_header_template = (
             loader.get_template(cls.download_header_template_name)
@@ -126,7 +101,7 @@ class BSTExportView(View, ABC):
             else None
         )
 
-        if cls.content_type is _MISSING:
+        if not hasattr(cls, "content_type"):
             raise TypeError(
                 f"{cls.__name__} must define class attribute 'content_type'."
             )
@@ -136,29 +111,14 @@ class BSTExportView(View, ABC):
                 f"not '{type(cls.content_type).__name__}'."
             )
 
-        if cls.name is _MISSING:
+        if not hasattr(cls, "name"):
             raise TypeError(f"{cls.__name__} must define class attribute 'name'.")
         if not isinstance(cls.name, str):
             raise TypeError(
                 f"Class attribute 'name' must be a '{str.__name__}', not '{type(cls.name).__name__}'."
             )
 
-        if cls.buffer_class is _MISSING:
-            raise TypeError(
-                f"{cls.__name__} must define class attribute 'buffer_class'."
-            )
-        if not isinstance(cls.buffer_class, type):
-            raise TypeError(
-                "Class attribute 'buffer_class' must be a class, not an instance of "
-                f"'{type(cls.buffer_class).__name__}' (set to {str(cls.buffer_class)})."
-            )
-        if cls.buffer_class is not StringIO and cls.buffer_class is not BytesIO:
-            raise TypeError(
-                f"Class attribute 'buffer_class' must be either StringIO or BytesIO (a class), "
-                f"not class '{cls.buffer_class.__name__}'"
-            )
-
-        if cls.extension is _MISSING:
+        if not hasattr(cls, "extension"):
             raise TypeError(f"{cls.__name__} must define class attribute 'extension'.")
         if not isinstance(cls.extension, str):
             raise TypeError(
@@ -166,17 +126,13 @@ class BSTExportView(View, ABC):
                 f"not '{type(cls.extension).__name__}'."
             )
 
-        if cls.view_name is _MISSING:
+        if not hasattr(cls, "view_name"):
             raise TypeError(f"{cls.__name__} must define class attribute 'view_name'.")
         if not isinstance(cls.view_name, str):
             raise TypeError(
                 f"Class attribute 'view_name' must be a '{str.__name__}', "
                 f"not '{type(cls.view_name).__name__}'."
             )
-
-    @abstractmethod
-    def buffer_file(self, source_view: BSTExportedListView, header_content: str):
-        pass
 
     @classmethod
     def get_exporter_classes(cls):
@@ -301,8 +257,7 @@ class BSTExportView(View, ABC):
         """Initialize export state derived from the source view.
 
         This prepares the exporter for file generation by storing the source model, generating timestamps for the file
-        header and export filename, constructing the export filename, and creating the in-memory buffer used to build
-        the exported file.
+        header and export filename, cand onstructing the export filename.
 
         Args:
             source_view (BSTExportedListView): The view supplying the data to be exported.
@@ -321,54 +276,6 @@ class BSTExportView(View, ABC):
         self.export_file = (
             f"{self.model.__name__}.{filename_timestamp}.{self.extension}"
         )
-
-        # Instantiate a buffer
-        self.buffer = self.buffer_class()
-
-    def get(self, request, **kwargs) -> HttpResponse:
-        """Generate and return an exported file response.
-
-        This resolves the source view from the request, initializes export state, generates the export contents using
-        the derived exporter implementation, and returns the resulting file as an HTTP download response.
-
-        If a download metadata header template is configured, the rendered metadata is supplied to the exporter as a
-        header content string.
-
-        Args:
-            request (HTTPRequest): The HTTP request containing the source view name.
-            kwargs (Dict[str, Any]): Additional Django view arguments.
-        Exceptions:
-            None
-        Returns:
-            (HttpResponse): A download response containing the generated export file.
-        """
-        source_view: BSTExportedListView = self.get_source_view(request)
-        # Getting the queryset initializes the stats for the metadata header
-        source_view.get_queryset()
-
-        self.init_export(source_view)
-
-        # Create the file in memory and put it in an instance of the buffer_class (self.buffer_class)
-        # Note, a derived class can decide not to have a header
-        if isinstance(self.download_header_template, Template):
-            self.buffer_file(
-                source_view,
-                self.download_header_template.render(
-                    self.get_header_context(source_view)
-                ),
-            )
-        else:
-            self.buffer_file(source_view, "")
-
-        response = HttpResponse(
-            self.buffer.getvalue(),
-            headers={
-                "Content-Type": self.content_type,
-                "Content-Disposition": f'attachment; filename="{self.export_file}"',
-            },
-        )
-
-        return response
 
     def get_source_view(self, request):
         source_name = request.GET["source"]
@@ -394,105 +301,6 @@ class BSTExportView(View, ABC):
             ).with_traceback(oe.__traceback__)
 
         return source_view
-
-
-class TextBSTExportView(BSTExportView, ABC):
-    buffer_class = StringIO
-    content_type = "application/text"
-
-    # Abstract class attributes.  (_MISSING is a sentinel, so that these attributes exist in the base class at run time)
-    delim: ClassVar[str] = cast(str, _MISSING)  # E.g. ','
-
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
-
-        if cls.delim is _MISSING:
-            raise TypeError(f"{cls.__name__} must define class attribute 'delim'.")
-        if not isinstance(cls.delim, str):
-            raise TypeError(
-                f"Class attribute 'delim' must be a '{str.__name__}', "
-                f"not '{type(cls.delim).__name__}'."
-            )
-
-    def buffer_file(self, source_view: BSTExportedListView, header_content: str):
-        # TODO: This cast is a type hack.  Fix it.
-        buffer = cast(StringIO, self.buffer)
-        writer: "_csv._writer" = csv.writer(
-            buffer, delimiter=self.delim, lineterminator="\n"
-        )
-
-        # Commented metadata header containing download date and info
-        buffer.write(header_content)
-
-        for row in source_view.rows_iterator():
-            writer.writerow([str(c) for c in row])
-
-
-class TSVBSTExportView(TextBSTExportView):
-    name = "TSV"
-    extension = "tsv"
-    delim = "\t"
-    view_name = "tsv_list_export"
-
-
-class CSVBSTExportView(TextBSTExportView):
-    name = "CSV"
-    extension = "csv"
-    delim = ","
-    view_name = "csv_list_export"
-
-
-class ExcelBSTExportView(BSTExportView):
-    name = "Excel"
-    buffer_class = BytesIO
-    extension = "xlsx"
-    content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    view_name = "excel_list_export"
-
-    def buffer_file(self, source_view: BSTExportedListView, header_content: str):
-        # TODO: This cast is a type hack.  Fix it.
-        buffer = cast(BytesIO, self.buffer)
-
-        # pylint false positive abstract-class-instantiated triggered because pandas.ExcelWriter acts as an abstract
-        # base class behind the scenes, but dynamically returns a concrete subclass
-        xlsx_writer = pd.ExcelWriter(  # pylint: disable=abstract-class-instantiated
-            buffer, engine="xlsxwriter"
-        )
-
-        sheet = source_view.model_title_plural
-        columns = source_view.row_headers()
-
-        xlsx_writer.book.set_properties(
-            {
-                "title": sheet,
-                "author": "Robert Leach",
-                "company": "Princeton University",
-                "comments": header_content,
-            }
-        )
-
-        # Build the dict by iterating over the row lists
-        qs_dict_by_index: Dict[int, List[str]] = dict(
-            (i, []) for i in range(len(columns))
-        )
-        for row in source_view.rows_iterator(headers=False):
-            for i, val in enumerate(row):
-                qs_dict_by_index[i].append(str(val))
-
-        export_dict = {}
-        # Now convert the indexes to the headers
-        for i, col in enumerate(columns):
-            export_dict[col] = qs_dict_by_index[i]
-
-        # Create a dataframe and add it as an excel object to an xlsx_writer sheet
-        pd.DataFrame.from_dict(export_dict).to_excel(
-            excel_writer=xlsx_writer,
-            sheet_name=sheet,
-            columns=columns,
-            index=False,
-        )
-        xlsx_writer.sheets[sheet].autofit()
-        xlsx_writer.save()
 
 
 class NoExporters(Exception):

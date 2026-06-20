@@ -17,7 +17,7 @@ from DataRepo.views.models.bst.column.many_related_field import (
 )
 from DataRepo.views.models.bst.column.many_related_group import BSTColumnGroup
 from DataRepo.views.models.bst.export import BSTExportedListView
-from DataRepo.views.models.bst.exporters.exporters import BSTExportView
+from DataRepo.views.models.bst.exporters.base import BSTExportView
 from DataRepo.views.models.bst.query import BSTListView
 
 

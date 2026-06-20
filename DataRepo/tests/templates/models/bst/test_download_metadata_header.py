@@ -10,7 +10,7 @@ from DataRepo.tests.templates.models.bst.base_template_test import (
     BTTStudyTestModel,
 )
 from DataRepo.views.models.bst.export import BSTExportedListView
-from DataRepo.views.models.bst.exporters.exporters import BSTExportView
+from DataRepo.views.models.bst.exporters.base import BSTExportView
 
 
 class StudyELV(BSTExportedListView):

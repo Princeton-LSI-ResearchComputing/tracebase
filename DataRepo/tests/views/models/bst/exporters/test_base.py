@@ -1,8 +1,6 @@
 from contextlib import contextmanager
-from io import BytesIO, StringIO
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import ANY, MagicMock, Mock, patch
 
-import pandas as pd
 from django.db.models import CharField
 from django.template.backends.django import Template
 from django.test import RequestFactory
@@ -13,15 +11,12 @@ from DataRepo.tests.tracebase_test_case import (
     create_test_model,
 )
 from DataRepo.views.models.bst.export import BSTExportedListView
-from DataRepo.views.models.bst.exporters.exporters import (
-    BSTExportView,
-    CSVBSTExportView,
-    ExcelBSTExportView,
-    TSVBSTExportView,
-)
+from DataRepo.views.models.bst.exporters.base import BSTExportView
+from DataRepo.views.models.bst.exporters.delimited.csv import CSVBSTExportView
+from DataRepo.views.models.bst.exporters.excel import ExcelBSTExportView
 
 BSTEVStudyTestModel = create_test_model(
-    "BSTLVStudyTestModel",
+    "BSTEVStudyTestModel",
     {
         "name": CharField(max_length=255, unique=True),
         "desc": CharField(max_length=255),
@@ -51,27 +46,12 @@ def patch_exporter_classes(*exporter_classes):
 
 
 class BSTExportViewTests(TracebaseTestCase):
-    def test_bstexportview_abstract(self):
-        with self.assertRaises(TypeError) as ar:
-            # Disable the linter so we can test it croaks
-            BSTExportView()  # pylint: disable=abstract-class-instantiated
-        exc = ar.exception
-        self.assertEqual(
-            "Can't instantiate abstract class BSTExportView with abstract method buffer_file",
-            str(exc),
-        )
-
     def test_bstexportview_setup(self):
         class BSTCSVExportView(BSTExportView):
             name = "CSV"
             content_type = "text/csv"
-            buffer_class = StringIO
             extension = "csv"
-
-            def buffer_file(
-                self, source_view: BSTExportedListView, header_content: str
-            ):
-                pass
+            view_name = "csv_exp_list_view"
 
         BSTCSVExportView()
 
@@ -81,29 +61,8 @@ class BSTExportViewTests(TracebaseTestCase):
             class BSTCSVExportView(BSTExportView):
                 # No name <- invalid
                 content_type = "text/csv"
-                buffer_class = StringIO
                 extension = "csv"
-
-                def buffer_file(
-                    self, source_view: BSTExportedListView, header_content: str
-                ):
-                    pass
-
-            BSTCSVExportView()
-
-    def test_init_subclass_bufferinstance(self):
-        with self.assertRaises(TypeError):
-
-            class BSTCSVExportView(BSTExportView):
-                name = "CSV"
-                content_type = "text/csv"
-                buffer = StringIO()  # type: ignore[assignment]
-                extension = "csv"
-
-                def buffer_file(
-                    self, source_view: BSTExportedListView, header_content: str
-                ):
-                    pass
+                view_name = "csv_exp_list_view"
 
             BSTCSVExportView()
 
@@ -113,13 +72,8 @@ class BSTExportViewTests(TracebaseTestCase):
             class BSTCSVExportView(BSTExportView):
                 name = "CSV"
                 content_type: str  # type: ignore[misc]
-                buffer_class = StringIO
                 extension = "csv"
-
-                def buffer_file(
-                    self, source_view: BSTExportedListView, header_content: str
-                ):
-                    pass
+                view_name = "csv_exp_list_view"
 
             BSTCSVExportView()
 
@@ -129,13 +83,8 @@ class BSTExportViewTests(TracebaseTestCase):
             class BSTCSVExportView(BSTExportView):
                 name = "CSV"
                 content_type = "text/csv"
-                buffer_class = StringIO
                 extension = 1
-
-                def buffer_file(
-                    self, source_view: BSTExportedListView, header_content: str
-                ):
-                    pass
+                view_name = "csv_exp_list_view"
 
             BSTCSVExportView()
 
@@ -143,13 +92,8 @@ class BSTExportViewTests(TracebaseTestCase):
         class ExpView(BSTExportView):
             name = "CSV"
             content_type = "text/csv"
-            buffer_class = StringIO
             extension = "csv"
-
-            def buffer_file(
-                self, source_view: BSTExportedListView, header_content: str
-            ):
-                pass
+            view_name = "csv_exp_list_view"
 
         classes = BSTExportView.get_exporter_classes()
         self.assertIn(ExpView, classes)
@@ -160,24 +104,14 @@ class BSTExportViewTests(TracebaseTestCase):
         class BSTTSVExportView(BSTExportView):
             name = "TSV"
             content_type = "text/tsv"
-            buffer_class = StringIO
             extension = "tsv"
-
-            def buffer_file(
-                self, source_view: BSTExportedListView, header_content: str
-            ):
-                pass
+            view_name = "tsv_exp_list_view"
 
         class BSTCSVExportView(BSTExportView):
             name = "CSV"
             content_type = "text/csv"
-            buffer_class = StringIO
             extension = "csv"
-
-            def buffer_file(
-                self, source_view: BSTExportedListView, header_content: str
-            ):
-                pass
+            view_name = "csv_exp_list_view"
 
         # Control the conditions by overriding the behavior of get_exporter_classes
         with patch.object(
@@ -202,24 +136,14 @@ class BSTExportViewTests(TracebaseTestCase):
         class BSTCSVExportView1(BSTExportView):
             name = "CSV"
             content_type = "text/csv"
-            buffer_class = StringIO
             extension = "csv"
-
-            def buffer_file(
-                self, source_view: BSTExportedListView, header_content: str
-            ):
-                pass
+            view_name = "csv_exp_list_view"
 
         class BSTCSVExportView2(BSTExportView):
             name = "CSV"
             content_type = "text/csv"
-            buffer_class = StringIO
             extension = "csv"
-
-            def buffer_file(
-                self, source_view: BSTExportedListView, header_content: str
-            ):
-                pass
+            view_name = "csv_exp_list_view"
 
         # Control the conditions by overriding the behavior of get_exporter_classes
         with patch.object(
@@ -234,13 +158,8 @@ class BSTExportViewTests(TracebaseTestCase):
         class BSTTSVExportView(BSTExportView):
             name = "TSV"
             content_type = "text/tsv"
-            buffer_class = StringIO
             extension = "tsv"
-
-            def buffer_file(
-                self, source_view: BSTExportedListView, header_content: str
-            ):
-                pass
+            view_name = "tsv_exp_list_view"
 
         with patch.object(
             BSTExportView,
@@ -271,13 +190,13 @@ class BSTExportViewTests(TracebaseTestCase):
             self.assertEqual({}, context["export_filters"])
             self.assertIsNone(context["search"])
             self.assertEqual("name", context["sortcol"].name)
-            self.assertEqual("BSTLV Study Test Models", context["table_name"])
+            self.assertEqual("BSTEV Study Test Models", context["table_name"])
             self.assertIn("-", context["timestamp"])
             self.assertIn(":", context["timestamp"])
             self.assertEqual(0, context["total"])
 
-    @patch("DataRepo.views.models.bst.exporters.exporters.resolve")
-    @patch("DataRepo.views.models.bst.exporters.exporters.reverse")
+    @patch("DataRepo.views.models.bst.exporters.base.resolve")
+    @patch("DataRepo.views.models.bst.exporters.base.reverse")
     def test_get_source_view_success(self, mock_reverse, mock_resolve):
         """Assert that the source view is obtained when given the request"""
 
@@ -316,7 +235,7 @@ class BSTExportViewTests(TracebaseTestCase):
         # Verify: source_view_class() was called to create the view instance.
         source_view_class.assert_called_once_with()
 
-    @patch("DataRepo.views.models.bst.exporters.exporters.reverse")
+    @patch("DataRepo.views.models.bst.exporters.base.reverse")
     def test_get_source_view_bad_source(self, mock_reverse):
         """Assert that a bad source view catches and raises a more informative exception"""
         request = RequestFactory().get(
@@ -361,7 +280,6 @@ class BSTExportViewTests(TracebaseTestCase):
 
         # Provide a buffer because get() expects init_export() to create one.  Since init_export() is mocked below, we
         # must supply it ourselves, and set export_file.
-        exporter.buffer = BytesIO()
         exporter.export_file = "test.xlsx"
 
         # Mock init_export() so that this test focuses only on get() behavior.
@@ -381,7 +299,7 @@ class BSTExportViewTests(TracebaseTestCase):
         exporter.download_header_template.render.assert_called_once()
 
         # Verify that the rendered header content was supplied to buffer_file().
-        mock_buffer_file.assert_called_once_with(source_view, "HEADER")
+        mock_buffer_file.assert_called_once_with(source_view, "HEADER", ANY)
 
     @patch.object(ExcelBSTExportView, "buffer_file")
     @patch.object(ExcelBSTExportView, "get_source_view")
@@ -403,7 +321,6 @@ class BSTExportViewTests(TracebaseTestCase):
         exporter.download_header_template = None
 
         # Provide a buffer because init_export() is mocked below.
-        exporter.buffer = BytesIO()
         exporter.export_file = "test"
 
         # Mock init_export() so that this test focuses only on the branch that
@@ -412,7 +329,7 @@ class BSTExportViewTests(TracebaseTestCase):
             exporter.get(Mock())
 
         # Verify that an empty header string was supplied when no template exists.
-        mock_buffer_file.assert_called_once_with(source_view, "")
+        mock_buffer_file.assert_called_once_with(source_view, "", ANY)
 
     @patch.object(ExcelBSTExportView, "buffer_file")
     @patch.object(ExcelBSTExportView, "get_source_view")
@@ -429,6 +346,11 @@ class BSTExportViewTests(TracebaseTestCase):
         source_view = Mock()
         mock_get_source_view.return_value = source_view
 
+        def fake_buffer_file(source_view, header_content, buffer):
+            buffer.write(b"excel-bytes")
+
+        mock_buffer_file.side_effect = fake_buffer_file
+
         # Create a concrete exporter to test with.
         exporter = ExcelBSTExportView()
 
@@ -437,7 +359,6 @@ class BSTExportViewTests(TracebaseTestCase):
 
         # Populate the values that would normally be set by init_export().
         exporter.export_file = "test.xlsx"
-        exporter.buffer = BytesIO(b"excel-bytes")
 
         # Mock init_export() so that the test can focus solely on response creation.
         with patch.object(exporter, "init_export"):
@@ -454,197 +375,7 @@ class BSTExportViewTests(TracebaseTestCase):
 
         # Verify that the response is configured as a file attachment with the expected filename.
         self.assertEqual(
-            "attachment; filename='test.xlsx'",
+            'attachment; filename="test.xlsx"',
             response["Content-Disposition"],
         )
-        mock_buffer_file.assert_called_once_with(source_view, "")
-
-
-class CSVBSTExportViewTests(TracebaseTestCase):
-    def test_buffer_file_writes_header_and_rows(self):
-        exporter = CSVBSTExportView()
-        exporter.buffer = StringIO()
-
-        source_view = MagicMock()
-        source_view.rows_iterator.return_value = [
-            ["a", "b"],
-            ["c", "d"],
-        ]
-
-        exporter.buffer_file(source_view, "# HEADER\n")
-
-        self.assertEqual(
-            exporter.buffer.getvalue(),
-            "# HEADER\na,b\r\nc,d\r\n",
-        )
-
-    def test_buffer_file_stringifies_values(self):
-        exporter = CSVBSTExportView()
-        exporter.buffer = StringIO()
-
-        source_view = MagicMock()
-        source_view.rows_iterator.return_value = [[1, True, None]]
-
-        exporter.buffer_file(source_view, "")
-
-        self.assertEqual(
-            exporter.buffer.getvalue(),
-            "1,True,None\r\n",
-        )
-
-
-class TSVBSTExportViewTests(TracebaseTestCase):
-    def test_buffer_file_uses_tab_delimiter(self):
-        exporter = TSVBSTExportView()
-        exporter.buffer = StringIO()
-
-        source_view = MagicMock()
-        source_view.rows_iterator.return_value = [["a", "b"]]
-
-        exporter.buffer_file(source_view, "")
-
-        self.assertEqual(
-            exporter.buffer.getvalue(),
-            "a\tb\r\n",
-        )
-
-
-class ExcelBSTExportViewTests(TracebaseTestCase):
-    @patch("DataRepo.views.models.bst.exporters.exporters.pd.DataFrame")
-    @patch("DataRepo.views.models.bst.exporters.exporters.pd.ExcelWriter")
-    def test_buffer_file(
-        self,
-        mock_excel_writer_cls,
-        mock_dataframe_cls,
-    ):
-        """Verify that buffer_file() transforms exported rows into a dataframe, writes the dataframe to an Excel
-        worksheet, populates workbook metadata, applies worksheet formatting, and saves the workbook.
-        """
-        # Create the exporter being tested.
-        exporter = ExcelBSTExportView()
-
-        # Normally init_export() creates the buffer.  We provide one directly because this test is only exercising
-        # buffer_file().
-        exporter.buffer = BytesIO()
-
-        # Mock the source view so that we control the worksheet name, column headers, and exported rows.
-        source_view = Mock()
-        source_view.model_title_plural = "Animals"
-        source_view.row_headers.return_value = ["Name", "Age"]
-        source_view.rows_iterator.return_value = [
-            ["Dog", 3],
-            ["Cat", 5],
-        ]
-
-        # Mock the ExcelWriter instance returned by pandas.  The implementation uses the writer's workbook object and
-        # worksheet dictionary, so those need to exist.
-        mock_writer = Mock()
-        mock_writer.sheets = {"Animals": Mock()}
-        mock_excel_writer_cls.return_value = mock_writer
-
-        # Mock the dataframe instance returned by DataFrame.from_dict(). This allows us to verify that the expected
-        # export data is passed into pandas without actually generating an Excel file.
-        mock_dataframe = Mock()
-        mock_dataframe_cls.from_dict.return_value = mock_dataframe
-
-        # Execute the method under test.
-        exporter.buffer_file(source_view, "header text")
-
-        # Verify that an Excel writer was created using the exporter's buffer and the expected engine.
-        mock_excel_writer_cls.assert_called_once_with(
-            exporter.buffer,
-            engine="xlsxwriter",
-        )
-
-        # Verify that workbook metadata is populated from the source view and supplied header content.
-        mock_writer.book.set_properties.assert_called_once_with(
-            {
-                "title": "Animals",
-                "author": "Robert Leach",
-                "company": "Princeton University",
-                "comments": "header text",
-            }
-        )
-
-        # Verify that rows were transformed into the expected column-oriented dictionary before dataframe creation.
-        mock_dataframe_cls.from_dict.assert_called_once_with(
-            {
-                "Name": ["Dog", "Cat"],
-                "Age": ["3", "5"],
-            }
-        )
-
-        # Verify that the dataframe was exported to the expected sheet using the expected column ordering.
-        mock_dataframe.to_excel.assert_called_once_with(
-            excel_writer=mock_writer,
-            sheet_name="Animals",
-            columns=["Name", "Age"],
-            index=False,
-        )
-
-        # Verify that worksheet formatting and workbook finalization were performed.
-        mock_writer.sheets["Animals"].autofit.assert_called_once_with()
-        mock_writer.save.assert_called_once_with()
-
-    def test_excel_export_view_attributes(self):
-        """Verify that the Excel exporter declares the expected export metadata, including its export name, file
-        extension, content type, and buffer implementation.
-        """
-        # These values are consumed by exporter discovery and response generation logic elsewhere in the application.
-        self.assertEqual("Excel", ExcelBSTExportView.name)
-        self.assertIs(BytesIO, ExcelBSTExportView.buffer_class)
-        self.assertEqual("xlsx", ExcelBSTExportView.extension)
-        self.assertEqual(
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            ExcelBSTExportView.content_type,
-        )
-
-    def test_excel_export_view_registered(self):
-        """Verify that the Excel exporter is discoverable through exporter registration and is associated with its
-        advertised export name.
-        """
-        # Gather all concrete exporter implementations.
-        with patch_exporter_classes(ExcelBSTExportView):
-            exporters = BSTExportView.gather_exporters()
-
-        # Verify that the Excel exporter is discoverable using its advertised export name.
-        self.assertIn("Excel", exporters)
-
-        # Verify that discovery returns the expected concrete class.
-        self.assertIs(exporters["Excel"], ExcelBSTExportView)
-
-    def test_buffer_file_creates_valid_xlsx(self):
-        """Verify that buffer_file() generates a valid Excel workbook containing the expected worksheet data when given
-        representative export rows.
-        """
-
-        # Create a real exporter and backing buffer.
-        exporter = ExcelBSTExportView()
-        exporter.buffer = BytesIO()
-
-        # Mock the source view with representative export data.
-        source_view = Mock()
-        source_view.model_title_plural = "Animals"
-        source_view.row_headers.return_value = ["Name", "Age"]
-        source_view.rows_iterator.return_value = [
-            ["Dog", 3],
-            ["Cat", 5],
-        ]
-
-        # Generate an actual workbook in memory.
-        exporter.buffer_file(source_view, "header")
-
-        # Rewind the buffer so pandas can read from the beginning.
-        exporter.buffer.seek(0)
-
-        # Load the generated workbook and convert it back into records.
-        df = pd.read_excel(exporter.buffer)
-
-        # Verify that the exported workbook contains the expected data.
-        self.assertEqual(
-            [
-                {"Name": "Dog", "Age": 3},
-                {"Name": "Cat", "Age": 5},
-            ],
-            df.to_dict("records"),
-        )
+        mock_buffer_file.assert_called_once_with(source_view, "", ANY)

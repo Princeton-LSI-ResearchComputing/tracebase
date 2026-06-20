@@ -5,7 +5,7 @@ from django.urls import reverse
 
 from DataRepo.models import Protocol
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
-from DataRepo.views.models.bst.exporters.exporters import BSTExportView
+from DataRepo.views.models.bst.exporters.base import BSTExportView
 
 
 class ProtocolViewTests(TracebaseTestCase):

@@ -26,9 +26,8 @@ from DataRepo.views.models.bst.column.many_related_field import (
 from DataRepo.views.models.bst.column.many_related_group import BSTColumnGroup
 from DataRepo.views.models.bst.column.related_field import BSTRelatedColumn
 from DataRepo.views.models.bst.export import BSTExportedListView
-from DataRepo.views.models.bst.exporters.exporters import (
-    BSTExportView,
-    NoExporters,
+from DataRepo.views.models.bst.exporters.base import BSTExportView, NoExporters
+from DataRepo.views.models.bst.exporters.delimited.base import (
     TextBSTExportView,
 )
 
@@ -162,11 +161,6 @@ class BSTExportedListViewTests(TracebaseTestCase):
             extension = "csv"
             view_name = "csv_exp_list_view"
 
-            def buffer_file(
-                self, source_view: BSTExportedListView, header_content: str
-            ):
-                pass
-
         # Control the conditions by overriding the behavior of get_exporter_classes
         with patch.object(
             BSTExportView,
@@ -187,29 +181,19 @@ class BSTExportedListViewTests(TracebaseTestCase):
         request = RequestFactory().get("/")
         request.resolver_match = Mock(view_name="test-view")
 
-        class BSTCSVExportView(BSTExportView):
+        class BSTCSVExportView(TextBSTExportView):
             name = "CSV"
             content_type = "text/csv"
             buffer_class = StringIO
             extension = "csv"
             view_name = "csv_exp_list_view"
 
-            def buffer_file(
-                self, source_view: BSTExportedListView, header_content: str
-            ):
-                pass
-
-        class BSTTSVExportView(BSTExportView):
+        class BSTTSVExportView(TextBSTExportView):
             name = "TSV"
             content_type = "text/Tsv"
             buffer_class = StringIO
             extension = "tsv"
             view_name = "tsv_exp_list_view"
-
-            def buffer_file(
-                self, source_view: BSTExportedListView, header_content: str
-            ):
-                pass
 
         with patch.object(
             BSTExportView,
@@ -374,8 +358,8 @@ class BSTExportedListViewTests(TracebaseTestCase):
 
         return metadata, column_header, data_rows
 
-    @patch("DataRepo.views.models.bst.exporters.exporters.resolve")
-    @patch("DataRepo.views.models.bst.exporters.exporters.reverse")
+    @patch("DataRepo.views.models.bst.exporters.base.resolve")
+    @patch("DataRepo.views.models.bst.exporters.base.reverse")
     def test_export_download_header_matches_exported_data(
         self,
         mock_reverse,
@@ -434,7 +418,7 @@ class BSTExportedListViewTests(TracebaseTestCase):
 
             response = export_view.get(request)
 
-        content = response.content.decode("utf-8")
+        content = b"".join(response.streaming_content).decode("utf-8")
 
         metadata, column_header, data_rows = self.parse_export(content)
 

@@ -8,7 +8,7 @@ from DataRepo.models.maintained_model import (
     UncleanBufferError,
 )
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
-from DataRepo.views.models.bst.exporters.exporters import BSTExportView
+from DataRepo.views.models.bst.exporters.base import BSTExportView
 
 
 def assert_coordinator_state_is_initialized():
