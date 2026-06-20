@@ -118,7 +118,10 @@ class StudiesExporter(ExportBase):
         self.staging_mode = staging_mode
 
         self.host = host if host else self.default_host
-        self.date = date
+        if isinstance(date, str):
+            self.date = datetime.strptime(date, "%Y-%m-%d")
+        else:
+            self.date = date
 
         # A script on a cron-job uses the study ID in the file name to compare exported files with previously exported
         # versions.  It does this by splitting on dash and taking the study ID from the file name, relative to the end
