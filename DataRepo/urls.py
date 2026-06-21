@@ -1,6 +1,9 @@
 from django.urls import path
 
-from DataRepo.views.models.bst.exporters.exporters import CSVBSTExportView, TSVBSTExportView
+from DataRepo.views.models.bst.exporters.exporters import (
+    CSVBSTExportView,
+    TSVBSTExportView,
+)
 from DataRepo.views.models.peakdata import PeakDataDetailView
 
 from .views import (
