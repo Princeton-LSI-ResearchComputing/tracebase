@@ -1,4 +1,4 @@
 [flake8]
 max-line-length = 120
-extend-exclude = .venv, migrations, node_modules
+extend-exclude = .venv*, migrations, node_modules, scratch*
 per-file-ignores = TraceBase/settings/*.py:F403,F405
