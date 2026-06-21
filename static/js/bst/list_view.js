@@ -1,3 +1,5 @@
+/* global initExporter */
+
 const urlParams = new URLSearchParams(window.location.search)
 const djangoCurrentURL = window.location.href.split('?')[0] // {% url request.resolver_match.url_name %} eslint-disable-line no-var
 
@@ -12,6 +14,8 @@ var djangoPerPage = djangoLimitDefault // eslint-disable-line no-var
 var djangoRawTotal = 0 // eslint-disable-line no-var
 var djangoTotal = djangoRawTotal // eslint-disable-line no-var, no-unused-vars
 var columnNames = [] // eslint-disable-line no-var
+var exportEnabled = false // eslint-disable-line no-var
+var exportSelect = '' // eslint-disable-line no-var
 
 var sortCookieName = 'sort' // eslint-disable-line no-var, no-unused-vars
 var ascCookieName = 'asc' // eslint-disable-line no-var, no-unused-vars
@@ -57,6 +61,8 @@ function initGlobalDefaults (customDjangoTableID, columnNames) { // eslint-disab
   } else {
     globalThis.columnNames = columnNames
   }
+  globalThis.exportEnabled = false
+  globalThis.exportSelect = ''
 }
 
 /**
@@ -81,6 +87,8 @@ function initGlobalDefaults (customDjangoTableID, columnNames) { // eslint-disab
  * @param {*} visibleCookieName name of the visible cookie
  * @param {*} limitCookieName name of the limit cookie
  * @param {*} pageCookieName name of the page cookie
+ * @param {*} exportEnabled Whether the export functionality is enabled
+ * @param {*} exportTypesElemName name of the export types element where the types are found for the export drop-down
  */
 function initBST ( // eslint-disable-line no-unused-vars
   limit,
@@ -102,7 +110,9 @@ function initBST ( // eslint-disable-line no-unused-vars
   filterCookieName,
   visibleCookieName,
   limitCookieName,
-  pageCookieName
+  pageCookieName,
+  exportEnabled,
+  exportTypesElemName
 ) {
   globalThis.djangoCurrentURL = currentURL
   globalThis.djangoTableID = tableID
@@ -120,6 +130,13 @@ function initBST ( // eslint-disable-line no-unused-vars
   globalThis.visibleCookieName = visibleCookieName
   globalThis.limitCookieName = limitCookieName
   globalThis.pageCookieName = pageCookieName
+  globalThis.exportEnabled = parseBool(exportEnabled)
+  if (exportEnabled) {
+    globalThis.exportSelect = initExporter(
+      exportTypesElemName,
+      djangoTableID
+    )
+  }
 
   // Clear whatever might already be in the global columnNames array
   globalThis.columnNames = []
@@ -293,10 +310,9 @@ function displayWarnings (warningsArray) {
  * Requests a new page from the server based on the values passed in (or the cookies as defaults).
  * @param {*} page Page number.
  * @param {*} limit Rows per page.
- * @param {*} exportType Whether to export to a file and the file type.
  */
-function updatePage (page, limit, exportType) { // eslint-disable-line no-unused-vars
-  window.location.href = getPageURL(page, limit, exportType)
+function updatePage (page, limit) { // eslint-disable-line no-unused-vars
+  window.location.href = getPageURL(page, limit)
 }
 
 /**
@@ -304,14 +320,12 @@ function updatePage (page, limit, exportType) { // eslint-disable-line no-unused
  * This is a supporting method for updatePage, mainly for testing purposes.
  * @param {*} page Page number.
  * @param {*} limit Rows per page.
- * @param {*} exportType Whether to export to a file and the file type.
  * @return url - The URL of the new page
  */
-function getPageURL (page, limit, exportType) { // eslint-disable-line no-unused-vars
+function getPageURL (page, limit) { // eslint-disable-line no-unused-vars
   // Get or set the page and limit cookies
   [page, limit] = updatePageCookies(page, limit)
   // Create the URL, stating with the page
-  // TODO: Add global variable for export URL parameter name, which is stored in a variable in BSTClientInterface
   let url = djangoCurrentURL + '?' + pageCookieName + '=' + page
 
   // Add the limit
@@ -319,14 +333,9 @@ function getPageURL (page, limit, exportType) { // eslint-disable-line no-unused
     url += '&' + limitCookieName + '=' + limit
   }
 
-  // Add the export param, if supplied
-  if (typeof exportType !== 'undefined' && exportType) {
-    url += '&export=' + exportType
-  }
-
   // Add any other active URL parameters, like those for the subquery
   for (const [key, value] of urlParams.entries()) {
-    if (![pageCookieName, limitCookieName, 'export'].includes(key)) {
+    if (![pageCookieName, limitCookieName].includes(key)) {
       url += '&' + key + '=' + value
     }
   }
@@ -550,11 +559,11 @@ function setCollapseIcon (collapse) {
 
 /**
  * Initializes settings for custom buttons in the BST toolbar, including a clear button to clear out cookies and a
- * custom export dropdown button..
+ * custom export dropdown button.
  * @returns Settings object for BST.
  */
 function customButtonsFunction () { // eslint-disable-line no-unused-vars
-  return {
+  const buttonConfig = {
     btnClear: {
       text: 'Reset Page to default settings',
       icon: 'bi-house',
@@ -576,4 +585,10 @@ function customButtonsFunction () { // eslint-disable-line no-unused-vars
       }
     }
   }
+  if (exportEnabled) {
+    buttonConfig.btnExportAll = {
+      html: exportSelect
+    }
+  }
+  return buttonConfig
 }

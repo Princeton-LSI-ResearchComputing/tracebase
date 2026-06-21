@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from DataRepo.models.researcher import UnknownResearcherError
 from DataRepo.models.utilities import get_model_by_name
@@ -2296,7 +2296,13 @@ class ExceptionTests(TracebaseTestCase):
             "'file_that_should_not_change.xlsx', was previously loaded", str(exc)
         )
         # This checks that the imported_timestamp is included in the error, by asserting that the date is present
-        self.assertIn(str(datetime.now().date()), str(exc))
+        try:
+            # Python 3.11+ way
+            utc_now = datetime.now(datetime.UTC)
+        except AttributeError:
+            # Old way
+            utc_now = datetime.now(timezone.utc)
+        self.assertIn(str(utc_now.date()), str(exc))
         self.assertIn("If the edits are intentional/necessary", str(exc))
         self.assertIn("old file version can be removed", str(exc))
         self.assertIn("If the edits were unintentional or superficial", str(exc))

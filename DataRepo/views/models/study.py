@@ -5,10 +5,10 @@ from django.views.generic import DetailView
 
 from DataRepo.models import Researcher, Study
 from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
-from DataRepo.views.models.bst.query import BSTListView
+from DataRepo.views.models.bst.export import BSTExportedListView
 
 
-class StudyListView(BSTListView):
+class StudyListView(BSTExportedListView):
     model = Study
     below_template = "models/study/below_table.html"
     exclude = ["id", "animals"]

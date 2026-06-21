@@ -1,3 +1,7 @@
+from io import StringIO
+from typing import cast
+from unittest.mock import MagicMock, patch
+
 from django.db.models import CharField
 from django.db.models.functions import Upper
 from django.http import HttpRequest
@@ -12,10 +16,18 @@ from DataRepo.views.models.bst.column.many_related_field import (
     BSTManyRelatedColumn,
 )
 from DataRepo.views.models.bst.column.many_related_group import BSTColumnGroup
+from DataRepo.views.models.bst.export import BSTExportedListView
+from DataRepo.views.models.bst.exporters.base import BSTExportView
 from DataRepo.views.models.bst.query import BSTListView
 
 
 class StudyLV(BSTListView):
+    model = BTTStudyTestModel
+    annotations = {"description": Upper("desc", output_field=CharField())}
+    exclude = ["id", "desc"]
+
+
+class ExportedStudyLV(BSTExportedListView):
     model = BTTStudyTestModel
     annotations = {"description": Upper("desc", output_field=CharField())}
     exclude = ["id", "desc"]
@@ -149,8 +161,6 @@ class BSTListViewTests(BaseTemplateTests):
             'data-buttons-align="left"',
             'data-buttons-class="primary"',
             'data-buttons="customButtonsFunction"',
-            "data-export-types=\"['csv', 'txt', 'excel']\"",
-            'data-export-data-type="all"',
             'data-filter-control="true"',
             'data-search="true"',
             'data-search-align="left"',
@@ -327,3 +337,73 @@ class BSTListViewTests(BaseTemplateTests):
             '<small><a href="/DataRepo/studies/">clear</a></small><br>',
         ]
         self.assert_substrings_in_order(expected_ordered_substrings, template_str)
+
+    @patch("DataRepo.views.models.bst.export.reverse")
+    def test_bst_export_interface(self, mock_reverse: MagicMock):
+        """Test that the template removes the Bootstrap export types, the export types JSON, and adds export args to the
+        initBST call and the bootstrap table toolbar has an export button.
+        See design and test list in: https://princeton-university.atlassian.net/wiki/x/GQAgH
+        """
+        mock_reverse.side_effect = lambda name: f"/url/{name}/"
+
+        request = HttpRequest()
+        request.resolver_match = MagicMock(view_name="test-view")
+
+        class BSTCSVExportView(BSTExportView):
+            name = "CSV"
+            content_type = "text/csv"
+            buffer_class = StringIO
+            extension = "csv"
+            view_name = "csv_exp_list_view"
+
+            def buffer_file(
+                self, source_view: BSTExportedListView, header_content: str
+            ):
+                pass
+
+        class BSTTSVExportView(BSTExportView):
+            name = "TSV"
+            content_type = "text/tsv"
+            buffer_class = StringIO
+            extension = "tsv"
+            view_name = "tsv_exp_list_view"
+
+            def buffer_file(
+                self, source_view: BSTExportedListView, header_content: str
+            ):
+                pass
+
+        with patch.object(
+            BSTExportView,
+            "get_exporter_classes",
+            return_value=[BSTCSVExportView, BSTTSVExportView],
+        ):
+            eslv = ExportedStudyLV(request=request)
+            eslv.export_enabled = True
+            eslv.export_enabled_var_name = "export_enabled"
+            eslv.export_types_var_name = "export_types"
+            eslv.exporters = {
+                # mypy has issues typing ABC-derived concrete classes defined in methods.
+                "CSV": cast(type[BSTExportView], BSTCSVExportView),
+                "TSV": cast(type[BSTExportView], BSTTSVExportView),
+            }
+            eslv.object_list = []
+
+        eslv.init_interface()
+        eslv.init_subquery()
+
+        template_str = self.render_list_view_template(eslv)
+
+        self.assertNotIn("data-export-types", template_str)
+        self.assertNotIn("data-export-data-type", template_str)
+        self.assertIn('<script id="exportTypes" ', template_str)
+        self.assertIn(
+            '[{"name": "CSV", "url": "/url/csv_exp_list_view/?source=test-view"},',
+            template_str,
+        )
+        self.assertIn(
+            '{"name": "TSV", "url": "/url/tsv_exp_list_view/?source=test-view"}]',
+            template_str,
+        )
+        self.assertIn("'True',", template_str)
+        self.assertIn("'exportTypes',", template_str)

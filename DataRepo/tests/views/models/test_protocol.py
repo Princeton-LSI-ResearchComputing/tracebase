@@ -1,8 +1,11 @@
+from unittest.mock import patch
+
 from django.core.management import call_command
 from django.urls import reverse
 
 from DataRepo.models import Protocol
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
+from DataRepo.views.models.bst.exporters.base import BSTExportView
 
 
 class ProtocolViewTests(TracebaseTestCase):
@@ -11,6 +14,22 @@ class ProtocolViewTests(TracebaseTestCase):
     Test detail views for protocols
     expected protocol for animal treatment: "no treatment"
     """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+
+        cls.exporter_patcher = patch.object(
+            BSTExportView,
+            "gather_exporters",
+            return_value={},
+        )
+        cls.exporter_patcher.start()
+
+    @classmethod
+    def tearDownClass(cls):  # pylint: disable=invalid-name
+        cls.exporter_patcher.stop()
+        super().tearDownClass()
 
     @classmethod
     def setUpTestData(cls):
