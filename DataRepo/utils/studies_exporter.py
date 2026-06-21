@@ -118,6 +118,7 @@ class StudiesExporter(ExportBase):
         self.staging_mode = staging_mode
 
         self.host = host if host else self.default_host
+        self.date: Optional[datetime]
         if isinstance(date, str):
             self.date = datetime.strptime(date, "%Y-%m-%d")
         else:
