@@ -2,6 +2,7 @@ import base64
 import os
 from copy import deepcopy
 from io import BytesIO
+from typing import List
 
 from django.core.exceptions import PermissionDenied
 from django.core.management import call_command
@@ -1383,22 +1384,28 @@ class BuildSubmissionViewTests2(TracebaseTransactionTestCase):
 
         self.assertFalse(valid)
 
-    def validate_some_files(self, vo: BuildSubmissionView, sample_file, accucor_files):
+    def validate_some_files(
+        self,
+        bld_sbmn: BuildSubmissionView,
+        study_file: str,
+        peak_annot_files: List[str],
+    ):
+        """Validate a study submission and format and return the results."""
         # Test the get_validation_results function
-        vo.set_files(study_file=sample_file, peak_annot_files=accucor_files)
+        bld_sbmn.set_files(study_file=study_file, peak_annot_files=peak_annot_files)
         # Now try validating the load files
-        vo.validate_study()
-        vo.format_results_for_template()
-        valid = vo.valid
-        results = vo.results
-        exceptions = vo.exceptions
+        bld_sbmn.validate_study()
+        bld_sbmn.format_results_for_template()
+        valid = bld_sbmn.valid
+        results = bld_sbmn.results
+        exceptions = bld_sbmn.exceptions
 
         file_keys = []
-        file_keys.append(os.path.basename(sample_file))
-        for afile in accucor_files:
+        file_keys.append(os.path.basename(study_file))
+        for afile in peak_annot_files:
             file_keys.append(os.path.basename(afile))
 
-        for file_key in [os.path.basename(f) for f in [sample_file, *accucor_files]]:
+        for file_key in [os.path.basename(f) for f in [study_file, *peak_annot_files]]:
             self.assertIn(file_key, results)
             self.assertIn(file_key, exceptions)
 

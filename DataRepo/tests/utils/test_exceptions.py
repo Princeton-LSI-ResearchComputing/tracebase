@@ -367,6 +367,7 @@ class MultiLoadStatusTests(TracebaseTestCase):
         self.assertFalse(mls.statuses["mykey"]["top"])
 
     def test_merge(self):
+        """Test that MultiLoadStatus.merge can merge the statuses from the supplied MultiLoadStatus object."""
         mls1 = MultiLoadStatus(["mykey1"])
         mls2 = MultiLoadStatus(["mykey2"])
         mls1.merge(mls2)

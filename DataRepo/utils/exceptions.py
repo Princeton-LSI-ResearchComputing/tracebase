@@ -1797,16 +1797,16 @@ class MultiLoadStatus(Exception):
             None
         """
         for load_key in instance.statuses.keys():
+            # This initializes the MultiLoadStatus object for the load_key if the load_key is not already present
             self.update_load(load_key)
-        for load_key in instance.statuses.keys():
-            if (
-                instance.statuses[load_key]["aggregated_errors"] is not None
-                and len(instance.statuses[load_key]["aggregated_errors"].exceptions) > 0
-            ):
-                self.set_load_exception(
-                    instance.statuses[load_key]["aggregated_errors"],
-                    load_key,
-                )
+
+            # If the supplied MultiLoadStatus object has exceptions, record them in this object, to merge with any pre-
+            # existing errors for that load key
+            inst_agg_errs: AggregatedErrors = instance.statuses[load_key][
+                "aggregated_errors"
+            ]
+            if inst_agg_errs is not None and len(inst_agg_errs.exceptions) > 0:
+                self.set_load_exception(inst_agg_errs, load_key)
 
 
 class AggregatedErrorsSet(Exception):

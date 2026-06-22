@@ -955,6 +955,29 @@ class BuildSubmissionView(FormView):
         return study_data
 
     def init_row_group_nums(self):
+        """This validates the row group numbers in the Infusates and Tracers sheets and ensures their type is int.
+
+        It then initializes the next ID for each sheet, in order to be able to add a new tracer/infusate and not
+        duplicate an ID (in self.next_infusate_row_group_num and self.next_tracer_row_group_num).
+
+        These 2 sheets (Infusates and Tracers) are the only sheets where an entry (an infusate or a tracer) can span
+        multiple rows.  It is the IDs that identify the rows that define and individual tracer or infusate.
+
+        NOTE: The values in the ID columns in each sheet are determined by excel formulas, but this ensures users have
+        not manually messed them up.
+
+        Args:
+            None
+        Exceptions:
+            Buffered:
+                AutoFillError - If a pandas type causes a ValueError in the cast to int, this can affect the IDs of the
+                    coming auto-fill rows, as tracers and infusates matching the formulas in the peak annotation files
+                    are added for convenient selection in the Animals sheet dropdown for infusate.
+            Raised:
+                None
+        Returns:
+            None
+        """
         inf_row_group_nums = []
         bad_inf_row_group_nums = []
         # We need to get the next available infusates sheet row group number
@@ -3663,4 +3686,7 @@ class BuildSubmissionView(FormView):
 
 
 class AutoFillError(InfileError):
+    """A generalized error that has to do with a problem with auto-fill of the study doc and links the error to the
+    offending input file location (via InfileError)."""
+
     pass
