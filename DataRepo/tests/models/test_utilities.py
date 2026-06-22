@@ -6,6 +6,7 @@ from django.db.models import (
     Case,
     CharField,
     Count,
+    Expression,
     F,
     Field,
     FloatField,
@@ -476,6 +477,14 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
                     output_field=IntegerField(),
                 ),
             )
+
+        # Ensure resolve_field_path now handled None values, returned by get_source_expression in Django 5.2
+        class MockExpression(Expression):
+            def get_source_expressions(self):
+                return [None, F("valid_field")]
+
+        exp_with_none = MockExpression()
+        self.assertEqual("valid_field", resolve_field_path(exp_with_none))
 
     def test_get_distinct_fields_nonkeyfield(self):
         self.assertEqual(["name"], get_distinct_fields(Tracer, "name"))
