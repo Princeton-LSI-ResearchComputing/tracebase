@@ -480,6 +480,11 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
 
         # Ensure resolve_field_path now handled None values, returned by get_source_expression in Django 5.2
         class MockExpression(Expression):
+            """Class to override Expression.get_source_expressions to return expressions that resolve_field_path must
+            handle after the Django 4.2 -> 5.2 upgrade, which now includes None among its expressions (instead of empty
+            string).
+            """
+
             def get_source_expressions(self):
                 return [None, F("valid_field")]
 
