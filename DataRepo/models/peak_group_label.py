@@ -185,21 +185,21 @@ class PeakGroupLabel(HierCachedModel):
                 and self.animal.infusate.tracers.count() > 0
                 and self.enrichment_fraction is not None
                 and serum_tracers_enrichment_fraction is not None
+                and serum_tracers_enrichment_fraction > 0
             ):
                 normalized_labeling = (
                     self.enrichment_fraction / serum_tracers_enrichment_fraction
                 )
             else:
                 normalized_labeling = None
+                if serum_tracers_enrichment_fraction == 0:
+                    warnings.warn(
+                        f"Unable to compute normalized_labeling for element '{self.element}' in peak group "
+                        f"{self.peak_group.name} of sample {self.peak_group.msrun_sample.sample} because the serum "
+                        f"tracer enrichment fraction for the {self.animal.infusate.tracers.count()} tracer(s) infused "
+                        f"in animal {self.animal} is 0."
+                    )
 
-        except ZeroDivisionError:
-            warnings.warn(
-                f"Unable to compute normalized_labeling for element '{self.element}' in peak group "
-                f"{self.peak_group.name} of sample {self.peak_group.msrun_sample.sample} because the serum tracer "
-                f"enrichment fraction for the {self.animal.infusate.tracers.count()} tracer(s) infused in animal "
-                f"{self.animal} is 0."
-            )
-            normalized_labeling = None
         except Sample.DoesNotExist:
             warnings.warn(
                 f"Unable to compute normalized_labeling for element '{self.element}' in peak group "
@@ -483,16 +483,8 @@ class PeakGroupLabel(HierCachedModel):
         ):
             fraction += pdrec.fraction
 
-        try:
-            result = self.animal.infusion_rate * tracer_info["concentration"] / fraction
-        except ZeroDivisionError:
-            warnings.warn(
-                f"PeakGroup {self.peak_group.name} - cannot compute intact tracer rate for element {self.element} when "
-                "its fraction (sum) is zero."
-            )
-            result = None
-
-        return result
+        # NOTE: fraction cannot be zero due to the self.can_compute_intact_tracer_label_rates check above
+        return self.animal.infusion_rate * tracer_info["concentration"] / fraction
 
     @property  # type: ignore
     @cached_function
@@ -556,20 +548,13 @@ class PeakGroupLabel(HierCachedModel):
 
         tracer_info = self.get_peak_group_label_tracer_info
 
-        result = None
-
-        try:
-            result = (
-                tracer_info["concentration"]
-                * self.animal.infusion_rate
-                / self.enrichment_fraction
-            )
-        except ZeroDivisionError:
-            warnings.warn(
-                f"PeakGroup {self.peak_group.name} - cannot compute average disappearance rate for element "
-                f"{self.element} when the enrichment fraction is zero."
-            )
-            result = None
+        # NOTE: self.enrichment_fraction cannot be zero due to the self.can_compute_average_tracer_label_rates check
+        # above
+        result = (
+            tracer_info["concentration"]
+            * self.animal.infusion_rate
+            / self.enrichment_fraction
+        )
 
         return result
 
