@@ -60,6 +60,6 @@ elif CACHES_SETTING != "PROD_CACHES":
     )
 
 # Define a custom test runner
-# https://docs.djangoproject.com/en/4.2/topics/testing/advanced/#using-different-testing-frameworks
+# https://docs.djangoproject.com/en/5.2/topics/testing/advanced/#using-different-testing-frameworks
 # NOTE: This is implicitly used by TraceBase/runner.py
 TEST_RUNNER = "TraceBase.runner.TraceBaseTestSuiteRunner"

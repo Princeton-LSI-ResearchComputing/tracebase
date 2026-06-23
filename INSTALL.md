@@ -292,7 +292,7 @@ You can create multiple admin users, each with this command, which will prompt f
 Verify the installation by checking the Django version:
 
     python3 -m django --version
-    4.2.29
+    5.2.15
 
 You can check your environment to ensure it is set up securely using the following command:
 

@@ -21,7 +21,7 @@ from DataRepo.models import (
     Tracer,
     TracerLabel,
 )
-from DataRepo.models.archive_file import ArchiveFile
+from DataRepo.models.archive_file import ArchiveFile, DataFormat, DataType
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
@@ -358,7 +358,12 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
                 adl.headers.FORMULA: peak_group.formula,
             }
         )
-        paf = ArchiveFile(filename="peak_annotation_filename.tsv")
+        paf = ArchiveFile.objects.create(
+            filename="peak_annotation_filename.tsv",
+            checksum="TEST",
+            data_type=DataType.objects.get(code="ms_peak_annotation"),
+            data_format=DataFormat.objects.get(code="isocorr"),
+        )
         crd = {peak_group.name: peak_group.compounds.first()}
         # Test the instance method "get_or_create_peak_group" buffers an error
         # when inserting an exact duplicate PeakGroup

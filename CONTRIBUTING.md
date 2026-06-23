@@ -85,7 +85,7 @@ Install Django and psycopg2 dependencies as well as linters and other developmen
 Django:
 
     python3 -m django --version
-    4.2.29
+    5.2.15
 
 ### Configure TraceBase
 
@@ -314,7 +314,7 @@ using a custom test runner `Tracebase/runner.py`. The test runner changes the
 temporary location on local file storage.
 
 Per the
-[`FileField.delete()`](https://docs.djangoproject.com/en/4.2/ref/models/fields/#django.db.models.fields.files.FieldFile.delete)
+[`FileField.delete()`](https://docs.djangoproject.com/en/5.2/ref/models/fields/#django.db.models.fields.files.FieldFile.delete)
 documentation, when a model is deleted, related files are not deleted. If you
 need to cleanup orphaned files, you’ll need to handle it yourself (for
 instance, with a custom management command that can be run manually or
