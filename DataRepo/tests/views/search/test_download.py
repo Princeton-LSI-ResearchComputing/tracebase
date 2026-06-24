@@ -2,6 +2,7 @@ import json
 import zipfile
 from io import BytesIO
 
+from django.core.management import call_command
 from django.http import StreamingHttpResponse
 
 from DataRepo.forms import AdvSearchDownloadForm
@@ -160,6 +161,92 @@ class AdvancedSearchDownloadViewTests(BaseAdvancedSearchDownloadViewTests):
         self.assertIn(str(expected_header2)[2:-1], content)
         self.assertIn(str(expected_header1)[2:-1], content)
         self.assertIn(str(expected_content)[2:-1], content)
+
+    def test_peakgroups_download_zero_normalized_labeling_does_not_truncate(self):
+        """Regression test for the uncaught ZeroDivisionError in PeakDataLabel.normalized_labeling.
+        A TSV download should complete successfully when normalized_labeling cannot be computed and returns None.
+        """
+
+        # This is just to load the MSRunSequence record in the Sequences sheet
+        call_command(
+            "load_study",
+            infile="DataRepo/data/tests/multiple_labels/animal_sample_table_v3.xlsx",
+            exclude_sheets=[
+                "Study",
+                "Tracers",
+                "Infusates",
+                "Animals",
+                "Samples",
+                "Peak Annotation Files",
+                "Peak Annotation Details",
+                "Treatments",
+                "Tissues",
+                "Compounds",
+                "LC Protocols",
+                "Peak Group Conflicts",
+            ],
+        )
+
+        # Load the peak data and peak groups
+        call_command(
+            "load_peak_annotations",
+            infile="DataRepo/data/tests/multiple_labels/glnfasted1_cor.xlsx",
+        )
+
+        # Load a serum sample so we hit the normalized_labeling divide-by-zero path instead of Sample.DoesNotExist.
+        call_command(
+            "load_study",
+            infile="DataRepo/data/tests/multiple_labels/animal_sample_table_v3_serum.xlsx",
+            exclude_sheets=["Peak Annotation Files"],
+        )
+
+        # Loads serum tracer data whose corrected abundances are all 0, causing normalized_labeling to return None.
+        call_command(
+            "load_peak_annotations",
+            infile="DataRepo/data/tests/multiple_labels/glnfasted1_cor_serum0.xlsx",
+        )
+
+        form = AdvSearchDownloadForm(data={"qryjson": json.dumps(test_qry)})
+        self.assertTrue(form.is_valid())
+
+        response = AdvancedSearchDownloadView().form_valid(form)
+
+        assert_StreamingHttpResponse(
+            self,
+            response,
+            "PeakGroups_",
+            "application/text",
+        )
+
+        # Force streaming evaluation.
+        content = response.getvalue().decode()
+
+        lines = content.splitlines()
+
+        # Make sure the headers have Normalized Labeling
+        header = next(line for line in lines if line.startswith("Sample\t"))
+        cols = header.split("\t")
+        nl_idx = cols.index("Normalized Labeling")
+
+        # Find the glutamine rows for xzl1_brain that previously triggered the uncaught ZeroDivisionError.
+        matches = [
+            line
+            for line in lines
+            if line.startswith("xzl1_brain\tbrain\t150.0\tglutamine")
+        ]
+
+        # Expect one row for C and one for N.
+        self.assertEqual(2, len(matches))
+
+        for line in matches:
+            row = line.split("\t")
+            self.assertEqual("None", row[nl_idx])
+
+        # Verify the download continued past the problematic rows.
+        self.assertIn("xzl1_brownFat", content)
+
+        # Sanity check that the stream is not truncated.
+        self.assertGreater(content.count("\n"), 10)
 
 
 class RecordToMzxmlTSVTests(BaseAdvancedSearchDownloadViewTests):
