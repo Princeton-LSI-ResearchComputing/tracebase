@@ -1173,7 +1173,7 @@ class BuildSubmissionViewTests2(TracebaseTransactionTestCase):
         af2key = "accucor2.xlsx"
 
         # Test the get_validation_results function
-        # This call indirectly tests that ValidationView.validate_stody returns a MultiLoadStatus object on success
+        # This call indirectly tests that ValidationView.validate_study returns a MultiLoadStatus object on success
         # It also indirectly ensures that create_yaml(dir) puts a loading.yaml file in the dir
         vo = BuildSubmissionView()
         vo.load_status_data.set_load_exception(
