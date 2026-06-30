@@ -366,6 +366,14 @@ class MultiLoadStatusTests(TracebaseTestCase):
         self.assertIsNone(mls.statuses["mykey"]["aggregated_errors"])
         self.assertFalse(mls.statuses["mykey"]["top"])
 
+    def test_merge(self):
+        """Test that MultiLoadStatus.merge can merge the statuses from the supplied MultiLoadStatus object."""
+        mls1 = MultiLoadStatus(["mykey1"])
+        mls2 = MultiLoadStatus(["mykey2"])
+        mls1.merge(mls2)
+        self.assertEqual(set(["mykey1", "mykey2"]), set(mls1.statuses.keys()))
+        self.assertEqual(set(["mykey2"]), set(mls2.statuses.keys()))
+
 
 class AggregatedErrorsTests(TracebaseTestCase):
     def test_merge_aggregated_errors_object(self):
