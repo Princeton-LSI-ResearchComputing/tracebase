@@ -311,6 +311,10 @@ class MSRunsLoaderTests(TracebaseTestCase):
         )
         self.assertEqual("mysample_pos", samplename)
 
+    def test_guess_sample_name_default_start(self):
+        samplename = MSRunsLoader.guess_sample_name("pos-scan2-His-M3-T08-small-intes")
+        self.assertEqual("His-M3-T08-small-intes", samplename)
+
     def test_leftover_mzxml_files_exist_true(self):
         """Tests that leftover_mzxml_files_exist finds the existence of un-added mzXML files (i.e. those that were not
         described in the infile because they weren't used in the production of a peak annotation file).
