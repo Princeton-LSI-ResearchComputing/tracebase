@@ -252,9 +252,30 @@ Note:
 - This creates an `alias` to match the `/var/www/tracebase/static` directory.
 - This sets the gateway timeout to match what's in the `.env` file.  This allows the software to end gracefully if
   submission processing takes too long.
-- If you want to set up a development server using apache/nginx, `DJANGO_SETTINGS_MODULE` must be set as a system
-  environment variable to "`TraceBase.settings.dev`", but this only works if all virtual hosts on that machine use this
-  same setting.  Using `SetEnv` in the virtual host settings will not work.
+
+### Optional Development Server Apache Setup
+
+**WARNING: DO NOT apply this development setting on a production site or any site accessible to the public, as it is a**
+**security risk.**
+
+In addition to the above steps, if you want to set up a development server using apache/nginx, `DJANGO_SETTINGS_MODULE`
+must be set as a system environment variable to `TraceBase.settings.dev`.  Note: this only works if all virtual hosts on
+that machine use this same setting.  Also note: Using `SetEnv` in the virtual host settings will not work.  This is how
+we set the environment variable for apache at Princeton:
+
+    vi /lib/systemd/system/httpd.service
+
+Change/add this setting to the file:
+
+    [Service]
+    Environment="DJANGO_SETTINGS_MODULE=TraceBase.settings.dev"
+
+The restart apache.
+
+Doing this gives you access to the Django Debug Toolbar and a few debug messages (notably in the advanced search).
+
+NOTE: You do not need to set `DJANGO_SETTINGS_MODULE` on any production server.  It's default is
+`TraceBase.settings.prod`.
 
 ## Authorization and Security
 
