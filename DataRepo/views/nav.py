@@ -1,4 +1,7 @@
+import os
+
 from django.conf import settings
+from django.http import HttpResponse
 from django.shortcuts import render
 from django.urls import reverse
 
@@ -127,3 +130,7 @@ def home(request):
         context["leaderboards"] = Researcher.leaderboard_data()
 
     return render(request, "home/base.html", context)
+
+# TODO: Remove this and its imports after verifying the removal of the settings compatibility shim.  Issue GREATS-304.
+def settings_test(request):
+    return HttpResponse(os.environ.get("DJANGO_SETTINGS_MODULE"))

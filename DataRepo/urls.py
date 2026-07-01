@@ -1,5 +1,7 @@
 from django.urls import path
 
+from DataRepo.views.nav import settings_test
+
 from .views import (
     AdvancedSearchDownloadMzxmlZIPView,
     AdvancedSearchDownloadView,
@@ -154,4 +156,7 @@ urlpatterns = [
         InfusateDetailView.as_view(),
         name=InfusateDetailView.model.detail_name,
     ),
+    # TODO: Remove this and its imports after verifying the removal of the settings compatibility shim.  GREATS-304.
+    # E.g. Go to http://127.0.0.1:8000/DataRepo/settings-test/
+    path("settings-test/", settings_test, name="settings_test"),
 ]
