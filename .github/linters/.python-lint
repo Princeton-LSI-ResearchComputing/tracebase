@@ -752,4 +752,4 @@ init-import=no
 redefining-builtins-modules=six.moves,past.builtins,future.builtins
 
 # [DJANGO]
-# django-settings-module=TraceBase.settings
+# django-settings-module=TraceBase.settings.dev

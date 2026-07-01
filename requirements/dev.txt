@@ -18,7 +18,7 @@ yamllint==1.35.1
 types-PyYAML>=6.0.12.12
 
 # For reasonable pylint output on the command line:
-# pylint --rcfile .pylintrc --load-plugins pylint_django --django-settings-module TraceBase.settings -d E1101 ...
+# pylint --rcfile .pylintrc --load-plugins pylint_django --django-settings-module TraceBase.settings.dev -d E1101 ...
 pylint-django>=2.6.1
 
 # MKDocs for building docs
