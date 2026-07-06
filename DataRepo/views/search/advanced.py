@@ -14,13 +14,13 @@ from DataRepo.formats.dataformat_group_query import (
     isValidQryObjPopulated,
 )
 from DataRepo.formats.search_group import SearchGroup
-from DataRepo.forms import (
+from DataRepo.forms.forms import (
     AdvSearchDownloadForm,
     AdvSearchForm,
     AdvSearchPageForm,
 )
-from DataRepo.multiforms import MultiFormsView
-from DataRepo.pager import Pager
+from DataRepo.forms.multiforms import MultiFormsView
+from DataRepo.forms.widgets.pager import Pager
 from DataRepo.views.utils import get_cookie
 
 

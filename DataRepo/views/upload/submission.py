@@ -15,7 +15,7 @@ from django.db.utils import ProgrammingError
 from django.forms import ValidationError, formset_factory
 from django.views.generic.edit import FormView
 
-from DataRepo.forms import create_BuildSubmissionForm
+from DataRepo.forms.forms import create_BuildSubmissionForm
 from DataRepo.loaders.animals_loader import AnimalsLoader
 from DataRepo.loaders.base.table_column import ColumnReference
 from DataRepo.loaders.base.table_loader import TableLoader

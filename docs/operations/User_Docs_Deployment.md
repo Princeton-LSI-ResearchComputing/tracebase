@@ -250,8 +250,8 @@ def setup(app):
 Generate the `rst` files using `autodoc`.  This will only generate documentation for the exceptions file:
 
 ```bash
-sphinx-apidoc -o docs -d 1 --remove-old . TraceBase user_guide DataRepo/models DataRepo/schemas DataRepo/templates DataRepo/templatetags DataRepo/tests DataRepo/views DataRepo/widgets DataRepo/data DataRepo/fixtures DataRepo/formats DataRepo/loaders DataRepo/management DataRepo/migrations DataRepo/admin.py DataRepo/apps.py DataRepo/context_processors.py DataRepo/forms.py \
-DataRepo/multiforms.py DataRepo/pager.py DataRepo/urls.py DataRepo/utils/file_utils.py DataRepo/utils/func_utils.py DataRepo/utils/infusate_name_parser.py DataRepo/utils/queryset_to_pandas_dataframe.py DataRepo/utils/studies_exporter.py DataRepo/utils/text_utils.py manage.py
+sphinx-apidoc -o docs -d 1 --remove-old . TraceBase user_guide DataRepo/models DataRepo/schemas DataRepo/templates DataRepo/templatetags DataRepo/tests DataRepo/views DataRepo/forms DataRepo/forms/widgets DataRepo/tests/data DataRepo/fixtures DataRepo/formats DataRepo/loaders DataRepo/management DataRepo/migrations DataRepo/admin.py DataRepo/apps.py DataRepo/context_processors.py \
+DataRepo/forms/forms.py DataRepo/forms/multiforms.py DataRepo/pager.py DataRepo/urls.py DataRepo/utils/file_utils.py DataRepo/utils/func_utils.py DataRepo/utils/infusate_name_parser.py DataRepo/utils/queryset_to_pandas_dataframe.py DataRepo/utils/studies_exporter.py DataRepo/utils/text_utils.py manage.py
 ```
 
 ### Build the Sphinx Documentation

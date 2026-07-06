@@ -22,14 +22,17 @@ from DataRepo.formats.fluxcirc_dataformat import FluxCircFormat
 from DataRepo.formats.peakdata_dataformat import PeakDataFormat
 from DataRepo.formats.peakgroups_dataformat import PeakGroupsFormat
 from DataRepo.formats.search_group import SearchGroup
+from DataRepo.forms.widgets.base import (
+    AutoCompleteTextInput,
+    MultipleFileInput,
+)
+from DataRepo.forms.widgets.search import RowsPerPageSelectWidget
 from DataRepo.models import LCMethod, MSRunSequence, Researcher
 from DataRepo.utils.file_utils import (
     date_to_string,
     ensure_temporary_uploaded_file,
     is_excel,
 )
-from DataRepo.widgets.base import AutoCompleteTextInput, MultipleFileInput
-from DataRepo.widgets.search import RowsPerPageSelectWidget
 
 # IMPORTANT NOTE ABOUT THE pos & posprefix FIELDS IN EACH AdvSearch FORM CLASSES:
 
