@@ -221,9 +221,3 @@ CACHES: Dict[str, Dict[str, object]] = {
         "KEY_PREFIX": "PROD",
     }
 }
-
-# For backward compatibility with older branches...  This gets overwritten in prod.py.  The development site must have
-# `SetEnv DJANGO_SETTINGS_MODULE TraceBase.settings.dev` in the httpd.service settings (See INSTALL.md, Optional
-# Development Server Apache Setup), but do not put it in the production site's httpd.service settings (so it defaults to
-# prod).
-DEBUG = True
