@@ -20,7 +20,7 @@ from DataRepo.formats.dataformat_group_query import (
     isValidQryObjPopulated,
 )
 from DataRepo.formats.search_group import SearchGroup
-from DataRepo.forms import AdvSearchDownloadForm, AdvSearchForm
+from DataRepo.forms.forms import AdvSearchDownloadForm, AdvSearchForm
 from DataRepo.models.msrun_sample import MSRunSample
 from DataRepo.models.peak_data import PeakData
 from DataRepo.models.peak_group import PeakGroup
