@@ -90,7 +90,7 @@ Make sure that the `MAX_ENTRIES` in the settings is sufficient to hold all calcu
          - specify a custom annotation field name by setting `manytomany["root_annot_fld"]`.  E.g. For the MeasureCompound model instance, `manytomany["root_annot_fld"]` is explicitly set to `compound` in the PeakGroupSeachView class.
    - Add the new class to the for loop in SearchGroup.__init__
 
-2. `DataRepo/forms.py`
+2. `DataRepo/forms/forms.py`
    - Add an import at the top of the class created in step 1 above
    - Copy and rename AdvSearchPeakGroupsForm and:
       - Set the data member `format_class` to the class from step 1
