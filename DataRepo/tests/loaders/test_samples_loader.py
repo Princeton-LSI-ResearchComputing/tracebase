@@ -326,7 +326,7 @@ class SamplesLoaderTests(TracebaseTestCase):
         self.assertDictEqual(counts, sl.record_counts)
 
     def test_no_serum_samples_warning(self):
-        file = "DataRepo/data/tests/no_serum_samples/study.xlsx"
+        file = "DataRepo/tests/data/no_serum_samples/study.xlsx"
 
         # Load prerequisite data
         call_command(

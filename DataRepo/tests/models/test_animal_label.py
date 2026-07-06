@@ -22,20 +22,20 @@ class AnimalLabelTests(TracebaseTestCase):
     def setUpTestData(cls):
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/small_obob2/obob_animal_sample_table_v3.xlsx",
+            infile="DataRepo/tests/data/small_obob2/obob_animal_sample_table_v3.xlsx",
         )
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/small_obob2/serum_lactate_sample_table.xlsx",
+            infile="DataRepo/tests/data/small_obob2/serum_lactate_sample_table.xlsx",
         )
 
         call_command(
             "load_peak_annotations",
-            infile="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf.xlsx",
+            infile="DataRepo/tests/data/small_obob2/obob_maven_6eaas_inf.xlsx",
         )
         call_command(
             "load_peak_annotations",
-            infile="DataRepo/data/tests/small_obob2/obob_maven_6eaas_serum.xlsx",
+            infile="DataRepo/tests/data/small_obob2/obob_maven_6eaas_serum.xlsx",
         )
 
         cls.SERUM_COMPOUNDS_COUNT = 13
@@ -51,12 +51,12 @@ class AnimalLabelTests(TracebaseTestCase):
     def test_serum_tracers_enrichment_fraction(self):
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/multiple_labels/animal_sample_table_v3.xlsx",
+            infile="DataRepo/tests/data/multiple_labels/animal_sample_table_v3.xlsx",
             exclude_sheets=["Peak Annotation Files"],
         )
         call_command(
             "load_peak_annotations",
-            infile="DataRepo/data/tests/multiple_labels/alafasted_cor.xlsx",
+            infile="DataRepo/tests/data/multiple_labels/alafasted_cor.xlsx",
         )
 
         anml = Animal.objects.get(name="xzl5")

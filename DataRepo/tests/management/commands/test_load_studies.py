@@ -9,7 +9,7 @@ class LoadStudiesTests(TracebaseTestCase):
         self.assertEqual(Study.objects.count(), 0)
         call_command(
             "load_studies",
-            infile="DataRepo/data/tests/small_obob/small_obob_study.xlsx",
+            infile="DataRepo/tests/data/small_obob/small_obob_study.xlsx",
         )
         self.assertEqual(Study.objects.count(), 1)
         rec = Study.objects.first()

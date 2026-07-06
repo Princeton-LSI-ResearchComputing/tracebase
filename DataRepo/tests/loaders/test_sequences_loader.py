@@ -22,11 +22,11 @@ class SequencesLoaderTests(TracebaseTestCase):
 
     def test_load_data(self):
         df = read_from_file(
-            "DataRepo/data/tests/submission_v3/study.xlsx",
+            "DataRepo/tests/data/submission_v3/study.xlsx",
             SequencesLoader.DataSheetName,
             dtype=SequencesLoader.header_key_to_name(SequencesLoader.DataColumnTypes),
         )
-        sl = SequencesLoader(df=df, file="DataRepo/data/tests/submission_v3/study.xlsx")
+        sl = SequencesLoader(df=df, file="DataRepo/tests/data/submission_v3/study.xlsx")
         sl.load_data()
         self.assertEqual(3, MSRunSequence.objects.count())
         seq = MSRunSequence.objects.filter(researcher="Xianfeng Zeng").first()

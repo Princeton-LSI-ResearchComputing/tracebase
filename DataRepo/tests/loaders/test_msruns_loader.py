@@ -105,7 +105,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         cls.msr.full_clean()
 
         # Create a peak group
-        path = Path("DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf.xlsx")
+        path = Path("DataRepo/tests/data/small_obob/small_obob_maven_6eaas_inf.xlsx")
         with path.open(mode="rb") as f:
             myfile = File(f, name=path.name)
             ms_peak_annotation = DataType.objects.get(code="ms_peak_annotation")
@@ -143,7 +143,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         # (though in the placeholder, we don't know that)
         # This may not have the same samples, but it doesn't matter for this test
         path = Path(
-            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate.xlsx"
+            "DataRepo/tests/data/small_obob/small_obob_maven_6eaas_inf_lactate.xlsx"
         )
         with path.open(mode="rb") as f:
             myfile = File(f, name=path.name)
@@ -179,7 +179,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         )
 
         bat_mzxml_file = (
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/"
+            "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/"
             "BAT-xz971.mzXML"
         )
         with path.open(mode="rb") as f:
@@ -246,7 +246,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
                 ],
             },
             "Br_xz971": {
-                "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls": [
+                "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls": [
                     {
                         "added": True,
                         "raw_file_name": "Br-xz971.raw",
@@ -257,12 +257,12 @@ class MSRunsLoaderTests(TracebaseTestCase):
                         "mzaf_record": "ignore this invalid value",
                         "rawaf_record": "ignore this invalid value",
                         "mzxml_filename": "Br-xz971.mzXML",
-                        "mzxml_dir": "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls",
+                        "mzxml_dir": "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls",
                     }
                 ],
             },
             "BAT_xz971": {
-                "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls": [
+                "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls": [
                     {
                         "added": False,
                         "raw_file_name": "BAT-xz971.raw",
@@ -273,7 +273,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
                         "mzaf_record": BAT_xz971_mz_af,
                         "rawaf_record": BAT_xz971_raw_af,
                         "mzxml_filename": "BAT-xz971.mzXML",
-                        "mzxml_dir": "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls",
+                        "mzxml_dir": "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls",
                     }
                 ],
             },
@@ -319,7 +319,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         msrl = MSRunsLoader()
         msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
         msrl.mzxml_dict["BAT_xz971"][
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
+            "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
         ][0]["added"] = True
         self.assertFalse(msrl.unpaired_mzxml_files_exist())
 
@@ -336,7 +336,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
             "mz_min": 1.0,
         }
         mz_dict, errs = MSRunsLoader.parse_mzxml(
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML"
+            "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML"
         )
         self.assertEqual(expected, mz_dict)
         self.assertEqual(0, len(errs.exceptions))
@@ -482,7 +482,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         msrl.set_row_index(2)
         msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
         expected = self.MOCK_MZXML_DICT["Br_xz971"][
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
+            "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
         ][0]
         mzxml_metadata, mult_matches = msrl.get_matching_mzxml_metadata(
             "mysample",  # Sample name - does not match
@@ -499,7 +499,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         msrl.set_row_index(2)
         # Have the object setup the mzxml_dict, so we see what would really happen
         msrl.get_or_create_mzxml_and_raw_archive_files(
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML"
+            "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML"
         )
         mzxml_metadata, _ = msrl.get_matching_mzxml_metadata(
             "mysample",  # Sample name - does not match
@@ -511,7 +511,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertEqual(1.0, mzxml_metadata["mz_min"])
         self.assertIsInstance(mzxml_metadata["mzaf_record"], ArchiveFile)
         self.assertEqual(
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_mzxmls",
+            "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_mzxmls",
             mzxml_metadata["mzxml_dir"],
         )
         self.assertEqual("BAT-xz971.mzXML", mzxml_metadata["mzxml_filename"])
@@ -605,7 +605,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
                 ),
                 mzxml_files=[
                     # Arbitrarily selected mzXML - whether it matches the sample doesn't matter for this test.
-                    "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML"
+                    "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML"
                 ],
             )
 
@@ -635,7 +635,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         # Copy the metadata, because the method will modify it
         mzxml_metadata = deepcopy(
             self.MOCK_MZXML_DICT["BAT_xz971"][
-                "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
+                "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
             ][0]
         )
 
@@ -645,7 +645,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         rec, created = msrl.get_or_create_msrun_sample_from_mzxml(
             sample,
             "BAT_xz971",
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls",
+            "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls",
             mzxml_metadata,
             msrun_sequence,
         )
@@ -658,13 +658,13 @@ class MSRunsLoaderTests(TracebaseTestCase):
         # Copy the metadata again
         mzxml_metadata2 = deepcopy(
             self.MOCK_MZXML_DICT["BAT_xz971"][
-                "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
+                "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
             ][0]
         )
         rec2, created2 = msrl.get_or_create_msrun_sample_from_mzxml(
             sample,
             "BAT_xz971",
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls",
+            "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls",
             mzxml_metadata2,
             msrun_sequence,
         )
@@ -678,7 +678,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         # Copy the metadata, because the method will modify it
         mzxml_metadata = deepcopy(
             self.MOCK_MZXML_DICT["Br_xz971"][
-                "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
+                "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
             ][0]
         )
 
@@ -687,7 +687,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         rec, created = msrl.get_or_create_msrun_sample_from_mzxml(
             sample,  # Make sure this isn't necessary in edge cases
             "Br_xz971",
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls",
+            "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls",
             mzxml_metadata,
             msrun_sequence,
         )
@@ -703,7 +703,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
             rawaf_rec,
             rawaf_created,
         ) = msrl.get_or_create_mzxml_and_raw_archive_files(
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML"
+            "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML"
         )
         self.assertEqual(ArchiveFile, type(mzaf_rec))
         self.assertTrue(mzaf_created)
@@ -717,7 +717,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
             rawaf2_rec,
             rawaf2_created,
         ) = msrl.get_or_create_mzxml_and_raw_archive_files(
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_pos_mzxmls/BAT-xz971_pos.mzXML"
+            "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_pos_mzxmls/BAT-xz971_pos.mzXML"
         )
         self.assertEqual(ArchiveFile, type(mzaf2_rec))
         self.assertTrue(mzaf2_created)
@@ -731,7 +731,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
             rawaf3_rec,
             rawaf3_created,
         ) = msrl.get_or_create_mzxml_and_raw_archive_files(
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_pos_mzxmls/BAT-xz971_pos.mzXML"
+            "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_pos_mzxmls/BAT-xz971_pos.mzXML"
         )
         self.assertEqual(mzaf2_rec, mzaf3_rec)
         self.assertFalse(mzaf3_created)
@@ -748,7 +748,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
             rawaf_created,
         ) = msrl.get_or_create_mzxml_and_raw_archive_files(
             Path(
-                "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML"
+                "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML"
             )
         )
         self.assertEqual(ArchiveFile, type(mzaf_rec))
@@ -862,7 +862,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertEqual(
             rec.ms_data_file,
             self.MOCK_MZXML_DICT["BAT_xz971"][
-                "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
+                "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
             ][0]["mzaf_record"],
         )
         self.assertTrue(created)
@@ -918,7 +918,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertEqual(
             rec.ms_data_file,
             self.MOCK_MZXML_DICT["BAT_xz971"][
-                "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
+                "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
             ][0]["mzaf_record"],
         )
         self.assertFalse(created)
@@ -969,7 +969,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertEqual(
             rec.ms_data_file,
             self.MOCK_MZXML_DICT["BAT_xz971"][
-                "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
+                "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
             ][0]["mzaf_record"],
         )
         self.assertTrue(created)
@@ -992,7 +992,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
 
         # Create an empty concrete MSRunSample record (i.e. it has an mzXML file and no peak groups link to it)
         concrete_mzxml_dict = self.MOCK_MZXML_DICT["BAT_xz971"][
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
+            "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
         ][0]
         empty_concrete_rec_dict = {
             "msrun_sequence": self.msr.msrun_sequence,
@@ -1038,7 +1038,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertEqual(
             rec.ms_data_file,
             self.MOCK_MZXML_DICT["BAT_xz971"][
-                "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
+                "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
             ][0]["mzaf_record"],
         )
         self.assertFalse(created)
@@ -1060,7 +1060,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
 
         # Create an empty concrete MSRunSample record (i.e. it has an mzXML file and no peak groups link to it)
         concrete_mzxml_dict = self.MOCK_MZXML_DICT["BAT_xz971"][
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
+            "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
         ][0]
         concrete_rec_dict = {
             "msrun_sequence": self.msr.msrun_sequence,
@@ -1131,7 +1131,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertEqual(
             rec.ms_data_file,
             self.MOCK_MZXML_DICT["BAT_xz971"][
-                "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
+                "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
             ][0]["mzaf_record"],
         )
         self.assertFalse(created)
@@ -1151,7 +1151,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         """
 
         path = Path(
-            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx"
+            "DataRepo/tests/data/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx"
         )
         with path.open(mode="rb") as f:
             myfile = File(f, name=path.name)
@@ -1201,7 +1201,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertEqual(
             rec.ms_data_file,
             self.MOCK_MZXML_DICT["BAT_xz971"][
-                "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
+                "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
             ][0]["mzaf_record"],
         )
         self.assertTrue(created)
@@ -1228,7 +1228,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
 
         # Create a concrete MSRunSample record (i.e. it has an mzXML file and no peak groups link to it)
         concrete_mzxml_dict = self.MOCK_MZXML_DICT["BAT_xz971"][
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
+            "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
         ][0]
         concrete_rec_dict = {
             "msrun_sequence": self.msr.msrun_sequence,
@@ -1275,7 +1275,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertEqual(
             rec.ms_data_file,
             self.MOCK_MZXML_DICT["BAT_xz971"][
-                "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
+                "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
             ][0]["mzaf_record"],
         )
         self.assertFalse(created)
@@ -1327,7 +1327,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertEqual(
             rec.ms_data_file,
             self.MOCK_MZXML_DICT["BAT_xz971"][
-                "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
+                "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
             ][0]["mzaf_record"],
         )
         self.assertTrue(created)
@@ -1352,7 +1352,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
 
         # Create a concrete MSRunSample record (i.e. it has an mzXML file and no peak groups link to it)
         concrete_mzxml_dict = self.MOCK_MZXML_DICT["BAT_xz971"][
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
+            "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
         ][0]
         concrete_rec_dict = {
             "msrun_sequence": self.msr.msrun_sequence,
@@ -1395,7 +1395,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertEqual(
             rec.ms_data_file,
             self.MOCK_MZXML_DICT["BAT_xz971"][
-                "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
+                "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
             ][0]["mzaf_record"],
         )
         self.assertFalse(created)
@@ -1546,28 +1546,28 @@ class MSRunsLoaderTests(TracebaseTestCase):
 
     def test_get_mzxml_files_files(self):
         files = [
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML",
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/Br-xz971.mzXML",
+            "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML",
+            "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/Br-xz971.mzXML",
         ]
         mzxml_files = MSRunsLoader.get_mzxml_files(
             files=files,
-            dir="DataRepo/data/tests/small_obob",
+            dir="DataRepo/tests/data/small_obob",
         )
         self.assertEqual(files, mzxml_files)
 
     def test_get_mzxml_files_dir(self):
         mzxml_files = MSRunsLoader.get_mzxml_files(
-            dir="DataRepo/data/tests/small_obob_mzxmls"
+            dir="DataRepo/tests/data/small_obob_mzxmls"
         )
         expected = [
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_pos_mzxmls/Br-xz971_pos.mzXML",
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_pos_mzxmls/BAT-xz971_pos.mzXML",
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_neg_mzxmls/Br-xz971_neg.mzXML",
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_neg_mzxmls/BAT-xz971_neg.mzXML",
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/Br-xz971.mzXML",
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML",
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_mzxmls/Br-xz971.mzXML",
-            "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML",
+            "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_pos_mzxmls/Br-xz971_pos.mzXML",
+            "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_pos_mzxmls/BAT-xz971_pos.mzXML",
+            "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_neg_mzxmls/Br-xz971_neg.mzXML",
+            "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_neg_mzxmls/BAT-xz971_neg.mzXML",
+            "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/Br-xz971.mzXML",
+            "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML",
+            "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_mzxmls/Br-xz971.mzXML",
+            "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML",
         ]
         self.assertEqual(set(expected), set(mzxml_files))
 
@@ -1584,8 +1584,8 @@ class MSRunsLoaderTests(TracebaseTestCase):
         )
         msrl = MSRunsLoader(
             mzxml_files=[
-                "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML",
-                "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML",
+                "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML",
+                "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML",
             ],
             operator="John Doe",  # From setUpTestData
             lc_protocol_name="polar-HILIC-25-min",
@@ -1638,15 +1638,15 @@ class MSRunsLoaderTests(TracebaseTestCase):
         anotation file on the path of the mzXML and sample records matching the sample column that is associated with a
         header that matches the mzXML filenames."""
         df = read_from_file(
-            "DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",
+            "DataRepo/tests/data/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",
             sheet=MSRunsLoader.DataSheetName,
         )
         msrl = MSRunsLoader(
             df=df,
-            file="DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",
+            file="DataRepo/tests/data/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",
             mzxml_files=[
-                "DataRepo/data/tests/same_name_mzxmls/mzxmls/BAT-xz971.mzXML",
-                "DataRepo/data/tests/same_name_mzxmls/mzxmls/pos/BAT-xz971.mzXML",
+                "DataRepo/tests/data/same_name_mzxmls/mzxmls/BAT-xz971.mzXML",
+                "DataRepo/tests/data/same_name_mzxmls/mzxmls/pos/BAT-xz971.mzXML",
             ],
         )
         af_before = ArchiveFile.objects.count()
@@ -1702,10 +1702,10 @@ class MSRunsLoaderTests(TracebaseTestCase):
                     "Skip": [],
                 }
             ),
-            file="DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",  # Pk Annotation Details not used
+            file="DataRepo/tests/data/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",  # Pk Annotation Details not used
             mzxml_files=[
-                "DataRepo/data/tests/same_name_mzxmls/mzxmls/BAT-xz971.mzXML",
-                "DataRepo/data/tests/same_name_mzxmls/mzxmls/pos/BAT-xz971.mzXML",
+                "DataRepo/tests/data/same_name_mzxmls/mzxmls/BAT-xz971.mzXML",
+                "DataRepo/tests/data/same_name_mzxmls/mzxmls/pos/BAT-xz971.mzXML",
             ],
         )
         af_before = ArchiveFile.objects.count()
@@ -1974,7 +1974,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         # assertion, the check that they do not occur when skipped is nearly meaningless.)
         msr_loader = MSRunsLoader(
             df=pd.DataFrame.from_dict(df_dict),
-            file="DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",
+            file="DataRepo/tests/data/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",
             skip_mzxmls=True,
         )
         msr_loader.check_dataframe_values()
@@ -1996,7 +1996,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         # validate page cannot supply command line arguments)
         msr_loader_validate = MSRunsLoader(
             df=pd.DataFrame.from_dict(df_dict),
-            file="DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",
+            file="DataRepo/tests/data/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",
             skip_mzxmls=True,
             _validate=True,
         )
@@ -2042,10 +2042,10 @@ class MSRunsLoaderTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             msr_loader = MSRunsLoader(
                 df=pd.DataFrame.from_dict(df_dict),
-                file="DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",
+                file="DataRepo/tests/data/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",
                 mzxml_files=[
-                    "DataRepo/data/tests/same_name_mzxmls/mzxmls/BAT-xz971.mzXML",
-                    "DataRepo/data/tests/same_name_mzxmls/mzxmls/pos/BAT-xz971.mzXML",
+                    "DataRepo/tests/data/same_name_mzxmls/mzxmls/BAT-xz971.mzXML",
+                    "DataRepo/tests/data/same_name_mzxmls/mzxmls/pos/BAT-xz971.mzXML",
                 ],
             )
         aes = ar.exception
@@ -2060,10 +2060,10 @@ class MSRunsLoaderTests(TracebaseTestCase):
         df_dict["Skip"] = ["skip", "skip", "skip", "skip", None]
         msr_loader = MSRunsLoader(
             df=pd.DataFrame.from_dict(df_dict),
-            file="DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",
+            file="DataRepo/tests/data/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",
             mzxml_files=[
-                "DataRepo/data/tests/same_name_mzxmls/mzxmls/BAT-xz971.mzXML",
-                "DataRepo/data/tests/same_name_mzxmls/mzxmls/pos/BAT-xz971.mzXML",
+                "DataRepo/tests/data/same_name_mzxmls/mzxmls/BAT-xz971.mzXML",
+                "DataRepo/tests/data/same_name_mzxmls/mzxmls/pos/BAT-xz971.mzXML",
             ],
         )
         msr_loader.check_dataframe_values()
@@ -2073,7 +2073,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         """This test ensures that every unmatched mzXML gets its own exception."""
         mrl = MSRunsLoader(
             df=pd.DataFrame.from_dict({}),
-            file="DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",  # Peak Annotation Dtls not used
+            file="DataRepo/tests/data/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",  # Peak Annotation Dtls not used
             mzxml_files=[
                 "unknown_sample.mzXML",
                 "scan2/unknown_sample.mzXML",
@@ -2138,7 +2138,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
                     ],
                 }
             ),
-            file="DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",  # Peak Annotation Dtls not used
+            file="DataRepo/tests/data/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",  # Peak Annotation Dtls not used
             mzxml_files=["some_unknown_sample.mzXML"],
             debug=True,
         )
@@ -2168,9 +2168,9 @@ class MSRunsLoaderTests(TracebaseTestCase):
                         None,
                     ],
                     MSRunsLoader.DataHeaders.MZXMLNAME: [
-                        "DataRepo/data/tests/same_name_mzxmls/mzxmls/BAT-xz971.mzXML",
+                        "DataRepo/tests/data/same_name_mzxmls/mzxmls/BAT-xz971.mzXML",
                         os.path.abspath(
-                            "DataRepo/data/tests/same_name_mzxmls/mzxmls/pos/BAT-xz971.mzXML"
+                            "DataRepo/tests/data/same_name_mzxmls/mzxmls/pos/BAT-xz971.mzXML"
                         ),
                     ],
                     MSRunsLoader.DataHeaders.ANNOTNAME: [
@@ -2187,12 +2187,12 @@ class MSRunsLoaderTests(TracebaseTestCase):
                     ],
                 }
             ),
-            file="DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",  # Peak Annotation Dtls not used
+            file="DataRepo/tests/data/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",  # Peak Annotation Dtls not used
             mzxml_files=[
                 os.path.abspath(
-                    "DataRepo/data/tests/same_name_mzxmls/mzxmls/BAT-xz971.mzXML"
+                    "DataRepo/tests/data/same_name_mzxmls/mzxmls/BAT-xz971.mzXML"
                 ),
-                "DataRepo/data/tests/same_name_mzxmls/mzxmls/pos/BAT-xz971.mzXML",
+                "DataRepo/tests/data/same_name_mzxmls/mzxmls/pos/BAT-xz971.mzXML",
             ],
             debug=True,
         )
@@ -2237,16 +2237,16 @@ class MSRunsLoaderTests(TracebaseTestCase):
     def test_init_mzxml_files_default(self):
         """This test ensures that mzXML files are found and loaded by default"""
         msruns_loader = MSRunsLoader(
-            file="DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx"
+            file="DataRepo/tests/data/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx"
         )
         self.assertEqual(
-            "DataRepo/data/tests/same_name_mzxmls",
+            "DataRepo/tests/data/same_name_mzxmls",
             os.path.relpath(msruns_loader.mzxml_dir, os.getcwd()),
         )
         self.assertEqual(
             [
-                "DataRepo/data/tests/same_name_mzxmls/mzxmls/BAT-xz971.mzXML",
-                "DataRepo/data/tests/same_name_mzxmls/mzxmls/pos/BAT-xz971.mzXML",
+                "DataRepo/tests/data/same_name_mzxmls/mzxmls/BAT-xz971.mzXML",
+                "DataRepo/tests/data/same_name_mzxmls/mzxmls/pos/BAT-xz971.mzXML",
             ],
             [os.path.relpath(p, os.getcwd()) for p in msruns_loader.mzxml_files],
         )
@@ -2254,7 +2254,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
     def test_init_skip_mzxml_files(self):
         """This test ensures that mzXML file loads can be skipped"""
         msruns_loader = MSRunsLoader(
-            file="DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",
+            file="DataRepo/tests/data/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",
             skip_mzxmls=True,
         )
         self.assertIsNone(msruns_loader.mzxml_dir)
@@ -2287,7 +2287,7 @@ class MSRunsLoaderArchiveTests(TracebaseArchiveTestCase):
         # Set up the loader object
         msrl = MSRunsLoader(
             mzxml_files=[
-                "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML"
+                "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML"
             ],
             operator="L.C. McMethod",
             date="2024-05-06",
@@ -2420,7 +2420,7 @@ class MSRunsLoaderArchiveTests(TracebaseArchiveTestCase):
 
     def test_clean_up_created_mzxmls_in_archive(self):
         msrl = MSRunsLoader()
-        fl = "DataRepo/data/tests/same_name_mzxmls/mzxmls/BAT-xz971.mzXML"
+        fl = "DataRepo/tests/data/same_name_mzxmls/mzxmls/BAT-xz971.mzXML"
         afr, created = ArchiveFile.objects.get_or_create(
             file_location=fl,
             data_type=DataType.objects.get(code="ms_data"),

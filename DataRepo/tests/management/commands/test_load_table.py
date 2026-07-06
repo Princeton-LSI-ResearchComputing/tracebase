@@ -64,7 +64,7 @@ class TestCommand(LoadTableCommand):
 @isolate_apps("DataRepo.tests.apps.loader")
 class LoadTableCommandTests(TracebaseTestCase):
     TEST_OPTIONS = {
-        "infile": "DataRepo/data/tests/load_table/test.tsv",
+        "infile": "DataRepo/tests/data/load_table/test.tsv",
         "headers": None,
         "defer_rollback": False,
         "dry_run": False,
@@ -116,7 +116,7 @@ class LoadTableCommandTests(TracebaseTestCase):
             dry_run=None,
             data_sheet=None,
             verbosity=0,
-            defaults_file="DataRepo/data/tests/load_table/defaults.tsv",
+            defaults_file="DataRepo/tests/data/load_table/defaults.tsv",
             debug=settings.DEBUG,
         )
 
@@ -222,7 +222,7 @@ class LoadTableCommandTests(TracebaseTestCase):
         """
         tc = TestCommand()
         tc.handle(**self.TEST_OPTIONS)
-        self.assertEqual("DataRepo/data/tests/load_table/test.tsv", tc.get_infile())
+        self.assertEqual("DataRepo/tests/data/load_table/test.tsv", tc.get_infile())
 
     def test_get_defaults(self):
         """
@@ -262,7 +262,7 @@ class LoadTableCommandTests(TracebaseTestCase):
             df=None,
             dry_run=True,  # Diff from default False
             defer_rollback=False,  # Same as default (mutex with dry_run)
-            file="DataRepo/data/tests/load_table/test.xlsx",  # Diff from default None
+            file="DataRepo/tests/data/load_table/test.xlsx",  # Diff from default None
             data_sheet="Test",  # Diff from default None
             defaults_df=None,
             defaults_sheet=None,
@@ -286,7 +286,7 @@ class LoadTableCommandTests(TracebaseTestCase):
         # Assert that the loader has the custom values we set
         self.assertTrue(tc.loader.dry_run)
         self.assertFalse(tc.loader.defer_rollback)
-        self.assertEqual("DataRepo/data/tests/load_table/test.xlsx", tc.loader.file)
+        self.assertEqual("DataRepo/tests/data/load_table/test.xlsx", tc.loader.file)
         self.assertEqual("Test", tc.loader.sheet)
 
         # Assert that the set headers and defaults from the initial loader instance carried over
@@ -302,7 +302,7 @@ class LoadTableCommandTests(TracebaseTestCase):
             tc = TestCommand()
 
             opts = {
-                "infile": "DataRepo/data/tests/load_table/test.tsv",
+                "infile": "DataRepo/tests/data/load_table/test.tsv",
                 "defaults_sheet": None,
                 "data_sheet": "Test",
                 "defaults_file": None,
@@ -352,7 +352,7 @@ class LoadTableCommandTests(TracebaseTestCase):
             tc = TestCommand()
 
             opts = {
-                "infile": "DataRepo/data/tests/load_table/test.tsv",
+                "infile": "DataRepo/tests/data/load_table/test.tsv",
                 "defaults_sheet": None,
                 "data_sheet": "Test",
                 "defaults_file": None,
@@ -407,7 +407,7 @@ class LoadTableCommandTests(TracebaseTestCase):
 
         # Defined valid sheet
         opts = {
-            "infile": "DataRepo/data/tests/load_table/test.xlsx",
+            "infile": "DataRepo/tests/data/load_table/test.xlsx",
             "defaults_sheet": "MyDefaults",
             "data_sheet": "Test",  # This is normally defaulted by argparse, but not here, manually
             "defaults_file": None,
@@ -423,7 +423,7 @@ class LoadTableCommandTests(TracebaseTestCase):
         # When not excel
         tc = TestCommand()
         opts = {
-            "infile": "DataRepo/data/tests/load_table/test.tsv",
+            "infile": "DataRepo/tests/data/load_table/test.tsv",
             "defaults_sheet": "MyDefaults",
             "data_sheet": "Test",  # This is normally defaulted by argparse, but not here, manuallyNone,
             "defaults_file": None,
@@ -439,11 +439,11 @@ class LoadTableCommandTests(TracebaseTestCase):
     def test_get_user_headers(self):
         tc = TestCommand()
         opts = {
-            "infile": "DataRepo/data/tests/load_table/test.xlsx",
+            "infile": "DataRepo/tests/data/load_table/test.xlsx",
             "defaults_sheet": None,
             "data_sheet": "Test",  # This is normally defaulted by argparse, but not here, manually
             "defaults_file": None,
-            "headers": "DataRepo/data/tests/load_table/test_headers.yaml",
+            "headers": "DataRepo/tests/data/load_table/test_headers.yaml",
             "dry_run": False,
             "defer_rollback": False,
             "verbosity": 0,
@@ -468,7 +468,7 @@ class LoadTableCommandTests(TracebaseTestCase):
         tc = TestCommand()
         tc.set_headers({"TEST": "Test2"})  # The file's header is "Test2"
         opts = {
-            "infile": "DataRepo/data/tests/load_table/test.xlsx",
+            "infile": "DataRepo/tests/data/load_table/test.xlsx",
             "defaults_sheet": "MyDefaults",
             "data_sheet": "Test",  # This is normally defaulted by argparse, but not here, manually
             "defaults_file": None,
@@ -492,10 +492,10 @@ class LoadTableCommandTests(TracebaseTestCase):
     def test_get_user_defaults_tsv(self):
         tc = TestCommand()
         opts = {
-            "infile": "DataRepo/data/tests/load_table/test.tsv",
+            "infile": "DataRepo/tests/data/load_table/test.tsv",
             "defaults_sheet": None,
             "data_sheet": "Test",  # This is normally defaulted by argparse, but not here, manually
-            "defaults_file": "DataRepo/data/tests/load_table/defaults.tsv",
+            "defaults_file": "DataRepo/tests/data/load_table/defaults.tsv",
             "headers": None,
             "dry_run": False,
             "defer_rollback": False,
@@ -516,7 +516,7 @@ class LoadTableCommandTests(TracebaseTestCase):
     def test_invalid_model_record_counts(self):
         tc = TestCommand()
         opts = {
-            "infile": "DataRepo/data/tests/load_table/test.tsv",
+            "infile": "DataRepo/tests/data/load_table/test.tsv",
             "defaults_sheet": None,
             "data_sheet": "Test",
             "headers": None,

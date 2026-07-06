@@ -370,7 +370,7 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         al = AccucorLoader(
             df=self.ACCUCOR_DF_DICT,
             peak_annotation_details_df=peak_annotation_details_df,
-            file="DataRepo/data/tests/data_submission/accucor1.xlsx",  # This is not what's in self.ACCUCOR_DF_DICT
+            file="DataRepo/tests/data/data_submission/accucor1.xlsx",  # This is not what's in self.ACCUCOR_DF_DICT
         )
         al.load_data()
         self.assertEqual(1, ArchiveFile.objects.count())  # accucor1.xlsx
@@ -386,7 +386,7 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         self.assertEqual(8, PeakDataLabel.objects.count())
 
     def test_get_or_create_annot_file(self):
-        al = AccucorLoader(file="DataRepo/data/tests/data_submission/accucor1.xlsx")
+        al = AccucorLoader(file="DataRepo/tests/data/data_submission/accucor1.xlsx")
         al.get_or_create_annot_file()
         ArchiveFile.objects.get(filename="accucor1.xlsx")
         # No exception = successful test
@@ -466,7 +466,7 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
             }
         )
         rec_dict = {
-            "file_location": "DataRepo/data/tests/data_submission/accucor1.xlsx",
+            "file_location": "DataRepo/tests/data/data_submission/accucor1.xlsx",
             "data_type": "ms_peak_annotation",
             "data_format": "accucor",
         }
@@ -599,7 +599,7 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
 
     def create_peak_group(self):
         rec_dict = {
-            "file_location": "DataRepo/data/tests/data_submission/accucor1.xlsx",
+            "file_location": "DataRepo/tests/data/data_submission/accucor1.xlsx",
             "data_type": "ms_peak_annotation",
             "data_format": "accucor",
         }
@@ -860,31 +860,31 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         """
         # Load all the prerequisites (everything but the Peak Annotation Files and Peak Group Conflicts)
         dfdict = read_from_file(
-            "DataRepo/data/tests/multiple_representations/resolution_handling/prereqs.xlsx",
+            "DataRepo/tests/data/multiple_representations/resolution_handling/prereqs.xlsx",
             None,
         )
         sl = StudyV3Loader(
-            file="DataRepo/data/tests/multiple_representations/resolution_handling/prereqs.xlsx",
+            file="DataRepo/tests/data/multiple_representations/resolution_handling/prereqs.xlsx",
             df=dfdict,
         )
         sl.load_data()
 
         il = IsoautocorrLoader(
             df=read_from_file(
-                "DataRepo/data/tests/multiple_representations/resolution_handling/negative_cor.xlsx",
+                "DataRepo/tests/data/multiple_representations/resolution_handling/negative_cor.xlsx",
                 sheet=None,
             ),
-            file="DataRepo/data/tests/multiple_representations/resolution_handling/negative_cor.xlsx",
+            file="DataRepo/tests/data/multiple_representations/resolution_handling/negative_cor.xlsx",
             peak_group_conflicts_file=(
-                "DataRepo/data/tests/multiple_representations/"
+                "DataRepo/tests/data/multiple_representations/"
                 "resolution_handling/conflicting_resolutions.tsv"
             ),
             peak_group_conflicts_sheet="Peak Group Conflicts",
             peak_group_conflicts_df=read_from_file(
-                "DataRepo/data/tests/multiple_representations/resolution_handling/conflicting_resolutions.tsv",
+                "DataRepo/tests/data/multiple_representations/resolution_handling/conflicting_resolutions.tsv",
             ),
             peak_annotation_details_file=(
-                "DataRepo/data/tests/multiple_representations/"
+                "DataRepo/tests/data/multiple_representations/"
                 "resolution_handling/prereqs.xlsx"
             ),
             peak_annotation_details_sheet="Peak Annotation Details",
@@ -971,11 +971,11 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         that compound in the peak group conflicts sheet."""
         # Load all the prerequisites (everything but the Peak Annotation Files and Peak Group Conflicts)
         dfdict = read_from_file(
-            "DataRepo/data/tests/multiple_representations/resolution_handling/prereqs.xlsx",
+            "DataRepo/tests/data/multiple_representations/resolution_handling/prereqs.xlsx",
             None,
         )
         sl = StudyV3Loader(
-            file="DataRepo/data/tests/multiple_representations/resolution_handling/prereqs.xlsx",
+            file="DataRepo/tests/data/multiple_representations/resolution_handling/prereqs.xlsx",
             df=dfdict,
         )
         sl.load_data()
@@ -984,14 +984,14 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         # old peak group and replacing it with the one the user selected.
         il1 = IsoautocorrLoader(
             df=read_from_file(
-                "DataRepo/data/tests/multiple_representations/resolution_handling/negative_cor.xlsx",
+                "DataRepo/tests/data/multiple_representations/resolution_handling/negative_cor.xlsx",
                 sheet=None,
             ),
-            file="DataRepo/data/tests/multiple_representations/resolution_handling/negative_cor.xlsx",
+            file="DataRepo/tests/data/multiple_representations/resolution_handling/negative_cor.xlsx",
             # No peak_group_conflicts, so that we load a peak group that a later load deletes, due to separate
             # submissions
             peak_annotation_details_file=(
-                "DataRepo/data/tests/multiple_representations/"
+                "DataRepo/tests/data/multiple_representations/"
                 "resolution_handling/prereqs.xlsx"
             ),
             peak_annotation_details_sheet="Peak Annotation Details",
@@ -1002,20 +1002,20 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         # Now perform the load with the selected/new peak group
         il2 = IsoautocorrLoader(
             df=read_from_file(
-                "DataRepo/data/tests/multiple_representations/resolution_handling/poshigh_cor.xlsx",
+                "DataRepo/tests/data/multiple_representations/resolution_handling/poshigh_cor.xlsx",
                 sheet=None,
             ),
-            file="DataRepo/data/tests/multiple_representations/resolution_handling/poshigh_cor.xlsx",
+            file="DataRepo/tests/data/multiple_representations/resolution_handling/poshigh_cor.xlsx",
             peak_group_conflicts_file=(
-                "DataRepo/data/tests/multiple_representations/"
+                "DataRepo/tests/data/multiple_representations/"
                 "resolution_handling/poshigh_resolution.tsv"
             ),
             peak_group_conflicts_sheet="Peak Group Conflicts",
             peak_group_conflicts_df=read_from_file(
-                "DataRepo/data/tests/multiple_representations/resolution_handling/poshigh_resolution.tsv",
+                "DataRepo/tests/data/multiple_representations/resolution_handling/poshigh_resolution.tsv",
             ),
             peak_annotation_details_file=(
-                "DataRepo/data/tests/multiple_representations/"
+                "DataRepo/tests/data/multiple_representations/"
                 "resolution_handling/prereqs.xlsx"
             ),
             peak_annotation_details_sheet="Peak Annotation Details",
@@ -1099,7 +1099,7 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
             [AccucorLoader.format_code],
             PeakAnnotationsLoader.determine_matching_formats(
                 read_from_file(
-                    "DataRepo/data/tests/accucor_with_multiple_labels/accucor.xlsx",
+                    "DataRepo/tests/data/accucor_with_multiple_labels/accucor.xlsx",
                     sheet=None,
                 )
             ),
@@ -1110,7 +1110,7 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
             [IsocorrLoader.format_code],
             PeakAnnotationsLoader.determine_matching_formats(
                 read_from_file(
-                    "DataRepo/data/tests/multiple_tracers/bcaafasted_cor.xlsx",
+                    "DataRepo/tests/data/multiple_tracers/bcaafasted_cor.xlsx",
                     sheet=None,
                 )
             ),
@@ -1121,7 +1121,7 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
             [IsocorrLoader.format_code, IsoautocorrLoader.format_code],
             PeakAnnotationsLoader.determine_matching_formats(
                 read_from_file(
-                    "DataRepo/data/tests/singly_labeled_isocorr/small_cor.csv",
+                    "DataRepo/tests/data/singly_labeled_isocorr/small_cor.csv",
                     sheet=None,
                 )
             ),
@@ -1132,7 +1132,7 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
             [],
             PeakAnnotationsLoader.determine_matching_formats(
                 read_from_file(
-                    "DataRepo/data/tests/submission_v3/study.xlsx", sheet=None
+                    "DataRepo/tests/data/submission_v3/study.xlsx", sheet=None
                 )
             ),
         )
@@ -1179,7 +1179,7 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         pgname = "Serine"
         msrun_sample = self.msrs_ts1
         paf_dict = {
-            "file_location": "DataRepo/data/tests/data_submission/accucor1.xlsx",
+            "file_location": "DataRepo/tests/data/data_submission/accucor1.xlsx",
             "data_type": "ms_peak_annotation",
             "data_format": "accucor",
         }
@@ -1210,7 +1210,7 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         pgname = "Serine"
         msrun_sample = self.msrs_ts1
         paf_dict = {
-            "file_location": "DataRepo/data/tests/data_submission/accucor1.xlsx",
+            "file_location": "DataRepo/tests/data/data_submission/accucor1.xlsx",
             "data_type": "ms_peak_annotation",
             "data_format": "accucor",
         }
@@ -1253,7 +1253,7 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         pgname = "Serine"
         msrun_sample = self.msrs_ts1
         paf_dict = {
-            "file_location": "DataRepo/data/tests/data_submission/accucor1.xlsx",
+            "file_location": "DataRepo/tests/data/data_submission/accucor1.xlsx",
             "data_type": "ms_peak_annotation",
             "data_format": "accucor",
         }
@@ -1298,7 +1298,7 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         pgname = "Serine"
         msrun_sample = self.msrs_ts1
         paf_dict = {
-            "file_location": "DataRepo/data/tests/data_submission/accucor1.xlsx",
+            "file_location": "DataRepo/tests/data/data_submission/accucor1.xlsx",
             "data_type": "ms_peak_annotation",
             "data_format": "accucor",
         }
@@ -1343,7 +1343,7 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         pgname = "Serine"
         msrun_sample = self.msrs_ts1
         paf_dict = {
-            "file_location": "DataRepo/data/tests/data_submission/accucor1.xlsx",
+            "file_location": "DataRepo/tests/data/data_submission/accucor1.xlsx",
             "data_type": "ms_peak_annotation",
             "data_format": "accucor",
         }
@@ -1415,7 +1415,7 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         pgname = "Serine"
         msrun_sample = self.msrs_ts1
         paf_dict = {
-            "file_location": "DataRepo/data/tests/data_submission/accucor1.xlsx",
+            "file_location": "DataRepo/tests/data/data_submission/accucor1.xlsx",
             "data_type": "ms_peak_annotation",
             "data_format": "accucor",
         }

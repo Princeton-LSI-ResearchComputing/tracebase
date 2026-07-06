@@ -18,7 +18,7 @@ class TissueLoadingTests(TracebaseTestCase):
         """Test the load_tissue management command"""
         call_command(
             "load_tissues",
-            infile="DataRepo/data/tests/tissues/tissues.tsv",
+            infile="DataRepo/tests/data/tissues/tissues.tsv",
         )
         self.assertEqual(Tissue.objects.count(), 37)
 
@@ -26,7 +26,7 @@ class TissueLoadingTests(TracebaseTestCase):
         """Test dry run of the load_tissue management command"""
         call_command(
             "load_tissues",
-            infile="DataRepo/data/tests/tissues/tissues.tsv",
+            infile="DataRepo/tests/data/tissues/tissues.tsv",
             dry_run=True,
         )
         # Dry run should not load any records
@@ -37,7 +37,7 @@ class TissueLoadingTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_tissues",
-                infile="DataRepo/data/tests/tissues/tissues_with_errors.tsv",
+                infile="DataRepo/tests/data/tissues/tissues_with_errors.tsv",
                 verbosity=2,
             )
         aes = ar.exception
@@ -76,7 +76,7 @@ class TissueLoadingTests(TracebaseTestCase):
         self.assertIn(
             (
                 "Required column values missing on the indicated rows:\n"
-                "\tDataRepo/data/tests/tissues/tissues_with_errors.tsv\n"
+                "\tDataRepo/tests/data/tissues/tissues_with_errors.tsv\n"
                 "\t\tColumn: [Tissue] on rows: ['6']\n"
                 "\t\tColumn: [Description] on rows: ['7']\n"
             ),
@@ -85,7 +85,7 @@ class TissueLoadingTests(TracebaseTestCase):
         self.assertIn(
             (
                 "Required column values missing on the indicated rows:\n"
-                "\tDataRepo/data/tests/tissues/tissues_with_errors.tsv\n"
+                "\tDataRepo/tests/data/tissues/tissues_with_errors.tsv\n"
                 "\t\tColumn: [Tissue] on rows: ['6']\n"
                 "\t\tColumn: [Description] on rows: ['7']\n"
             ),

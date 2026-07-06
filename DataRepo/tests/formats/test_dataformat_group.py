@@ -45,11 +45,11 @@ class FormatGroupTests(FormatsTestCase):
     def setUpTestData(cls):
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table_no_newsample.xlsx",
+            infile="DataRepo/tests/data/small_obob/small_obob_animal_and_sample_table_no_newsample.xlsx",
         )
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table_no_newsample_2ndstudy.xlsx",
+            infile="DataRepo/tests/data/small_obob/small_obob_animal_and_sample_table_no_newsample_2ndstudy.xlsx",
             exclude_sheets=["Peak Annotation Files"],
         )
         basv = SearchGroup()
@@ -556,7 +556,7 @@ class FormatGroupTests(FormatsTestCase):
         # Make sure there are multiple tracers
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/small_multitracer/study.xlsx",
+            infile="DataRepo/tests/data/small_multitracer/study.xlsx",
         )
 
         format = "fctemplate"

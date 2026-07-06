@@ -134,7 +134,7 @@ class ProtocolLoadingTests(TracebaseTestCase):
         """Test loading the protocols from a TSV containing previously loaded data"""
         call_command(
             "load_protocols",
-            infile="DataRepo/data/tests/protocols/protocols.tsv",
+            infile="DataRepo/tests/data/protocols/protocols.tsv",
         )
         self.assertEqual(Protocol.objects.count(), 8)
         # all of these were animal treatments
@@ -146,7 +146,7 @@ class ProtocolLoadingTests(TracebaseTestCase):
         """Test loading the protocols from a Treatments sheet in the xlxs workbook"""
         call_command(
             "load_protocols",
-            infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx",
+            infile="DataRepo/tests/data/small_obob/small_obob_animal_and_sample_table.xlsx",
         )
         self.assertEqual(Protocol.objects.count(), 2)
         # and these are all animal treatments
@@ -158,7 +158,7 @@ class ProtocolLoadingTests(TracebaseTestCase):
         """Test loading the protocols from a Treatments sheet in the xlxs workbook"""
         call_command(
             "load_protocols",
-            infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx",
+            infile="DataRepo/tests/data/small_obob/small_obob_animal_and_sample_table.xlsx",
             dry_run=True,
         )
         # none in default
@@ -168,7 +168,7 @@ class ProtocolLoadingTests(TracebaseTestCase):
         """Test loading the protocols from a TSV containing duplicates and mungeable data"""
         call_command(
             "load_protocols",
-            infile="DataRepo/data/tests/protocols/protocols_with_workarounds.tsv",
+            infile="DataRepo/tests/data/protocols/protocols_with_workarounds.tsv",
         )
         self.assertEqual(Protocol.objects.count(), 1)
         # test data trimming
@@ -182,7 +182,7 @@ class ProtocolLoadingTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_protocols",
-                infile="DataRepo/data/tests/protocols/protocols_with_errors.tsv",
+                infile="DataRepo/tests/data/protocols/protocols_with_errors.tsv",
             )
         aes = ar.exception
 
