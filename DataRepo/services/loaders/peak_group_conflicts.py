@@ -4,9 +4,12 @@ from typing import Dict, List
 
 from django.db.models import Model
 
-from DataRepo.services.loaders.base.table_column import ColumnReference, TableColumn
-from DataRepo.services.loaders.base.table_loader import TableLoader
 from DataRepo.models.peak_group import PeakGroup
+from DataRepo.services.loaders.base.table_column import (
+    ColumnReference,
+    TableColumn,
+)
+from DataRepo.services.loaders.base.table_loader import TableLoader
 from DataRepo.utils.exceptions import (
     DuplicatePeakGroupResolutions,
     generate_file_location_string,

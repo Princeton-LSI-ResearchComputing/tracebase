@@ -3,9 +3,12 @@ from typing import Dict
 
 from django.db import transaction
 
-from DataRepo.services.loaders.base.table_column import ColumnReference, TableColumn
-from DataRepo.services.loaders.base.table_loader import TableLoader
 from DataRepo.models import Protocol
+from DataRepo.services.loaders.base.table_column import (
+    ColumnReference,
+    TableColumn,
+)
+from DataRepo.services.loaders.base.table_loader import TableLoader
 from DataRepo.utils.exceptions import RollbackException
 from DataRepo.utils.file_utils import is_excel
 

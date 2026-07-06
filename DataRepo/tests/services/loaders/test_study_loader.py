@@ -3,10 +3,6 @@ from typing import Dict, Type
 from django.core.management import call_command
 from django.db.models import Model
 
-from DataRepo.services.loaders.animals_loader import AnimalsLoader
-from DataRepo.services.loaders.base.table_loader import TableLoader
-from DataRepo.services.loaders.protocols_loader import ProtocolsLoader
-from DataRepo.services.loaders.study_loader import StudyLoader, StudyV3Loader
 from DataRepo.models import (
     Animal,
     ArchiveFile,
@@ -29,6 +25,10 @@ from DataRepo.models import (
     Tracer,
     TracerLabel,
 )
+from DataRepo.services.loaders.animals_loader import AnimalsLoader
+from DataRepo.services.loaders.base.table_loader import TableLoader
+from DataRepo.services.loaders.protocols_loader import ProtocolsLoader
+from DataRepo.services.loaders.study_loader import StudyLoader, StudyV3Loader
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,

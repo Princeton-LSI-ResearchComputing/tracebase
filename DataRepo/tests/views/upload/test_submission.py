@@ -9,6 +9,14 @@ from django.core.management import call_command
 from django.test import override_settings
 from django.urls import reverse
 
+from DataRepo.models import Protocol, Tissue
+from DataRepo.models.infusate import Infusate
+from DataRepo.models.maintained_model import (
+    MaintainedModel,
+    UncleanBufferError,
+)
+from DataRepo.models.sample import Sample
+from DataRepo.models.utilities import get_all_models
 from DataRepo.services.loaders import ProtocolsLoader, TissuesLoader
 from DataRepo.services.loaders.animals_loader import AnimalsLoader
 from DataRepo.services.loaders.compounds_loader import CompoundsLoader
@@ -23,14 +31,6 @@ from DataRepo.services.loaders.samples_loader import SamplesLoader
 from DataRepo.services.loaders.sequences_loader import SequencesLoader
 from DataRepo.services.loaders.studies_loader import StudiesLoader
 from DataRepo.services.loaders.tracers_loader import TracersLoader
-from DataRepo.models import Protocol, Tissue
-from DataRepo.models.infusate import Infusate
-from DataRepo.models.maintained_model import (
-    MaintainedModel,
-    UncleanBufferError,
-)
-from DataRepo.models.sample import Sample
-from DataRepo.models.utilities import get_all_models
 from DataRepo.tests.tracebase_test_case import TracebaseTransactionTestCase
 from DataRepo.utils.exceptions import (
     AllMissingSamples,

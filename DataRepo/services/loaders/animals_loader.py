@@ -4,11 +4,6 @@ from typing import Dict, Optional
 
 from django.db import transaction
 
-from DataRepo.services.loaders.base.table_column import ColumnReference, TableColumn
-from DataRepo.services.loaders.base.table_loader import TableLoader
-from DataRepo.services.loaders.infusates_loader import InfusatesLoader
-from DataRepo.services.loaders.protocols_loader import ProtocolsLoader
-from DataRepo.services.loaders.studies_loader import StudiesLoader
 from DataRepo.models import (
     Animal,
     AnimalLabel,
@@ -18,6 +13,14 @@ from DataRepo.models import (
     Study,
 )
 from DataRepo.models.utilities import value_from_choices_label
+from DataRepo.services.loaders.base.table_column import (
+    ColumnReference,
+    TableColumn,
+)
+from DataRepo.services.loaders.base.table_loader import TableLoader
+from DataRepo.services.loaders.infusates_loader import InfusatesLoader
+from DataRepo.services.loaders.protocols_loader import ProtocolsLoader
+from DataRepo.services.loaders.studies_loader import StudiesLoader
 from DataRepo.utils.exceptions import (
     DuplicateValues,
     MissingFCircCalculationValue,

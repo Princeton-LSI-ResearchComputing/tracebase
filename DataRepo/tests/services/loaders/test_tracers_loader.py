@@ -1,7 +1,7 @@
 import pandas as pd
 
-from DataRepo.services.loaders.tracers_loader import TracersLoader
 from DataRepo.models import Compound, Tracer, TracerLabel
+from DataRepo.services.loaders.tracers_loader import TracersLoader
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import InfileError
 from DataRepo.utils.infusate_name_parser import IsotopeData, TracerData

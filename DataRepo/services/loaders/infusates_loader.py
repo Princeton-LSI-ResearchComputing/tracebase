@@ -4,12 +4,15 @@ from typing import Dict
 
 from django.db import transaction
 
-from DataRepo.services.loaders.base.table_column import ColumnReference, TableColumn
-from DataRepo.services.loaders.base.table_loader import TableLoader
-from DataRepo.services.loaders.tracers_loader import TracersLoader
 from DataRepo.models import Infusate, InfusateTracer, MaintainedModel, Tracer
 from DataRepo.models.compound import Compound
 from DataRepo.models.utilities import exists_in_db
+from DataRepo.services.loaders.base.table_column import (
+    ColumnReference,
+    TableColumn,
+)
+from DataRepo.services.loaders.base.table_loader import TableLoader
+from DataRepo.services.loaders.tracers_loader import TracersLoader
 from DataRepo.utils.exceptions import (
     InfileError,
     RollbackException,

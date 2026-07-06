@@ -14,7 +14,10 @@ from django.db.models import (
 )
 from django.test.utils import isolate_apps
 
-from DataRepo.services.loaders.base.table_column import ColumnValue, TableColumn
+from DataRepo.services.loaders.base.table_column import (
+    ColumnValue,
+    TableColumn,
+)
 from DataRepo.services.loaders.base.table_loader import TableLoader
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (

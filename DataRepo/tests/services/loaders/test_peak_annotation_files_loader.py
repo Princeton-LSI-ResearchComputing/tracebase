@@ -2,10 +2,6 @@ from datetime import datetime, timedelta
 
 import pandas as pd
 
-from DataRepo.services.loaders.peak_annotation_files_loader import (
-    PeakAnnotationFilesLoader,
-)
-from DataRepo.services.loaders.study_loader import StudyV3Loader
 from DataRepo.models import (
     Animal,
     ArchiveFile,
@@ -21,6 +17,10 @@ from DataRepo.models import (
     Sample,
     Tissue,
 )
+from DataRepo.services.loaders.peak_annotation_files_loader import (
+    PeakAnnotationFilesLoader,
+)
+from DataRepo.services.loaders.study_loader import StudyV3Loader
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrorsSet,

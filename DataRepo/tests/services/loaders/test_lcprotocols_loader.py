@@ -1,7 +1,7 @@
 import pandas as pd
 
-from DataRepo.services.loaders.lcprotocols_loader import LCProtocolsLoader
 from DataRepo.models import LCMethod
+from DataRepo.services.loaders.lcprotocols_loader import LCProtocolsLoader
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.file_utils import read_from_file
 

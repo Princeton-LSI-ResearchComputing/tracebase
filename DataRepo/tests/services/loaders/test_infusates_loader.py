@@ -1,7 +1,7 @@
 import pandas as pd
 
-from DataRepo.services.loaders.infusates_loader import InfusatesLoader
 from DataRepo.models import Compound, Infusate, InfusateTracer, Tracer
+from DataRepo.services.loaders.infusates_loader import InfusatesLoader
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import InfileError
 from DataRepo.utils.infusate_name_parser import (

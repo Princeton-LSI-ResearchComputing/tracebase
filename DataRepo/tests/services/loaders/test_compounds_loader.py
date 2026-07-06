@@ -1,5 +1,5 @@
-from DataRepo.services.loaders.compounds_loader import CompoundsLoader
 from DataRepo.models.compound import Compound, CompoundSynonym
+from DataRepo.services.loaders.compounds_loader import CompoundsLoader
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import ProhibitedCompoundNames
 from DataRepo.utils.file_utils import read_from_file

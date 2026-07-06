@@ -5,10 +5,6 @@ from django.conf import settings
 from django.core.management import CommandError, call_command
 from django.test import override_settings
 
-from DataRepo.services.loaders.peak_annotation_files_loader import (
-    PeakAnnotationFilesLoader,
-)
-from DataRepo.services.loaders.peak_annotations_loader import AccucorLoader
 from DataRepo.models import (
     Animal,
     Infusate,
@@ -22,6 +18,10 @@ from DataRepo.models import (
     TracerLabel,
 )
 from DataRepo.models.archive_file import ArchiveFile, DataFormat, DataType
+from DataRepo.services.loaders.peak_annotation_files_loader import (
+    PeakAnnotationFilesLoader,
+)
+from DataRepo.services.loaders.peak_annotations_loader import AccucorLoader
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,

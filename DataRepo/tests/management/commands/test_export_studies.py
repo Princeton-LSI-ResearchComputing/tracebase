@@ -5,9 +5,9 @@ from django.core.management import call_command
 
 from DataRepo.models.infusate import Infusate
 from DataRepo.models.study import Study
+from DataRepo.services.studies_exporter import BadQueryTerm
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
-from DataRepo.services.studies_exporter import BadQueryTerm
 
 
 class ExportStudiesTestBase(TracebaseTestCase):

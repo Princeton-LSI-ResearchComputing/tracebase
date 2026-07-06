@@ -2,6 +2,7 @@ from typing import Type
 
 from django.core.management import CommandError
 
+from DataRepo.management.commands.load_table import LoadTableCommand
 from DataRepo.services.loaders import (
     AccucorLoader,
     IsoautocorrLoader,
@@ -13,7 +14,6 @@ from DataRepo.services.loaders import (
 )
 from DataRepo.services.loaders.base.table_loader import TableLoader
 from DataRepo.services.loaders.peak_group_conflicts import PeakGroupConflicts
-from DataRepo.management.commands.load_table import LoadTableCommand
 from DataRepo.utils.exceptions import ConditionallyRequiredOptions
 from DataRepo.utils.file_utils import read_from_file
 

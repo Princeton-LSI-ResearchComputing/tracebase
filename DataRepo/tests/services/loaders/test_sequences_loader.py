@@ -1,7 +1,7 @@
 import pandas as pd
 
-from DataRepo.services.loaders.sequences_loader import SequencesLoader
 from DataRepo.models import LCMethod, MSRunSequence
+from DataRepo.services.loaders.sequences_loader import SequencesLoader
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.file_utils import read_from_file
 

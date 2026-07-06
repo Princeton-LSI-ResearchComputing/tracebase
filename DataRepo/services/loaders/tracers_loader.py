@@ -4,10 +4,13 @@ from typing import Dict
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import ProgrammingError, transaction
 
-from DataRepo.services.loaders.base.table_column import ColumnReference, TableColumn
+from DataRepo.models import Compound, MaintainedModel, Tracer, TracerLabel
+from DataRepo.services.loaders.base.table_column import (
+    ColumnReference,
+    TableColumn,
+)
 from DataRepo.services.loaders.base.table_loader import TableLoader
 from DataRepo.services.loaders.compounds_loader import CompoundsLoader
-from DataRepo.models import Compound, MaintainedModel, Tracer, TracerLabel
 from DataRepo.utils.exceptions import (
     CompoundDoesNotExist,
     InfileError,

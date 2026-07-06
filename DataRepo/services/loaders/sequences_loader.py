@@ -3,10 +3,13 @@ from typing import Dict
 
 from django.db import transaction
 
-from DataRepo.services.loaders.base.table_column import ColumnReference, TableColumn
+from DataRepo.models import LCMethod, MSRunSequence, Researcher
+from DataRepo.services.loaders.base.table_column import (
+    ColumnReference,
+    TableColumn,
+)
 from DataRepo.services.loaders.base.table_loader import TableLoader
 from DataRepo.services.loaders.lcprotocols_loader import LCProtocolsLoader
-from DataRepo.models import LCMethod, MSRunSequence, Researcher
 from DataRepo.utils.exceptions import (
     InfileError,
     NewResearcher,

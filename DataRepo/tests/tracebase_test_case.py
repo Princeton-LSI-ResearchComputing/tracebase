@@ -397,7 +397,7 @@ def _generate_test_stubs(package, verbose=0):
     Assumptions:
         1. package is not a tests package.
     Args:
-        package (str): a python path to a package (file), e.g. DataRepo.loaders
+        package (str): a python path to a package (file), e.g. DataRepo.services.loaders
         verbose (int)
     Exceptions:
         None

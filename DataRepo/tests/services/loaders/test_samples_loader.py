@@ -4,11 +4,11 @@ from datetime import timedelta
 import pandas as pd
 from django.core.management import call_command
 
-from DataRepo.services.loaders.samples_loader import SamplesLoader
 from DataRepo.models import Animal, Compound, Infusate
 from DataRepo.models.fcirc import FCirc
 from DataRepo.models.sample import Sample
 from DataRepo.models.tissue import Tissue
+from DataRepo.services.loaders.samples_loader import SamplesLoader
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,

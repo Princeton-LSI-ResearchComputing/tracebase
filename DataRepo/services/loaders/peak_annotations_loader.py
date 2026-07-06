@@ -9,10 +9,6 @@ from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import transaction
 from django.db.utils import ProgrammingError
 
-from DataRepo.services.loaders.base.converted_table_loader import ConvertedTableLoader
-from DataRepo.services.loaders.base.table_column import TableColumn
-from DataRepo.services.loaders.compounds_loader import CompoundsLoader
-from DataRepo.services.loaders.samples_loader import SamplesLoader
 from DataRepo.models import (
     ArchiveFile,
     Compound,
@@ -31,6 +27,12 @@ from DataRepo.models.hier_cached_model import (
     disable_caching_updates,
     enable_caching_updates,
 )
+from DataRepo.services.loaders.base.converted_table_loader import (
+    ConvertedTableLoader,
+)
+from DataRepo.services.loaders.base.table_column import TableColumn
+from DataRepo.services.loaders.compounds_loader import CompoundsLoader
+from DataRepo.services.loaders.samples_loader import SamplesLoader
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     ConditionallyRequiredArgs,
@@ -311,7 +313,9 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         """
         # This avoids circular import:
         from DataRepo.services.loaders.msruns_loader import MSRunsLoader
-        from DataRepo.services.loaders.peak_group_conflicts import PeakGroupConflicts
+        from DataRepo.services.loaders.peak_group_conflicts import (
+            PeakGroupConflicts,
+        )
 
         # Custom options for the MSRunsLoader member instance.
         self.peak_annotation_details_file = kwargs.pop(

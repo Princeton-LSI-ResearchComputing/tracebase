@@ -4,13 +4,6 @@ from datetime import datetime, timedelta
 import pandas as pd
 from django.db import ProgrammingError
 
-from DataRepo.services.loaders.peak_annotations_loader import (
-    AccucorLoader,
-    IsoautocorrLoader,
-    IsocorrLoader,
-    PeakAnnotationsLoader,
-)
-from DataRepo.services.loaders.study_loader import StudyV3Loader
 from DataRepo.models import (
     ArchiveFile,
     Compound,
@@ -27,6 +20,13 @@ from DataRepo.models import (
     Tissue,
 )
 from DataRepo.models.animal import Animal
+from DataRepo.services.loaders.peak_annotations_loader import (
+    AccucorLoader,
+    IsoautocorrLoader,
+    IsocorrLoader,
+    PeakAnnotationsLoader,
+)
+from DataRepo.services.loaders.study_loader import StudyV3Loader
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,

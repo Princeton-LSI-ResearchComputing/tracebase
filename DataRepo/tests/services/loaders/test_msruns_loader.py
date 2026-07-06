@@ -7,7 +7,6 @@ from pathlib import Path
 import pandas as pd
 from django.core.files import File
 
-from DataRepo.services.loaders.msruns_loader import MSRunsLoader
 from DataRepo.models import (
     Animal,
     ArchiveFile,
@@ -23,6 +22,7 @@ from DataRepo.models import (
     Tissue,
 )
 from DataRepo.models.compound import Compound
+from DataRepo.services.loaders.msruns_loader import MSRunsLoader
 from DataRepo.tests.tracebase_test_case import (
     TracebaseArchiveTestCase,
     TracebaseTestCase,

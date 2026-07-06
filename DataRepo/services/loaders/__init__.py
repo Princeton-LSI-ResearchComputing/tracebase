@@ -1,5 +1,7 @@
 from DataRepo.services.loaders.animals_loader import AnimalsLoader
-from DataRepo.services.loaders.base.converted_table_loader import ConvertedTableLoader
+from DataRepo.services.loaders.base.converted_table_loader import (
+    ConvertedTableLoader,
+)
 from DataRepo.services.loaders.base.table_loader import TableLoader
 from DataRepo.services.loaders.compounds_loader import CompoundsLoader
 from DataRepo.services.loaders.msruns_loader import MSRunsLoader

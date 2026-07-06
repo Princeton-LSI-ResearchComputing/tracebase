@@ -5,7 +5,9 @@ import pandas as pd
 from django.db.models import AutoField, CharField, Model
 from django.test.utils import isolate_apps
 
-from DataRepo.services.loaders.base.converted_table_loader import ConvertedTableLoader
+from DataRepo.services.loaders.base.converted_table_loader import (
+    ConvertedTableLoader,
+)
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import AggregatedErrors, RequiredHeadersError
 
