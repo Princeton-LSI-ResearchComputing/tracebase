@@ -1,7 +1,7 @@
 from typing import Type
 
-from DataRepo.loaders.base.table_loader import TableLoader
-from DataRepo.loaders.lcprotocols_loader import LCProtocolsLoader
+from DataRepo.services.loaders.base.table_loader import TableLoader
+from DataRepo.services.loaders.lcprotocols_loader import LCProtocolsLoader
 from DataRepo.management.commands.load_table import LoadTableCommand
 
 

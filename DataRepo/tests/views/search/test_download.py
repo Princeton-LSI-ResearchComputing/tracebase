@@ -6,7 +6,7 @@ from django.core.management import call_command
 from django.http import StreamingHttpResponse
 
 from DataRepo.forms.forms import AdvSearchDownloadForm
-from DataRepo.loaders.study_loader import StudyV3Loader
+from DataRepo.services.loaders.study_loader import StudyV3Loader
 from DataRepo.models.peak_group import PeakGroup
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.file_utils import read_from_file

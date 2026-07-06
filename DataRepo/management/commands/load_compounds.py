@@ -1,7 +1,7 @@
 from typing import Type
 
-from DataRepo.loaders.base.table_loader import TableLoader
-from DataRepo.loaders.compounds_loader import CompoundsLoader
+from DataRepo.services.loaders.base.table_loader import TableLoader
+from DataRepo.services.loaders.compounds_loader import CompoundsLoader
 from DataRepo.management.commands.load_table import LoadTableCommand
 
 

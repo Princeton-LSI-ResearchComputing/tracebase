@@ -9,20 +9,20 @@ from django.core.management import call_command
 from django.test import override_settings
 from django.urls import reverse
 
-from DataRepo.loaders import ProtocolsLoader, TissuesLoader
-from DataRepo.loaders.animals_loader import AnimalsLoader
-from DataRepo.loaders.compounds_loader import CompoundsLoader
-from DataRepo.loaders.infusates_loader import InfusatesLoader
-from DataRepo.loaders.lcprotocols_loader import LCProtocolsLoader
-from DataRepo.loaders.msruns_loader import MSRunsLoader
-from DataRepo.loaders.peak_annotation_files_loader import (
+from DataRepo.services.loaders import ProtocolsLoader, TissuesLoader
+from DataRepo.services.loaders.animals_loader import AnimalsLoader
+from DataRepo.services.loaders.compounds_loader import CompoundsLoader
+from DataRepo.services.loaders.infusates_loader import InfusatesLoader
+from DataRepo.services.loaders.lcprotocols_loader import LCProtocolsLoader
+from DataRepo.services.loaders.msruns_loader import MSRunsLoader
+from DataRepo.services.loaders.peak_annotation_files_loader import (
     PeakAnnotationFilesLoader,
 )
-from DataRepo.loaders.peak_group_conflicts import PeakGroupConflicts
-from DataRepo.loaders.samples_loader import SamplesLoader
-from DataRepo.loaders.sequences_loader import SequencesLoader
-from DataRepo.loaders.studies_loader import StudiesLoader
-from DataRepo.loaders.tracers_loader import TracersLoader
+from DataRepo.services.loaders.peak_group_conflicts import PeakGroupConflicts
+from DataRepo.services.loaders.samples_loader import SamplesLoader
+from DataRepo.services.loaders.sequences_loader import SequencesLoader
+from DataRepo.services.loaders.studies_loader import StudiesLoader
+from DataRepo.services.loaders.tracers_loader import TracersLoader
 from DataRepo.models import Protocol, Tissue
 from DataRepo.models.infusate import Infusate
 from DataRepo.models.maintained_model import (

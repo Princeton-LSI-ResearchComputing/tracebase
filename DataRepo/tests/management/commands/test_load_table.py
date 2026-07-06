@@ -7,8 +7,8 @@ from django.db import ProgrammingError
 from django.db.models import AutoField, CharField, Model
 from django.test.utils import isolate_apps
 
-from DataRepo.loaders.base.table_column import TableColumn
-from DataRepo.loaders.base.table_loader import TableLoader
+from DataRepo.services.loaders.base.table_column import TableColumn
+from DataRepo.services.loaders.base.table_loader import TableLoader
 from DataRepo.management.commands.load_table import LoadTableCommand
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (

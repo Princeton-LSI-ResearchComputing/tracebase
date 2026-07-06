@@ -5,7 +5,7 @@ from typing import Dict, List, Optional, Type
 from django.core.management import BaseCommand, CommandError
 from django.db import ProgrammingError
 
-from DataRepo.loaders import TableLoader
+from DataRepo.services.loaders import TableLoader
 from DataRepo.utils import (
     AggregatedErrors,
     DryRun,

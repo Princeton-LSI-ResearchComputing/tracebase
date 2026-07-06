@@ -1,0 +1,45 @@
+import pandas as pd
+
+from DataRepo.services.loaders.protocols_loader import ProtocolsLoader
+from DataRepo.tests.tracebase_test_case import TracebaseTestCase
+
+
+class ProtocolsLoaderTests(TracebaseTestCase):
+    def test_get_pretty_headers(self):
+        pl = ProtocolsLoader()
+        self.assertEqual(
+            (
+                "[Name*, Description*, Category] (or, if the input file is an excel file: [Animal Treatment*, "
+                "Treatment Description*]) (* = Required)"
+            ),
+            pl.get_pretty_headers(),
+        )
+
+    def test_set_headers_default(self):
+        pl = ProtocolsLoader()
+        # Headers are the class defaults
+        expected = pl.DataTableHeaders(
+            NAME="Name",
+            CATEGORY="Category",
+            DESCRIPTION="Description",
+        )
+        self.assertEqual(expected, pl.headers)
+
+    def test_set_headers_excel(self):
+        df = pd.DataFrame.from_dict(
+            {
+                "Animal Treatment": ["no treatment"],
+                "Treatment Description": [
+                    "No treatment was applied to the animal.  Animal was maintained on normal diet (LabDiet #5053 "
+                    '"Maintenance"), housed at room temperature with a normal light cycle.'
+                ],
+            },
+        )
+        pl = ProtocolsLoader(df=df, file="DataRepo/tests/data/submission_v3/study.xlsx")
+        expected = pl.DataTableHeaders(
+            NAME="Animal Treatment",
+            CATEGORY="Category",
+            DESCRIPTION="Treatment Description",
+        )
+        # Headers are the class defaults
+        self.assertEqual(expected, pl.headers)

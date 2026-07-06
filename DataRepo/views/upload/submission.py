@@ -16,31 +16,31 @@ from django.forms import ValidationError, formset_factory
 from django.views.generic.edit import FormView
 
 from DataRepo.forms.forms import create_BuildSubmissionForm
-from DataRepo.loaders.animals_loader import AnimalsLoader
-from DataRepo.loaders.base.table_column import ColumnReference
-from DataRepo.loaders.base.table_loader import TableLoader
-from DataRepo.loaders.compounds_loader import CompoundsLoader
-from DataRepo.loaders.infusates_loader import InfusatesLoader
-from DataRepo.loaders.lcprotocols_loader import LCProtocolsLoader
-from DataRepo.loaders.msruns_loader import MSRunsLoader
-from DataRepo.loaders.peak_annotation_files_loader import (
+from DataRepo.services.loaders.animals_loader import AnimalsLoader
+from DataRepo.services.loaders.base.table_column import ColumnReference
+from DataRepo.services.loaders.base.table_loader import TableLoader
+from DataRepo.services.loaders.compounds_loader import CompoundsLoader
+from DataRepo.services.loaders.infusates_loader import InfusatesLoader
+from DataRepo.services.loaders.lcprotocols_loader import LCProtocolsLoader
+from DataRepo.services.loaders.msruns_loader import MSRunsLoader
+from DataRepo.services.loaders.peak_annotation_files_loader import (
     PeakAnnotationFilesLoader,
 )
-from DataRepo.loaders.peak_annotations_loader import (
+from DataRepo.services.loaders.peak_annotations_loader import (
     AccucorLoader,
     IsoautocorrLoader,
     IsocorrLoader,
     PeakAnnotationsLoader,
     UnicorrLoader,
 )
-from DataRepo.loaders.peak_group_conflicts import PeakGroupConflicts
-from DataRepo.loaders.protocols_loader import ProtocolsLoader
-from DataRepo.loaders.samples_loader import SamplesLoader
-from DataRepo.loaders.sequences_loader import SequencesLoader
-from DataRepo.loaders.studies_loader import StudiesLoader
-from DataRepo.loaders.study_loader import StudyLoader
-from DataRepo.loaders.tissues_loader import TissuesLoader
-from DataRepo.loaders.tracers_loader import TracersLoader
+from DataRepo.services.loaders.peak_group_conflicts import PeakGroupConflicts
+from DataRepo.services.loaders.protocols_loader import ProtocolsLoader
+from DataRepo.services.loaders.samples_loader import SamplesLoader
+from DataRepo.services.loaders.sequences_loader import SequencesLoader
+from DataRepo.services.loaders.studies_loader import StudiesLoader
+from DataRepo.services.loaders.study_loader import StudyLoader
+from DataRepo.services.loaders.tissues_loader import TissuesLoader
+from DataRepo.services.loaders.tracers_loader import TracersLoader
 from DataRepo.models.compound import Compound
 from DataRepo.models.infusate import Infusate
 from DataRepo.models.infusate_tracer import InfusateTracer

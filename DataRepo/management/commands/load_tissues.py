@@ -1,7 +1,7 @@
 from typing import Type
 
-from DataRepo.loaders.base.table_loader import TableLoader
-from DataRepo.loaders.tissues_loader import TissuesLoader
+from DataRepo.services.loaders.base.table_loader import TableLoader
+from DataRepo.services.loaders.tissues_loader import TissuesLoader
 from DataRepo.management.commands.load_table import LoadTableCommand
 
 

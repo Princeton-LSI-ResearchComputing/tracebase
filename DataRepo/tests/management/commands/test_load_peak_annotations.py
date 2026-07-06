@@ -5,10 +5,10 @@ from django.conf import settings
 from django.core.management import CommandError, call_command
 from django.test import override_settings
 
-from DataRepo.loaders.peak_annotation_files_loader import (
+from DataRepo.services.loaders.peak_annotation_files_loader import (
     PeakAnnotationFilesLoader,
 )
-from DataRepo.loaders.peak_annotations_loader import AccucorLoader
+from DataRepo.services.loaders.peak_annotations_loader import AccucorLoader
 from DataRepo.models import (
     Animal,
     Infusate,
