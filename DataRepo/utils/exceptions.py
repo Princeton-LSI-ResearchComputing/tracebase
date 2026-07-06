@@ -6483,7 +6483,7 @@ class AnimalWithoutSamples(InfileError, SummarizableError):
         Class:
             SummarizerExceptionClass (Exception): Concrete class attribute of SummarizableError's abstract requirement.
                 Exception classes derived from abstract base class `SummarizableError` are collected in
-                `DataRepo.loaders.base.table_loader.TableLoader` and summarized by the class defined here.
+                `DataRepo.services.loaders.base.table_loader.TableLoader` and summarized by the class defined here.
         Instance:
             animal (str): Name of an animal without samples.
     """
@@ -6592,7 +6592,7 @@ class AnimalWithoutSerumSamples(InfileError, SummarizableError):
         Class:
             SummarizerExceptionClass (Exception): Concrete class attribute of SummarizableError's abstract requirement.
                 Exception classes derived from abstract base class `SummarizableError` are collected in
-                `DataRepo.loaders.base.table_loader.TableLoader` and summarized by the class defined here.
+                `DataRepo.services.loaders.base.table_loader.TableLoader` and summarized by the class defined here.
         Instance:
             animal (str): Name of an animal without samples.
     """

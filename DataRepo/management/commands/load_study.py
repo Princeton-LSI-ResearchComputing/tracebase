@@ -3,9 +3,9 @@ from typing import Type
 
 from django.core.management import CommandError
 
-from DataRepo.loaders.base.table_loader import TableLoader
-from DataRepo.loaders.study_loader import StudyLoader, StudyV3Loader
 from DataRepo.management.commands.load_table import LoadTableCommand
+from DataRepo.services.loaders.base.table_loader import TableLoader
+from DataRepo.services.loaders.study_loader import StudyLoader, StudyV3Loader
 from DataRepo.utils.exceptions import (
     InvalidStudyDocVersion,
     MultipleStudyDocVersions,

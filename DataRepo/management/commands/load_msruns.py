@@ -2,10 +2,10 @@ import os
 import sys
 from typing import Type
 
-from DataRepo.loaders.base.table_loader import TableLoader
-from DataRepo.loaders.msruns_loader import MSRunsLoader
-from DataRepo.loaders.sequences_loader import SequencesLoader
 from DataRepo.management.commands.load_table import LoadTableCommand
+from DataRepo.services.loaders.base.table_loader import TableLoader
+from DataRepo.services.loaders.msruns_loader import MSRunsLoader
+from DataRepo.services.loaders.sequences_loader import SequencesLoader
 from DataRepo.utils.exceptions import (
     ConditionallyRequiredOptions,
     MutuallyExclusiveOptions,

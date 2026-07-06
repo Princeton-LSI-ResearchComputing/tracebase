@@ -3,8 +3,8 @@ from django.conf import settings
 from django.core.management import call_command
 from django.test import override_settings, tag
 
-from DataRepo.loaders import CompoundsLoader
 from DataRepo.models import Compound, CompoundSynonym
+from DataRepo.services.loaders import CompoundsLoader
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (
     AggregatedErrors,

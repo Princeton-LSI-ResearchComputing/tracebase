@@ -4,8 +4,8 @@ import pandas as pd
 from django.core.management import call_command
 from django.test import tag
 
-from DataRepo.loaders import ProtocolsLoader
 from DataRepo.models import Protocol
+from DataRepo.services.loaders import ProtocolsLoader
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,

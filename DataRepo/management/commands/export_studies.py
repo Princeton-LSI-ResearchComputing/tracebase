@@ -2,7 +2,7 @@ import os
 
 from django.core.management import BaseCommand
 
-from DataRepo.utils.studies_exporter import StudiesExporter
+from DataRepo.services.studies_exporter import StudiesExporter
 
 
 class Command(BaseCommand):

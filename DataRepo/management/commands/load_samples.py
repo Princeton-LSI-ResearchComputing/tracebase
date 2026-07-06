@@ -3,9 +3,9 @@ from typing import Type
 
 from django.core.management import CommandError
 
-from DataRepo.loaders.base.table_loader import TableLoader
-from DataRepo.loaders.samples_loader import SamplesLoader
 from DataRepo.management.commands.load_table import LoadTableCommand
+from DataRepo.services.loaders.base.table_loader import TableLoader
+from DataRepo.services.loaders.samples_loader import SamplesLoader
 
 
 class Command(LoadTableCommand):

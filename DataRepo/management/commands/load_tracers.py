@@ -1,8 +1,8 @@
 from typing import Type
 
-from DataRepo.loaders.base.table_loader import TableLoader
-from DataRepo.loaders.tracers_loader import TracersLoader
 from DataRepo.management.commands.load_table import LoadTableCommand
+from DataRepo.services.loaders.base.table_loader import TableLoader
+from DataRepo.services.loaders.tracers_loader import TracersLoader
 
 
 class Command(LoadTableCommand):

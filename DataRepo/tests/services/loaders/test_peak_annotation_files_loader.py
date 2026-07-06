@@ -1,0 +1,572 @@
+from datetime import datetime, timedelta
+
+import pandas as pd
+
+from DataRepo.models import (
+    Animal,
+    ArchiveFile,
+    Compound,
+    Infusate,
+    LCMethod,
+    MSRunSample,
+    MSRunSequence,
+    PeakData,
+    PeakDataLabel,
+    PeakGroup,
+    PeakGroupLabel,
+    Sample,
+    Tissue,
+)
+from DataRepo.services.loaders.peak_annotation_files_loader import (
+    PeakAnnotationFilesLoader,
+)
+from DataRepo.services.loaders.study_loader import StudyV3Loader
+from DataRepo.tests.tracebase_test_case import TracebaseTestCase
+from DataRepo.utils.exceptions import (
+    AggregatedErrorsSet,
+    InfileError,
+    MultipleMatchingPeakAnnotationFiles,
+)
+from DataRepo.utils.file_utils import read_from_file
+from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
+
+PeakGroupCompound = PeakGroup.compounds.through
+
+
+class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
+    fixtures = ["lc_methods.yaml", "data_types.yaml", "data_formats.yaml"]
+
+    def test_pafl_get_file_and_format_success(self):
+        pafl = PeakAnnotationFilesLoader()
+        exp_file = "DataRepo/tests/data/small_multitracer/6eaafasted1_cor.xlsx"
+        exp_fmt = "isocorr"
+        row = pd.Series(
+            {
+                PeakAnnotationFilesLoader.DataHeaders.FILE: exp_file,
+                PeakAnnotationFilesLoader.DataHeaders.FORMAT: exp_fmt,
+            }
+        )
+        name, file, fmt = pafl.get_file_and_format(row)
+        self.assertEqual("6eaafasted1_cor.xlsx", name)
+        self.assertEqual(exp_fmt, fmt)
+        self.assertEqual(exp_file, file)
+        self.assertEqual(0, len(pafl.aggregated_errors_object.exceptions))
+
+    def test_pafl_get_file_and_format_warning(self):
+        pafl = PeakAnnotationFilesLoader()
+        exp_file = "DataRepo/tests/data/small_multitracer/6eaafasted1_cor.xlsx"
+        exp_fmt = "accucor"
+        row = pd.Series(
+            {
+                PeakAnnotationFilesLoader.DataHeaders.FILE: exp_file,
+                PeakAnnotationFilesLoader.DataHeaders.FORMAT: exp_fmt,
+            }
+        )
+        name, file, fmt = pafl.get_file_and_format(row)
+        self.assertEqual("6eaafasted1_cor.xlsx", name)
+        self.assertEqual(exp_file, file)
+        self.assertEqual(exp_fmt, fmt)
+        self.assertEqual(1, len(pafl.aggregated_errors_object.exceptions))
+        self.assertEqual(1, pafl.aggregated_errors_object.num_warnings)
+
+    def test_pafl_get_file_and_format_auto(self):
+        pafl = PeakAnnotationFilesLoader()
+        exp_file = "DataRepo/tests/data/small_multitracer/6eaafasted1_cor.xlsx"
+        exp_fmt = "isocorr"
+        row = pd.Series(
+            {
+                PeakAnnotationFilesLoader.DataHeaders.FILE: exp_file,
+                PeakAnnotationFilesLoader.DataHeaders.FORMAT: None,
+            }
+        )
+        name, file, fmt = pafl.get_file_and_format(row)
+        self.assertEqual("6eaafasted1_cor.xlsx", name)
+        self.assertEqual(exp_file, file)
+        self.assertEqual(exp_fmt, fmt)
+        self.assertEqual(0, len(pafl.aggregated_errors_object.exceptions))
+
+    def test_pafl_get_file_and_format_none(self):
+        pafl = PeakAnnotationFilesLoader()
+        exp_file = "DataRepo/tests/data/small_multitracer/study_partial_file.xlsx"
+        row = pd.Series(
+            {
+                PeakAnnotationFilesLoader.DataHeaders.FILE: exp_file,
+                PeakAnnotationFilesLoader.DataHeaders.FORMAT: None,
+            }
+        )
+        name, file, fmt = pafl.get_file_and_format(row)
+        self.assertIsNone(fmt)
+        self.assertEqual("study_partial_file.xlsx", name)
+        self.assertEqual(exp_file, file)
+        self.assertEqual(1, len(pafl.aggregated_errors_object.exceptions))
+        self.assertIsInstance(pafl.aggregated_errors_object.exceptions[0], InfileError)
+        self.assertIn(
+            "No matching formats.", str(pafl.aggregated_errors_object.exceptions[0])
+        )
+
+    def test_pafl_get_file_and_format_multiple(self):
+        pafl = PeakAnnotationFilesLoader()
+        exp_file = "DataRepo/tests/data/singly_labeled_isocorr/small_cor.csv"
+        row = pd.Series(
+            {
+                PeakAnnotationFilesLoader.DataHeaders.FILE: exp_file,
+                PeakAnnotationFilesLoader.DataHeaders.FORMAT: None,
+            }
+        )
+        name, file, fmt = pafl.get_file_and_format(row)
+        self.assertEqual("small_cor.csv", name)
+        self.assertEqual(exp_file, file)
+        self.assertIsNone(fmt)
+        self.assertEqual(1, len(pafl.aggregated_errors_object.exceptions))
+        self.assertIsInstance(pafl.aggregated_errors_object.exceptions[0], InfileError)
+        self.assertIn(
+            "Multiple matching formats",
+            str(pafl.aggregated_errors_object.exceptions[0]),
+        )
+
+    def test_pafl_get_or_create_annot_file(self):
+        pafl = PeakAnnotationFilesLoader()
+        file = "DataRepo/tests/data/small_multitracer/6eaafasted1_cor.xlsx"
+        fmt = "isocorr"
+        rec, created = pafl.get_or_create_annot_file(file, fmt)
+        self.assertIsInstance(rec, ArchiveFile)
+        self.assertTrue(created)
+        self.assertEqual(0, len(pafl.aggregated_errors_object.exceptions))
+
+    def load_test_prereqs(self):
+        # We need: glucose, lactate, pyruvate, citrate/isocitrate, succinate, malate, a-ketoglutarate
+        Compound.objects.create(name="Lactate", formula="C3H6O3", hmdb_id="HMDB0000190")
+        Compound.objects.create(
+            name="Pyruvate", formula="C3H4O3", hmdb_id="HMDB0000243"
+        )
+        Compound.objects.create(name="Citrate", formula="C6H8O7", hmdb_id="HMDB0000094")
+        Compound.objects.create(
+            name="Isocitrate", formula="C6H8O7", hmdb_id="HMDB0000193"
+        )
+        Compound.objects.create(
+            name="Succinate", formula="C4H6O4", hmdb_id="HMDB0000254"
+        )
+        Compound.objects.create(name="Malate", formula="C4H6O5", hmdb_id="HMDB0000156")
+        Compound.objects.create(
+            name="a-ketoglutarate", formula="C5H6O5", hmdb_id="HMDB0000208"
+        )
+        Compound.objects.create(
+            name="glucose", formula="C6H12O6", hmdb_id="HMDB0000122"
+        )
+        # We need an infusate...
+        ido = parse_infusate_name_with_concs("glucose-[13C6][200]")
+        inf, _ = Infusate.objects.get_or_create_infusate(ido)
+        inf.save()
+        anml = Animal.objects.create(
+            name="test_animal",
+            age=timedelta(weeks=int(13)),
+            sex="M",
+            genotype="WT",
+            body_weight=200,
+            diet="normal",
+            feeding_status="fed",
+            infusate=inf,
+        )
+        tsu = Tissue.objects.create(name="Brain")
+        # Create a sequence for the load to retrieve
+        lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
+        seq = MSRunSequence.objects.create(
+            researcher="Dick",
+            date=datetime.strptime("1991-5-7", "%Y-%m-%d"),
+            instrument="QE2",
+            lc_method=lcm,
+        )
+        # Create sample for the load to retrieve
+        xz969 = Sample.objects.create(
+            name="bat-xz969",
+            tissue=tsu,
+            animal=anml,
+            researcher="John Doe",
+            date=datetime.now(),
+        )
+        MSRunSample.objects.create(
+            msrun_sequence=seq,
+            sample=xz969,
+            polarity=None,  # Placeholder
+            ms_raw_file=None,  # Placeholder
+            ms_data_file=None,  # Placeholder
+        )
+
+    def assert_test_peak_annotations_loaded(self):
+        # There are 7 PeakGroups because 1 sample and each has 7 peak group names
+        self.assertEqual(
+            7,
+            PeakGroup.objects.filter(
+                peak_annotation_file__filename="obob_maven_c160_inf.xlsx"
+            ).count(),
+        )
+        # We only created 1 label per
+        self.assertEqual(7, PeakGroupLabel.objects.count())
+        # and 1 compound per plus the isocitrate
+        self.assertEqual(8, PeakGroupCompound.objects.count())
+        # and 38 total peakdata rows
+        self.assertEqual(38, PeakData.objects.count())
+        # and all have 1 label
+        self.assertEqual(38, PeakDataLabel.objects.count())
+        # Assert the peak groups all belong to an msrunsample belonging to the same sequence (Dick as opposed to Roger)
+        self.assertEqual(
+            7,
+            PeakGroup.objects.filter(
+                msrun_sample__msrun_sequence__researcher="Dick"
+            ).count(),
+        )
+
+    def test_pafl_load_peak_annotations(self):
+        self.load_test_prereqs()
+
+        pafl = PeakAnnotationFilesLoader(
+            # This file is unrelated to the test, but it doesn't matter
+            file="DataRepo/tests/data/small_obob/study.xlsx"
+        )
+        file = "DataRepo/tests/data/small_obob2/obob_maven_c160_inf.xlsx"
+        fmt = "accucor"
+        pafl.load_peak_annotations(
+            file,
+            fmt,
+            operator="Dick",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="QE2",
+            date="1991-5-7",
+        )
+
+        self.assert_test_peak_annotations_loaded()
+
+    def test_pafl_load_data_no_details(self):
+        self.load_test_prereqs()
+
+        file = "DataRepo/tests/data/small_obob2/obob_maven_c160_inf.xlsx"
+        fmt = "accucor"
+        df = pd.DataFrame.from_dict(
+            {
+                PeakAnnotationFilesLoader.DataHeaders.FILE: [file],
+                PeakAnnotationFilesLoader.DataHeaders.FORMAT: [fmt],
+                PeakAnnotationFilesLoader.DataHeaders.SEQNAME: [
+                    "Dick, polar-HILIC-25-min, QE2, 1991-5-7"
+                ],
+            }
+        )
+        pafl = PeakAnnotationFilesLoader(
+            df=df,
+            # This file is unrelated to the test, but it doesn't matter
+            file="DataRepo/tests/data/small_obob/study.xlsx",
+        )
+        pafl.load_data()
+
+        self.assert_test_peak_annotations_loaded()
+
+    def test_pafl_load_data_details(self):
+        self.load_test_prereqs()
+        MSRunSequence.objects.create(
+            researcher="Roger Wrong",
+            date=datetime.strptime("1999-12-31", "%Y-%m-%d"),
+            instrument="QE",
+            lc_method=LCMethod.objects.get(name__exact="polar-HILIC-25-min"),
+        )
+
+        peak_annotation_details_df = pd.DataFrame.from_dict(
+            {
+                "Sample Name": ["bat-xz969"],
+                "Sample Data Header": ["bat-xz969"],
+                "mzXML File Name": [None],
+                "Peak Annotation File Name": ["obob_maven_c160_inf.xlsx"],
+                "Sequence": ["Dick, polar-HILIC-25-min, QE2, 1991-5-7"],
+                "Skip": [None],
+            },
+        )
+        peak_annotation_details_df = peak_annotation_details_df
+        file = "DataRepo/tests/data/small_obob2/obob_maven_c160_inf.xlsx"
+        fmt = "accucor"
+        df = pd.DataFrame.from_dict(
+            {
+                PeakAnnotationFilesLoader.DataHeaders.FILE: [file],
+                PeakAnnotationFilesLoader.DataHeaders.FORMAT: [fmt],
+                PeakAnnotationFilesLoader.DataHeaders.SEQNAME: [
+                    "Roger Wrong, polar-HILIC-25-min, QE, 1999-12-31"
+                ],
+            }
+        )
+        pafl = PeakAnnotationFilesLoader(
+            df=df,
+            peak_annotation_details_df=peak_annotation_details_df,
+            # This file is unrelated to the test, but it doesn't matter
+            file="DataRepo/tests/data/small_obob/study.xlsx",
+        )
+        pafl.load_data()
+
+        self.assert_test_peak_annotations_loaded()
+
+    def test_PeakAnnotationFilesLoader_conflicting_peak_group_resolutions(self):
+        # Load all the prerequisites (everything but the Peak Annotation Files and Peak Group Conflicts)
+        dfdict = read_from_file(
+            "DataRepo/tests/data/multiple_representations/resolution_handling/prereqs.xlsx",
+            None,
+        )
+        sl = StudyV3Loader(
+            file="DataRepo/tests/data/multiple_representations/resolution_handling/prereqs.xlsx",
+            df=dfdict,
+        )
+        sl.load_data()
+
+        pafl = PeakAnnotationFilesLoader(
+            df=read_from_file(
+                "DataRepo/tests/data/multiple_representations/resolution_handling/peak_annotation_files.tsv",
+            ),
+            file="DataRepo/tests/data/multiple_representations/resolution_handling/peak_annotation_files.tsv",
+            peak_group_conflicts_file=(
+                "DataRepo/tests/data/multiple_representations/"
+                "resolution_handling/conflicting_resolutions.tsv"
+            ),
+            peak_group_conflicts_df=read_from_file(
+                "DataRepo/tests/data/multiple_representations/resolution_handling/conflicting_resolutions.tsv",
+            ),
+            peak_annotation_details_file=(
+                "DataRepo/tests/data/multiple_representations/"
+                "resolution_handling/prereqs.xlsx"
+            ),
+            peak_annotation_details_df=dfdict["Peak Annotation Details"],
+        )
+        with self.assertRaises(AggregatedErrorsSet):
+            pafl.load_data()
+        self.assertEqual(
+            (1, 0),
+            (
+                pafl.aggregated_errors_dict["negative_cor.xlsx"].num_errors,
+                pafl.aggregated_errors_dict["negative_cor.xlsx"].num_warnings,
+            ),
+        )
+        self.assertEqual(
+            (1, 0),
+            (
+                pafl.aggregated_errors_dict["poshigh_cor.xlsx"].num_errors,
+                pafl.aggregated_errors_dict["poshigh_cor.xlsx"].num_warnings,
+            ),
+        )
+        # negative_cor.xlsx is tested in DataRepo/tests/loaders/test_peak_annotations_loader.py
+        dpgr = pafl.aggregated_errors_dict["poshigh_cor.xlsx"].exceptions[0]
+        self.assertTrue(dpgr.conflicting)
+        self.assertEqual("3-methylglutaconic acid", dpgr.pgname)
+        self.assertEqual(["negative_cor.xlsx", "poshigh_cor.xlsx"], dpgr.selected_files)
+        expected = {
+            "ArchiveFile": {
+                "created": 2,
+                "deleted": 0,
+                "errored": 0,
+                "existed": 2,  # Both the PeakAnnotationFilesLoader and PeakAnnotationsLoader attempt this load
+                "skipped": 0,
+                "updated": 0,
+                "warned": 0,
+            },
+            "PeakData": {
+                "created": 0,
+                "deleted": 0,
+                "errored": 0,
+                "existed": 0,
+                "skipped": 6,  # 4 (neg) + 2 (poshigh)
+                "updated": 0,
+                "warned": 0,
+            },
+            "PeakDataLabel": {
+                "created": 0,
+                "deleted": 0,
+                "errored": 0,
+                "existed": 0,
+                "skipped": 4,  # 3 (neg) + 1 (poshigh)
+                "updated": 0,
+                "warned": 0,
+            },
+            "PeakGroup": {
+                "created": 0,
+                "deleted": 0,
+                "errored": 6,  # 4 (neg) + 2 (poshigh)
+                "existed": 0,
+                "skipped": 0,
+                "updated": 0,
+                "warned": 0,
+            },
+            "PeakGroupLabel": {
+                "created": 0,
+                "deleted": 0,
+                "errored": 0,
+                "existed": 0,
+                "skipped": 4,  # 3 (neg) + 1 (poshigh)
+                "updated": 0,
+                "warned": 0,
+            },
+            "PeakGroup_compounds": {
+                "created": 0,
+                "deleted": 0,
+                "errored": 0,
+                "existed": 0,
+                "skipped": 6,  # 4 (neg) + 2 (poshigh)
+                "updated": 0,
+                "warned": 0,
+            },
+        }
+        self.assertDictEqual(expected, pafl.get_load_stats())
+
+    def test_get_default_sequence_details(self):
+        pafl = PeakAnnotationFilesLoader()
+        row = pd.Series(
+            {pafl.DataHeaders.SEQNAME: "Rob, polar-HILIC-25-min, QE, 1972-11-24"}
+        )
+        (
+            def_operator,
+            def_protocol,
+            def_instrument,
+            def_date,
+        ) = pafl.get_default_sequence_details(row)
+        self.assertEqual("Rob", def_operator)
+        self.assertEqual("polar-HILIC-25-min", def_protocol)
+        self.assertEqual("QE", def_instrument)
+        self.assertEqual("1972-11-24", def_date)
+
+    def test_get_dir_to_sequence_dict(self):
+        df = pd.DataFrame.from_dict(
+            {
+                PeakAnnotationFilesLoader.DataHeaders.FILE: [
+                    "path/to/accucor1.xlsx",  # 2 files in the same dir from diff seqs
+                    "path/to/accucor2.xlsx",
+                    "path/to/scan2/accucor3.xlsx",
+                ],
+                PeakAnnotationFilesLoader.DataHeaders.SEQNAME: [
+                    "Rob, polar-HILIC-25-min, QE, 1972-11-24",
+                    "Zoe, polar-HILIC-25-min, QE, 1985-4-18",
+                    "Rob, polar-HILIC-25-min, QE, 1972-11-24",
+                ],
+            }
+        )
+        pafl = PeakAnnotationFilesLoader(df=df)
+        dtsd = pafl.get_dir_to_sequence_dict()
+        self.assertDictEqual(
+            {
+                "path/to": [
+                    "Rob, polar-HILIC-25-min, QE, 1972-11-24",
+                    "Zoe, polar-HILIC-25-min, QE, 1985-4-18",
+                ],
+                "path/to/scan2": [
+                    "Rob, polar-HILIC-25-min, QE, 1972-11-24",
+                ],
+            },
+            dtsd,
+        )
+
+    def test_find_annot_file_success_when_multiple(self):
+        """This tests that when there are multiple files with the same name, but one was fully specified, there is no
+        error and that file is returned."""
+        pafl = PeakAnnotationFilesLoader(
+            file="DataRepo/tests/data/small_obob/study.xlsx"
+        )
+        exp_file = "DataRepo/tests/data/small_obob/small_obob_maven_6eaas_serum/small_obob_maven_6eaas_serum.xlsx"
+        file = pafl.find_annot_file(exp_file, "DataRepo/tests/data/small_obob")
+        self.assertEqual(exp_file, file)
+        self.assertEqual(0, len(pafl.aggregated_errors_object.exceptions))
+
+    def test_find_annot_file_success_found_no_path(self):
+        # NOTE: The study doc supplied here doesn't exist, but that doesn't matter because we're not testing the load.
+        # I only selected that study dir because it had multiple files with the same name under it, and that's the only
+        # test data dir that does.
+        pafl = PeakAnnotationFilesLoader(
+            file="DataRepo/tests/data/multiple_representations/study.xlsx"
+        )
+        exp_file = "DataRepo/tests/data/multiple_representations/resolution_handling/negative_cor.xlsx"
+        file = pafl.find_annot_file(
+            "negative_cor.xlsx", "DataRepo/tests/data/multiple_representations"
+        )
+        self.assertEqual(exp_file, file)
+        self.assertEqual(0, len(pafl.aggregated_errors_object.exceptions))
+
+    def test_find_annot_file_success_found_bad_path(self):
+        # NOTE: The study doc supplied here doesn't exist, but that doesn't matter because we're not testing the load.
+        # I only selected that study dir because it had multiple files with the same name under it, and that's the only
+        # test data dir that does.
+        pafl = PeakAnnotationFilesLoader(
+            file="DataRepo/tests/data/multiple_representations/study.xlsx"
+        )
+        exp_file = "DataRepo/tests/data/multiple_representations/resolution_handling/negative_cor.xlsx"
+        file = pafl.find_annot_file(
+            "bad/path/negative_cor.xlsx", "DataRepo/tests/data/multiple_representations"
+        )
+        self.assertEqual(exp_file, file)
+        self.assertEqual(1, len(pafl.aggregated_errors_object.exceptions))
+        self.assertIsInstance(pafl.aggregated_errors_object.exceptions[0], InfileError)
+        self.assertEqual(1, pafl.aggregated_errors_object.num_warnings)
+        self.assertIn(
+            "filepath supplied 'bad/path/negative_cor.xlsx' was incorrect",
+            str(pafl.aggregated_errors_object.exceptions[0]),
+        )
+        self.assertIn(
+            "a file matching this filename was found in the study directory",
+            str(pafl.aggregated_errors_object.exceptions[0]),
+        )
+
+    def test_find_annot_file_not_found(self):
+        """This test asserts that the supplied file (with optional path) is returned as-is without error.
+
+        When a file is not found, the supplied file (with optional path) is returned as-is and the caller handles the
+        fact that the file does not exist.  This is because the validate page has no access to the study directory and
+        an error would make no sense in that context.  When an actual load occurs, a FileFromInputNotFound error will be
+        issued.
+        """
+        # NOTE: The study doc supplied here doesn't exist, but that doesn't matter because we're not testing the load.
+        # I only selected that study dir because it had multiple files with the same name under it, and that's the only
+        # test data dir that does.
+        pafl = PeakAnnotationFilesLoader(
+            file="DataRepo/tests/data/multiple_representations/study.xlsx"
+        )
+        exp_file = "doesnotexist.xlsx"
+        file = pafl.find_annot_file(
+            exp_file, "DataRepo/tests/data/multiple_representations"
+        )
+        self.assertEqual(exp_file, file)
+        self.assertEqual(0, len(pafl.aggregated_errors_object.exceptions))
+
+    def test_find_annot_file_multiple_found(self):
+        """This ensures that the original supplied file (without a path) is returned and a warning is buffered.  Note
+        that the surrounding code will issue a FileFromInputNotFound error (which is why this is a warning, because
+        otherwise, it would be fully redundant).  This was a change made to accommodate a review issue about using a
+        single return type."""
+        pafl = PeakAnnotationFilesLoader(
+            file="DataRepo/tests/data/small_obob/study.xlsx"
+        )
+        filename = "small_obob_maven_6eaas_serum.xlsx"
+        file = pafl.find_annot_file(filename, "DataRepo/tests/data/small_obob")
+        self.assertEqual(filename, file)
+        self.assertEqual(1, len(pafl.aggregated_errors_object.exceptions))
+        self.assertEqual(1, pafl.aggregated_errors_object.num_warnings)
+        self.assertIsInstance(
+            pafl.aggregated_errors_object.exceptions[0],
+            MultipleMatchingPeakAnnotationFiles,
+        )
+
+    def test_map_peak_annot_files(self):
+        pafl = PeakAnnotationFilesLoader(
+            file="DataRepo/tests/data/submission_v3/study.xlsx"
+        )
+        expected = {
+            "study_no_defs.xlsx": [
+                "DataRepo/tests/data/submission_v3/study_no_defs.xlsx"
+            ],
+            "lcprotocols.tsv": ["DataRepo/tests/data/submission_v3/lcprotocols.tsv"],
+            "study_with_autofill_seeds.xlsx": [
+                "DataRepo/tests/data/submission_v3/study_with_autofill_seeds.xlsx"
+            ],
+            "sequences.tsv": ["DataRepo/tests/data/submission_v3/sequences.tsv"],
+            "defaults.tsv": ["DataRepo/tests/data/submission_v3/defaults.tsv"],
+            "study.xlsx": [
+                "DataRepo/tests/data/submission_v3/study.xlsx",
+                "DataRepo/tests/data/submission_v3/multitracer_v3/study.xlsx",
+            ],
+            "alaglu_cor.xlsx": [
+                "DataRepo/tests/data/submission_v3/multitracer_v3/alaglu_cor.xlsx"
+            ],
+            "study_missing_data.xlsx": [
+                "DataRepo/tests/data/submission_v3/multitracer_v3/study_missing_data.xlsx"
+            ],
+        }
+        ptntl_annot_fls = pafl.map_potential_peak_annot_files()
+        self.assertEqual(expected, ptntl_annot_fls)
