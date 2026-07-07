@@ -259,24 +259,29 @@ Note:
 **WARNING: DO NOT apply this development setting on a production site or any site accessible to the public, as it is a**
 **security risk.**
 
-In addition to the above steps, if a development server is desired using apache/nginx, `DJANGO_SETTINGS_MODULE` must be
-set as a system environment variable with the value `TraceBase.settings.dev`.  NOTE: This only works if all virtual
-hosts on that machine use this same setting.  Also, using `SetEnv` in the virtual host settings will not work.  This is
-how we set the environment variable for apache at Princeton:
+In addition to the above steps, if a development server is desired using Apache, `DJANGO_SETTINGS_MODULE` must be set as
+a system environment variable with the value `TraceBase.settings.dev`.
 
-    vi /lib/systemd/system/httpd.service
+> **Note:** This configuration affects the entire Apache service, so it is only appropriate if all virtual hosts hosted
+> by that Apache instance should use the development settings.
 
-Change/add this setting to the file:
+Create a `systemd` override for the Apache service:
+
+    sudo systemctl edit httpd
+
+Add the following to the override file:
 
     [Service]
     Environment="DJANGO_SETTINGS_MODULE=TraceBase.settings.dev"
 
-Then restart apache.
+Then reload the `systemd` configuration and restart Apache:
 
-Doing this provides access to the Django Debug Toolbar and a few debug messages (notably in the advanced search).
+    sudo systemctl daemon-reload
+    sudo systemctl restart httpd
 
-NOTE: There is no need to set `DJANGO_SETTINGS_MODULE` on any production server.  It's default is
-`TraceBase.settings.prod`.
+This configuration enables the Django Debug Toolbar and additional debugging output (notably in the Advanced Search).
+
+Note: There is no need to set `DJANGO_SETTINGS_MODULE` on a production server. The default is `TraceBase.settings.prod`.
 
 ## Authorization and Security
 
