@@ -4,11 +4,11 @@
 
 ### Overview
 
-This document will walk you through setting up your own private instance of TraceBase for the private use of an entire
+This document will walks through setting up a private instance of TraceBase for the private use of an entire
 metabolomics lab that does tracing experiments.  This document is for installation and configuration only.  Maintaining
 a TraceBase instance (e.g. loading data) is covered in MAINTENANCE.md.  For a local development version of TraceBase
-installed on a workstation (if you want to try it out before going through this for rigorous setup), see our
-`CONTRIBUTING.md` document.
+installed on a workstation (to try it out before going through this for rigorous setup), see our `CONTRIBUTING.md`
+document.
 
 ### Target Audience
 
@@ -40,7 +40,7 @@ Create a `tracebase` user account that belongs to a `tracebase` group that we wi
 
 ### Environment Setup
 
-Ensure you are using Python 3.11, e.g.:
+Ensure Python version 3.11 is active, e.g.:
 
     python3 --version
     # Python 3.11.9
@@ -81,8 +81,7 @@ During installation, use these settings for a postgres user for admin privileges
     Password: ########
     Port: 5432
 
-If you use the same strategy, the `psql` command-line utility will be in the PATH.  Just make sure that the `tracebase`
-user has it in their PATH.
+Ensure the `psql` command-line utility is in the `PATH` for personal and the `tracebase` user accounts.
 
 ### Installing Application Dependencies
 
@@ -98,7 +97,7 @@ Save the file in:
 
     /var/www/
 
-Decompress the download.  E.g., if you download the tarballed gzip file:
+Decompress the download:
 
     tar -zxvf tracebase-v1.0.2.tar.gz
 
@@ -139,7 +138,8 @@ See **TraceBase Setup** below for adding these `tracebase` user credentials to t
 
 ### TraceBase Setup
 
-Ensure you are the `tracebase` user, the environment is activated, and that you are in the repository directory:
+Ensure the `tracebase` user is active, the environment is activated, and that the current directory is the repository
+directory:
 
     sudo -iu tracebase
     source /usr/local/tracebase/bin/activate
@@ -156,14 +156,15 @@ Create a secret token for secure API access.  This will be saved in the `.env` f
 Update the `.env` file to:
 
 - Add the new `SECRET_KEY` that was just generated above.
-- Add the `tracebase` user database credentials you used in the **Postgres Setup** section.
+- Add the `tracebase` user database credentials used in the **Postgres Setup** section.
 - Set `DEBUG` to `False`
 - Set the `ARCHIVE` location (must match the `alias` in the **Apache Setup** section).
 
 Each lab must have their own way of submitting large amounts of study data (the study doc, peak annotation files, and
 mzXML raw files).  The following `SUBMISSION` environment variables must be defined and a shared drive (not managed by
 TraceBase) must be set up for lab members to deposite their submission data.  This is where administrators will go to
-retrieve data for loading.  The environment variables are for your own internal documentation for drive access.
+retrieve data for loading.  The environment variables are used for access on the Upload Submit page and for internal
+documentation for drive access.
 
 - `SUBMISSION_DRIVE_DOC_URL` - A URL to documentation about access to the shared drive where submissions are deposited.
 - `SUBMISSION_DRIVE_TYPE` - This is a display name for the drive, e.g. "MS Data Shre", for display of the doc URL.
@@ -175,12 +176,12 @@ submission interface.
 
 The submission process is described in
 [the user documentation](https://princeton-lsi-researchcomputing.github.io/tracebase/Upload/How%20to%20Build%20a%20Submission/4%20-%20How%20to%20Submit%20Data/),
-however since each setup is different, the TraceBase
-codebase does not provide a study submission form.  You must create one and save it in this environment variable:
+however since each setup is different, the TraceBase codebase does not provide a study submission form.  An
+administrator must create one and save it in this environment variable:
 
 - `SUBMISSION_FORM_URL`
 
-You can do so by creating a copy of our
+See our
 [example google submission form](https://docs.google.com/forms/d/1XBTUwweS0cEhsBoVxgu7aSAUsypeW4xay93jHGnPznk/copy).
 
 #### TraceBase Database Migration
@@ -225,7 +226,7 @@ The following is an example `/etc/httpd/conf.d/tracebase.conf` file:
         WSGIDaemonProcess tracebase processes=2 threads=4 display-name=tracebase python-home=/usr/local/tracebase python-path=/var/www/tracebase
         WSGIProcessGroup tracebase
         WSGIScriptAlias / /var/www/tracebase/TraceBase/wsgi.py
-        # If you are using CAS for authentication for a private TraceBase instance
+        # If using CAS for authentication for a private TraceBase instance
         # <Location />
         #     AuthType CAS
         #     CASScope /
@@ -246,8 +247,8 @@ The following is an example `/etc/httpd/conf.d/tracebase.conf` file:
 
 Note:
 
-- This creates an alias for the archive, which should be independent of any other tracebase instances (if you intend to
-  run a public instance for sharing data).
+- This creates an alias for the archive, which should be independent of any other tracebase instances (if a public
+  instance for sharing data is desired).
   - Be sure that the ARCHIVE_DIR variable in `/var/www/tracebase/.env` matches the alias.
 - This creates an `alias` to match the `/var/www/tracebase/static` directory.
 - This sets the gateway timeout to match what's in the `.env` file.  This allows the software to end gracefully if
@@ -258,10 +259,10 @@ Note:
 **WARNING: DO NOT apply this development setting on a production site or any site accessible to the public, as it is a**
 **security risk.**
 
-In addition to the above steps, if you want to set up a development server using apache/nginx, `DJANGO_SETTINGS_MODULE`
-must be set as a system environment variable to `TraceBase.settings.dev`.  Note: this only works if all virtual hosts on
-that machine use this same setting.  Also note: Using `SetEnv` in the virtual host settings will not work.  This is how
-we set the environment variable for apache at Princeton:
+In addition to the above steps, if a development server is desired using apache/nginx, `DJANGO_SETTINGS_MODULE` must be
+set as a system environment variable with the value `TraceBase.settings.dev`.  NOTE: This only works if all virtual
+hosts on that machine use this same setting.  Also, using `SetEnv` in the virtual host settings will not work.  This is
+how we set the environment variable for apache at Princeton:
 
     vi /lib/systemd/system/httpd.service
 
@@ -270,11 +271,11 @@ Change/add this setting to the file:
     [Service]
     Environment="DJANGO_SETTINGS_MODULE=TraceBase.settings.dev"
 
-The restart apache.
+Then restart apache.
 
-Doing this gives you access to the Django Debug Toolbar and a few debug messages (notably in the advanced search).
+Doing this provides access to the Django Debug Toolbar and a few debug messages (notably in the advanced search).
 
-NOTE: You do not need to set `DJANGO_SETTINGS_MODULE` on any production server.  It's default is
+NOTE: There is no need to set `DJANGO_SETTINGS_MODULE` on any production server.  It's default is
 `TraceBase.settings.prod`.
 
 ## Authorization and Security
@@ -286,7 +287,7 @@ NOTE: You do not need to set `DJANGO_SETTINGS_MODULE` on any production server. 
 TraceBase does not provide differential public versus private access.  To "publish" any study data, a separate public
 instance of TraceBase must be created that must be separately loaded with the studies that have been selected to be
 "public"/published.  To create a public instance, follow these installation instructions, but do not apply any
-authentication mechanism.  It is also recommended that you set the `READONLY` environment variable in `.env` to True.
+authentication mechanism.  It is also recommended to set the `READONLY` environment variable in `.env` to True.
 
 NOTE: Retain copies of submitted study docs and all associated data for this purpose.
 
@@ -302,7 +303,8 @@ Add superusers for admin access.  This allows select lab users to login to the a
 each TraceBase page.  This is a limited interface that is yet to be fully featured and contains currently, only the
 ability to edit Compound records.
 
-You can create multiple admin users, each with this command, which will prompt for a username, email, and password:
+It is possible to create multiple admin users, each with this command, which will prompt for a username, email, and
+password:
 
     python manage.py createsuperuser
 
@@ -315,7 +317,7 @@ Verify the installation by checking the Django version:
     python3 -m django --version
     5.2.15
 
-You can check your environment to ensure it is set up securely using the following command:
+Check the environment to ensure it is set up securely using the following command:
 
     python manage.py check --deploy
 
@@ -336,8 +338,8 @@ regularly.
         sudo -iu tracebase
         cd /var/www/
 
-2. As tracebase user, download, decompress, and replace the tracebase directory, copying in the `.env` file.  (This
-   assumes you have not modified the TraceBase codebase and that the archive is not under `/var/www/tracebase`.)
+2. As the tracebase user; download, decompress, and replace the tracebase directory, copying in the `.env` file.  (This
+   assumes that the TraceBase codebase has not been modified and that the archive is not under `/var/www/tracebase`.)
 
         mv tracebase tracebase-old
         tar -zxvf tracebase-vX.X.X.tar.gz
@@ -357,13 +359,13 @@ regularly.
         diff --side-by-side .env .env.example
         vi .env
 
-8. Check the deployment for security issues.
+6. Check the deployment for security issues.
 
         python manage.py check --deploy
 
-9. Restart the web server.
+7. Restart the web server.
 
-        exit  # logout of sudo tracebase to your user account
+        exit  # Logout of the tracebase user account to a regular user account
         sudo apachectl graceful
 
 ### Load Supporting Data
@@ -382,9 +384,9 @@ All available fixtures are located in `DataRepo/fixtures`.
 
 Some of the other supporting data, such as compounds, tissues, and animal treatments tend to vary from lap to lab.  Many
 researchers have their prefered compound names, for example, so we do not provide fixtures for this data, but compiling
-that data can be a time consuming endeavor.  If you would like to get a jump start on this data resource, you can
-download that data from [tracebase.princeton.edu](http://tracebase.princeton.edu), format it for the Study doc format,
-and put it in a 3-sheet study doc (Compounds, Tissues, and Treatments) named `underlying_data.xlsx` and load it into
-your tracebase instance with:
+that data can be a time consuming endeavor.  To get a jump start on this data resource, download the data from
+[tracebase.princeton.edu](http://tracebase.princeton.edu), format it for the Study doc format, and put it in a 3-sheet
+study doc (Compounds, Tissues, and Treatments) named `underlying_data.xlsx` and load it into the tracebase instance
+with:
 
     python manage.py load_study --invile underlying_data.xlsx
