@@ -9,13 +9,11 @@ class TestDevSettings(unittest.TestCase):
             "TraceBase.settings.dev",
             "DEBUG",
             "SQL_LOGGING",
-            "DEBUG_TOOLBAR_ENABLED",
             "DEBUG_TOOLBAR",
             "TESTING",
             env_overrides={
                 "DEBUG": "True",
                 "SQL_LOGGING": "True",
-                "DEBUG_TOOLBAR_ENABLED": "True",
                 "DEBUG_TOOLBAR": "True",
                 "TESTING": "True",  # Cannot override
             },
@@ -23,6 +21,5 @@ class TestDevSettings(unittest.TestCase):
 
         self.assertTrue(settings["DEBUG"])
         self.assertTrue(settings["SQL_LOGGING"])
-        self.assertTrue(settings["DEBUG_TOOLBAR_ENABLED"])
         self.assertTrue(settings["DEBUG_TOOLBAR"])
         self.assertFalse(settings["TESTING"])

@@ -20,7 +20,7 @@ class TestTestSettings(unittest.TestCase):
         settings = get_setting_values(
             "TraceBase.settings.test",
             "CACHES_SETTING",
-            env_overrides={"CACHES_SETTING": "PROD_CACHES"},
+            env_overrides={"CACHES": "PROD_CACHES"},
         )
 
         self.assertEqual(

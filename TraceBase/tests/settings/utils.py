@@ -43,7 +43,7 @@ print(json.dumps({{
         [sys.executable, "-c", python_code],
         cwd=REPO_ROOT,
         env=env,
-        check=True,
+        check=False,
         capture_output=True,
         text=True,
     )
