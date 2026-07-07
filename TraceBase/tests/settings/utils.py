@@ -25,6 +25,10 @@ def get_setting_values(
     env = os.environ.copy()
     env["DJANGO_SETTINGS_MODULE"] = settings_module
 
+    # Provide a dummy SECRET_KEY so production settings can be imported during tests and so that GitHub Actions using
+    # TraceBase.settings.test won't fail.
+    env.setdefault("SECRET_KEY", "test-secret-key")
+
     if env_overrides:
         env.update(env_overrides)
 
@@ -43,7 +47,7 @@ print(json.dumps({{
         [sys.executable, "-c", python_code],
         cwd=REPO_ROOT,
         env=env,
-        check=False,
+        check=False,  # Only false for tests - otherwise, we cannot get STDERR output for debugging
         capture_output=True,
         text=True,
     )
