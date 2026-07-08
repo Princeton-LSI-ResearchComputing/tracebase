@@ -55,10 +55,6 @@ test_qry = {
             "name": "Fcirc",
             "tree": empty_tree,
         },
-        "mztemplate": {
-            "name": "mzXML",
-            "tree": empty_tree,
-        },
     },
 }
 
@@ -129,8 +125,6 @@ class AdvancedSearchDownloadViewTests(BaseAdvancedSearchDownloadViewTests):
             "'units': ''}]}}, 'pdtemplate': {'name': 'PeakData', 'tree': {'type': 'group', 'val': 'all', 'static': "
             "False, 'queryGroup': [{'type': 'query', 'pos': '', 'static': False, 'fld': '', 'ncmp': '', 'val': '', "
             "'units': ''}]}}, 'fctemplate': {'name': 'Fcirc', 'tree': {'type': 'group', 'val': 'all', 'static': False, "
-            "'queryGroup': [{'type': 'query', 'pos': '', 'static': False, 'fld': '', 'ncmp': '', 'val': '', 'units': "
-            "''}]}}, 'mztemplate': {'name': 'mzXML', 'tree': {'type': 'group', 'val': 'all', 'static': False, "
             "'queryGroup': [{'type': 'query', 'pos': '', 'static': False, 'fld': '', 'ncmp': '', 'val': '', 'units': "
             "''}]}}}}\n"
             "#\n"
@@ -293,7 +287,7 @@ class RecordToMzxmlTSVTests(BaseAdvancedSearchDownloadViewTests):
             PeakGroupsToMzxmlTSV,
         )
 
-    def test_peak_groups_to_mzxml_tsv_msrun_sample_rec_to_row(self):
+    def test_PeakGroupsToMzxmlTSV_msrun_sample_rec_to_row(self):
         pgtmt = PeakGroupsToMzxmlTSV()
         row = pgtmt.msrun_sample_rec_to_row(self.res.first().msrun_sample)
         self.assertEqual(
@@ -324,7 +318,7 @@ class RecordToMzxmlTSVTests(BaseAdvancedSearchDownloadViewTests):
             row,
         )
 
-    def test_peak_groups_to_mzxml_tsv_queryset_to_rows_iterator(self):
+    def test_PeakGroupsToMzxmlTSV_queryset_to_rows_iterator(self):
         pgtmt = PeakGroupsToMzxmlTSV()
         # Slicing the queryset to make the expected test data more manageable
         rows = list(pgtmt.queryset_to_rows_iterator(self.res[0:1]))
@@ -358,7 +352,7 @@ class RecordToMzxmlTSVTests(BaseAdvancedSearchDownloadViewTests):
             rows,
         )
 
-    def test_peak_data_to_mzxml_tsv_queryset_to_rows_iterator(self):
+    def test_PeakDataToMzxmlTSV_queryset_to_rows_iterator(self):
         pdqry = test_qry.copy()
         pdqry["selectedtemplate"] = "pdtemplate"
         pdtmt = PeakDataToMzxmlTSV()
@@ -457,7 +451,7 @@ class RecordToMzxmlZIPTests(BaseAdvancedSearchDownloadViewTests):
             PeakDataToMzxmlZIP,
         )
 
-    def test_peak_groups_to_mzxml_zip_queryset_to_files_iterator(self):
+    def test_PeakGroupsToMzxmlZIP_queryset_to_files_iterator(self):
         pgtmt = PeakGroupsToMzxmlZIP()
         # Filtering the queryset to make the expected test data more manageable
         file_tuples = list(
@@ -488,7 +482,7 @@ class RecordToMzxmlZIPTests(BaseAdvancedSearchDownloadViewTests):
             file_tuples[0][1].name,
         )
 
-    def test_peak_data_to_mzxml_zip_queryset_to_files_iterator(self):
+    def test_PeakDataToMzxmlZIP_queryset_to_files_iterator(self):
         pdqry = test_qry.copy()
         pdqry["selectedtemplate"] = "pdtemplate"
         pdtmt = PeakDataToMzxmlZIP()
@@ -558,7 +552,7 @@ class AdvancedSearchDownloadMzxmlZIPViewTests(BaseAdvancedSearchDownloadViewTest
 
 
 class ZipBufferTests(TracebaseTestCase):
-    def test_zip_buffer(self):
+    def test_ZipBuffer(self):
         zb = ZipBuffer()
         self.assertTrue(hasattr(zb, "buf"))
         self.assertIsInstance(zb.buf, bytearray)

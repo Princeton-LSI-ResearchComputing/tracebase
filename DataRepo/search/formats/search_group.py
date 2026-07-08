@@ -1,6 +1,5 @@
 from DataRepo.search.formats.dataformat_group import FormatGroup
 from DataRepo.search.formats.fluxcirc_dataformat import FluxCircFormat
-from DataRepo.search.formats.mzxml_dataformat import MzxmlFormat
 from DataRepo.search.formats.peakdata_dataformat import PeakDataFormat
 from DataRepo.search.formats.peakgroups_dataformat import PeakGroupsFormat
 
@@ -12,6 +11,4 @@ class SearchGroup(FormatGroup):
     """
 
     def __init__(self):
-        self.add_formats(
-            [PeakGroupsFormat(), PeakDataFormat(), FluxCircFormat(), MzxmlFormat()]
-        )
+        self.addFormats([PeakGroupsFormat(), PeakDataFormat(), FluxCircFormat()])

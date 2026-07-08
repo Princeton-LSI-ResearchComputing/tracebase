@@ -49,8 +49,6 @@
                 {% define "PeakData" as fmt_title %}
             {% elif selfmt == "fctemplate" %}
                 {% define "FCirc" as fmt_title %}
-            {% elif selfmt == "mztemplate" %}
-                {% define "mzXML" as fmt_title %}
             {% endif %}
         {% else %}
             {% define True as valid_search %}
@@ -117,8 +115,6 @@
                     {% include "search/results/peakdata.html" with selfmt=selfmt %}
                 {% elif selfmt == "fctemplate" %}
                     {% include "search/results/fcirc.html" with selfmt=selfmt %}
-                {% elif selfmt == "mztemplate" %}
-                    {% include "search/results/mzxml.html" with selfmt=selfmt %}
                 {% endif %}
             {% endif %}
 

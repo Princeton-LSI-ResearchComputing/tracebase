@@ -20,11 +20,11 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 class DataformatGroupMainTests(TracebaseTestCase):
     """Test class for DataRepo.formats.dataformat_group.__main__"""
 
-    def test_conditionally_required_argument_error(self):
+    def test_ConditionallyRequiredArgumentError(self):
         """Test __main__.ConditionallyRequiredArgumentError"""
         ConditionallyRequiredArgumentError()
 
-    def test_unsupported_distinct_combo(self):
+    def test_UnsupportedDistinctCombo(self):
         """Test __main__.UnsupportedDistinctCombo"""
         udc = UnsupportedDistinctCombo(["a", "b", "c"])
         self.assertIn(
@@ -74,7 +74,7 @@ class FormatGroupTests(FormatsTestCase):
                     "split_rows"
                 ] = self.orig_split_rows[fmt][inst]
 
-    def assert_is_a_pg_units_lookup_dict(self, fld_units_lookup):
+    def assertIsAPgUnitsLookupDict(self, fld_units_lookup):
         # There should be 39 fields with units lookups
         self.assertEqual(45, len(fld_units_lookup.keys()))
         # Path should be prepended to the field name
@@ -169,8 +169,8 @@ class FormatGroupTests(FormatsTestCase):
             ),
         )
 
-    def assert_is_a_fc_units_lookup_dict(self, fld_units_lookup):
-        self.assertEqual(32, len(fld_units_lookup.keys()))
+    def assertIsAFcUnitsLookupDict(self, fld_units_lookup):
+        self.assertEqual(31, len(fld_units_lookup.keys()))
         # Path should be prepended to the field name
         self.assertIsNone(fld_units_lookup["serum_sample__animal__genotype"])
         # Each value should be a dict with the units, this one having 15 keys
@@ -261,12 +261,11 @@ class FormatGroupTests(FormatsTestCase):
                 },
                 "pdtemplate": {"name": "PeakData", "tree": empty_tree},
                 "fctemplate": {"name": "Fcirc", "tree": empty_tree},
-                "mztemplate": {"name": "mzXML", "tree": empty_tree},
             },
         }
         return tval, qry
 
-    def test_get_all_search_field_choices(self):
+    def test_getAllSearchFieldChoices(self):
         basv = SearchGroup()
         sfct = basv.getAllSearchFieldChoices()
         sfct_expected = self.getPgtemplateChoicesTuple()
@@ -276,14 +275,13 @@ class FormatGroupTests(FormatsTestCase):
             if x != ("labels__element", "Labeled Element")
         )
         sfct_expected += self.getFctemplateChoicesTuple()
-        sfct_expected += self.get_mztemplate_choices_tuple()
         self.assertTupleEqual(sfct_expected, sfct)
 
-    def test_re_root_qry(self):
+    def test_reRootQry(self):
         qry = self.getQueryObject2()
         qry_backup = deepcopy(qry)
         basv = SearchGroup()
-        new_qry = basv.re_root_qry("pgtemplate", qry, "MeasuredCompound")
+        new_qry = basv.reRootQry("pgtemplate", qry, "MeasuredCompound")
         expected_qry = deepcopy(self.getQueryObject2())
         expected_qry["searches"]["pgtemplate"]["tree"]["queryGroup"][0][
             "fld"
@@ -294,7 +292,7 @@ class FormatGroupTests(FormatsTestCase):
         self.assertEqual(qry, qry_backup, msg="qry must be left unchanged")
         self.assertEqual(expected_qry, new_qry)
 
-    def test_get_true_join_prefetch_paths_and_qrys(self):
+    def test_getTrueJoinPrefetchPathsAndQrys(self):
         qry = self.getQueryObject2()
         basv = SearchGroup()
         fmt = "pgtemplate"
@@ -309,7 +307,7 @@ class FormatGroupTests(FormatsTestCase):
 
         qry["searches"][fmt]["tree"]["queryGroup"][1]["fld"] = "compounds__name"
         qry["searches"][fmt]["tree"]["queryGroup"][1]["val"] = "citrate"
-        prefetches = basv.get_true_join_prefetch_paths_and_qrys(qry)
+        prefetches = basv.getTrueJoinPrefetchPathsAndQrys(qry)
         expected_prefetches = [
             "msrun_sample__sample__animal__infusate__tracers__compound",
             "msrun_sample__sample__msrun_samples__ms_data_file",
@@ -373,12 +371,12 @@ class FormatGroupTests(FormatsTestCase):
         self.assertEqual(expected_prefetches[0:8], prefetches[0:8])
         self.assertEqual(expected_prefetches[9:3], prefetches[9:3])
         self.assertEqual(expected_prefetches[8][0:3], prefetches[8][0:3])
-        self.assert_is_a_pg_units_lookup_dict(prefetches[8][3])
+        self.assertIsAPgUnitsLookupDict(prefetches[8][3])
 
         # Should be called after tearDown()
         # self.restore_split_rows()
 
-    def test_get_full_join_annotations(self):
+    def test_getFullJoinAnnotations(self):
         basv = SearchGroup()
         fmt = "pgtemplate"
         annot_name = "compound"
@@ -393,7 +391,7 @@ class FormatGroupTests(FormatsTestCase):
         pgsv.model_instances[mdl_inst]["manyrelated"]["root_annot_fld"] = annot_name
 
         # Do the test
-        annots = basv.get_full_join_annotations(fmt)
+        annots = basv.getFullJoinAnnotations(fmt)
         expected_annots = [
             {
                 "peak_group_label": Value("")
@@ -412,7 +410,7 @@ class FormatGroupTests(FormatsTestCase):
         # Should be called after tearDown()
         # self.restore_split_rows()
 
-    def test_get_distinct_fields(self):
+    def test_getDistinctFields(self):
         basv = SearchGroup()
         fmt = "pgtemplate"
         order_by = "name"
@@ -425,7 +423,7 @@ class FormatGroupTests(FormatsTestCase):
         # Set only MeasuredCompound's split_rows value to True for the test
         pgsv.model_instances[mdl_inst]["manyrelated"]["split_rows"] = True
 
-        distincts = basv.get_distinct_fields(fmt, order_by)
+        distincts = basv.getDistinctFields(fmt, order_by)
         expected_distincts = [
             order_by,
             "pk",
@@ -437,12 +435,12 @@ class FormatGroupTests(FormatsTestCase):
         # Should be called after tearDown()
         # self.restore_split_rows()
 
-    def test_get_order_by_fields(self):
+    def test_getOrderByFields(self):
         """Tests that the default order-by field names are retrieved, based on the model's meta ordering"""
         basv = SearchGroup()
         fmt = "fctemplate"
 
-        orderby_fieldnames = basv.get_order_by_fields(fmt)
+        orderby_fieldnames = basv.getOrderByFields(fmt)
         expected_orderby_fieldnames = [
             "serum_sample__name",
             "tracer__name",
@@ -450,9 +448,9 @@ class FormatGroupTests(FormatsTestCase):
         ]
         self.assertEqual(expected_orderby_fieldnames, orderby_fieldnames)
 
-    def test_get_all_browse_data(self):
+    def test_getAllBrowseData(self):
         """
-        Test that test_get_all_browse_data returns all data for the selected format.
+        Test that test_getAllBrowseData returns all data for the selected format.
         """
         basv_metadata = SearchGroup()
         pf = "msrun_sample__sample__animal__studies"
@@ -460,9 +458,9 @@ class FormatGroupTests(FormatsTestCase):
         _, cnt, _ = basv_metadata.getAllBrowseData("pgtemplate")
         self.assertEqual(qs.count(), cnt)
 
-    def test_create_new_basic_query(self):
+    def test_createNewBasicQuery(self):
         """
-        Test create_new_basic_query creates a correct qry
+        Test createNewBasicQuery creates a correct qry
         """
         tval, qry = self.get_basic_qry_inputs()
         basv_metadata = SearchGroup()
@@ -475,9 +473,9 @@ class FormatGroupTests(FormatsTestCase):
         newqry = basv_metadata.createNewBasicQuery(mdl, fld, cmp, val, fmt, units)
         self.assertEqual(qry, newqry)
 
-    def test_search_field_to_display_field(self):
+    def test_searchFieldToDisplayField(self):
         """
-        Test that search_field_to_display_field converts Study.id to Study.name
+        Test that searchFieldToDisplayField converts Study.id to Study.name
         """
         [tval, qry] = self.get_basic_qry_inputs()
         qry["searches"]["pgtemplate"]["tree"]["queryGroup"][0][
@@ -488,13 +486,13 @@ class FormatGroupTests(FormatsTestCase):
         mdl = "Study"
         fld = "id"
         val = tval
-        dfld, dval = basv_metadata.search_field_to_display_field(mdl, fld, val, qry)
+        dfld, dval = basv_metadata.searchFieldToDisplayField(mdl, fld, val, qry)
         self.assertEqual(dfld, "name")
         self.assertEqual(dval, "Small OBOB")
 
-    def test_perform_query_stats1(self):
+    def test_performQuery_stats1(self):
         """
-        Test that perform_query returns a correct queryset
+        Test that performQuery returns a correct queryset
         """
         qry = self.get_advanced_qry()
         basv_metadata = SearchGroup()
@@ -518,9 +516,9 @@ class FormatGroupTests(FormatsTestCase):
         }
         self.assertEqual(expected_stats, stats)
 
-    def test_perform_query_stats2(self):
+    def test_performQuery_stats2(self):
         """
-        Test that perform_query returns a correct stats structure
+        Test that performQuery returns a correct stats structure
         """
         basv = SearchGroup()
         qry = self.get_advanced_qry()
@@ -532,9 +530,9 @@ class FormatGroupTests(FormatsTestCase):
         expected_stats = self.getExpectedStats()
         self.assertDictEqual(expected_stats, stats)
 
-    def test_perform_query_distinct(self):
+    def test_performQuery_distinct(self):
         """
-        Test that perform_query returns no duplicate root table records when M:M tables queried with multiple matches.
+        Test that performQuery returns no duplicate root table records when M:M tables queried with multiple matches.
         """
         qry = self.get_advanced_qry2()
         basv_metadata = SearchGroup()
@@ -549,7 +547,7 @@ class FormatGroupTests(FormatsTestCase):
         self.assertEqual(cnt, 1)
 
     @MaintainedModel.no_autoupdates()
-    def test_perform_query_fcirc_tracer_links_1to1(self):
+    def test_performQuery_fcirc_tracer_links_1to1(self):
         """
         This test ensures that when we perform any query on the fcirc format, the means of limiting each row to a
         single tracer works.  I.e. Calling get_many_related_rec with the tracer links and the annotated field (defined
@@ -598,20 +596,20 @@ class FormatGroupTests(FormatsTestCase):
             num_multitracer_recs > 0, msg="Make sure the test above has meaning"
         )
 
-        # Make sure that get_root_query_set was overridden to make:
+        # Make sure that getRootQuerySet was overridden to make:
         #   tracer__id = serum_sample__animal__infusate__tracer_links__tracer__id
         # so that the number of FCirc records is equal to the number of queryset records when splitting on
         # InfusateTracer records.  This affects only the result count displayed on the page.
         self.assertEqual(FCirc.objects.count(), qs.count())
 
-    def test_get_query_stats_full(self):
+    def test_getQueryStats_full(self):
         """
-        Test that get_query_stats returns a correct stats structure
+        Test that getQueryStats returns a correct stats structure
         """
         basv = SearchGroup()
         qry = self.get_advanced_qry()
         res, _, _ = basv.performQuery(qry, "pgtemplate", generate_stats=True)
-        got, based_on = basv.get_query_stats(res, qry["selectedtemplate"])
+        got, based_on = basv.getQueryStats(res, qry["selectedtemplate"])
         for mdl in got.keys():
             got[mdl]["sample"] = sorted(got[mdl]["sample"], key=lambda d: d["val"])
         full_stats = self.getExpectedStats()
@@ -619,12 +617,12 @@ class FormatGroupTests(FormatsTestCase):
         self.assertEqual(expected, got)
         self.assertIsNone(based_on)
 
-    def test_get_query_stats_truncated(self):
-        """Test that get_query_stats returns truncated results when not enough time"""
+    def test_getQueryStats_truncated(self):
+        """Test that getQueryStats returns truncated results when not enough time"""
         basv = SearchGroup()
         qry = self.get_advanced_qry()
         res, _, _ = basv.performQuery(qry, "pgtemplate", generate_stats=True)
-        got, based_on = basv.get_query_stats(
+        got, based_on = basv.getQueryStats(
             res,
             qry["selectedtemplate"],
             # A time limit of 0 seconds will produce 1 result because the elapsed time if checked at the bottom of the
@@ -636,9 +634,9 @@ class FormatGroupTests(FormatsTestCase):
         self.assertNotEqual(expected, got)
         self.assertEqual("* Based on 5.56% of the data (truncated for time)", based_on)
 
-    def test_get_joined_rec_field_value(self):
+    def test_getJoinedRecFieldValue(self):
         """
-        Test that get_joined_rec_field_value gets a value from a joined table
+        Test that getJoinedRecFieldValue gets a value from a joined table
         """
         basv_metadata = SearchGroup()
         fmt = "pgtemplate"
@@ -646,18 +644,16 @@ class FormatGroupTests(FormatsTestCase):
         fld = "feeding_status"
         pf = "msrun_sample__sample__animal__studies"
         recs = PeakGroup.objects.all().prefetch_related(pf)
-        val = basv_metadata.get_joined_rec_field_value(
-            recs, fmt, mdl, fld, fld, "Fasted"
-        )
+        val = basv_metadata.getJoinedRecFieldValue(recs, fmt, mdl, fld, fld, "Fasted")
         self.assertEqual("Fasted", val)
 
-    def test_get_search_field_choices(self):
+    def test_getSearchFieldChoices(self):
         """
-        Test get_search_field_choices
+        Test getSearchFieldChoices
         """
         basv_metadata = SearchGroup()
         fmt = "pgtemplate"
-        res = basv_metadata.get_search_field_choices(fmt)
+        res = basv_metadata.getSearchFieldChoices(fmt)
         choices = (
             ("msrun_sample__sample__animal__age", "Age"),
             ("msrun_sample__sample__animal__name", "Animal"),
@@ -701,25 +697,25 @@ class FormatGroupTests(FormatsTestCase):
         )
         self.assertEqual(choices, res)
 
-    def test_get_key_path_list(self):
+    def test_getKeyPathList(self):
         """
-        Test get_key_path_list
+        Test getKeyPathList
         """
         basv_metadata = SearchGroup()
         fmt = "pgtemplate"
         mdl = "Animal"
-        res = basv_metadata.get_key_path_list(fmt, mdl)
+        res = basv_metadata.getKeyPathList(fmt, mdl)
         kpl = ["msrun_sample", "sample", "animal"]
         self.assertEqual(kpl, res)
 
-    def test_get_prefetches(self):
+    def test_getPrefetches(self):
         """
-        Test getPrefget_prefetchesetches (which should not return the infusatetracer through model and return paths in
-        order of descending length)
+        Test getPrefetches (which should not return the infusatetracer through model and return paths in order of
+        descending length)
         """
         basv_metadata = SearchGroup()
         fmt = "pdtemplate"
-        res = basv_metadata.get_prefetches(fmt)
+        res = basv_metadata.getPrefetches(fmt)
         pfl = [
             "peak_group__msrun_sample__sample__animal__infusate__tracers__compound",
             "peak_group__msrun_sample__sample__msrun_samples__ms_data_file",
@@ -734,13 +730,13 @@ class FormatGroupTests(FormatsTestCase):
         ]
         self.assertEqual(pfl, res)
 
-    def test_get_model_instances(self):
+    def test_getModelInstances(self):
         """
-        Test get_model_instances
+        Test getModelInstances
         """
         basv_metadata = SearchGroup()
         fmt = "pgtemplate"
-        res = basv_metadata.get_model_instances(fmt)
+        res = basv_metadata.getModelInstances(fmt)
         ml = [
             "PeakAnnotationFile",
             "PeakGroup",
@@ -762,14 +758,14 @@ class FormatGroupTests(FormatsTestCase):
         ]
         self.assertEqual(ml, res)
 
-    def test_get_search_fields(self):
+    def test_getSearchFields(self):
         """
-        Test get_search_fields
+        Test getSearchFields
         """
         basv_metadata = SearchGroup()
         fmt = "pgtemplate"
         mdl = "Animal"
-        res = basv_metadata.get_search_fields(fmt, mdl)
+        res = basv_metadata.getSearchFields(fmt, mdl)
         sfd = {
             "id": "msrun_sample__sample__animal__id",
             "name": "msrun_sample__sample__animal__name",
@@ -783,14 +779,14 @@ class FormatGroupTests(FormatsTestCase):
         }
         self.assertEqual(sfd, res)
 
-    def test_get_display_fields(self):
+    def test_getDisplayFields(self):
         """
-        Test get_display_fields
+        Test getDisplayFields
         """
         basv_metadata = SearchGroup()
         fmt = "pgtemplate"
         mdl = "Animal"
-        res = basv_metadata.get_display_fields(fmt, mdl)
+        res = basv_metadata.getDisplayFields(fmt, mdl)
         # Note the difference with the 'id' field - which is not a displayed field
         dfd = {
             "id": "name",
@@ -805,9 +801,9 @@ class FormatGroupTests(FormatsTestCase):
         }
         self.assertEqual(dfd, res)
 
-    def test_get_format_names(self):
+    def test_getFormatNames(self):
         """
-        Test get_format_names
+        Test getFormatNames
         """
         basv_metadata = SearchGroup()
         res = basv_metadata.getFormatNames()
@@ -815,26 +811,25 @@ class FormatGroupTests(FormatsTestCase):
             "pgtemplate": "PeakGroups",
             "pdtemplate": "PeakData",
             "fctemplate": "Fcirc",
-            "mztemplate": "mzXML",
         }
         self.assertEqual(fnd, res)
 
-    def test_format_name_or_key_to_key(self):
+    def test_formatNameOrKeyToKey(self):
         """
-        Test format_name_or_key_to_key
+        Test formatNameOrKeyToKey
         """
         basv_metadata = SearchGroup()
         fmt = "PeakGroups"
         res = basv_metadata.formatNameOrKeyToKey(fmt)
         self.assertEqual(res, "pgtemplate")
 
-    def test_get_field_units_dict(self):
+    def test_getFieldUnitsDict(self):
         """
         Spot check a few dicts
         """
         sg = SearchGroup()
         fld_units_dict = sg.getFieldUnitsDict()
-        self.assertEqual(4, len(fld_units_dict.keys()))
+        self.assertEqual(3, len(fld_units_dict.keys()))
         expected_element_dict = {
             "choices": (("identity", "identity"),),
             "default": "identity",
@@ -878,11 +873,11 @@ class FormatGroupTests(FormatsTestCase):
         self.assertEqual(
             expected_age_dict, fld_units_dict["fctemplate"]["serum_sample__animal__age"]
         )
-        self.assertEqual(32, len(fld_units_dict["fctemplate"].keys()))
+        self.assertEqual(31, len(fld_units_dict["fctemplate"].keys()))
         self.assertEqual(46, len(fld_units_dict["pgtemplate"].keys()))
         self.assertEqual(50, len(fld_units_dict["pdtemplate"].keys()))
 
-    def test_get_all_field_units_choices(self):
+    def test_getAllFieldUnitsChoices(self):
         sg = SearchGroup()
         fld_units_choices = sg.getAllFieldUnitsChoices()
         expected = (
@@ -904,19 +899,18 @@ class FormatGroupTests(FormatsTestCase):
         )
         self.assertEqual(expected, fld_units_choices)
 
-    def test_get_field_units_lookup(self):
+    def test_getFieldUnitsLookup(self):
         format = "fctemplate"
         sg = SearchGroup()
-        fld_units_lookup = sg.get_field_units_lookup(format)
-        self.assert_is_a_fc_units_lookup_dict(fld_units_lookup)
+        fld_units_lookup = sg.getFieldUnitsLookup(format)
+        self.assertIsAFcUnitsLookupDict(fld_units_lookup)
 
-    def test_get_search_field_choices_dict(self):
+    def test_getSearchFieldChoicesDict(self):
         basv = SearchGroup()
         sfcd = basv.getSearchFieldChoicesDict()
         sfcd_expected = {
             "fctemplate": self.getFctemplateChoicesTuple(),
             "pdtemplate": self.getPdtemplateChoicesTuple(),
             "pgtemplate": self.getPgtemplateChoicesTuple(),
-            "mztemplate": self.get_mztemplate_choices_tuple(),
         }
         self.assertDictEqual(sfcd_expected, sfcd)

@@ -26,7 +26,7 @@ class FluxCircFormat(Format):
             },
             "fields": {
                 "element": {
-                    "displayname": "Labeled Element",
+                    "displayname": "Peak Group Labeled Element",
                     "searchable": True,
                     "displayed": True,
                     "type": "enumeration",
@@ -268,12 +268,6 @@ class FluxCircFormat(Format):
                     "displayed": False,  # Used in link
                     "handoff": "name",  # This is the field that will be loaded in the search form
                     "type": "number",
-                },
-                "name": {
-                    "displayname": "Serum Sample",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "string",
                 },
                 "time_collected": {
                     "displayname": "Time Collected (since infusion)",
