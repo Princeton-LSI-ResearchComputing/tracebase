@@ -6,7 +6,12 @@ from typing import Dict, List, Optional
 from django.db.models import CharField, F, Model, OrderBy, Transform, Value
 from pytimeparse.timeparse import timeparse
 
-from DataRepo.formats.dataformat_group_query import (
+from DataRepo.models.utilities import (
+    dereference_field,
+    get_distinct_fields,
+    get_model_by_name,
+)
+from DataRepo.search.formats.dataformat_group_query import (
     appendFilterToGroup,
     createFilterCondition,
     createFilterGroup,
@@ -24,11 +29,6 @@ from DataRepo.formats.dataformat_group_query import (
     setField,
     splitCommon,
     splitPathName,
-)
-from DataRepo.models.utilities import (
-    dereference_field,
-    get_distinct_fields,
-    get_model_by_name,
 )
 
 
@@ -257,25 +257,25 @@ class Format:
     # }
 
     @classmethod
-    def getSearchFieldChoices(self):
+    def getSearchFieldChoices(cls):
         """
         This generates the tuple to populate the select list choices for the AdvSearchForm fld field.
         """
 
         choices = ()
-        for mkey in self.model_instances.keys():
-            mpath = self.model_instances[mkey]["path"]
-            for fkey in self.model_instances[mkey]["fields"].keys():
+        for mkey in cls.model_instances.keys():
+            mpath = cls.model_instances[mkey]["path"]
+            for fkey in cls.model_instances[mkey]["fields"].keys():
                 # We only want it in the select list if it is both searchable and displayed
                 if (
-                    self.model_instances[mkey]["fields"][fkey]["searchable"] is True
-                    and self.model_instances[mkey]["fields"][fkey]["displayed"] is True
+                    cls.model_instances[mkey]["fields"][fkey]["searchable"] is True
+                    and cls.model_instances[mkey]["fields"][fkey]["displayed"] is True
                 ):
                     fpath = ""
                     if mpath != "":
                         fpath = mpath + "__"
                     fpath += fkey
-                    fname = self.model_instances[mkey]["fields"][fkey]["displayname"]
+                    fname = cls.model_instances[mkey]["fields"][fkey]["displayname"]
                     choices = choices + ((fpath, fname),)
         return tuple(sorted(choices, key=lambda x: x[1]))
 
@@ -928,8 +928,8 @@ class Format:
                 units_lookup[new_fld] = units_lookup[old_fld]
                 units_lookup.pop(old_fld)
         else:
-            type = getFilterType(subtree)
-            raise ValueError(f"Qry type: [{type}] must be either 'group' or 'query'.")
+            typ = getFilterType(subtree)
+            raise ValueError(f"Qry type: [{typ}] must be either 'group' or 'query'.")
 
     def reRootFieldPath(self, fld, reroot_instance_name):
         """
@@ -1283,13 +1283,13 @@ class UnknownComparison(Exception):
 
 
 class TypeUnitsMismatch(Exception):
-    def __init__(self, type):
+    def __init__(self, field_type):
         message = (
-            f"Unsupported combination of field type {type} and units.  Only fields of type 'number' can have unit "
-            "options."
+            f"Unsupported combination of field type {field_type} and units.  Only fields of type 'number' can have "
+            "unit options."
         )
         super().__init__(message)
-        self.type = type
+        self.type = field_type
 
 
 class ConditionallyRequiredArgumentError(Exception):

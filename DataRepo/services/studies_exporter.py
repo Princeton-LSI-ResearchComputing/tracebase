@@ -5,8 +5,8 @@ from django.db.models import Q
 from django.template.defaultfilters import slugify
 from django.template.loader import get_template
 
-from DataRepo.formats.search_group import SearchGroup
 from DataRepo.models import Study
+from DataRepo.search.formats.search_group import SearchGroup
 from DataRepo.utils.exceptions import AggregatedErrors
 from DataRepo.views.search.download import AdvancedSearchDownloadView
 

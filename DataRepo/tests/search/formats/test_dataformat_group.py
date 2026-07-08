@@ -4,16 +4,16 @@ from typing import Dict
 from django.core.management import call_command
 from django.db.models import F, Value
 
-from DataRepo.formats.dataformat_group import (
-    ConditionallyRequiredArgumentError,
-    UnsupportedDistinctCombo,
-)
-from DataRepo.formats.search_group import SearchGroup
 from DataRepo.models.fcirc import FCirc
 from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.models.peak_group import PeakGroup
+from DataRepo.search.formats.dataformat_group import (
+    ConditionallyRequiredArgumentError,
+    UnsupportedDistinctCombo,
+)
+from DataRepo.search.formats.search_group import SearchGroup
 from DataRepo.templatetags.customtags import get_many_related_rec
-from DataRepo.tests.formats.formats_test_base import FormatsTestCase
+from DataRepo.tests.search.formats.formats_test_base import FormatsTestCase
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 

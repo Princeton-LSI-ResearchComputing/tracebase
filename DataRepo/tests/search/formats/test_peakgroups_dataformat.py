@@ -1,8 +1,8 @@
 from parameterized import parameterized
 
-from DataRepo.formats.peakgroups_dataformat import PeakGroupsFormat
 from DataRepo.models.compound import CompoundSynonym
-from DataRepo.tests.formats.formats_test_base import FormatsTestCase
+from DataRepo.search.formats.peakgroups_dataformat import PeakGroupsFormat
+from DataRepo.tests.search.formats.formats_test_base import FormatsTestCase
 
 
 class PeakgroupsDataformatMainTests(FormatsTestCase):
@@ -106,7 +106,15 @@ class PeakGroupsFormatTests(FormatsTestCase):
             "compounds__synonyms__pk",
             "msrun_sample__sample__animal__studies__name",
             "msrun_sample__sample__animal__studies__pk",
+            "msrun_sample__sample__msrun_samples__ms_data_file__filename",
+            "msrun_sample__sample__msrun_samples__ms_data_file__data_type__name",
+            "msrun_sample__sample__msrun_samples__ms_data_file__data_format__name",
+            "msrun_sample__sample__msrun_samples__ms_data_file__imported_timestamp",
             "msrun_sample__sample__msrun_samples__ms_data_file__pk",
+            "msrun_sample__sample__msrun_samples__ms_raw_file__filename",
+            "msrun_sample__sample__msrun_samples__ms_raw_file__data_type__name",
+            "msrun_sample__sample__msrun_samples__ms_raw_file__data_format__name",
+            "msrun_sample__sample__msrun_samples__ms_raw_file__imported_timestamp",
             "msrun_sample__sample__msrun_samples__ms_raw_file__pk",
         ]
         self.assertEqual(expected_distincts, distincts)

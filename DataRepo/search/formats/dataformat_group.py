@@ -9,17 +9,17 @@ from django.core.exceptions import (
     ObjectDoesNotExist,
     ValidationError,
 )
-from django.db.models import Prefetch
+from django.db.models import F, Prefetch
 from django.db.utils import ProgrammingError
 
-from DataRepo.formats.dataformat import Format
-from DataRepo.formats.dataformat_group_query import (
+from DataRepo.models.utilities import get_model_by_name
+from DataRepo.search.formats.dataformat import Format
+from DataRepo.search.formats.dataformat_group_query import (
     constructAdvancedQuery,
     getNumEmptyQueries,
     getSelectedFormat,
     setFirstEmptyQuery,
 )
-from DataRepo.models.utilities import get_model_by_name
 
 SAFE_TIMEOUT_SECS = max(settings.GATEWAY_TIMEOUT - 5, 0)
 
@@ -703,11 +703,44 @@ class FormatGroup:
             # And since we are doing extra splitting, we need to be able to accurately count the actual rows of the
             # results table too, and we do that with the reccombo variable below (which is a unique combination value on
             # each row).
+
+            # DEBUG v
+            # Django 5.2 regression workaround:
+            #
+            # Ordering directly by relationship paths that are also used in distinct(*fields) can resolve differently
+            # when traversed models define Meta.ordering, causing PostgreSQL:
+            #
+            #     SELECT DISTINCT ON expressions must match initial ORDER BY expressions
+            #
+            # Ordering by aliases (F() expressions) avoids the problematic resolution path while preserving the correct
+            # DISTINCT ON fields.
+            #
+            # Verified:
+            #   Django 4.2: original code works (confirmed via downgrade to 4.2.27 and testing DataRepo.tests.formats)
+            #   Django 5.2.15: requires alias workaround
+            all_distinct_field_from_aliases = []
+            all_distinct_field_aliases = {}
+            fld: str
+            for fld in all_distinct_fields:
+                if "__" in fld:
+                    alias = fld.replace("__", "_") + "_alias"
+                    all_distinct_field_from_aliases.append(alias)
+                    all_distinct_field_aliases[alias] = F(fld)
+                else:
+                    all_distinct_field_from_aliases.append(fld)
             resultsqs = (
-                res.order_by(*all_distinct_fields)
+                res.alias(**all_distinct_field_aliases)
+                .order_by(*all_distinct_field_from_aliases)
                 .distinct(*all_distinct_fields)
                 .values_list(*all_fields)
             )
+            # TODO: When the Django regression is fixed, restore this code:
+            # resultsqs = (
+            #     res.order_by(*all_distinct_fields)
+            #     .distinct(*all_distinct_fields)
+            #     .values_list(*all_fields)
+            # )
+            # DEBUG ^
             for rec in resultsqs.all():
                 loop_count += 1
 

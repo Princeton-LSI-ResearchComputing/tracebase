@@ -5,15 +5,6 @@ from typing import List, Tuple
 from django.conf import settings
 from django.http import Http404
 
-from DataRepo.formats.dataformat_group_query import (
-    appendFilterToGroup,
-    createFilterCondition,
-    createFilterGroup,
-    formsetsToDict,
-    isQryObjValid,
-    isValidQryObjPopulated,
-)
-from DataRepo.formats.search_group import SearchGroup
 from DataRepo.forms.forms import (
     AdvSearchDownloadForm,
     AdvSearchForm,
@@ -21,6 +12,15 @@ from DataRepo.forms.forms import (
 )
 from DataRepo.forms.multiforms import MultiFormsView
 from DataRepo.forms.widgets.pager import Pager
+from DataRepo.search.formats.dataformat_group_query import (
+    appendFilterToGroup,
+    createFilterCondition,
+    createFilterGroup,
+    formsetsToDict,
+    isQryObjValid,
+    isValidQryObjPopulated,
+)
+from DataRepo.search.formats.search_group import SearchGroup
 from DataRepo.views.utils import get_cookie
 
 

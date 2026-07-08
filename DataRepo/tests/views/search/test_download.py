@@ -137,23 +137,25 @@ class AdvancedSearchDownloadViewTests(BaseAdvancedSearchDownloadViewTests):
         ).encode()
         expected_content = (
             "xzl1_brain\tbrain\t150.0\tglutamine\tglutamine\tglutamine/gln\tC5H10N2O3\tC\txzl1_brain.mzXML\t"
-            "66443429.298358865\t0.020587090360701568\t1367876.8828401999\tNone\tglnfasted1_cor.xlsx\txzl1\tWT\t26.4\t"
-            "14.0\tM\tPicoLab Rodent 20 5053\tfasted\tno treatment\tglutamine-[13C5,15N2][200]\tglutamine-[13C5,15N2]\t"
-            "glutamine\t200.0\t0.1\ttest v3 study\nxzl1_brain\tbrain\t150.0\tglutamine\tglutamine\tglutamine/gln\t"
-            "C5H10N2O3\tN\txzl1_brain.mzXML\t66443429.298358865\t0.033253605355009624\t2209483.5763211097\tNone\t"
-            "glnfasted1_cor.xlsx\txzl1\tWT\t26.4\t14.0\tM\tPicoLab Rodent 20 5053\tfasted\tno treatment\t"
-            "glutamine-[13C5,15N2][200]\tglutamine-[13C5,15N2]\tglutamine\t200.0\t0.1\ttest v3 study\nxzl1_brain\tbrain"
-            "\t150.0\tserine\tserine\tserine/ser\tC3H7NO3\tC\txzl1_brain.mzXML\t3683190.721911725\t"
-            "0.00004820032977290798\t177.53100741266016\tNone\tglnfasted1_cor.xlsx\txzl1\tWT\t26.4\t14.0\tM\t"
-            "PicoLab Rodent 20 5053\tfasted\tno treatment\tglutamine-[13C5,15N2][200]\tglutamine-[13C5,15N2]\tglutamine"
-            "\t200.0\t0.1\ttest v3 study\nxzl1_brain\tbrain\t150.0\tserine\tserine\tserine/ser\tC3H7NO3\tN\t"
-            "xzl1_brain.mzXML\t3683190.721911725\t0.007010304615747614\t25820.288918496553\tNone\tglnfasted1_cor.xlsx\t"
-            "xzl1\tWT\t26.4\t14.0\tM\tPicoLab Rodent 20 5053\tfasted\tno treatment\tglutamine-[13C5,15N2][200]\t"
-            "glutamine-[13C5,15N2]\tglutamine\t200.0\t0.1\ttest v3 study\nxzl1_brownFat\tbrown_adipose_tissue\t150.0\t"
-            "glutamine\tglutamine\tglutamine/gln\tC5H10N2O3\tC\txzl1_brownFat.mzXML\t22616674.701348945\t"
-            "0.14624710984003733\t3307623.309264573\tNone\tglnfasted1_cor.xlsx\txzl1\tWT\t26.4\t14.0\tM\t"
-            "PicoLab Rodent 20 5053\tfasted\tno treatment\tglutamine-[13C5,15N2][200]\tglutamine-[13C5,15N2]\tglutamine"
-            "\t200.0\t0.1\ttest v3 study\nxzl1_brownFat\tbrown_adipose_tissue\t150.0\tglutamine\tglutamine\tglutamine/"
+            "66443429.298358865\t0.020587090360701568\t1367876.8828401999\tNone\tglnfasted1_cor.xlsx\txzl1\tWT\t"
+            "26.4\t14.0\tM\tPicoLab Rodent 20 5053\tfasted\tno treatment\tglutamine-[13C5,15N2][200]\t"
+            "glutamine-[13C5,15N2]\tglutamine\t200.0\t0.1\ttest v3 study\nxzl1_brain\tbrain\t150.0\tglutamine"
+            "\tglutamine\tglutamine/gln\tC5H10N2O3\tN\txzl1_brain.mzXML\t66443429.298358865\t"
+            "0.033253605355009624\t2209483.5763211097\tNone\tglnfasted1_cor.xlsx\txzl1\tWT\t26.4\t14.0\tM\t"
+            "PicoLab Rodent 20 5053\tfasted\tno treatment\tglutamine-[13C5,15N2][200]\tglutamine-[13C5,15N2]\t"
+            "glutamine\t200.0\t0.1\ttest v3 study\nxzl1_brownFat\tbrown_adipose_tissue\t150.0\tglutamine\t"
+            "glutamine\tglutamine/gln\tC5H10N2O3\tC\txzl1_brownFat.mzXML\t22616674.701348945\t0.14624710984003733"
+            "\t3307623.309264573\tNone\tglnfasted1_cor.xlsx\txzl1\tWT\t26.4\t14.0\tM\tPicoLab Rodent 20 5053"
+            "\tfasted\tno treatment\tglutamine-[13C5,15N2][200]\tglutamine-[13C5,15N2]\tglutamine\t200.0\t0.1\t"
+            "test v3 study\nxzl1_brownFat\tbrown_adipose_tissue\t150.0\tglutamine\tglutamine\tglutamine/gln\t"
+            "C5H10N2O3\tN\txzl1_brownFat.mzXML\t22616674.701348945\t0.20585780261180694\t4655818.956405739\tNone"
+            "\tglnfasted1_cor.xlsx\txzl1\tWT\t26.4\t14.0\tM\tPicoLab Rodent 20 5053\tfasted\tno treatment\t"
+            "glutamine-[13C5,15N2][200]\tglutamine-[13C5,15N2]\tglutamine\t200.0\t0.1\ttest v3 study\nxzl4_sp\t"
+            "spleen\t150.0\tglutamine\tglutamine\tglutamine/gln\tC5H10N2O3\tC\txzl4_sp.mzXML\t10754305.62834726"
+            "\t0.010700439530230607\t115075.79706574853\t0.06675684125020898\talafasted_cor.xlsx\txzl4\tWT\t27.5"
+            "\t14.0\tM\tPicoLab Rodent 20 5053\tfasted\tno treatment\talanine-[13C3,15N1][180]\t"
+            "alanine-[13C3,15N1]\talanine\t180.0\t0.1\ttest v3 study\nxzl4_sp\tspleen\t150.0\tglutamine\t"
+            "glutamine\tglutamine/"
             # A portion of the file
         ).encode()
         content = str(response.getvalue())
@@ -290,28 +292,28 @@ class RecordToMzxmlTSVTests(BaseAdvancedSearchDownloadViewTests):
         row = pgtmt.msrun_sample_rec_to_row(self.res.first().msrun_sample)
         self.assertEqual(
             [
-                "2021-06-08/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl1_brain.mzXML",
+                "2020-07-22/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl4_sp.mzXML",
                 "positive",
                 1.0,
                 502.9,
-                "xzl1_brain",
-                "brain",
-                "2021-06-08",
+                "xzl4_sp",
+                "spleen",
+                "2020-07-22",
                 150.0,
                 "Xianfeng Zeng",
-                "xzl1",
+                "xzl4",
                 14.0,
                 "M",
                 "WT",
-                26.4,
+                27.5,
                 "PicoLab Rodent 20 5053",
                 "fasted",
                 "no treatment",
-                "glutamine-[13C5,15N2][200]",
+                "alanine-[13C3,15N1][180]",
                 "Xianfeng Zeng",
                 "QE2",
                 "polar-HILIC-25-min",
-                "2021-06-08",
+                "2020-07-22",
             ],
             row,
         )
@@ -323,28 +325,28 @@ class RecordToMzxmlTSVTests(BaseAdvancedSearchDownloadViewTests):
         self.assertEqual(
             [
                 [
-                    "2021-06-08/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl1_brain.mzXML",
+                    "2020-07-22/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl4_sp.mzXML",
                     "positive",
                     1.0,
                     502.9,
-                    "xzl1_brain",
-                    "brain",
-                    "2021-06-08",
+                    "xzl4_sp",
+                    "spleen",
+                    "2020-07-22",
                     150.0,
                     "Xianfeng Zeng",
-                    "xzl1",
+                    "xzl4",
                     14.0,
                     "M",
                     "WT",
-                    26.4,
+                    27.5,
                     "PicoLab Rodent 20 5053",
                     "fasted",
                     "no treatment",
-                    "glutamine-[13C5,15N2][200]",
+                    "alanine-[13C3,15N1][180]",
                     "Xianfeng Zeng",
                     "QE2",
                     "polar-HILIC-25-min",
-                    "2021-06-08",
+                    "2020-07-22",
                 ],
             ],
             rows,
@@ -427,7 +429,7 @@ class RecordToMzxmlZIPTests(BaseAdvancedSearchDownloadViewTests):
             self.res.first().msrun_sample
         )
         self.assertEqual(
-            "2021-06-08/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl1_brain.mzXML",
+            "2020-07-22/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl4_sp.mzXML",
             export_path,
         )
         self.assertIn(
@@ -435,7 +437,7 @@ class RecordToMzxmlZIPTests(BaseAdvancedSearchDownloadViewTests):
             file_obj.name,
         )
         self.assertIn(
-            "/ms_data/xzl1_brain",
+            "/ms_data/xzl4_sp",
             file_obj.name,
         )
         self.assertIn(
