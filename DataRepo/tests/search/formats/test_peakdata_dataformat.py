@@ -1,8 +1,8 @@
 from parameterized import parameterized
 
-from DataRepo.formats.peakdata_dataformat import PeakDataFormat
 from DataRepo.models.utilities import get_model_by_name
-from DataRepo.tests.formats.formats_test_base import FormatsTestCase
+from DataRepo.search.formats.peakdata_dataformat import PeakDataFormat
+from DataRepo.tests.search.formats.formats_test_base import FormatsTestCase
 
 
 class PeakdataDataformatMainTests(FormatsTestCase):

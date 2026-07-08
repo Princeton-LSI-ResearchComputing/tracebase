@@ -1,7 +1,7 @@
 from django.db.models import F
 
-from DataRepo.formats.dataformat import Format
 from DataRepo.models import Animal, ElementLabel, FCirc
+from DataRepo.search.formats.dataformat import Format
 
 
 class FluxCircFormat(Format):

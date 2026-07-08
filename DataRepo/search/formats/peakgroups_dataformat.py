@@ -1,74 +1,102 @@
-from DataRepo.formats.dataformat import Format
-from DataRepo.formats.dataformat_group_query import (
-    appendFilterToGroup,
-    createFilterCondition,
-    createFilterGroup,
-)
-from DataRepo.models import Animal, ElementLabel, PeakData
+from DataRepo.models import Animal, ElementLabel, PeakGroup
+from DataRepo.search.formats.dataformat import Format
 
 
-class PeakDataFormat(Format):
+class PeakGroupsFormat(Format):
     """
     This class encapsulates all the metadata of a single search output format, which includes multiple tables/fields.
     """
 
-    id = "pdtemplate"
-    name = "PeakData"
-    rootmodel = PeakData
+    id = "pgtemplate"
+    name = "PeakGroups"
+    rootmodel = PeakGroup
     stats = [
         {
             "displayname": "Animals",
-            "distincts": ["peak_group__msrun_sample__sample__animal__name"],
+            "distincts": ["msrun_sample__sample__animal__name"],
             "filter": None,
         },
         {
-            "displayname": "Labels",
-            "distincts": [
-                "labels__element",
-                "labels__count",
-            ],
-            "filter": None,
-            "delimiter": ":",
-        },
-        {
-            "displayname": "Feeding Statuses",
-            "distincts": ["peak_group__msrun_sample__sample__animal__feeding_status"],
+            "displayname": "Labeled Elements",
+            "distincts": ["peak_data__labels__element"],
             "filter": None,
         },
         {
-            "displayname": "Corrected Abundances",  # Append " > 0.1" based on filter
-            "distincts": ["corrected_abundance"],
-            "filter": appendFilterToGroup(
-                createFilterGroup(),
-                createFilterCondition("corrected_abundance", "gt", 0.1, "identity"),
-            ),
+            "displayname": "Measured Compounds",
+            "distincts": ["compounds__name"],
+            "filter": None,
         },
         {
             "displayname": "Samples",
-            "distincts": ["peak_group__msrun_sample__sample__name"],
+            "distincts": ["msrun_sample__sample__name"],
             "filter": None,
         },
         {
             "displayname": "Tissues",
-            "distincts": ["peak_group__msrun_sample__sample__tissue__name"],
+            "distincts": ["msrun_sample__sample__tissue__name"],
             "filter": None,
         },
         {
             "displayname": "Tracer Compounds",
             "distincts": [
-                "peak_group__msrun_sample__sample__animal__infusate__tracers__compound__name"
+                "msrun_sample__sample__animal__infusate__tracers__compound__name"
             ],
             "filter": None,
         },
         {
-            "displayname": "Measured Compounds",
-            "distincts": ["peak_group__compounds__name"],
+            "displayname": "Studies",
+            "distincts": ["msrun_sample__sample__animal__studies__name"],
             "filter": None,
+        },
+        {
+            "displayname": "Feeding Statuses",
+            "distincts": ["msrun_sample__sample__animal__feeding_status"],
+            "filter": None,
+        },
+        {
+            "displayname": "Infusion Rates",
+            "distincts": ["msrun_sample__sample__animal__infusion_rate"],
+            "filter": None,
+        },
+        {
+            "displayname": "Tracer Concentrations",
+            "distincts": [
+                "msrun_sample__sample__animal__infusate__tracers__compound__name",
+                "msrun_sample__sample__animal__infusate__tracer_links__concentration",
+            ],
+            "filter": None,
+            "delimiter": ":",
         },
     ]
     model_instances = {
-        "PeakData": {
-            "model": "PeakData",
+        "PeakAnnotationFile": {
+            "model": "ArchiveFile",
+            "path": "peak_annotation_file",
+            "reverse_path": "peak_groups",
+            "manyrelated": {
+                "is": False,
+                "through": False,
+                "manytomany": False,
+                "split_rows": False,
+            },
+            "fields": {
+                "id": {
+                    "displayname": "(Internal) Peak Annotation File Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "filename",  # This is the field that will be loaded in the search form
+                    "type": "number",
+                },
+                "filename": {
+                    "displayname": "Peak Annotation Filename",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
+                },
+            },
+        },
+        "PeakGroup": {
+            "model": "PeakGroup",
             "path": "",
             "reverse_path": "",
             "manyrelated": {
@@ -79,96 +107,9 @@ class PeakDataFormat(Format):
             },
             "fields": {
                 "id": {
-                    "displayname": "(Internal) Peak Data Index",
+                    "displayname": "(Internal) Peak Group Index",
                     "searchable": True,
                     "displayed": False,  # Used in link
-                    # "handoff": "",
-                    # Using in link will expose the internal index field in the search form because there's no
-                    # searchable unique field for handoff
-                    "type": "number",
-                },
-                "raw_abundance": {
-                    "displayname": "Raw Abundance",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "number",
-                },
-                "corrected_abundance": {
-                    "displayname": "Corrected Abundance",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "number",
-                },
-                "fraction": {
-                    "displayname": "Fraction",
-                    "searchable": False,  # Cannot search cached property
-                    "displayed": True,
-                    "type": "number",
-                },
-                "med_mz": {
-                    "displayname": "Median M/Z",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "number",
-                },
-                "med_rt": {
-                    "displayname": "Median RT",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "number",
-                },
-            },
-        },
-        "PeakDataLabel": {
-            "model": "PeakDataLabel",
-            "path": "labels",
-            "reverse_path": "peak_data",
-            "manyrelated": {
-                "is": True,
-                "through": False,
-                "manytomany": False,
-                "split_rows": False,
-            },
-            "fields": {
-                "id": {
-                    "displayname": "(Internal) Peak Data Label Index",
-                    "searchable": True,
-                    "displayed": False,  # Used in link
-                    # "handoff": "",
-                    # Using in link will expose the internal index field in the search form because there's no
-                    # searchable unique field for handoff
-                    "type": "number",
-                },
-                "element": {
-                    "displayname": "Labeled Element",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "enumeration",
-                    "choices": ElementLabel.LABELED_ELEMENT_CHOICES,
-                },
-                "count": {
-                    "displayname": "Labeled Count",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "number",
-                },
-            },
-        },
-        "PeakGroup": {
-            "model": "PeakGroup",
-            "path": "peak_group",
-            "reverse_path": "peak_data",
-            "manyrelated": {
-                "is": False,
-                "through": False,
-                "manytomany": False,
-                "split_rows": False,
-            },
-            "fields": {
-                "id": {
-                    "displayname": "(Internal) Peak Group Index",  # Used in link
-                    "searchable": True,
-                    "displayed": False,
                     "handoff": "name",  # This is the field that will be loaded in the search form
                     "type": "number",
                 },
@@ -184,64 +125,58 @@ class PeakDataFormat(Format):
                     "displayed": True,
                     "type": "string",
                 },
-            },
-        },
-        "MeasuredCompound": {
-            "model": "Compound",
-            "path": "peak_group__compounds",
-            "reverse_path": "peak_groups__peak_data",
-            "manyrelated": {
-                "is": True,
-                "through": False,
-                "manytomany": False,
-                "split_rows": False,
-            },
-            "fields": {
-                "id": {
-                    "displayname": "(Internal) Measured Compound Index",
-                    "searchable": True,
-                    "displayed": False,  # Used in link
-                    "handoff": "name",  # This is the field that will be loaded in the search form
+                "total_abundance": {
+                    "displayname": "Total Abundance",
+                    "searchable": False,  # Cannot search cached property
+                    "displayed": True,
                     "type": "number",
                 },
-                "name": {
-                    "displayname": "Measured Compound (Primary Synonym)",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "string",
-                },
             },
         },
-        "CompoundSynonym": {
-            "model": "CompoundSynonym",
-            "path": "peak_group__compounds__synonyms",
-            "reverse_path": "compound__peak_groups__peak_data",
+        "PeakGroupLabel": {
+            "model": "PeakGroupLabel",
+            "path": "labels",
+            "reverse_path": "peak_group",
             "manyrelated": {
                 "is": True,
+                "manytomany": False,  # searching for peakGroups via PeakGroupLabel.pk can produce only 1 peak group
                 "through": False,
-                "manytomany": True,
-                "split_rows": False,
+                "split_rows": True,
+                "root_annot_fld": "peak_group_label",  # Used to annotate root rec w/ subtable ID when split_rows=True
             },
             "fields": {
-                "id": {
-                    "displayname": "(Internal) Compound Synonym Index",
-                    "searchable": True,
-                    "displayed": False,  # Used in link
-                    "handoff": "name",  # This is the field that will be loaded in the search form
-                    "type": "number",
-                },
-                "name": {
-                    "displayname": "Measured Compound (Any Synonym)",
+                "element": {
+                    "displayname": "Labeled Element",
                     "searchable": True,
                     "displayed": True,
-                    "type": "string",
+                    "type": "enumeration",
+                    "choices": ElementLabel.LABELED_ELEMENT_CHOICES,
+                    "root_annot_fld": "element",  # Used to annotate root rec split_rows=True
+                },
+                "enrichment_fraction": {
+                    "displayname": "Enrichment Fraction",
+                    "searchable": False,  # Cannot search cached property
+                    "displayed": True,
+                    "type": "number",
+                },
+                "enrichment_abundance": {
+                    "displayname": "Enrichment Abundance",
+                    "searchable": False,  # Cannot search cached property
+                    "displayed": True,
+                    "type": "number",
+                },
+                "normalized_labeling": {
+                    "displayname": "Normalized Labeling",
+                    "searchable": False,  # Cannot search cached property
+                    "displayed": True,
+                    "type": "number",
                 },
             },
         },
-        "PeakAnnotationFile": {
-            "model": "ArchiveFile",
-            "path": "peak_group__peak_annotation_file",
-            "reverse_path": "peak_groups__peak_data",
+        "Protocol": {
+            "model": "Protocol",
+            "path": "msrun_sample__sample__animal__treatment",
+            "reverse_path": "animals__samples__msrun_samples__peak_groups",
             "manyrelated": {
                 "is": False,
                 "through": False,
@@ -250,14 +185,14 @@ class PeakDataFormat(Format):
             },
             "fields": {
                 "id": {
-                    "displayname": "(Internal) Archive (Peak Annotation) File Index",  # Used in link
+                    "displayname": "(Internal) Protocol Index",
                     "searchable": True,
-                    "displayed": False,
-                    "handoff": "filename",  # This is the field that will be loaded in the search form
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
                     "type": "number",
                 },
-                "filename": {
-                    "displayname": "Peak Annotation Filename",
+                "name": {
+                    "displayname": "Treatment",
                     "searchable": True,
                     "displayed": True,
                     "type": "string",
@@ -266,8 +201,8 @@ class PeakDataFormat(Format):
         },
         "Sample": {
             "model": "Sample",
-            "path": "peak_group__msrun_sample__sample",
-            "reverse_path": "msrun_samples__peak_groups__peak_data",
+            "path": "msrun_sample__sample",
+            "reverse_path": "msrun_samples__peak_groups",
             "manyrelated": {
                 "is": False,
                 "through": False,
@@ -276,11 +211,11 @@ class PeakDataFormat(Format):
             },
             "fields": {
                 "id": {
-                    "displayname": "(Internal) Sample Index",  # Used in link
+                    "displayname": "(Internal) Sample Index",
                     "searchable": True,
-                    "displayed": False,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
                     "type": "number",
-                    "handoff": "name",
                 },
                 "name": {
                     "displayname": "Sample",
@@ -307,8 +242,8 @@ class PeakDataFormat(Format):
         },
         "Tissue": {
             "model": "Tissue",
-            "path": "peak_group__msrun_sample__sample__tissue",
-            "reverse_path": "samples__msrun_samples__peak_groups__peak_data",
+            "path": "msrun_sample__sample__tissue",
+            "reverse_path": "samples__msrun_samples__peak_groups",
             "manyrelated": {
                 "is": False,
                 "through": False,
@@ -317,11 +252,11 @@ class PeakDataFormat(Format):
             },
             "fields": {
                 "id": {
-                    "displayname": "Tissue",
+                    "displayname": "(Internal) Tissue Index",
                     "searchable": True,
-                    "displayed": False,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
                     "type": "number",
-                    "handoff": "name",
                 },
                 "name": {
                     "displayname": "Tissue",
@@ -333,8 +268,8 @@ class PeakDataFormat(Format):
         },
         "Animal": {
             "model": "Animal",
-            "path": "peak_group__msrun_sample__sample__animal",
-            "reverse_path": "samples__msrun_samples__peak_groups__peak_data",
+            "path": "msrun_sample__sample__animal",
+            "reverse_path": "samples__msrun_samples__peak_groups",
             "manyrelated": {
                 "is": False,
                 "through": False,
@@ -355,24 +290,17 @@ class PeakDataFormat(Format):
                     "displayed": True,
                     "type": "string",
                 },
-                "body_weight": {
-                    "displayname": "Body Weight (g)",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "number",
-                },
                 "genotype": {
                     "displayname": "Genotype",
                     "searchable": True,
                     "displayed": True,
                     "type": "string",
                 },
-                "sex": {
-                    "displayname": "Sex",
+                "body_weight": {
+                    "displayname": "Body Weight (g)",
                     "searchable": True,
                     "displayed": True,
-                    "type": "enumeration",
-                    "choices": Animal.SEX_CHOICES,
+                    "type": "number",
                 },
                 "age": {
                     "displayname": "Age",
@@ -390,14 +318,21 @@ class PeakDataFormat(Format):
                         ],
                     },
                 },
-                "feeding_status": {
-                    "displayname": "Feeding Status",
+                "sex": {
+                    "displayname": "Sex",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "enumeration",
+                    "choices": Animal.SEX_CHOICES,
+                },
+                "diet": {
+                    "displayname": "Diet",
                     "searchable": True,
                     "displayed": True,
                     "type": "string",
                 },
-                "diet": {
-                    "displayname": "Diet",
+                "feeding_status": {
+                    "displayname": "Feeding Status",
                     "searchable": True,
                     "displayed": True,
                     "type": "string",
@@ -410,40 +345,14 @@ class PeakDataFormat(Format):
                 },
             },
         },
-        "Protocol": {
-            "model": "Protocol",
-            "path": "peak_group__msrun_sample__sample__animal__treatment",
-            "reverse_path": "animals__samples__msrun_samples__peak_groups__peak_data",
-            "manyrelated": {
-                "is": False,
-                "through": False,
-                "manytomany": False,
-                "split_rows": False,
-            },
-            "fields": {
-                "id": {
-                    "displayname": "(Internal) Protocol Index",
-                    "searchable": True,
-                    "displayed": False,  # Used in link
-                    "handoff": "name",  # This is the field that will be loaded in the search form
-                    "type": "number",
-                },
-                "name": {
-                    "displayname": "Treatment",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "string",
-                },
-            },
-        },
         "Infusate": {
-            "model": "Compound",
-            "path": "peak_group__msrun_sample__sample__animal__infusate",
-            "reverse_path": "animals__samples__msrun_samples__peak_groups__peak_data",
+            "model": "InfusateTracer",
+            "path": "msrun_sample__sample__animal__infusate",
+            "reverse_path": "animals__samples__msrun_samples__peak_groups",
             "manyrelated": {
-                "is": False,
+                "is": True,  # searching for PeakGroups via Infusate.pk can produce many peak groups
+                "manytomany": False,  # but animal->infusate results in 1 infusate
                 "through": False,
-                "manytomany": False,
                 "split_rows": False,
             },
             "fields": {
@@ -464,13 +373,13 @@ class PeakDataFormat(Format):
         },
         "InfusateTracer": {
             "model": "InfusateTracer",
-            "path": "peak_group__msrun_sample__sample__animal__infusate__tracer_links",
-            "reverse_path": "infusate__animals__samples__msrun_samples__peak_groups__peak_data",
+            "path": "msrun_sample__sample__animal__infusate__tracer_links",
+            "reverse_path": "infusate__animals__samples__msrun_samples__peak_groups",
             "manyrelated": {
                 "is": True,
-                "manytomany": True,
-                "split_rows": False,
+                "manytomany": True,  # searching for peakGroups via InfusateTracer.pk can produce many peak groups
                 "through": True,
+                "split_rows": False,
             },
             "fields": {
                 "id": {
@@ -490,12 +399,12 @@ class PeakDataFormat(Format):
         },
         "Tracer": {
             "model": "Tracer",
-            "path": "peak_group__msrun_sample__sample__animal__infusate__tracers",
-            "reverse_path": "infusates__animals__samples__msrun_samples__peak_groups__peak_data",
+            "path": "msrun_sample__sample__animal__infusate__tracers",
+            "reverse_path": "infusate__animals__samples__msrun_samples__peak_groups",
             "manyrelated": {
-                "is": True,
+                "is": True,  # searching for PeakGroups via Tracer.pk can produce many peak groups
+                "manytomany": True,  # and searching for tracers via PG.pk can also produce many tracers
                 "through": False,
-                "manytomany": True,
                 "split_rows": False,
             },
             "fields": {
@@ -516,24 +425,77 @@ class PeakDataFormat(Format):
         },
         "TracerCompound": {
             "model": "Compound",
-            "path": "peak_group__msrun_sample__sample__animal__infusate__tracers__compound",
-            "reverse_path": "tracers__infusates__animals__samples__msrun_samples__peak_groups__peak_data",
+            "path": "msrun_sample__sample__animal__infusate__tracers__compound",
+            "reverse_path": "tracer__infusates__animals__samples__msrun_samples__peak_groups",
             "manyrelated": {
                 "is": True,
+                "manytomany": True,  # searching for peakGroups via compound.pk can produce many peak groups
                 "through": False,
-                "manytomany": True,
                 "split_rows": False,
             },
             "fields": {
                 "id": {
-                    "displayname": "(Internal) Tracer Compound Index",
+                    "displayname": "(Internal) Compound (Tracer) Index",
                     "searchable": True,
                     "displayed": False,  # Used in link
                     "handoff": "name",  # This is the field that will be loaded in the search form
                     "type": "number",
                 },
                 "name": {
-                    "displayname": "Tracer Compound (Primary Synonym)",
+                    "displayname": "Compound (Tracer) (Primary Synonym)",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
+                },
+            },
+        },
+        "MeasuredCompound": {
+            "model": "Compound",
+            "path": "compounds",
+            "reverse_path": "peak_groups",
+            "manyrelated": {
+                "is": True,
+                "manytomany": True,
+                "through": False,
+                "split_rows": False,
+                "root_annot_fld": "compound",
+            },
+            "fields": {
+                "id": {
+                    "displayname": "(Internal) Compound (Measured) Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
+                },
+                "name": {
+                    "displayname": "Compound (Measured) (Primary Synonym)",
+                    "searchable": True,
+                    "displayed": True,  # Will display due to the handoff
+                    "type": "string",
+                },
+            },
+        },
+        "CompoundSynonym": {
+            "model": "CompoundSynonym",
+            "path": "compounds__synonyms",
+            "reverse_path": "compound__peak_groups",
+            "manyrelated": {
+                "is": True,
+                "manytomany": True,
+                "through": False,
+                "split_rows": False,
+            },
+            "fields": {
+                "id": {
+                    "displayname": "(Internal) Compound Synonym (Measured) Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
+                },
+                "name": {
+                    "displayname": "Compound (Measured) (Any Synonym)",
                     "searchable": True,
                     "displayed": True,
                     "type": "string",
@@ -542,12 +504,12 @@ class PeakDataFormat(Format):
         },
         "Study": {
             "model": "Study",
-            "path": "peak_group__msrun_sample__sample__animal__studies",
-            "reverse_path": "animals__samples__msrun_samples__peak_groups__peak_data",
+            "path": "msrun_sample__sample__animal__studies",
+            "reverse_path": "animals__samples__msrun_samples__peak_groups",
             "manyrelated": {
                 "is": True,
-                "through": False,
                 "manytomany": True,
+                "through": False,
                 "split_rows": False,
                 "root_annot_fld": "study",
             },
@@ -569,8 +531,8 @@ class PeakDataFormat(Format):
         },
         "MSRunSequence": {
             "model": "MSRunSequence",
-            "path": "peak_group__msrun_sample__msrun_sequence",
-            "reverse_path": "msrun_samples__peak_groups__peak_data",
+            "path": "msrun_sample__msrun_sequence",
+            "reverse_path": "msrun_samples__peak_groups",
             "manyrelated": {
                 "is": False,
                 "manytomany": False,
@@ -597,12 +559,12 @@ class PeakDataFormat(Format):
         },
         "MZFile": {
             "model": "ArchiveFile",
-            "path": "peak_group__msrun_sample__sample__msrun_samples__ms_data_file",
-            "reverse_path": "mz_to_msrunsamples__sample__msrun_samples__peak_groups__peak_data",
+            "path": "msrun_sample__sample__msrun_samples__ms_data_file",
+            "reverse_path": "mz_to_msrunsamples__sample__msrun_samples__peak_groups",
             "manyrelated": {
                 "is": True,
                 "through": False,
-                "manytomany": True,  # Searching for 1 MZFile can produce many PeakData recs and vice versa
+                "manytomany": True,  # Searching for 1 MZFile can produce many PeakGroups and vice versa
                 "split_rows": False,
                 "root_annot_fld": "mzdatafl",
             },
@@ -624,12 +586,12 @@ class PeakDataFormat(Format):
         },
         "RAWFile": {
             "model": "ArchiveFile",
-            "path": "peak_group__msrun_sample__sample__msrun_samples__ms_raw_file",
-            "reverse_path": "raw_to_msrunsamples__sample__msrun_samples__peak_groups__peak_data",
+            "path": "msrun_sample__sample__msrun_samples__ms_raw_file",
+            "reverse_path": "raw_to_msrunsamples__sample__msrun_samples__peak_groups",
             "manyrelated": {
                 "is": True,
                 "through": False,
-                "manytomany": True,  # Searching for 1 MZFile can produce many PeakData recs and vice versa
+                "manytomany": True,  # Searching for 1 RAWFile can produce many PeakGroups and vice versa
                 "split_rows": False,
                 "root_annot_fld": "mzrawfl",
             },

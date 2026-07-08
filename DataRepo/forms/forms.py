@@ -17,17 +17,18 @@ from django.forms import (
     formset_factory,
 )
 
-from DataRepo.formats.dataformat import Format
-from DataRepo.formats.fluxcirc_dataformat import FluxCircFormat
-from DataRepo.formats.peakdata_dataformat import PeakDataFormat
-from DataRepo.formats.peakgroups_dataformat import PeakGroupsFormat
-from DataRepo.formats.search_group import SearchGroup
 from DataRepo.forms.widgets.base import (
     AutoCompleteTextInput,
     MultipleFileInput,
 )
 from DataRepo.forms.widgets.search import RowsPerPageSelectWidget
 from DataRepo.models import LCMethod, MSRunSequence, Researcher
+from DataRepo.search.formats.dataformat import Format
+from DataRepo.search.formats.fluxcirc_dataformat import FluxCircFormat
+from DataRepo.search.formats.mzxml_dataformat import MzxmlFormat
+from DataRepo.search.formats.peakdata_dataformat import PeakDataFormat
+from DataRepo.search.formats.peakgroups_dataformat import PeakGroupsFormat
+from DataRepo.search.formats.search_group import SearchGroup
 from DataRepo.utils.file_utils import (
     date_to_string,
     ensure_temporary_uploaded_file,
@@ -137,6 +138,14 @@ class AdvSearchFluxCircForm(BaseAdvSearchForm):
     format_class = FluxCircFormat()
 
 
+class AdvSearchMzxmlForm(BaseAdvSearchForm):
+    """
+    Advanced search form for the mzxml output format that will be used inside a formset.
+    """
+
+    format_class = MzxmlFormat()
+
+
 class AdvSearchForm:
     """
     A group of advanced search form classes
@@ -153,6 +162,7 @@ class AdvSearchForm:
             AdvSearchPeakGroupsForm(),
             AdvSearchPeakDataForm(),
             AdvSearchFluxCircForm(),
+            AdvSearchMzxmlForm(),
         ):
             id = form_class.format_class.id
             self.form_classes[id] = formset_factory(form_class.__class__)

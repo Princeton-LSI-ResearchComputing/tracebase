@@ -9,9 +9,9 @@ from django.core.exceptions import (
 from django.http import Http404
 from django.shortcuts import render
 
-from DataRepo.formats.search_group import SearchGroup
 from DataRepo.forms.forms import AdvSearchForm, AdvSearchPageForm
 from DataRepo.forms.widgets.pager import Pager
+from DataRepo.search.formats.search_group import SearchGroup
 from DataRepo.views.search.advanced import AdvancedSearchView
 from DataRepo.views.utils import get_cookie
 

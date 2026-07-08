@@ -1,7 +1,7 @@
 from django.db.models import F
 from django.db.models.functions import Lower, Upper
 
-from DataRepo.formats.dataformat import (
+from DataRepo.search.formats.dataformat import (
     ConditionallyRequiredArgumentError,
     FieldPathError,
     Format,
@@ -9,7 +9,7 @@ from DataRepo.formats.dataformat import (
     TypeUnitsMismatch,
     UnknownComparison,
 )
-from DataRepo.tests.formats.formats_test_base import FormatsTestCase
+from DataRepo.tests.search.formats.formats_test_base import FormatsTestCase
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 

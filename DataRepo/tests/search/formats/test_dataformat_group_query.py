@@ -1,6 +1,6 @@
 from django.db.models import Q
 
-from DataRepo.formats.dataformat_group_query import (
+from DataRepo.search.formats.dataformat_group_query import (
     appendFilterToGroup,
     constructAdvancedQuery,
     createFilterCondition,
@@ -13,8 +13,8 @@ from DataRepo.formats.dataformat_group_query import (
     splitCommon,
     splitPathName,
 )
-from DataRepo.formats.search_group import SearchGroup
-from DataRepo.tests.formats.formats_test_base import FormatsTestCase
+from DataRepo.search.formats.search_group import SearchGroup
+from DataRepo.tests.search.formats.formats_test_base import FormatsTestCase
 
 
 class DataformatGroupQueryMainTests(FormatsTestCase):
