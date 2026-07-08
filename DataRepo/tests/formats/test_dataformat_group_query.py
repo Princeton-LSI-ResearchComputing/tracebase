@@ -93,6 +93,7 @@ class DataformatGroupQueryMainTests(FormatsTestCase):
         """
         qry = self.get_advanced_qry()
         basv_metadata = SearchGroup()
+        print(f"KEYS: {basv_metadata.get_format_names().keys()} qry: {qry}")
         isvalid = is_qry_obj_valid(qry, basv_metadata.get_format_names().keys())
         self.assertEqual(isvalid, True)
         qry.pop("selectedtemplate")

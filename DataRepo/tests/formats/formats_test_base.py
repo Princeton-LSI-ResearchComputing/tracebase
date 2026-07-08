@@ -144,7 +144,8 @@ class FormatsTestCase(TracebaseTestCase):
             ("serum_sample__animal__genotype", "Genotype"),
             ("serum_sample__animal__infusion_rate", "Infusion Rate (ul/min/g)"),
             ("is_last", "Is Last Serum Tracer Peak Group"),
-            ("element", "Peak Group Labeled Element"),
+            ("element", "Labeled Element"),
+            ("serum_sample__name", "Serum Sample"),
             ("serum_sample__animal__sex", "Sex"),
             ("serum_sample__animal__studies__name", "Study"),
             (
@@ -158,7 +159,87 @@ class FormatsTestCase(TracebaseTestCase):
                 "Tracer Concentration (mM)",
             ),
             ("serum_sample__animal__treatment__name", "Treatment"),
+            # ("mz_to_msrunsamples__sample__animal__age", "Age (w)"),
+            # ("mz_to_msrunsamples__sample__animal__name", "Animal"),
+            # ("mz_to_msrunsamples__sample__date", "Date Collected"),
+            # ("mz_to_msrunsamples__sample__animal__diet", "Diet"),
+            # ("mz_to_msrunsamples__sample__animal__feeding_status", "Feeding Status"),
+            # ("mz_to_msrunsamples__sample__animal__genotype", "Genotype"),
+            # ("mz_to_msrunsamples__sample__researcher", "Handler"),
+            # ("imported_timestamp", "Imported Timestamp"),
+            # ("mz_to_msrunsamples__sample__animal__infusate__name", "Infusate"),
+            # (
+            #     "mz_to_msrunsamples__sample__animal__infusion_rate",
+            #     "Infusion Rate (ul/min/g)",
+            # ),
+            # ("mz_to_msrunsamples__msrun_sequence__instrument", "Instrument"),
+            # ("mz_to_msrunsamples__msrun_sequence__lc_method__name", "LC Protocol"),
+            # ("mz_to_msrunsamples__msrun_sequence__researcher", "Operator"),
+            # ("mz_to_msrunsamples__ms_raw_file__checksum", "RAW Checksum"),
+            # ("mz_to_msrunsamples__ms_raw_file__filename", "RAW Filename"),
+            # ("mz_to_msrunsamples__msrun_sequence__date", "Run Date"),
+            # ("mz_to_msrunsamples__sample__name", "Sample"),
+            # ("mz_to_msrunsamples__sample__animal__sex", "Sex"),
+            # ("mz_to_msrunsamples__sample__animal__studies__name", "Study"),
+            # ("mz_to_msrunsamples__sample__time_collected", "Time Collected (m)"),
+            # ("mz_to_msrunsamples__sample__tissue__name", "Tissue"),
+            # ("mz_to_msrunsamples__sample__animal__treatment__name", "Treatment"),
+            # ("mz_to_msrunsamples__sample__animal__body_weight", "Weight (g)"),
+            # ("checksum", "mzXML Checksum"),
+            # ("filename", "mzXML Filename"),
         )
+
+    def get_mztemplate_choices_tuple(self):
+        return (
+            ("mz_to_msrunsamples__sample__animal__age", "Age (w)"),
+            ("mz_to_msrunsamples__sample__animal__name", "Animal"),
+            ("mz_to_msrunsamples__sample__date", "Date Collected"),
+            ("mz_to_msrunsamples__sample__animal__diet", "Diet"),
+            (
+                "mz_to_msrunsamples__sample__animal__feeding_status",
+                "Feeding Status",
+            ),
+            ("mz_to_msrunsamples__sample__animal__genotype", "Genotype"),
+            ("mz_to_msrunsamples__sample__researcher", "Handler"),
+            ("imported_timestamp", "Imported Timestamp"),
+            (
+                "mz_to_msrunsamples__sample__animal__infusate__name",
+                "Infusate",
+            ),
+            (
+                "mz_to_msrunsamples__sample__animal__infusion_rate",
+                "Infusion Rate (ul/min/g)",
+            ),
+            (
+                "mz_to_msrunsamples__msrun_sequence__instrument",
+                "Instrument",
+            ),
+            (
+                "mz_to_msrunsamples__msrun_sequence__lc_method__name",
+                "LC Protocol",
+            ),
+            ("mz_to_msrunsamples__msrun_sequence__researcher", "Operator"),
+            ("mz_to_msrunsamples__ms_raw_file__checksum", "RAW Checksum"),
+            ("mz_to_msrunsamples__ms_raw_file__filename", "RAW Filename"),
+            ("mz_to_msrunsamples__msrun_sequence__date", "Run Date"),
+            ("mz_to_msrunsamples__sample__name", "Sample"),
+            ("mz_to_msrunsamples__sample__animal__sex", "Sex"),
+            ("mz_to_msrunsamples__sample__animal__studies__name", "Study"),
+            (
+                "mz_to_msrunsamples__sample__time_collected",
+                "Time Collected (m)",
+            ),
+            ("mz_to_msrunsamples__sample__tissue__name", "Tissue"),
+            ("mz_to_msrunsamples__sample__animal__treatment__name",
+            "Treatment"),
+            (
+                "mz_to_msrunsamples__sample__animal__body_weight",
+                "Weight (g)",
+            ),
+            ("checksum", "mzXML Checksum"),
+            ("filename", "mzXML Filename"),
+        )
+
 
     def get_query_object(self):
         return {
@@ -269,6 +350,26 @@ class FormatsTestCase(TracebaseTestCase):
                         ],
                     },
                     "name": "FCirc",
+                },
+                "mztemplate": {
+                    "tree": {
+                        "pos": "",
+                        "type": "group",
+                        "val": "all",
+                        "static": False,
+                        "queryGroup": [
+                            {
+                                "type": "query",
+                                "pos": "",
+                                "fld": "mz_to_msrunsamples__sample__animal__genotype",
+                                "ncmp": "iexact",
+                                "static": "",
+                                "val": "",
+                                "units": "identity",
+                            }
+                        ],
+                    },
+                    "name": "mzXML",
                 },
             },
         }

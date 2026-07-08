@@ -20,9 +20,9 @@ class PeakGroupsFormatTests(FormatsTestCase):
         res = pgsv.get_model_from_instance(instance)
         self.assertEqual(res, model)
 
-    def test_get_f_k_model_name(self):
+    def test_get_fk_model_name(self):
         pgf = PeakGroupsFormat()
-        mdl_name = pgf.get_f_k_model_name(CompoundSynonym(), "compound")
+        mdl_name = pgf.get_fk_model_name(CompoundSynonym(), "compound")
         self.assertEqual("Compound", mdl_name)
 
     def test_get_order_by_fields_model(self):
@@ -106,7 +106,15 @@ class PeakGroupsFormatTests(FormatsTestCase):
             "compounds__synonyms__pk",
             "msrun_sample__sample__animal__studies__name",
             "msrun_sample__sample__animal__studies__pk",
+            "msrun_sample__sample__msrun_samples__ms_data_file__filename",
+            "msrun_sample__sample__msrun_samples__ms_data_file__data_type__name",
+            "msrun_sample__sample__msrun_samples__ms_data_file__data_format__name",
+            "msrun_sample__sample__msrun_samples__ms_data_file__imported_timestamp",
             "msrun_sample__sample__msrun_samples__ms_data_file__pk",
+            "msrun_sample__sample__msrun_samples__ms_raw_file__filename",
+            "msrun_sample__sample__msrun_samples__ms_raw_file__data_type__name",
+            "msrun_sample__sample__msrun_samples__ms_raw_file__data_format__name",
+            "msrun_sample__sample__msrun_samples__ms_raw_file__imported_timestamp",
             "msrun_sample__sample__msrun_samples__ms_raw_file__pk",
         ]
         self.assertEqual(expected_distincts, distincts)

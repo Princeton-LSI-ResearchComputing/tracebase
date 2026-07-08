@@ -928,11 +928,12 @@ def get_distinct_fields(model: Type[Model], field_path: Optional[str] = None):
     """
     if field_path is None:
         distinct_fields = []
-        if "ordering" in model._meta.ordering:
+        if "ordering" in model._meta.__dict__:
             for obf_exp in model._meta.ordering:
                 obf = resolve_field_path(obf_exp)
-                obf_path = f"{field_path}__{obf}"
-                distinct_fields.extend(_get_distinct_fields_helper(model, obf_path))
+                # obf_path = f"{field_path}__{obf}"
+                # distinct_fields.extend(_get_distinct_fields_helper(model, obf_path))
+                distinct_fields.extend(_get_distinct_fields_helper(model, obf))
         else:
             distinct_fields.append("pk")
         return distinct_fields

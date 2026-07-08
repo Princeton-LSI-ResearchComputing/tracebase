@@ -170,7 +170,7 @@ class FormatGroupTests(FormatsTestCase):
         )
 
     def assert_is_a_fc_units_lookup_dict(self, fld_units_lookup):
-        self.assertEqual(31, len(fld_units_lookup.keys()))
+        self.assertEqual(32, len(fld_units_lookup.keys()))
         # Path should be prepended to the field name
         self.assertIsNone(fld_units_lookup["serum_sample__animal__genotype"])
         # Each value should be a dict with the units, this one having 15 keys
@@ -261,6 +261,7 @@ class FormatGroupTests(FormatsTestCase):
                 },
                 "pdtemplate": {"name": "PeakData", "tree": empty_tree},
                 "fctemplate": {"name": "Fcirc", "tree": empty_tree},
+                "mztemplate": {"name": "mzXML", "tree": empty_tree},
             },
         }
         return tval, qry
@@ -275,6 +276,7 @@ class FormatGroupTests(FormatsTestCase):
             if x != ("labels__element", "Labeled Element")
         )
         sfct_expected += self.get_fctemplate_choices_tuple()
+        sfct_expected += self.get_mztemplate_choices_tuple()
         self.assertTupleEqual(sfct_expected, sfct)
 
     def test_re_root_qry(self):
@@ -813,6 +815,7 @@ class FormatGroupTests(FormatsTestCase):
             "pgtemplate": "PeakGroups",
             "pdtemplate": "PeakData",
             "fctemplate": "Fcirc",
+            "mztemplate": "mzXML",
         }
         self.assertEqual(fnd, res)
 
@@ -831,7 +834,7 @@ class FormatGroupTests(FormatsTestCase):
         """
         sg = SearchGroup()
         fld_units_dict = sg.get_field_units_dict()
-        self.assertEqual(3, len(fld_units_dict.keys()))
+        self.assertEqual(4, len(fld_units_dict.keys()))
         expected_element_dict = {
             "choices": (("identity", "identity"),),
             "default": "identity",
@@ -875,7 +878,7 @@ class FormatGroupTests(FormatsTestCase):
         self.assertEqual(
             expected_age_dict, fld_units_dict["fctemplate"]["serum_sample__animal__age"]
         )
-        self.assertEqual(31, len(fld_units_dict["fctemplate"].keys()))
+        self.assertEqual(32, len(fld_units_dict["fctemplate"].keys()))
         self.assertEqual(46, len(fld_units_dict["pgtemplate"].keys()))
         self.assertEqual(50, len(fld_units_dict["pdtemplate"].keys()))
 
@@ -914,5 +917,6 @@ class FormatGroupTests(FormatsTestCase):
             "fctemplate": self.get_fctemplate_choices_tuple(),
             "pdtemplate": self.get_pdtemplate_choices_tuple(),
             "pgtemplate": self.get_pgtemplate_choices_tuple(),
+            "mztemplate": self.get_mztemplate_choices_tuple(),
         }
         self.assertDictEqual(sfcd_expected, sfcd)
