@@ -82,6 +82,9 @@ limit-inference-results=100
 
 # List of plugins (as comma separated values of python module names) to load,
 # usually to register additional checkers.
+# NOTE: This was commented out in commit a03b8ab because the new superlinter disallows `pip install`, which means that
+# the pylint_django plugin cannot be used, but if you wish to use it locally, uncomment this and other django-commented
+# lines.
 # load-plugins=pylint_django
 
 # Pickle collected data for later comparisons.
@@ -751,5 +754,8 @@ init-import=no
 # builtins.
 redefining-builtins-modules=six.moves,past.builtins,future.builtins
 
+# NOTE: This was commented out in commit a03b8ab because the new superlinter disallows `pip install`, which means that
+# the pylint_django plugin cannot be used, but if you wish to use it locally, uncomment these and other django-commented
+# lines.
 # [DJANGO]
-# django-settings-module=TraceBase.settings
+# django-settings-module=TraceBase.settings.dev
