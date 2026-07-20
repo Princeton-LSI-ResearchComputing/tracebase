@@ -847,6 +847,19 @@ class MSRunsLoader(TableLoader):
                     for pathkey in self.mzxml_dict[mzxml_name_no_ext].keys()
                     for fldct in self.mzxml_dict[mzxml_name_no_ext][pathkey]
                 ]
+
+                # If all of the mzXML files associated with MSRunSample records were added, we can skip this sample.
+                # NOTE: We are traversing the entire mzXML dict from the directory walk and the purpose of this code is
+                # to catch at least 1 of the same-named files that was not added to an MSRunSample record (but report
+                # them all if so, so the user can work out the unaccounted-for file in context).
+                if len(mzxml_filepaths) == len(
+                    fldct["mzxml_filepath"]
+                    for pathkey in self.mzxml_dict[mzxml_name_no_ext].keys()
+                    for fldct in self.mzxml_dict[mzxml_name_no_ext][pathkey]
+                    if fldct["added"] is True
+                ):
+                    continue
+
                 sample = self.get_sample_by_name(
                     sample_name, from_mzxmls=mzxml_filepaths
                 )
@@ -2910,7 +2923,6 @@ class MSRunsLoader(TableLoader):
                         or mzxml_dir
                         not in self.skip_msrunsample_by_mzxml[mzxml_name].keys()
                     ):
-                        print(f"mzxml_name {mzxml_name} mzxml_dir {mzxml_dir} NOT ADDED and NOT SKIPPED.")
                         return True
         return False
 
