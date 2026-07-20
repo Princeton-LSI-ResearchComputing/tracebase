@@ -862,6 +862,7 @@ class MSRunsLoader(TableLoader):
                 ):
                     continue
 
+                print(f"LOOKING UP {sample_name} DERIVED FROM FILE(S) {mzxml_filepaths}")
                 sample = self.get_sample_by_name(
                     sample_name, from_mzxmls=mzxml_filepaths
                 )
