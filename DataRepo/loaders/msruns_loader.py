@@ -1584,6 +1584,7 @@ class MSRunsLoader(TableLoader):
         # Save the metadata by mzxml name (which may not be unique, so we're using the record ID as a second key, so
         # that we can later associate a sample header (with the same non-unique issue) to its multiple mzXMLs).
         mzxml_name = self.get_sample_header_from_mzxml_name(mzxml_filename)
+        print(f"SETTING mzXML NAME PATH: '{mzxml_name}' '{mzxml_dir}'")
         self.mzxml_dict[mzxml_name][mzxml_dir].append(mzxml_metadata)
 
         return (
