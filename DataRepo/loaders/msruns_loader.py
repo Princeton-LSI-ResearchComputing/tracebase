@@ -2923,14 +2923,15 @@ class MSRunsLoader(TableLoader):
                         mzxml_name not in self.skip_msrunsample_by_mzxml.keys()
                         or (
                             mzxml_dir == "."
-                            and "" not in self.skip_msrunsample_by_mzxml[mzxml_name].keys()
+                            and ""
+                            not in self.skip_msrunsample_by_mzxml[mzxml_name].keys()
                         )
                         or (
                             mzxml_dir != "."
-                            and mzxml_dir not in self.skip_msrunsample_by_mzxml[mzxml_name].keys()
+                            and mzxml_dir
+                            not in self.skip_msrunsample_by_mzxml[mzxml_name].keys()
                         )
                     ):
-                        print(f"mzxml_name {mzxml_name} mzxml_dir {mzxml_dir} UNPAIRED")
                         return True
         return False
 
