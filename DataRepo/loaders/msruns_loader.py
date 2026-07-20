@@ -853,10 +853,12 @@ class MSRunsLoader(TableLoader):
                 # to catch at least 1 of the same-named files that was not added to an MSRunSample record (but report
                 # them all if so, so the user can work out the unaccounted-for file in context).
                 if len(mzxml_filepaths) == len(
-                    fldct["mzxml_filepath"]
-                    for pathkey in self.mzxml_dict[mzxml_name_no_ext].keys()
-                    for fldct in self.mzxml_dict[mzxml_name_no_ext][pathkey]
-                    if fldct["added"] is True
+                    [
+                        fldct["mzxml_filepath"]
+                        for pathkey in self.mzxml_dict[mzxml_name_no_ext].keys()
+                        for fldct in self.mzxml_dict[mzxml_name_no_ext][pathkey]
+                        if fldct["added"] is True
+                    ]
                 ):
                     continue
 
