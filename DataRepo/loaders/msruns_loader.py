@@ -862,7 +862,6 @@ class MSRunsLoader(TableLoader):
                 ):
                     continue
 
-                print(f"LOOKING UP {sample_name} DERIVED FROM FILE(S) {mzxml_filepaths}")
                 sample = self.get_sample_by_name(
                     sample_name, from_mzxmls=mzxml_filepaths
                 )
@@ -1584,7 +1583,6 @@ class MSRunsLoader(TableLoader):
         # Save the metadata by mzxml name (which may not be unique, so we're using the record ID as a second key, so
         # that we can later associate a sample header (with the same non-unique issue) to its multiple mzXMLs).
         mzxml_name = self.get_sample_header_from_mzxml_name(mzxml_filename)
-        print(f"SETTING mzXML NAME PATH: '{mzxml_name}' '{mzxml_dir}'")
         self.mzxml_dict[mzxml_name][mzxml_dir].append(mzxml_metadata)
 
         return (
@@ -2922,11 +2920,17 @@ class MSRunsLoader(TableLoader):
             for mzxml_dir in self.mzxml_dict[mzxml_name].keys():
                 for mzxml_metadata in self.mzxml_dict[mzxml_name][mzxml_dir]:
                     if mzxml_metadata["added"] is False and (
-                        # TODO: Also check if a skip exists without the directory having been added.
                         mzxml_name not in self.skip_msrunsample_by_mzxml.keys()
-                        or mzxml_dir
-                        not in self.skip_msrunsample_by_mzxml[mzxml_name].keys()
+                        or (
+                            mzxml_dir == "."
+                            and "" not in self.skip_msrunsample_by_mzxml[mzxml_name].keys()
+                        )
+                        or (
+                            mzxml_dir != "."
+                            and mzxml_dir not in self.skip_msrunsample_by_mzxml[mzxml_name].keys()
+                        )
                     ):
+                        print(f"mzxml_name {mzxml_name} mzxml_dir {mzxml_dir} UNPAIRED")
                         return True
         return False
 
