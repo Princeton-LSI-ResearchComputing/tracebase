@@ -838,6 +838,17 @@ class MSRunsLoader(TableLoader):
                     # We going to guess the sample name based on the mzXML filename (without the extension)
                     sample_name = self.guess_sample_name(exact_sample_header_from_mzxml)
 
+                # If all of the mzXML files associated with MSRunSample records were added, we can skip this sample.
+                # NOTE: We are traversing the entire mzXML dict from the directory walk and the purpose of this code is
+                # to catch at least 1 of the same-named files that was not added to an MSRunSample record (but report
+                # them all if so, so the user can work out the unaccounted-for file in context).
+                if all(
+                    fldct["added"]
+                    for dirlist in self.mzxml_dict[mzxml_name_no_ext].values()
+                    for fldct in dirlist
+                ):
+                    continue
+
                 # We need all of the paths of each mzXML file with the same name.  All the files with the same name used
                 # in an error when the sample was not found, to indicate that this isn't coming from the peak annotation
                 # details sheet and that each file must be added to that sheet with a 'skip' value so that it does not
@@ -847,20 +858,6 @@ class MSRunsLoader(TableLoader):
                     for pathkey in self.mzxml_dict[mzxml_name_no_ext].keys()
                     for fldct in self.mzxml_dict[mzxml_name_no_ext][pathkey]
                 ]
-
-                # If all of the mzXML files associated with MSRunSample records were added, we can skip this sample.
-                # NOTE: We are traversing the entire mzXML dict from the directory walk and the purpose of this code is
-                # to catch at least 1 of the same-named files that was not added to an MSRunSample record (but report
-                # them all if so, so the user can work out the unaccounted-for file in context).
-                if len(mzxml_filepaths) == len(
-                    [
-                        fldct["mzxml_filepath"]
-                        for pathkey in self.mzxml_dict[mzxml_name_no_ext].keys()
-                        for fldct in self.mzxml_dict[mzxml_name_no_ext][pathkey]
-                        if fldct["added"] is True
-                    ]
-                ):
-                    continue
 
                 sample = self.get_sample_by_name(
                     sample_name, from_mzxmls=mzxml_filepaths
@@ -2920,16 +2917,15 @@ class MSRunsLoader(TableLoader):
             for mzxml_dir in self.mzxml_dict[mzxml_name].keys():
                 for mzxml_metadata in self.mzxml_dict[mzxml_name][mzxml_dir]:
                     if mzxml_metadata["added"] is False and (
-                        mzxml_name not in self.skip_msrunsample_by_mzxml.keys()
+                        mzxml_name not in self.skip_msrunsample_by_mzxml
                         or (
                             mzxml_dir == "."
-                            and ""
-                            not in self.skip_msrunsample_by_mzxml[mzxml_name].keys()
+                            and "" not in self.skip_msrunsample_by_mzxml[mzxml_name]
                         )
                         or (
                             mzxml_dir != "."
                             and mzxml_dir
-                            not in self.skip_msrunsample_by_mzxml[mzxml_name].keys()
+                            not in self.skip_msrunsample_by_mzxml[mzxml_name]
                         )
                     ):
                         return True

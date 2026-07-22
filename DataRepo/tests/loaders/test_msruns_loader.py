@@ -305,6 +305,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertEqual("mysample_pos", samplename)
 
     def test_guess_sample_name_default_start(self):
+        """Tests that scan label prefix (and infix) is removed by guess_sample_name."""
         samplename = MSRunsLoader.guess_sample_name("pos-scan2-His-M3-T08-small-intes")
         self.assertEqual("His-M3-T08-small-intes", samplename)
 
@@ -1674,6 +1675,42 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertEqual(3, msrl.record_counts["ArchiveFile"]["created"])
         self.assertEqual(1, msrl.record_counts["ArchiveFile"]["existed"])
         self.assertEqual(2, msrl.record_counts["MSRunSample"]["created"])
+        self.assertEqual(0, msrl.record_counts["MSRunSample"]["errored"])
+
+    def test_msrunsamples_created_for_one_mzxml_with_same_name_and_other_skipped(
+        self,
+    ):
+        """This tests that MSRunSample records for mzXML files of the same name are skipped when marked as skip and
+        created when not skipped."""
+        Sample.objects.create(
+            name="BAT-xz971",
+            tissue=self.tsu,
+            animal=self.anml,
+            researcher="John Doe",
+            date=datetime.now(),
+        )
+        df = read_from_file(
+            "DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_mzxml_skip1.xlsx",
+            sheet=MSRunsLoader.DataSheetName,
+        )
+        msrl = MSRunsLoader(
+            df=df,
+            file="DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_mzxml_skip1.xlsx",
+            debug=True,
+        )
+        af_before = ArchiveFile.objects.count()
+        msrs_before = MSRunSample.objects.count()
+
+        msrl.load_data()
+
+        self.assertEqual(0, len(msrl.aggregated_errors_object.exceptions))
+
+        self.assertEqual(3, ArchiveFile.objects.count() - af_before)
+        self.assertEqual(1, MSRunSample.objects.count() - msrs_before)
+
+        self.assertEqual(3, msrl.record_counts["ArchiveFile"]["created"])
+        self.assertEqual(1, msrl.record_counts["ArchiveFile"]["existed"])
+        self.assertEqual(1, msrl.record_counts["MSRunSample"]["created"])
         self.assertEqual(0, msrl.record_counts["MSRunSample"]["errored"])
 
     def test_msrunsamples_created_for_mzxmls_with_same_name_using_dir_dict_from_infile(
