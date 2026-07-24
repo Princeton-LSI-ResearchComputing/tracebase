@@ -45,70 +45,70 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
         call_command(
             "load_studies",
             infile=(
-                "DataRepo/data/tests/small_obob/"
+                "DataRepo/tests/data/small_obob/"
                 "small_obob_animal_and_sample_table.xlsx"
             ),
         )
         call_command(
             "load_compounds",
             infile=(
-                "DataRepo/data/tests/small_obob/"
+                "DataRepo/tests/data/small_obob/"
                 "small_obob_animal_and_sample_table.xlsx"
             ),
         )
         call_command(
             "load_tracers",
             infile=(
-                "DataRepo/data/tests/small_obob/"
+                "DataRepo/tests/data/small_obob/"
                 "small_obob_animal_and_sample_table.xlsx"
             ),
         )
         call_command(
             "load_infusates",
             infile=(
-                "DataRepo/data/tests/small_obob/"
+                "DataRepo/tests/data/small_obob/"
                 "small_obob_animal_and_sample_table.xlsx"
             ),
         )
         call_command(
             "load_protocols",
             infile=(
-                "DataRepo/data/tests/small_obob/"
+                "DataRepo/tests/data/small_obob/"
                 "small_obob_animal_and_sample_table.xlsx"
             ),
         )
         call_command(
             "load_animals",
             infile=(
-                "DataRepo/data/tests/small_obob/"
+                "DataRepo/tests/data/small_obob/"
                 "small_obob_animal_and_sample_table.xlsx"
             ),
         )
         call_command(
             "load_tissues",
             infile=(
-                "DataRepo/data/tests/small_obob/"
+                "DataRepo/tests/data/small_obob/"
                 "small_obob_animal_and_sample_table.xlsx"
             ),
         )
         call_command(
             "load_samples",
             infile=(
-                "DataRepo/data/tests/small_obob/"
+                "DataRepo/tests/data/small_obob/"
                 "small_obob_animal_and_sample_table.xlsx"
             ),
         )
         call_command(
             "load_sequences",
             infile=(
-                "DataRepo/data/tests/small_obob/"
+                "DataRepo/tests/data/small_obob/"
                 "small_obob_animal_and_sample_table.xlsx"
             ),
         )
         call_command(
             "load_msruns",
             infile=(
-                "DataRepo/data/tests/small_obob/"
+                "DataRepo/tests/data/small_obob/"
                 "small_obob_animal_and_sample_table.xlsx"
             ),
         )
@@ -145,17 +145,17 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
         # Load MSRunSequences
         call_command(
             "load_sequences",
-            infile="DataRepo/data/tests/blank_samples/blanks1/blank_sample_skip_study.xlsx",
+            infile="DataRepo/tests/data/blank_samples/blanks1/blank_sample_skip_study.xlsx",
         )
         # Load MSRunSamples
         call_command(
             "load_msruns",
-            infile="DataRepo/data/tests/blank_samples/blanks1/blank_sample_skip_study.xlsx",
+            infile="DataRepo/tests/data/blank_samples/blanks1/blank_sample_skip_study.xlsx",
         )
         # This should skip a sample column named "blank" in blank_samples/blanks1/accucor_with_blank.xlsx
         call_command(
             "load_peak_annotation_files",
-            infile="DataRepo/data/tests/blank_samples/blanks1/blank_sample_skip_study.xlsx",
+            infile="DataRepo/tests/data/blank_samples/blanks1/blank_sample_skip_study.xlsx",
         )
         SAMPLES_COUNT = 1
         PEAKDATA_ROWS = 11
@@ -178,14 +178,14 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
         # Load MSRunSequences
         call_command(
             "load_sequences",
-            infile="DataRepo/data/tests/blank_samples/blanks1/blank_sample_warn_study.xlsx",
+            infile="DataRepo/tests/data/blank_samples/blanks1/blank_sample_warn_study.xlsx",
         )
         # Load MSRunSamples
         # This should skip a row with a sample named "blank" with a warning because the sample wasn't loaded from the
         # Samples sheet, but the name has "blank" in it.
         call_command(
             "load_msruns",
-            infile="DataRepo/data/tests/blank_samples/blanks1/blank_sample_warn_study.xlsx",
+            infile="DataRepo/tests/data/blank_samples/blanks1/blank_sample_warn_study.xlsx",
             debug=True,
         )
 
@@ -193,10 +193,10 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
         # warning because an MSRunSample record wasn't found, but "blank" is in the header.
         pafl = PeakAnnotationFilesLoader(
             df=read_from_file(
-                "DataRepo/data/tests/blank_samples/blanks1/blank_sample_warn_study.xlsx",
+                "DataRepo/tests/data/blank_samples/blanks1/blank_sample_warn_study.xlsx",
                 sheet=PeakAnnotationFilesLoader.DataSheetName,
             ),
-            file="DataRepo/data/tests/blank_samples/blanks1/blank_sample_warn_study.xlsx",
+            file="DataRepo/tests/data/blank_samples/blanks1/blank_sample_warn_study.xlsx",
         )
         pafl.load_data()
 
@@ -231,9 +231,9 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
         """Loads an accucor with 1 sample, which has a prefix "PREFIX_" in the peak annot details sheet"""
         call_command(
             "load_peak_annotations",
-            infile="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_req_prefix.xlsx",
+            infile="DataRepo/tests/data/small_obob/small_obob_maven_6eaas_inf_req_prefix.xlsx",
             peak_annotation_details_file=(
-                "DataRepo/data/tests/small_obob/"
+                "DataRepo/tests/data/small_obob/"
                 "small_obob_peak_annot_deets_with_newsample.xlsx"
             ),
         )
@@ -251,9 +251,9 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors, msg="1 samples are missing.") as ar:
             call_command(
                 "load_peak_annotations",
-                infile="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_req_prefix.xlsx",
+                infile="DataRepo/tests/data/small_obob/small_obob_maven_6eaas_inf_req_prefix.xlsx",
                 peak_annotation_details_file=(
-                    "DataRepo/data/tests/small_obob/"
+                    "DataRepo/tests/data/small_obob/"
                     "small_obob_animal_and_sample_table_newsample_missing_prefix.xlsx"
                 ),
             )
@@ -282,9 +282,9 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
 
         call_command(
             "load_peak_annotations",
-            infile="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_blank_sample.xlsx",
+            infile="DataRepo/tests/data/small_obob/small_obob_maven_6eaas_inf_blank_sample.xlsx",
             peak_annotation_details_file=(
-                "DataRepo/data/tests/small_obob/"
+                "DataRepo/tests/data/small_obob/"
                 "small_obob_animal_and_sample_table.xlsx"
             ),
             dry_run=True,
@@ -312,7 +312,7 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
         """Load small_dataset Glucose data"""
         call_command(
             "load_peak_annotations",
-            infile="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
+            infile="DataRepo/tests/data/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
         )
 
     def test_conflicting_peakgroups(self):
@@ -330,7 +330,7 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_peak_annotations",
-                infile="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_conflicting.xlsx",
+                infile="DataRepo/tests/data/small_obob/small_obob_maven_6eaas_inf_glucose_conflicting.xlsx",
             )
 
         aes: AggregatedErrors = ar.exception
@@ -418,13 +418,13 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
         """
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/accucor_with_multiple_labels/samples_v3.xlsx",
+            infile="DataRepo/tests/data/accucor_with_multiple_labels/samples_v3.xlsx",
             exclude_sheets=["Peak Annotation Files"],
         )
         # Could have just used load_study, instead of calling this separately, but whatever
         call_command(
             "load_peak_annotations",
-            infile="DataRepo/data/tests/accucor_with_multiple_labels/accucor.xlsx",
+            infile="DataRepo/tests/data/accucor_with_multiple_labels/accucor.xlsx",
         )
 
         # Test peak data labels
@@ -461,13 +461,13 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
         """
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/accucor_with_multiple_labels/samples_v3.xlsx",
+            infile="DataRepo/tests/data/accucor_with_multiple_labels/samples_v3.xlsx",
             exclude_sheets=["Peak Annotation Files"],
         )
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_peak_annotations",
-                infile="DataRepo/data/tests/accucor_with_multiple_labels/accucor_invalid_label.xlsx",
+                infile="DataRepo/tests/data/accucor_with_multiple_labels/accucor_invalid_label.xlsx",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -484,7 +484,7 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
         self.load_glucose_data()
         call_command(
             "load_peak_annotations",
-            infile="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate.xlsx",
+            infile="DataRepo/tests/data/small_obob/small_obob_maven_6eaas_inf_lactate.xlsx",
         )
         SAMPLES_COUNT = 2
         PEAKDATA_ROWS = 11
@@ -508,7 +508,7 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
             call_command(
                 "load_peak_annotations",
                 # We just need a different file name with the same data, so _2 is a copy of the original
-                infile="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_2.xlsx",
+                infile="DataRepo/tests/data/small_obob/small_obob_maven_6eaas_inf_glucose_2.xlsx",
             )
         # Check second file failed (duplicate compound)
         aes = ar.exception
@@ -525,7 +525,7 @@ class DuplicatePeakAnnotationRowsTests(TracebaseTestCase):
     def setUpTestData(cls):
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table_no_newsample.xlsx",
+            infile="DataRepo/tests/data/small_obob/small_obob_animal_and_sample_table_no_newsample.xlsx",
             exclude_sheets=["Peak Annotation Files"],
         )
 
@@ -539,7 +539,7 @@ class DuplicatePeakAnnotationRowsTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_peak_annotations",
-                infile="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_dupes.xlsx",
+                infile="DataRepo/tests/data/small_obob/small_obob_maven_6eaas_inf_dupes.xlsx",
             )
         aes = ar.exception
         aes.print_summary()
@@ -568,15 +568,15 @@ class LoadAccucorSmallObob2CommandTests(TracebaseTestCase):
     def setUpTestData(cls):
         call_command(
             "load_protocols",
-            infile="DataRepo/data/tests/small_obob2/protocols.tsv",
+            infile="DataRepo/tests/data/small_obob2/protocols.tsv",
         )
         call_command(
             "load_tissues",
-            infile="DataRepo/data/tests/small_obob2/tissues.tsv",
+            infile="DataRepo/tests/data/small_obob2/tissues.tsv",
         )
         call_command(
             "load_compounds",
-            infile="DataRepo/data/tests/small_obob2/compounds.tsv",
+            infile="DataRepo/tests/data/small_obob2/compounds.tsv",
         )
         cls.ALL_COMPOUNDS_COUNT = 20
 
@@ -586,11 +586,11 @@ class LoadAccucorSmallObob2CommandTests(TracebaseTestCase):
 
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/small_obob2/obob_animal_sample_table_v3.xlsx",
+            infile="DataRepo/tests/data/small_obob2/obob_animal_sample_table_v3.xlsx",
             # I removed the Peak Annotation Files sheet from this one, so no exclude_sheets argument is necessary
         )
 
-        # from DataRepo/data/tests/small_obob2/obob_samples_table.tsv, not counting the header and BLANK samples
+        # from DataRepo/tests/data/small_obob2/obob_samples_table.tsv, not counting the header and BLANK samples
         cls.ALL_SAMPLES_COUNT += 10
         # not counting the header and the BLANK animal
         cls.ALL_OBOB_ANIMALS_COUNT = 7
@@ -598,10 +598,10 @@ class LoadAccucorSmallObob2CommandTests(TracebaseTestCase):
 
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/small_obob2/serum_lactate_sample_table.xlsx",
+            infile="DataRepo/tests/data/small_obob2/serum_lactate_sample_table.xlsx",
             # I removed the Peak Annotation Files sheet from this one, so no exclude_sheets argument is necessary
         )
-        # from DataRepo/data/tests/small_obob2/serum_lactate_sample_table.tsv, not counting the header
+        # from DataRepo/tests/data/small_obob2/serum_lactate_sample_table.tsv, not counting the header
         cls.ALL_SAMPLES_COUNT += 5
         # not counting the header
         cls.ALL_ANIMALS_COUNT += 1
@@ -624,7 +624,7 @@ class LoadAccucorSmallObob2CommandTests(TracebaseTestCase):
                 "load_peak_annotations",
                 lc_protocol_name="polar-HILIC-25-min",
                 instrument="unknown",
-                infile="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf_sample_dupe.xlsx",
+                infile="DataRepo/tests/data/small_obob2/obob_maven_6eaas_inf_sample_dupe.xlsx",
                 date="2021-08-20",
                 operator="Michael",
             )
@@ -640,11 +640,11 @@ class LoadAccucorWithMultipleTracersLabelsCommandTests(TracebaseTestCase):
     def setUpTestData(cls):
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/small_obob/small_obob_study_prerequisites.xlsx",
+            infile="DataRepo/tests/data/small_obob/small_obob_study_prerequisites.xlsx",
         )
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/accucor_with_multiple_labels/samples_v3.xlsx",
+            infile="DataRepo/tests/data/accucor_with_multiple_labels/samples_v3.xlsx",
             exclude_sheets=["Peak Annotation Files"],
         )
         super().setUpTestData()
@@ -656,7 +656,7 @@ class LoadAccucorWithMultipleTracersLabelsCommandTests(TracebaseTestCase):
         """
         call_command(
             "load_peak_annotations",
-            infile="DataRepo/data/tests/accucor_with_multiple_labels/accucor.xlsx",
+            infile="DataRepo/tests/data/accucor_with_multiple_labels/accucor.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="unknown",
             date="2021-04-29",
@@ -672,20 +672,20 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
     def setUpTestData(cls):
         call_command(
             "load_protocols",
-            infile="DataRepo/data/tests/protocols/protocols.tsv",
+            infile="DataRepo/tests/data/protocols/protocols.tsv",
         )
         call_command(
             "load_tissues",
-            infile="DataRepo/data/tests/tissues/tissues.tsv",
+            infile="DataRepo/tests/data/tissues/tissues.tsv",
         )
         call_command(
             "load_compounds",
-            infile="DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv",
+            infile="DataRepo/tests/data/compounds/consolidated_tracebase_compound_list.tsv",
             verbosity=2,
         )
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/singly_labeled_isocorr/animals_samples_v3.xlsx",
+            infile="DataRepo/tests/data/singly_labeled_isocorr/animals_samples_v3.xlsx",
             exclude_sheets=["Peak Annotation Files"],
         )
         super().setUpTestData()
@@ -694,7 +694,7 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
     def load_multitracer_data(self):
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/multiple_tracers/animal_sample_table_v3.xlsx",
+            infile="DataRepo/tests/data/multiple_tracers/animal_sample_table_v3.xlsx",
             exclude_sheets=["Peak Annotation Files"],
         )
 
@@ -716,7 +716,7 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
     def load_multilabel_data(self):
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/multiple_labels/animal_sample_table_v3.xlsx",
+            infile="DataRepo/tests/data/multiple_labels/animal_sample_table_v3.xlsx",
             exclude_sheets=["Peak Annotation Files"],
         )
 
@@ -739,7 +739,7 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
         pre_pg_load_count = PeakGroup.objects.count()
         call_command(
             "load_peak_annotations",
-            infile="DataRepo/data/tests/singly_labeled_isocorr/small_cor.csv",
+            infile="DataRepo/tests/data/singly_labeled_isocorr/small_cor.csv",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="unknown",
             date="2021-04-29",
@@ -773,7 +773,7 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_peak_annotations",
-                infile="DataRepo/data/tests/singly_labeled_isocorr/small_cor.csv",
+                infile="DataRepo/tests/data/singly_labeled_isocorr/small_cor.csv",
                 lc_protocol_name="polar-HILIC-25-min",
                 instrument="unknown",
                 date="2021-04-29",
@@ -815,7 +815,7 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
 
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/multiple_tracers/animal_sample_table_v3.xlsx",
+            infile="DataRepo/tests/data/multiple_tracers/animal_sample_table_v3.xlsx",
             exclude_sheets=["Peak Annotation Files"],
         )
 
@@ -899,7 +899,7 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
         pre_load_group_count = PeakGroup.objects.count()
         call_command(
             "load_peak_annotations",
-            infile="DataRepo/data/tests/multiple_tracers/6eaafasted1_cor.xlsx",
+            infile="DataRepo/tests/data/multiple_tracers/6eaafasted1_cor.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="unknown",
             date="2021-04-29",
@@ -927,7 +927,7 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
         pre_load_group_count = PeakGroup.objects.count()
         call_command(
             "load_peak_annotations",
-            infile="DataRepo/data/tests/multiple_tracers/bcaafasted_cor.xlsx",
+            infile="DataRepo/tests/data/multiple_tracers/bcaafasted_cor.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="unknown",
             date="2021-04-29",
@@ -964,7 +964,7 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
 
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/multiple_labels/animal_sample_table_v3.xlsx",
+            infile="DataRepo/tests/data/multiple_labels/animal_sample_table_v3.xlsx",
             exclude_sheets=["Peak Annotation Files"],
         )
 
@@ -1002,7 +1002,7 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
         pre_load_group_count = PeakGroup.objects.count()
         call_command(
             "load_peak_annotations",
-            infile="DataRepo/data/tests/multiple_labels/alafasted_cor.xlsx",
+            infile="DataRepo/tests/data/multiple_labels/alafasted_cor.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="unknown",
             date="2021-04-29",
@@ -1020,7 +1020,7 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
         pre_load_group_count = PeakGroup.objects.count()
         call_command(
             "load_peak_annotations",
-            infile="DataRepo/data/tests/multiple_labels/glnfasted1_cor.xlsx",
+            infile="DataRepo/tests/data/multiple_labels/glnfasted1_cor.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="unknown",
             date="2021-04-29",
@@ -1062,7 +1062,7 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
         self.load_multilabel_data()
         call_command(
             "load_peak_annotations",
-            infile="DataRepo/data/tests/multiple_labels/alafasted_cor.xlsx",
+            infile="DataRepo/tests/data/multiple_labels/alafasted_cor.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="unknown",
             date="2021-04-29",
@@ -1085,7 +1085,7 @@ class LoadIsoautocorrCommandTests(TracebaseTestCase):
     def setUpTestData(cls):
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/isoautocorr/test-isoautocorr-study/test-isoautocorr-studydoc_v3.xlsx",
+            infile="DataRepo/tests/data/isoautocorr/test-isoautocorr-study/test-isoautocorr-studydoc_v3.xlsx",
             # Loading the peak annot file too
         )
         cls.SAMPLES_COUNT = 4

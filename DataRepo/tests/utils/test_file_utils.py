@@ -47,33 +47,33 @@ class FileUtilsTests(TracebaseTestCase):
 
     def test_read_headers_from_file_tsv(self):
         headers = read_headers_from_file(
-            "DataRepo/data/tests/compounds/short_compound_list.tsv"
+            "DataRepo/tests/data/compounds/short_compound_list.tsv"
         )
         self.assertEqual(["Compound", "Formula", "HMDB ID", "Synonyms"], headers)
 
     def test_read_headers_from_file_xlsx(self):
         headers = read_headers_from_file(
-            "DataRepo/data/tests/load_table/test.xlsx", "MyDefaults"
+            "DataRepo/tests/data/load_table/test.xlsx", "MyDefaults"
         )
         self.assertEqual(["Sheet Name", "Column Header", "Default Value"], headers)
 
     def test_read_headers_from_file_csv(self):
-        headers = read_headers_from_file("DataRepo/data/tests/load_table/defaults.csv")
+        headers = read_headers_from_file("DataRepo/tests/data/load_table/defaults.csv")
         self.assertEqual(["Sheet Name", "Column Header", "Default Value"], headers)
 
     def test__get_file_type_excel(self):
         self.assertEqual(
-            "excel", _get_file_type("DataRepo/data/tests/load_table/test.xlsx")
+            "excel", _get_file_type("DataRepo/tests/data/load_table/test.xlsx")
         )
         self.assertEqual(
-            "tsv", _get_file_type("DataRepo/data/tests/load_table/test.tsv")
+            "tsv", _get_file_type("DataRepo/tests/data/load_table/test.tsv")
         )
         self.assertEqual(
-            "csv", _get_file_type("DataRepo/data/tests/load_table/test.csv")
+            "csv", _get_file_type("DataRepo/tests/data/load_table/test.csv")
         )
         self.assertEqual(
             "excel",
-            _get_file_type("DataRepo/data/tests/load_table/test.weird", "excel"),
+            _get_file_type("DataRepo/tests/data/load_table/test.weird", "excel"),
         )
 
     def test_string_to_date(self):
@@ -81,7 +81,7 @@ class FileUtilsTests(TracebaseTestCase):
         self.assertEqual("2022-01-22", str(date))
 
     def test_read_from_xlsx_multiple_sheets_with_dtypes(self):
-        study_xlsx = "DataRepo/data/tests/submission_v3/study.xlsx"
+        study_xlsx = "DataRepo/tests/data/submission_v3/study.xlsx"
         dtypes = {
             "Treatments": {
                 "Animal Treatment": str,

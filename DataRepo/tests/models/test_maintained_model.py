@@ -67,7 +67,7 @@ class MaintainedModelTests(MaintainedModelTestBase):
         call_command("loaddata", "lc_methods")
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/small_obob/small_obob_study_prerequisites.xlsx",
+            infile="DataRepo/tests/data/small_obob/small_obob_study_prerequisites.xlsx",
         )
 
     def tearDown(self):
@@ -94,11 +94,11 @@ class MaintainedModelTests(MaintainedModelTestBase):
 
             call_command(
                 "load_animals",
-                infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table_blank_sample.xlsx",
+                infile="DataRepo/tests/data/small_obob/small_obob_animal_and_sample_table_blank_sample.xlsx",
             )
             call_command(
                 "load_samples",
-                infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table_blank_sample.xlsx",
+                infile="DataRepo/tests/data/small_obob/small_obob_animal_and_sample_table_blank_sample.xlsx",
             )
 
             # Assure that the loaders' decorator's coordinator passed up it's buffer to the parent_coordinator before
@@ -116,16 +116,16 @@ class MaintainedModelTests(MaintainedModelTestBase):
             with MaintainedModel.custom_coordinator(child_coordinator):
                 call_command(
                     "load_sequences",
-                    infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table_blank_sample.xlsx",
+                    infile="DataRepo/tests/data/small_obob/small_obob_animal_and_sample_table_blank_sample.xlsx",
                 )
                 call_command(
                     "load_msruns",
-                    infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table_blank_sample.xlsx",
+                    infile="DataRepo/tests/data/small_obob/small_obob_animal_and_sample_table_blank_sample.xlsx",
                     skip_mzxmls=True,
                 )
                 call_command(
                     "load_peak_annotation_files",
-                    infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table_blank_sample.xlsx",
+                    infile="DataRepo/tests/data/small_obob/small_obob_animal_and_sample_table_blank_sample.xlsx",
                 )
 
                 # Since autoupdates were defered (and we did not run perform_buffered_updates)
@@ -157,7 +157,7 @@ class MaintainedModelTests(MaintainedModelTestBase):
         with MaintainedModel.custom_coordinator(parent_coordinator):
             call_command(
                 "load_study",
-                infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx",
+                infile="DataRepo/tests/data/small_obob/small_obob_animal_and_sample_table.xlsx",
                 exclude_sheets=[
                     "Sequences",
                     "Peak Annotation Files",
@@ -176,7 +176,7 @@ class MaintainedModelTests(MaintainedModelTestBase):
 
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx",
+            infile="DataRepo/tests/data/small_obob/small_obob_animal_and_sample_table.xlsx",
             exclude_sheets=[
                 "Sequences",
                 "Peak Annotation Files",
@@ -425,7 +425,7 @@ class MaintainedModelDeferredTests(TracebaseTestCase):
         # Load compounds, tissues, and protocol data before any of the tests run
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/small_obob/small_obob_study_prerequisites.xlsx",
+            infile="DataRepo/tests/data/small_obob/small_obob_study_prerequisites.xlsx",
         )
         super().setUpTestData()
 
@@ -527,7 +527,7 @@ class MaintainedModelImmediateTests(MaintainedModelTestBase):
         # Load data before any of the tests run
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/small_obob/small_obob_study_prerequisites.xlsx",
+            infile="DataRepo/tests/data/small_obob/small_obob_study_prerequisites.xlsx",
         )
         super().setUpTestData()
 
@@ -578,14 +578,14 @@ class MaintainedModelImmediateTests(MaintainedModelTestBase):
         call_command(
             "load_animals",
             infile=(
-                "DataRepo/data/tests/small_obob/"
+                "DataRepo/tests/data/small_obob/"
                 "small_obob_animal_and_sample_table.xlsx"
             ),
         )
         call_command(
             "load_samples",
             infile=(
-                "DataRepo/data/tests/small_obob/"
+                "DataRepo/tests/data/small_obob/"
                 "small_obob_animal_and_sample_table.xlsx"
             ),
         )

@@ -28,7 +28,7 @@ class LoadCompoundsTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_compounds",
-                infile="DataRepo/data/tests/compounds/test_study_1_compounds_dupes.tsv",
+                infile="DataRepo/tests/data/compounds/test_study_1_compounds_dupes.tsv",
             )
         aes = ar.exception
         self.assertEqual(
@@ -47,7 +47,7 @@ class LoadCompoundsTests(TracebaseTestCase):
         self.assertEqual(0, Compound.objects.filter(name__exact="C18:2").count())
         call_command(
             "load_compounds",
-            infile="DataRepo/data/tests/compounds/c182_compounds.xlsx",
+            infile="DataRepo/tests/data/compounds/c182_compounds.xlsx",
         )
         Compound.objects.get(name__exact="C18:2")
 
@@ -58,7 +58,7 @@ class LoadCompoundsTests(TracebaseTestCase):
         self.assertEqual(0, Compound.objects.filter(name__exact="C18:2").count())
         call_command(
             "load_compounds",
-            infile="DataRepo/data/tests/compounds/c182_sheet1.xlsx",
+            infile="DataRepo/tests/data/compounds/c182_sheet1.xlsx",
         )
         Compound.objects.get(name__exact="C18:2")
 
@@ -66,7 +66,7 @@ class LoadCompoundsTests(TracebaseTestCase):
         self.assertEqual(0, Compound.objects.filter(name__exact="C18:2").count())
         call_command(
             "load_compounds",
-            infile="DataRepo/data/tests/compounds/c182_things.xlsx",
+            infile="DataRepo/tests/data/compounds/c182_things.xlsx",
             data_sheet="Things",
         )
         Compound.objects.get(name__exact="C18:2")
@@ -78,7 +78,7 @@ class CompoundLoadingTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         primary_compound_file = (
-            "DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv"
+            "DataRepo/tests/data/compounds/consolidated_tracebase_compound_list.tsv"
         )
 
         try:
@@ -288,7 +288,7 @@ class CompoundLoadingTests(TracebaseTestCase):
 class CompoundsLoaderTests(TracebaseTestCase):
     def get_dataframe(self):
         return pd.read_csv(
-            "DataRepo/data/tests/compounds/short_compound_list.tsv",
+            "DataRepo/tests/data/compounds/short_compound_list.tsv",
             sep="\t",
             keep_default_na=False,
         )
@@ -380,7 +380,7 @@ class CompoundValidationLoadingTests(TracebaseTestCase):
     def test_compounds_not_loaded_in_dry_run(self):
         call_command(
             "load_compounds",
-            infile="DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv",
+            infile="DataRepo/tests/data/compounds/consolidated_tracebase_compound_list.tsv",
             dry_run=True,
             verbosity=0,
         )

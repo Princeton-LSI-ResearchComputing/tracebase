@@ -18,14 +18,14 @@ class LCProtocolsLoaderTests(TracebaseTestCase):
 
     def test_load_data(self):
         df = read_from_file(
-            "DataRepo/data/tests/submission_v3/study.xlsx",
+            "DataRepo/tests/data/submission_v3/study.xlsx",
             LCProtocolsLoader.DataSheetName,
             dtype=LCProtocolsLoader.header_key_to_name(
                 LCProtocolsLoader.DataColumnTypes
             ),
         )
         ll = LCProtocolsLoader(
-            df=df, file="DataRepo/data/tests/submission_v3/study.xlsx"
+            df=df, file="DataRepo/tests/data/submission_v3/study.xlsx"
         )
         ll.load_data()
         self.assertEqual(1, LCMethod.objects.count())

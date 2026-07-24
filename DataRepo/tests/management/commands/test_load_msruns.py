@@ -33,7 +33,7 @@ class LoadMSRunsCommandTests(TracebaseTestCase):
     def setUpTestData(cls):
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/small_obob/mzxml_study_doc.xlsx",
+            infile="DataRepo/tests/data/small_obob/mzxml_study_doc.xlsx",
         )
 
     def test_conditionally_required_options_all_custom_opts(self):
@@ -46,7 +46,7 @@ class LoadMSRunsCommandTests(TracebaseTestCase):
         call_command(
             "load_msruns",
             mzxml_files=[
-                "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML"
+                "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML"
             ],
             operator="George Santos",
             date="2024-05-02",
@@ -66,9 +66,9 @@ class LoadMSRunsCommandTests(TracebaseTestCase):
         call_command(
             "load_msruns",
             mzxml_files=[
-                "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML"
+                "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML"
             ],
-            defaults_file="DataRepo/data/tests/submission_v3/defaults.tsv",
+            defaults_file="DataRepo/tests/data/submission_v3/defaults.tsv",
         )
         # This does produce a warning about no --infile data, but that's expected
         # No exception = success
@@ -78,7 +78,7 @@ class LoadMSRunsCommandTests(TracebaseTestCase):
             call_command(
                 "load_msruns",
                 mzxml_files=[
-                    "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML"
+                    "DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML"
                 ],
                 operator="George Santos",
                 date="2024-05-02",
@@ -118,7 +118,7 @@ class LoadMSRunsCommandTests(TracebaseTestCase):
         seq = MSRunSequence.objects.get()
         call_command(
             "load_msruns",
-            mzxml_dir="DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/",
+            mzxml_dir="DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/",
             operator="Kamala Harris",
             date="2024-11-05",
             lc_protocol_name="polar-HILIC-25-min",
@@ -159,7 +159,7 @@ class LoadMSRunsCommandTests(TracebaseTestCase):
         )
         tsu = Tissue.objects.create(name="Brain")
         Sample.objects.create(
-            # This is the sample name in DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx
+            # This is the sample name in DataRepo/tests/data/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx
             name="Sample Name",
             tissue=tsu,
             animal=anml,
@@ -174,7 +174,7 @@ class LoadMSRunsCommandTests(TracebaseTestCase):
         # Run the loader
         call_command(
             "load_msruns",
-            infile="DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",
+            infile="DataRepo/tests/data/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",
         )
         # NOTE: This count includes the 1 raw file and 2 mzXMLs.
         self.assertEqual(3, ArchiveFile.objects.count())
@@ -186,7 +186,7 @@ class LoadMSRunsCommandTests(TracebaseTestCase):
         # Run the loader
         call_command(
             "load_msruns",
-            infile="DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",
+            infile="DataRepo/tests/data/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",
             skip_mzxmls=True,
         )
         self.assertEqual(0, ArchiveFile.objects.count())
@@ -195,7 +195,7 @@ class LoadMSRunsCommandTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_msruns",
-                mzxml_dir="DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/",
+                mzxml_dir="DataRepo/tests/data/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/",
                 operator="Kamala Harris",
                 date="2024-11-05",
                 lc_protocol_name="polar-HILIC-25-min",
@@ -214,7 +214,7 @@ class MSRunSampleSequenceTests(TracebaseTestCase):
     def setUpTestData(cls):
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/small_obob/glucose/small_obob_animal_and_sample_table.xlsx",
+            infile="DataRepo/tests/data/small_obob/glucose/small_obob_animal_and_sample_table.xlsx",
         )
 
         cls.MSRUNSAMPLE_COUNT = 4  # 2 concrete and 2 placeholder

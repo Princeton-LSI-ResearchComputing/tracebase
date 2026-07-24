@@ -32,7 +32,7 @@ class AnimalTests(TracebaseTestCase):
         call_command("loaddata", "lc_methods", "data_formats", "data_types")
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table_no_newsample.xlsx",
+            infile="DataRepo/tests/data/small_obob/small_obob_animal_and_sample_table_no_newsample.xlsx",
         )
 
         super().setUpTestData()

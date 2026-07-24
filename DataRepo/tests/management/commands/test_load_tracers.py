@@ -63,7 +63,7 @@ class LoadTracersCommandTests(TracebaseTestCase):
     def test_names_only_ok(self):
         call_command(
             "load_tracers",
-            infile="DataRepo/data/tests/tracers/lysine_name_only.tsv",
+            infile="DataRepo/tests/data/tracers/lysine_name_only.tsv",
         )
         self.assertEqual(1, Tracer.objects.count())
         self.assertIsNotNone(Tracer.objects.get_tracer(self.LYSINE_TRACER_DATA))
@@ -71,7 +71,7 @@ class LoadTracersCommandTests(TracebaseTestCase):
     def test_names_only_excel_ok(self):
         call_command(
             "load_tracers",
-            infile="DataRepo/data/tests/tracers/lysine_name_only.xlsx",
+            infile="DataRepo/tests/data/tracers/lysine_name_only.xlsx",
         )
         self.assertEqual(1, Tracer.objects.count())
         self.assertIsNotNone(Tracer.objects.get_tracer(self.LYSINE_TRACER_DATA))
@@ -79,21 +79,21 @@ class LoadTracersCommandTests(TracebaseTestCase):
     def test_column_data_only_ok(self):
         call_command(
             "load_tracers",
-            infile="DataRepo/data/tests/tracers/lysine_data_only.tsv",
+            infile="DataRepo/tests/data/tracers/lysine_data_only.tsv",
         )
         self.assertIsNotNone(Tracer.objects.get_tracer(self.LYSINE_TRACER_DATA))
 
     def test_name_and_column_mix_ok(self):
         call_command(
             "load_tracers",
-            infile="DataRepo/data/tests/tracers/lysine_full.tsv",
+            infile="DataRepo/tests/data/tracers/lysine_full.tsv",
         )
         self.assertIsNotNone(Tracer.objects.get_tracer(self.LYSINE_TRACER_DATA))
 
     def test_partially_labeled(self):
         call_command(
             "load_tracers",
-            infile="DataRepo/data/tests/tracers/lysine_not_fully_labeled.tsv",
+            infile="DataRepo/tests/data/tracers/lysine_not_fully_labeled.tsv",
         )
         self.assertIsNotNone(Tracer.objects.get_tracer(self.PARTIAL_LYSINE_TRACER_DATA))
 
@@ -101,7 +101,7 @@ class LoadTracersCommandTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_tracers",
-                infile="DataRepo/data/tests/tracers/tracers_with_errors.tsv",
+                infile="DataRepo/tests/data/tracers/tracers_with_errors.tsv",
             )
         aes = ar.exception
         expected_num_exceptions = 7
@@ -112,7 +112,7 @@ class LoadTracersCommandTests(TracebaseTestCase):
         )
 
         # EXCEPTION1(WARNING): InfileError: There are [2] rows [2, 3] of data defining isotopes for Tracer Name
-        # [lysine-[13C6]] in file [DataRepo/data/tests/tracers/tracers_with_errors.tsv], but the number of labels parsed
+        # [lysine-[13C6]] in file [DataRepo/tests/data/tracers/tracers_with_errors.tsv], but the number of labels parsed
         # from the Tracer Name [1] does not match the number of rows for Tracer Row Group 1.  Perhaps Tracer Row Group 1
         # is on the wrong number of rows?
         self.assertIn("[2] rows [2, 3]", str(aes.exceptions[0]))
@@ -122,7 +122,7 @@ class LoadTracersCommandTests(TracebaseTestCase):
 
         # EXCEPTION2(ERROR): InfileError: Isotope data from columns [Element: C, Mass Number: 14, Label Count: 4, Label
         # Positions: None] on row(s) [4, 5] does not match any of the isotopes parsed from the Tracer Name
-        # [threonine-[13C4]] on row [4] in file [DataRepo/data/tests/tracers/tracers_with_errors.tsv].
+        # [threonine-[13C4]] on row [4] in file [DataRepo/tests/data/tracers/tracers_with_errors.tsv].
         self.assertIn(
             "[Element: C, Mass Number: 14, Label Count: 4, Label Positions: None]",
             str(aes.exceptions[1]),
@@ -134,7 +134,7 @@ class LoadTracersCommandTests(TracebaseTestCase):
         self.assertIn("does not match any of the isotopes", str(aes.exceptions[1]))
 
         # EXCEPTION3(WARNING): InfileError: There are [2] rows [4, 5] of data defining isotopes for Tracer Name
-        # [threonine-[13C4]] in file [DataRepo/data/tests/tracers/tracers_with_errors.tsv], but the number of labels
+        # [threonine-[13C4]] in file [DataRepo/tests/data/tracers/tracers_with_errors.tsv], but the number of labels
         # parsed from the Tracer Name [1] does not match the number of rows for Tracer Row Group 2.  Perhaps Tracer Row
         # Group 2 is on the wrong number of rows?
         self.assertIn("[2] rows [4, 5]", str(aes.exceptions[2]))
@@ -144,13 +144,13 @@ class LoadTracersCommandTests(TracebaseTestCase):
 
         # EXCEPTION4(ERROR): InfileError: Compound from column [aspartate] does not match the name parsed from the
         # tracer name (aspartame-[13C4]): [aspartame]: column [Compound] on row [7] in file
-        # [DataRepo/data/tests/tracers/tracers_with_errors.tsv]
+        # [DataRepo/tests/data/tracers/tracers_with_errors.tsv]
         self.assertIn("[aspartate]", str(aes.exceptions[3]))
         self.assertIn("Tracer Name (aspartame-[13C4])", str(aes.exceptions[3]))
         self.assertIn("row [7]", str(aes.exceptions[3]))
 
         # EXCEPTION5(ERROR): InfileError: column [Tracer Row Group and Compound] in file
-        # [DataRepo/data/tests/tracers/tracers_with_errors.tsv]:
+        # [DataRepo/tests/data/tracers/tracers_with_errors.tsv]:
         # Tracer Row Group 1 is associated with multiple Compounds on the indicated rows.  Only one Compound
         # is allowed per Tracer Row Group.
         #     lysine (on rows: [2])
@@ -160,7 +160,7 @@ class LoadTracersCommandTests(TracebaseTestCase):
         self.assertIn("asparagine (on rows: [3])", str(aes.exceptions[4]))
 
         # EXCEPTION6(ERROR): InfileError: column [Tracer Name and Tracer Row Group] in file
-        # [DataRepo/data/tests/tracers/tracers_with_errors.tsv]:
+        # [DataRepo/tests/data/tracers/tracers_with_errors.tsv]:
         # Tracer Row Group 2 is associated with multiple Tracer Names on the indicated rows.  Only one Tracer Name is
         # allowed per Tracer Row Group.
         #     threonine-[13C4] (on rows: [4])
@@ -170,7 +170,7 @@ class LoadTracersCommandTests(TracebaseTestCase):
         self.assertIn("threonine-[14C4] (on rows: [5])", str(aes.exceptions[5]))
 
         # EXCEPTION7(ERROR): InfileError: column [Tracer Row Group and Tracer Name] in file
-        # [DataRepo/data/tests/tracers/tracers_with_errors.tsv]:
+        # [DataRepo/tests/data/tracers/tracers_with_errors.tsv]:
         # Tracer Name aspartame-[13C4] is associated with multiple Tracer Row Groups on the indicated rows.  Only one
         # Tracer Row Group is allowed per Tracer Name.
         #     3 (on rows: [6])
@@ -182,7 +182,7 @@ class LoadTracersCommandTests(TracebaseTestCase):
     def test_dupe_isotopes_ok_when_second_isotopes_differ(self):
         call_command(
             "load_tracers",
-            infile="DataRepo/data/tests/tracers/two_dual_labeled_isoptopes.tsv",
+            infile="DataRepo/tests/data/tracers/two_dual_labeled_isoptopes.tsv",
         )
         self.assertEqual(2, Tracer.objects.count())
         Tracer.objects.get(name="lysine-[13C6,15N2]")

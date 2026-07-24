@@ -35,7 +35,7 @@ class ProtocolsLoaderTests(TracebaseTestCase):
                 ],
             },
         )
-        pl = ProtocolsLoader(df=df, file="DataRepo/data/tests/submission_v3/study.xlsx")
+        pl = ProtocolsLoader(df=df, file="DataRepo/tests/data/submission_v3/study.xlsx")
         expected = pl.DataTableHeaders(
             NAME="Animal Treatment",
             CATEGORY="Category",

@@ -31,11 +31,11 @@ class LoadAnimalsSmallObob2Tests(TracebaseTestCase):
         Study.objects.create(name="exp024_michael lactate timecourse")
         call_command(
             "load_protocols",
-            infile="DataRepo/data/tests/small_obob2/protocols.tsv",
+            infile="DataRepo/tests/data/small_obob2/protocols.tsv",
         )
         call_command(
             "load_compounds",
-            infile="DataRepo/data/tests/small_obob2/compounds_for_animals.tsv",
+            infile="DataRepo/tests/data/small_obob2/compounds_for_animals.tsv",
         )
         Infusate.objects.get_or_create_infusate(
             parse_infusate_name("C16:0-[13C16]", [1])
@@ -48,13 +48,13 @@ class LoadAnimalsSmallObob2Tests(TracebaseTestCase):
         )
         call_command(
             "load_animals",
-            infile="DataRepo/data/tests/small_obob2/animals_table.tsv",
-            headers="DataRepo/data/tests/small_obob2/animal_headers.yaml",
+            infile="DataRepo/tests/data/small_obob2/animals_table.tsv",
+            headers="DataRepo/tests/data/small_obob2/animal_headers.yaml",
         )
         call_command(
             "load_animals",
-            infile="DataRepo/data/tests/small_obob2/serum_lactate_animal_table.tsv",
-            headers="DataRepo/data/tests/small_obob2/animal_headers.yaml",
+            infile="DataRepo/tests/data/small_obob2/serum_lactate_animal_table.tsv",
+            headers="DataRepo/tests/data/small_obob2/animal_headers.yaml",
         )
 
     def test_animals_loaded(self):
@@ -105,7 +105,7 @@ class LoadAnimalsSmallObobTests(TracebaseTestCase):
 
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/small_obob/small_obob_study_prerequisites.xlsx",
+            infile="DataRepo/tests/data/small_obob/small_obob_study_prerequisites.xlsx",
         )
         super().setUpTestData()
 
@@ -117,7 +117,7 @@ class LoadAnimalsSmallObobTests(TracebaseTestCase):
 
         call_command(
             "load_animals",
-            infile="DataRepo/data/tests/small_obob/study.xlsx",
+            infile="DataRepo/tests/data/small_obob/study.xlsx",
         )
         self.assertEqual(1, Animal.objects.all().count())
 
@@ -126,7 +126,7 @@ class LoadAnimalsSmallObobTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_animals",
-                infile="DataRepo/data/tests/small_obob/study_labeled_elements_invalid.xlsx",
+                infile="DataRepo/tests/data/small_obob/study_labeled_elements_invalid.xlsx",
             )
         aes = ar.exception
         self.assertEqual(2, len(aes.exceptions))
@@ -164,7 +164,7 @@ class LoadAnimalsAutoupdateTests(TracebaseTestCase):
 
         call_command(
             "load_compounds",
-            infile="DataRepo/data/tests/small_multitracer/compounds.tsv",
+            infile="DataRepo/tests/data/small_multitracer/compounds.tsv",
         )
         bcaa = "BCAAs (VLI) {valine-[13C5,15N1][20]; leucine-[13C6,15N1][24]; isoleucine-[13C6,15N1][12]}"
         Infusate.objects.get_or_create_infusate(parse_infusate_name_with_concs(bcaa))
@@ -224,7 +224,7 @@ class LoadAnimalsAutoupdateTests(TracebaseTestCase):
         # Load some data to ensure that none of it changes during the actual test
         call_command(
             "load_animals",
-            infile="DataRepo/data/tests/small_multitracer/study.xlsx",
+            infile="DataRepo/tests/data/small_multitracer/study.xlsx",
         )
 
         pre_load_counts = self.get_record_counts()
@@ -240,7 +240,7 @@ class LoadAnimalsAutoupdateTests(TracebaseTestCase):
 
         call_command(
             "load_animals",
-            infile="DataRepo/data/tests/small_obob/study.xlsx",
+            infile="DataRepo/tests/data/small_obob/study.xlsx",
             dry_run=True,
         )
 
@@ -271,7 +271,7 @@ class LoadAnimalsAutoupdateTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_animals",
-                infile="DataRepo/data/tests/small_obob/study_missing_rqd_vals.xlsx",
+                infile="DataRepo/tests/data/small_obob/study_missing_rqd_vals.xlsx",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))

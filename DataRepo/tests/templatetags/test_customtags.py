@@ -25,17 +25,17 @@ class CustomTagsTests(TracebaseTestCase):
     def setUpTestData(cls):
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table_no_newsample.xlsx",
+            infile="DataRepo/tests/data/small_obob/small_obob_animal_and_sample_table_no_newsample.xlsx",
             exclude_sheets=["Peak Annotation Files"],
         )
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table_no_newsample_2ndstudy.xlsx",
+            infile="DataRepo/tests/data/small_obob/small_obob_animal_and_sample_table_no_newsample_2ndstudy.xlsx",
             exclude_sheets=["Peak Annotation Files"],
         )
         call_command(
             "load_peak_annotations",
-            infile="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf.xlsx",
+            infile="DataRepo/tests/data/small_obob/small_obob_maven_6eaas_inf.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="unknown",
             date="2021-06-03",

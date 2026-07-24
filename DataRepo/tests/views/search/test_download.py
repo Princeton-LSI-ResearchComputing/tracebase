@@ -82,9 +82,9 @@ class BaseAdvancedSearchDownloadViewTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         sl = StudyV3Loader(
-            file="DataRepo/data/tests/full_tiny_study/study.xlsx",
+            file="DataRepo/tests/data/full_tiny_study/study.xlsx",
             df=read_from_file(
-                "DataRepo/data/tests/full_tiny_study/study.xlsx", sheet=None
+                "DataRepo/tests/data/full_tiny_study/study.xlsx", sheet=None
             ),
         )
         sl.load_data()
@@ -170,7 +170,7 @@ class AdvancedSearchDownloadViewTests(BaseAdvancedSearchDownloadViewTests):
         # This is just to load the MSRunSequence record in the Sequences sheet
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/multiple_labels/animal_sample_table_v3.xlsx",
+            infile="DataRepo/tests/data/multiple_labels/animal_sample_table_v3.xlsx",
             exclude_sheets=[
                 "Study",
                 "Tracers",
@@ -190,20 +190,20 @@ class AdvancedSearchDownloadViewTests(BaseAdvancedSearchDownloadViewTests):
         # Load the peak data and peak groups
         call_command(
             "load_peak_annotations",
-            infile="DataRepo/data/tests/multiple_labels/glnfasted1_cor.xlsx",
+            infile="DataRepo/tests/data/multiple_labels/glnfasted1_cor.xlsx",
         )
 
         # Load a serum sample so we hit the normalized_labeling divide-by-zero path instead of Sample.DoesNotExist.
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/multiple_labels/animal_sample_table_v3_serum.xlsx",
+            infile="DataRepo/tests/data/multiple_labels/animal_sample_table_v3_serum.xlsx",
             exclude_sheets=["Peak Annotation Files"],
         )
 
         # Loads serum tracer data whose corrected abundances are all 0, causing normalized_labeling to return None.
         call_command(
             "load_peak_annotations",
-            infile="DataRepo/data/tests/multiple_labels/glnfasted1_cor_serum0.xlsx",
+            infile="DataRepo/tests/data/multiple_labels/glnfasted1_cor_serum0.xlsx",
         )
 
         form = AdvSearchDownloadForm(data={"qryjson": json.dumps(test_qry)})
