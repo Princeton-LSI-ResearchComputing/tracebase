@@ -838,6 +838,17 @@ class MSRunsLoader(TableLoader):
                     # We going to guess the sample name based on the mzXML filename (without the extension)
                     sample_name = self.guess_sample_name(exact_sample_header_from_mzxml)
 
+                # If all of the mzXML files associated with MSRunSample records were added, we can skip this sample.
+                # NOTE: We are traversing the entire mzXML dict from the directory walk and the purpose of this code is
+                # to catch at least 1 of the same-named files that was not added to an MSRunSample record (but report
+                # them all if so, so the user can work out the unaccounted-for file in context).
+                if all(
+                    fldct["added"]
+                    for dirlist in self.mzxml_dict[mzxml_name_no_ext].values()
+                    for fldct in dirlist
+                ):
+                    continue
+
                 # We need all of the paths of each mzXML file with the same name.  All the files with the same name used
                 # in an error when the sample was not found, to indicate that this isn't coming from the peak annotation
                 # details sheet and that each file must be added to that sheet with a 'skip' value so that it does not
@@ -847,6 +858,7 @@ class MSRunsLoader(TableLoader):
                     for pathkey in self.mzxml_dict[mzxml_name_no_ext].keys()
                     for fldct in self.mzxml_dict[mzxml_name_no_ext][pathkey]
                 ]
+
                 sample = self.get_sample_by_name(
                     sample_name, from_mzxmls=mzxml_filepaths
                 )
@@ -2030,9 +2042,9 @@ class MSRunsLoader(TableLoader):
 
                             return rec
 
-                # The mzXMLs need to be iterated to create or `UnmatchedMzXML` or `UnmatchedBlankMzXML` exceptions for
-                # each file so that this script doesn't need to be run multiple times to add files to the 'Peak
-                # Annotation Details' sheet
+                # The mzXMLs need to be iterated to create `UnmatchedMzXML` or `UnmatchedBlankMzXML` exceptions for each
+                # file so that this script doesn't need to be run multiple times to add files to the 'Peak Annotation
+                # Details' sheet
                 for from_mzxml in from_mzxmls:
                     if Sample.is_a_blank(sample_name):
                         # This warning may already exist from the check_mzxml_files method.  This is different from the
@@ -2905,10 +2917,16 @@ class MSRunsLoader(TableLoader):
             for mzxml_dir in self.mzxml_dict[mzxml_name].keys():
                 for mzxml_metadata in self.mzxml_dict[mzxml_name][mzxml_dir]:
                     if mzxml_metadata["added"] is False and (
-                        # TODO: Also check if a skip exists without the directory having been added.
-                        mzxml_name not in self.skip_msrunsample_by_mzxml.keys()
-                        or mzxml_dir
-                        not in self.skip_msrunsample_by_mzxml[mzxml_name].keys()
+                        mzxml_name not in self.skip_msrunsample_by_mzxml
+                        or (
+                            mzxml_dir == "."
+                            and "" not in self.skip_msrunsample_by_mzxml[mzxml_name]
+                        )
+                        or (
+                            mzxml_dir != "."
+                            and mzxml_dir
+                            not in self.skip_msrunsample_by_mzxml[mzxml_name]
+                        )
                     ):
                         return True
         return False
@@ -2921,6 +2939,16 @@ class MSRunsLoader(TableLoader):
             r"[\-_]"  # dash or underscore (also removed)
             r"(?=[\-_]|$)"  # followed by dash or underscore or end of string (not removed)
 
+        Examples:
+            pattern = MSRunsLoader.get_scan_pattern(scan_patterns=["pos", "neg", "scan[0-9]+"])
+            re.sub(pattern, "", "sample3_pos_scan25")
+            # -> "sample3"
+            re.sub(pattern, "", "sample5-neg-mouse2")
+            # -> "sample5-mouse2"
+            re.sub(pattern, "", "scan2-sample7")
+            # -> "sample7"
+            re.sub(pattern, "", "neg-sample9-scan3-mouse5")
+            # -> "sample9-mouse5"
         Args:
             scan_patterns (list of regular expression strings)
             add_patterns (boolean): Whether to add the supplied patterns to the defaults or replace them.
@@ -2932,8 +2960,11 @@ class MSRunsLoader(TableLoader):
         delim = cls.DEFAULT_SCAN_DELIM_PATTERN
         scan_labels = cls.DEFAULT_SCAN_LABEL_PATTERNS
 
-        pre_pat = delim
-        post_pat = r"(?=" + delim + r"|$)"
+        pre_pat1 = r"^"
+        post_pat1 = delim
+
+        pre_pat2 = delim
+        post_pat2 = r"(?=" + delim + r"|$)"
 
         if scan_patterns is not None:
             if add_patterns:
@@ -2941,11 +2972,12 @@ class MSRunsLoader(TableLoader):
             else:
                 scan_labels = scan_patterns
 
-        # Examples, if scan_patterns = ["pos", "neg", "scan[0-9]+"]:
-        #   "sample3_pos_scan25" -> "sample3"
-        #   "sample5-neg-mouse2" -> "sample5-mouse2"
         return re.compile(
-            r"(" + "|".join([pre_pat + pat + post_pat for pat in scan_labels]) + r")+"
+            r"("
+            + "|".join([pre_pat2 + pat + post_pat2 for pat in scan_labels])
+            + r"|"
+            + "|".join([pre_pat1 + pat + post_pat1 for pat in scan_labels])
+            + r")+"
         )
 
     @classmethod
@@ -2971,7 +3003,11 @@ class MSRunsLoader(TableLoader):
         pattern = cls.get_scan_pattern(
             scan_patterns=scan_patterns, add_patterns=add_patterns
         )
-        return re.sub(pattern, "", mzxml_basename)
+        # The pattern is applied twice due to the possibility of prepended scan labels,
+        # e.g. "neg-scan2-scan3-sample9-mouse5"
+        # Applied once, it would only result in "scan2-sample9-mouse5"
+        # This is a limitation of re.
+        return re.sub(pattern, "", re.sub(pattern, "", mzxml_basename))
 
     def clean_up_created_mzxmls_in_archive(self):
         """Call this method when rollback did/will happen in order to delete mzXML files added to the archive on disk.
