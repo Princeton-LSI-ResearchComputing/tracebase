@@ -6,7 +6,7 @@ from DataRepo.utils.file_utils import read_from_file
 
 class PeakGroupConflictsTests(TracebaseTestCase):
     def test_get_selected_representations(self):
-        file = "DataRepo/data/tests/multiple_representations/mult_reps.tsv"
+        file = "DataRepo/tests/data/multiple_representations/mult_reps.tsv"
         df = read_from_file(file)
         # Deferring raising of the exception, so we can obtain the data
         pgc = PeakGroupConflicts(df=df, file=file)

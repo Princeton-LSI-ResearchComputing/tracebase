@@ -47,7 +47,7 @@ class FCircTests(TracebaseTestCase):
         call_command(
             "load_study",
             infile=(
-                "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_serum/"
+                "DataRepo/tests/data/small_obob/small_obob_maven_6eaas_serum/"
                 "small_obob_sample_table_serum_only.xlsx"
             ),
         )

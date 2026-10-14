@@ -26,7 +26,7 @@ class LoadAccucorFilesWithMultipleTracersLabelsCommandTests(TracebaseTestCase):
         """
         call_command(
             "load_peak_annotation_files",
-            infile="DataRepo/data/tests/accucor_with_multiple_labels/accucor_peak_annot_files.tsv",
+            infile="DataRepo/tests/data/accucor_with_multiple_labels/accucor_peak_annot_files.tsv",
         )
         # Assert the loader created the 1 ArchiveFile record
         self.assertEqual(
@@ -57,7 +57,7 @@ class LoadIsocorrFilesCommandTests(TracebaseTestCase):
         pre_pg_load_count = PeakGroup.objects.count()
         call_command(
             "load_peak_annotation_files",
-            infile="DataRepo/data/tests/singly_labeled_isocorr/small_cor_peak_annot_files.tsv",
+            infile="DataRepo/tests/data/singly_labeled_isocorr/small_cor_peak_annot_files.tsv",
             debug=True,
         )
         post_pg_load_count = PeakGroup.objects.count()

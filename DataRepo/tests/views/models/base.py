@@ -31,7 +31,7 @@ class ModelViewTests(TracebaseTestCase):
     def setUpTestData(cls, disabled_coordinator=False):
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table_no_newsample.xlsx",
+            infile="DataRepo/tests/data/small_obob/small_obob_animal_and_sample_table_no_newsample.xlsx",
         )
         cls.ALL_TISSUES_COUNT = 35
         cls.ALL_COMPOUNDS_COUNT = 51

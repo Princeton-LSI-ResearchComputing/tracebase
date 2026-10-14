@@ -178,7 +178,7 @@ class BuildSubmissionViewTests1(TracebaseTransactionTestCase):
         """
         dvv = BuildSubmissionView()
         dvv.study_file = (
-            "DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx"
+            "DataRepo/tests/data/small_obob/small_obob_animal_and_sample_table.xlsx"
         )
         dvv.all_infile_names = ["small_obob_animal_and_sample_table.xlsx"]
 
@@ -933,7 +933,7 @@ class BuildSubmissionViewTests1(TracebaseTransactionTestCase):
     def test_extract_autofill_from_peak_annotation_files(self):
         dvv = BuildSubmissionView()
         dvv.set_files(
-            peak_annot_files=["DataRepo/data/tests/data_submission/accucor1.xlsx"]
+            peak_annot_files=["DataRepo/tests/data/data_submission/accucor1.xlsx"]
         )
         dvv.extract_autofill_from_peak_annotation_files_forms()
         self.assertDictEqual(
@@ -947,7 +947,7 @@ class BuildSubmissionViewTests1(TracebaseTransactionTestCase):
         dvv = BuildSubmissionView()
         dvv.set_files(
             peak_annot_files=[
-                "DataRepo/data/tests/data_submission/accucor3_with_elmaven_compound_numbers.xlsx"
+                "DataRepo/tests/data/data_submission/accucor3_with_elmaven_compound_numbers.xlsx"
             ]
         )
         dvv.extract_autofill_from_peak_annotation_files_forms()
@@ -961,7 +961,7 @@ class BuildSubmissionViewTests1(TracebaseTransactionTestCase):
     def test_determine_study_file_readiness_no_peak_files(self):
         dvv = BuildSubmissionView()
         dvv.set_files(
-            study_file="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx",
+            study_file="DataRepo/tests/data/small_obob/small_obob_animal_and_sample_table.xlsx",
             study_filename=None,
             peak_annot_files=None,
             peak_annot_filenames=None,
@@ -1083,11 +1083,11 @@ class BuildSubmissionViewTests2(TracebaseTransactionTestCase):
         call_command("loaddata", "lc_methods", "data_types", "data_formats")
         call_command(
             "load_tissues",
-            infile="DataRepo/data/tests/tissues/tissues.tsv",
+            infile="DataRepo/tests/data/tissues/tissues.tsv",
         )
         call_command(
             "load_compounds",
-            infile="DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv",
+            infile="DataRepo/tests/data/compounds/consolidated_tracebase_compound_list.tsv",
         )
 
     @classmethod
@@ -1130,10 +1130,10 @@ class BuildSubmissionViewTests2(TracebaseTransactionTestCase):
         Do a file validation test
         """
         # Files/inputs we will test
-        sf = "DataRepo/data/tests/data_submission/animal_sample_good_v3.xlsx"
+        sf = "DataRepo/tests/data/data_submission/animal_sample_good_v3.xlsx"
         afs = [
-            "DataRepo/data/tests/data_submission/accucor1.xlsx",
-            "DataRepo/data/tests/data_submission/accucor2.xlsx",
+            "DataRepo/tests/data/data_submission/accucor1.xlsx",
+            "DataRepo/tests/data/data_submission/accucor2.xlsx",
         ]
 
         sfkey = "animal_sample_good_v3.xlsx"
@@ -1162,10 +1162,10 @@ class BuildSubmissionViewTests2(TracebaseTransactionTestCase):
     def test_validate_good_files_with_autofill_warnings(self):
         """Assert that any exceptions present before validating the study are preserved."""
         # Files/inputs we will test
-        sf = "DataRepo/data/tests/data_submission/animal_sample_good_v3.xlsx"
+        sf = "DataRepo/tests/data/data_submission/animal_sample_good_v3.xlsx"
         afs = [
-            "DataRepo/data/tests/data_submission/accucor1.xlsx",
-            "DataRepo/data/tests/data_submission/accucor2.xlsx",
+            "DataRepo/tests/data/data_submission/accucor1.xlsx",
+            "DataRepo/tests/data/data_submission/accucor2.xlsx",
         ]
 
         sfkey = "animal_sample_good_v3.xlsx"
@@ -1205,19 +1205,19 @@ class BuildSubmissionViewTests2(TracebaseTransactionTestCase):
         call_command("loaddata", "data_types", "data_formats")
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table_no_newsample.xlsx",
+            infile="DataRepo/tests/data/small_obob/small_obob_animal_and_sample_table_no_newsample.xlsx",
             exclude_sheets=["Peak Annotation Files"],
         )
         call_command(
             "load_peak_annotations",
-            infile="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf.xlsx",
+            infile="DataRepo/tests/data/small_obob/small_obob_maven_6eaas_inf.xlsx",
         )
 
         # Files/inputs we will test
-        sf = "DataRepo/data/tests/data_submission/animal_sample_unknown_researcher_v3.xlsx"
+        sf = "DataRepo/tests/data/data_submission/animal_sample_unknown_researcher_v3.xlsx"
         afs = [
-            "DataRepo/data/tests/data_submission/accucor1.xlsx",
-            "DataRepo/data/tests/data_submission/accucor2.xlsx",
+            "DataRepo/tests/data/data_submission/accucor1.xlsx",
+            "DataRepo/tests/data/data_submission/accucor2.xlsx",
         ]
 
         sfkey = "animal_sample_unknown_researcher_v3.xlsx"
@@ -1275,10 +1275,10 @@ class BuildSubmissionViewTests2(TracebaseTransactionTestCase):
             "DataRepo.models"
         )
 
-        sample_file = "DataRepo/data/tests/data_submission/animal_sample_good_v3.xlsx"
+        sample_file = "DataRepo/tests/data/data_submission/animal_sample_good_v3.xlsx"
         accucor_files = [
-            "DataRepo/data/tests/data_submission/accucor1.xlsx",
-            "DataRepo/data/tests/data_submission/accucor2.xlsx",
+            "DataRepo/tests/data/data_submission/accucor1.xlsx",
+            "DataRepo/tests/data/data_submission/accucor2.xlsx",
         ]
 
         vo = BuildSubmissionView()
@@ -1313,11 +1313,11 @@ class BuildSubmissionViewTests2(TracebaseTransactionTestCase):
 
         # The study doc has 12 samples
         sample_file = (
-            "DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx"
+            "DataRepo/tests/data/small_obob/small_obob_animal_and_sample_table.xlsx"
         )
         # The accucor file intentionally has 1 sample that's not in the study doc
         accucor_files = [
-            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_req_prefix.xlsx",
+            "DataRepo/tests/data/small_obob/small_obob_maven_6eaas_inf_req_prefix.xlsx",
         ]
         sfkey = "small_obob_animal_and_sample_table.xlsx"
         afkey = "small_obob_maven_6eaas_inf_req_prefix.xlsx"

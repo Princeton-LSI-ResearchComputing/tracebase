@@ -33,7 +33,7 @@ class LoadStudyTests(TracebaseTestCase):
 
     def test_load_study_v3_command(self):
         call_command(
-            "load_study", infile="DataRepo/data/tests/study_doc_versions/study_v3.xlsx"
+            "load_study", infile="DataRepo/tests/data/study_doc_versions/study_v3.xlsx"
         )
         expected_counts = {
             "Compound": 17,
@@ -67,10 +67,10 @@ class LoadStudyTests(TracebaseTestCase):
         # First, let's load all of the common/consolidated data that v2 of the study doc doesn't support
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/study_doc_versions/consolidated.xlsx",
+            infile="DataRepo/tests/data/study_doc_versions/consolidated.xlsx",
         )
         call_command(
-            "load_study", infile="DataRepo/data/tests/study_doc_versions/study_v2.xlsx"
+            "load_study", infile="DataRepo/tests/data/study_doc_versions/study_v2.xlsx"
         )
         # Note, the v2 study doc load will not load peak annotation files, so we don't need to worry about those. Nor
         # does V2 support loading of MSRunSequence or MSRunSample, but we don't need to pre-load those, because they're
@@ -79,12 +79,12 @@ class LoadStudyTests(TracebaseTestCase):
     def test_load_small_obob_study(self):
         call_command(
             "load_lcprotocols",
-            infile="DataRepo/data/tests/study_doc_versions/study_v3.xlsx",
+            infile="DataRepo/tests/data/study_doc_versions/study_v3.xlsx",
         )
         call_command(
             "load_study",
             infile=(
-                "DataRepo/data/tests/small_obob/"
+                "DataRepo/tests/data/small_obob/"
                 "small_obob_animal_and_sample_table_blank_sample.xlsx"
             ),
         )
@@ -107,7 +107,7 @@ class LoadStudyTests(TracebaseTestCase):
 
         lsc = Command()
         lsc.options = {
-            "infile": "DataRepo/data/tests/load_study/single_tracer_label_position.xlsx"
+            "infile": "DataRepo/tests/data/load_study/single_tracer_label_position.xlsx"
         }
         df_dict = lsc.get_dataframe()
         pd.testing.assert_frame_equal(
@@ -150,7 +150,7 @@ class LoadStudyTests(TracebaseTestCase):
         )
         tsu = Tissue.objects.create(name="Brain")
         Sample.objects.create(
-            # This is the sample name in DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx
+            # This is the sample name in DataRepo/tests/data/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx
             name="Sample Name",
             tissue=tsu,
             animal=anml,
@@ -165,7 +165,7 @@ class LoadStudyTests(TracebaseTestCase):
         # Run the loader
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",
+            infile="DataRepo/tests/data/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",
             # Excluding the peak annot files, since it's expensive and unnecessary for this test
             exclude_sheets=["Peak Annotation Files"],
         )
@@ -179,7 +179,7 @@ class LoadStudyTests(TracebaseTestCase):
         # Run the loader
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",
+            infile="DataRepo/tests/data/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",
             # Excluding the peak annot files, since it's expensive and unnecessary for this test
             exclude_sheets=["Peak Annotation Files"],
             skip_mzxmls=True,

@@ -97,7 +97,7 @@ class PeakGroupTests(TracebaseTestCase):
 
         cls.ms_peak_annotation = DataType.objects.get(code="ms_peak_annotation")
         cls.accucor_format = DataFormat.objects.get(code="accucor")
-        path = Path("DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf.xlsx")
+        path = Path("DataRepo/tests/data/small_obob/small_obob_maven_6eaas_inf.xlsx")
         with path.open(mode="rb") as f:
             myfile = File(f, name=path.name)
             accucor_file = ArchiveFile.objects.create(
@@ -226,12 +226,12 @@ class MultiLabelPeakGroupTests(TracebaseTestCase):
     def setUpTestData(cls):
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/multiple_labels/animal_sample_table_v3.xlsx",
+            infile="DataRepo/tests/data/multiple_labels/animal_sample_table_v3.xlsx",
             exclude_sheets=["Peak Annotation Files"],
         )
         call_command(
             "load_peak_annotations",
-            infile="DataRepo/data/tests/multiple_labels/alafasted_cor.xlsx",
+            infile="DataRepo/tests/data/multiple_labels/alafasted_cor.xlsx",
         )
 
         super().setUpTestData()

@@ -8,9 +8,9 @@ from DataRepo.utils.file_utils import read_from_file
 class CompoundsLoaderTests(TracebaseTestCase):
     def test_prohibited_delimiters(self):
         cl = CompoundsLoader(
-            file="DataRepo/data/tests/compounds/compounds_with_prohibited_delimiters.tsv",
+            file="DataRepo/tests/data/compounds/compounds_with_prohibited_delimiters.tsv",
             df=read_from_file(
-                "DataRepo/data/tests/compounds/compounds_with_prohibited_delimiters.tsv"
+                "DataRepo/tests/data/compounds/compounds_with_prohibited_delimiters.tsv"
             ),
         )
         cl.load_data()

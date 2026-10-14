@@ -32,11 +32,11 @@ class PeakGroupLabelTracerRateTests(TracebaseTestCase):
     def setUpTestData(cls):
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/small_obob2/obob_animal_sample_table_v3.xlsx",
+            infile="DataRepo/tests/data/small_obob2/obob_animal_sample_table_v3.xlsx",
         )
         call_command(
             "load_peak_annotations",
-            infile="DataRepo/data/tests/small_obob2/obob_maven_c160_serum.xlsx",
+            infile="DataRepo/tests/data/small_obob2/obob_maven_c160_serum.xlsx",
         )
 
         # defining a primary animal object for repeated tests
@@ -188,12 +188,12 @@ class PeakGroupLabelMultiLabelTests(TracebaseTestCase):
     def setUpTestData(cls):
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/multiple_labels/animal_sample_table_v3.xlsx",
+            infile="DataRepo/tests/data/multiple_labels/animal_sample_table_v3.xlsx",
             exclude_sheets=["Peak Annotation Files"],
         )
         call_command(
             "load_peak_annotations",
-            infile="DataRepo/data/tests/multiple_labels/alafasted_cor.xlsx",
+            infile="DataRepo/tests/data/multiple_labels/alafasted_cor.xlsx",
         )
 
         super().setUpTestData()
@@ -229,13 +229,13 @@ class PeakGroupLabelMultiLabelTests(TracebaseTestCase):
         it issues a warning and returns None."""
         call_command(
             "load_peak_annotations",
-            infile="DataRepo/data/tests/multiple_labels/glnfasted1_cor.xlsx",
+            infile="DataRepo/tests/data/multiple_labels/glnfasted1_cor.xlsx",
         )
         # This loads a serum sample only (dependent on animal_sample_table_v3.xlsx having already been loaded) - so that
         # we can hit the ZeroDivisionError and not a Sample.DoesNotExist error.
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/multiple_labels/animal_sample_table_v3_serum.xlsx",
+            infile="DataRepo/tests/data/multiple_labels/animal_sample_table_v3_serum.xlsx",
             exclude_sheets=["Peak Annotation Files"],
         )
         # This loads a serum tracer peak group in the 1 serum sample whose corrected abundances are all 0 (except for
@@ -243,7 +243,7 @@ class PeakGroupLabelMultiLabelTests(TracebaseTestCase):
         # ZeroDivisionError in PeakDataLabel.normalized_labeling
         call_command(
             "load_peak_annotations",
-            infile="DataRepo/data/tests/multiple_labels/glnfasted1_cor_serum0.xlsx",
+            infile="DataRepo/tests/data/multiple_labels/glnfasted1_cor_serum0.xlsx",
         )
 
         pg = PeakGroup.objects.filter(msrun_sample__sample__name="xzl1_brain").get(
@@ -295,20 +295,20 @@ class PeakGroupLabelPropertyTests(TracebaseTestCase):
     def setUpTestData(cls):
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/small_obob2/obob_animal_sample_table_v3.xlsx",
+            infile="DataRepo/tests/data/small_obob2/obob_animal_sample_table_v3.xlsx",
         )
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/small_obob2/serum_lactate_sample_table.xlsx",
+            infile="DataRepo/tests/data/small_obob2/serum_lactate_sample_table.xlsx",
         )
 
         call_command(
             "load_peak_annotations",
-            infile="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf.xlsx",
+            infile="DataRepo/tests/data/small_obob2/obob_maven_6eaas_inf.xlsx",
         )
         call_command(
             "load_peak_annotations",
-            infile="DataRepo/data/tests/small_obob2/obob_maven_6eaas_serum.xlsx",
+            infile="DataRepo/tests/data/small_obob2/obob_maven_6eaas_serum.xlsx",
         )
 
         cls.SERUM_COMPOUNDS_COUNT = 13
@@ -353,7 +353,7 @@ class PeakGroupLabelPropertyTests(TracebaseTestCase):
         # Load alternate data
         call_command(
             "load_peak_annotations",
-            infile="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf_corrected.csv",
+            infile="DataRepo/tests/data/small_obob2/obob_maven_6eaas_inf_corrected.csv",
         )
         # Get one of the peak groups that has no original data
         peak_group = (
@@ -433,7 +433,7 @@ class PeakGroupLabelPropertyTests(TracebaseTestCase):
         # This creates an animal with a nitrogen-labeled tracer (among others)
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/small_obob/animal_sample_table_labeled_elements_v3.xlsx",
+            infile="DataRepo/tests/data/small_obob/animal_sample_table_labeled_elements_v3.xlsx",
         )
 
         # Retrieve a sample associated with an animal that has a tracer with only a nitrogen label

@@ -115,7 +115,7 @@ class LoadInfusatesCommandTests(TracebaseTestCase):
     def test_names_concs_numbers_only_ok(self):
         call_command(
             "load_infusates",
-            infile="DataRepo/data/tests/infusates/lysine_num_name_conc_only.tsv",
+            infile="DataRepo/tests/data/infusates/lysine_num_name_conc_only.tsv",
         )
         self.assertEqual(1, Infusate.objects.count())
         self.assertIsNotNone(Infusate.objects.get_infusate(self.DUDERINO_INFUSATE_DATA))
@@ -123,7 +123,7 @@ class LoadInfusatesCommandTests(TracebaseTestCase):
     def test_names_concs_numbers_only_excel_ok(self):
         call_command(
             "load_infusates",
-            infile="DataRepo/data/tests/infusates/lysine_num_name_conc_only.xlsx",
+            infile="DataRepo/tests/data/infusates/lysine_num_name_conc_only.xlsx",
         )
         self.assertEqual(1, Infusate.objects.count())
         self.assertIsNotNone(Infusate.objects.get_infusate(self.DUDERINO_INFUSATE_DATA))
@@ -131,14 +131,14 @@ class LoadInfusatesCommandTests(TracebaseTestCase):
     def test_column_data_only_ok(self):
         call_command(
             "load_infusates",
-            infile="DataRepo/data/tests/infusates/lysine_data_only.tsv",
+            infile="DataRepo/tests/data/infusates/lysine_data_only.tsv",
         )
         self.assertIsNotNone(Infusate.objects.get_infusate(self.DUDERINO_INFUSATE_DATA))
 
     def test_name_and_column_mix_ok(self):
         call_command(
             "load_infusates",
-            infile="DataRepo/data/tests/infusates/lysine_full.tsv",
+            infile="DataRepo/tests/data/infusates/lysine_full.tsv",
         )
         self.assertIsNotNone(Infusate.objects.get_infusate(self.DUDERINO_INFUSATE_DATA))
 
@@ -149,7 +149,7 @@ class LoadInfusatesCommandTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_infusates",
-                infile="DataRepo/data/tests/infusates/name_with_mult_nums.tsv",
+                infile="DataRepo/tests/data/infusates/name_with_mult_nums.tsv",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -167,7 +167,7 @@ class LoadInfusatesCommandTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_infusates",
-                infile="DataRepo/data/tests/infusates/num_with_mult_names.tsv",
+                infile="DataRepo/tests/data/infusates/num_with_mult_names.tsv",
             )
         aes = ar.exception
         self.assertEqual(2, len(aes.exceptions))
@@ -197,7 +197,7 @@ class LoadInfusatesCommandTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_infusates",
-                infile="DataRepo/data/tests/infusates/one_tracer_with_mult_concs.tsv",
+                infile="DataRepo/tests/data/infusates/one_tracer_with_mult_concs.tsv",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -215,7 +215,7 @@ class LoadInfusatesCommandTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_infusates",
-                infile="DataRepo/data/tests/infusates/num_with_mult_group_names.tsv",
+                infile="DataRepo/tests/data/infusates/num_with_mult_group_names.tsv",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -237,7 +237,7 @@ class LoadInfusatesCommandTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_infusates",
-                infile="DataRepo/data/tests/infusates/group_name_with_diff_tracers.tsv",
+                infile="DataRepo/tests/data/infusates/group_name_with_diff_tracers.tsv",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -261,7 +261,7 @@ class LoadInfusatesCommandTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_infusates",
-                infile="DataRepo/data/tests/infusates/same_tracers_differing_group_names.tsv",
+                infile="DataRepo/tests/data/infusates/same_tracers_differing_group_names.tsv",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -316,7 +316,7 @@ class LoadInfusatesCommandTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_infusates",
-                infile="DataRepo/data/tests/infusates/glutamine_num_name_conc_only.tsv",
+                infile="DataRepo/tests/data/infusates/glutamine_num_name_conc_only.tsv",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -345,7 +345,7 @@ class LoadInfusatesCommandTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_infusates",
-                infile="DataRepo/data/tests/infusates/lysine_no_group_name.tsv",
+                infile="DataRepo/tests/data/infusates/lysine_no_group_name.tsv",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -370,7 +370,7 @@ class LoadInfusatesCommandTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_infusates",
-                infile="DataRepo/data/tests/infusates/lysine_with_and_without_group_name.tsv",
+                infile="DataRepo/tests/data/infusates/lysine_with_and_without_group_name.tsv",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -398,6 +398,6 @@ class LoadInfusatesCommandTests(TracebaseTestCase):
         self.assertEqual(0, Infusate.objects.count())
         call_command(
             "load_infusates",
-            infile="DataRepo/data/tests/infusates/two_dual_tracer_infusates.tsv",
+            infile="DataRepo/tests/data/infusates/two_dual_tracer_infusates.tsv",
         )
         self.assertEqual(3, Infusate.objects.count())

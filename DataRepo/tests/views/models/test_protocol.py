@@ -16,7 +16,7 @@ class ProtocolViewTests(TracebaseTestCase):
     def setUpTestData(cls):
         call_command(
             "load_protocols",
-            infile="DataRepo/data/tests/dataframes/protocols.tsv",
+            infile="DataRepo/tests/data/dataframes/protocols.tsv",
         )
 
     def test_animal_treatment_list(self):

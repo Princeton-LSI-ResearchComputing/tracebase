@@ -122,14 +122,14 @@ and supply your desired account credentials for testing.
 #### Load underlying data needed by the example studies
 
     python manage.py loaddata data_types data_formats
-    python manage.py load_study --infile DataRepo/data/examples/compounds_tissues_treatments_lcprotocols/study.xlsx
+    python manage.py load_study --infile docs/example_data/compounds_tissues_treatments_lcprotocols/study.xlsx
 
 #### Load the example studies
 
-    python manage.py load_study --infile DataRepo/data/examples/13C_Valine_and_PI3Ki_in_flank_KPC_mice/study.xlsx
-    python manage.py load_study --infile DataRepo/data/examples/obob_fasted/study.xlsx
-    python manage.py load_study --infile DataRepo/data/examples/obob_fasted_ace_glycerol_3hb_citrate_eaa_fa_multiple_tracers/study.xlsx
-    python manage.py load_study --infile DataRepo/data/examples/obob_fasted_glc_lac_gln_ala_multiple_labels/study.xlsx
+    python manage.py load_study --infile docs/example_data/13C_Valine_and_PI3Ki_in_flank_KPC_mice/study.xlsx
+    python manage.py load_study --infile docs/example_data/obob_fasted/study.xlsx
+    python manage.py load_study --infile docs/example_data/obob_fasted_ace_glycerol_3hb_citrate_eaa_fa_multiple_tracers/study.xlsx
+    python manage.py load_study --infile docs/example_data/obob_fasted_glc_lac_gln_ala_multiple_labels/study.xlsx
 
 ### Start TraceBase
 

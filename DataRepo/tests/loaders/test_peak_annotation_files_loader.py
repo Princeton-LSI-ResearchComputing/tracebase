@@ -38,7 +38,7 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
 
     def test_pafl_get_file_and_format_success(self):
         pafl = PeakAnnotationFilesLoader()
-        exp_file = "DataRepo/data/tests/small_multitracer/6eaafasted1_cor.xlsx"
+        exp_file = "DataRepo/tests/data/small_multitracer/6eaafasted1_cor.xlsx"
         exp_fmt = "isocorr"
         row = pd.Series(
             {
@@ -54,7 +54,7 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
 
     def test_pafl_get_file_and_format_warning(self):
         pafl = PeakAnnotationFilesLoader()
-        exp_file = "DataRepo/data/tests/small_multitracer/6eaafasted1_cor.xlsx"
+        exp_file = "DataRepo/tests/data/small_multitracer/6eaafasted1_cor.xlsx"
         exp_fmt = "accucor"
         row = pd.Series(
             {
@@ -71,7 +71,7 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
 
     def test_pafl_get_file_and_format_auto(self):
         pafl = PeakAnnotationFilesLoader()
-        exp_file = "DataRepo/data/tests/small_multitracer/6eaafasted1_cor.xlsx"
+        exp_file = "DataRepo/tests/data/small_multitracer/6eaafasted1_cor.xlsx"
         exp_fmt = "isocorr"
         row = pd.Series(
             {
@@ -87,7 +87,7 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
 
     def test_pafl_get_file_and_format_none(self):
         pafl = PeakAnnotationFilesLoader()
-        exp_file = "DataRepo/data/tests/small_multitracer/study_partial_file.xlsx"
+        exp_file = "DataRepo/tests/data/small_multitracer/study_partial_file.xlsx"
         row = pd.Series(
             {
                 PeakAnnotationFilesLoader.DataHeaders.FILE: exp_file,
@@ -106,7 +106,7 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
 
     def test_pafl_get_file_and_format_multiple(self):
         pafl = PeakAnnotationFilesLoader()
-        exp_file = "DataRepo/data/tests/singly_labeled_isocorr/small_cor.csv"
+        exp_file = "DataRepo/tests/data/singly_labeled_isocorr/small_cor.csv"
         row = pd.Series(
             {
                 PeakAnnotationFilesLoader.DataHeaders.FILE: exp_file,
@@ -126,7 +126,7 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
 
     def test_pafl_get_or_create_annot_file(self):
         pafl = PeakAnnotationFilesLoader()
-        file = "DataRepo/data/tests/small_multitracer/6eaafasted1_cor.xlsx"
+        file = "DataRepo/tests/data/small_multitracer/6eaafasted1_cor.xlsx"
         fmt = "isocorr"
         rec, created = pafl.get_or_create_annot_file(file, fmt)
         self.assertIsInstance(rec, ArchiveFile)
@@ -221,9 +221,9 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
 
         pafl = PeakAnnotationFilesLoader(
             # This file is unrelated to the test, but it doesn't matter
-            file="DataRepo/data/tests/small_obob/study.xlsx"
+            file="DataRepo/tests/data/small_obob/study.xlsx"
         )
-        file = "DataRepo/data/tests/small_obob2/obob_maven_c160_inf.xlsx"
+        file = "DataRepo/tests/data/small_obob2/obob_maven_c160_inf.xlsx"
         fmt = "accucor"
         pafl.load_peak_annotations(
             file,
@@ -239,7 +239,7 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
     def test_pafl_load_data_no_details(self):
         self.load_test_prereqs()
 
-        file = "DataRepo/data/tests/small_obob2/obob_maven_c160_inf.xlsx"
+        file = "DataRepo/tests/data/small_obob2/obob_maven_c160_inf.xlsx"
         fmt = "accucor"
         df = pd.DataFrame.from_dict(
             {
@@ -253,7 +253,7 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
         pafl = PeakAnnotationFilesLoader(
             df=df,
             # This file is unrelated to the test, but it doesn't matter
-            file="DataRepo/data/tests/small_obob/study.xlsx",
+            file="DataRepo/tests/data/small_obob/study.xlsx",
         )
         pafl.load_data()
 
@@ -279,7 +279,7 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
             },
         )
         peak_annotation_details_df = peak_annotation_details_df
-        file = "DataRepo/data/tests/small_obob2/obob_maven_c160_inf.xlsx"
+        file = "DataRepo/tests/data/small_obob2/obob_maven_c160_inf.xlsx"
         fmt = "accucor"
         df = pd.DataFrame.from_dict(
             {
@@ -294,7 +294,7 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
             df=df,
             peak_annotation_details_df=peak_annotation_details_df,
             # This file is unrelated to the test, but it doesn't matter
-            file="DataRepo/data/tests/small_obob/study.xlsx",
+            file="DataRepo/tests/data/small_obob/study.xlsx",
         )
         pafl.load_data()
 
@@ -303,29 +303,29 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
     def test_PeakAnnotationFilesLoader_conflicting_peak_group_resolutions(self):
         # Load all the prerequisites (everything but the Peak Annotation Files and Peak Group Conflicts)
         dfdict = read_from_file(
-            "DataRepo/data/tests/multiple_representations/resolution_handling/prereqs.xlsx",
+            "DataRepo/tests/data/multiple_representations/resolution_handling/prereqs.xlsx",
             None,
         )
         sl = StudyV3Loader(
-            file="DataRepo/data/tests/multiple_representations/resolution_handling/prereqs.xlsx",
+            file="DataRepo/tests/data/multiple_representations/resolution_handling/prereqs.xlsx",
             df=dfdict,
         )
         sl.load_data()
 
         pafl = PeakAnnotationFilesLoader(
             df=read_from_file(
-                "DataRepo/data/tests/multiple_representations/resolution_handling/peak_annotation_files.tsv",
+                "DataRepo/tests/data/multiple_representations/resolution_handling/peak_annotation_files.tsv",
             ),
-            file="DataRepo/data/tests/multiple_representations/resolution_handling/peak_annotation_files.tsv",
+            file="DataRepo/tests/data/multiple_representations/resolution_handling/peak_annotation_files.tsv",
             peak_group_conflicts_file=(
-                "DataRepo/data/tests/multiple_representations/"
+                "DataRepo/tests/data/multiple_representations/"
                 "resolution_handling/conflicting_resolutions.tsv"
             ),
             peak_group_conflicts_df=read_from_file(
-                "DataRepo/data/tests/multiple_representations/resolution_handling/conflicting_resolutions.tsv",
+                "DataRepo/tests/data/multiple_representations/resolution_handling/conflicting_resolutions.tsv",
             ),
             peak_annotation_details_file=(
-                "DataRepo/data/tests/multiple_representations/"
+                "DataRepo/tests/data/multiple_representations/"
                 "resolution_handling/prereqs.xlsx"
             ),
             peak_annotation_details_df=dfdict["Peak Annotation Details"],
@@ -459,10 +459,10 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
         """This tests that when there are multiple files with the same name, but one was fully specified, there is no
         error and that file is returned."""
         pafl = PeakAnnotationFilesLoader(
-            file="DataRepo/data/tests/small_obob/study.xlsx"
+            file="DataRepo/tests/data/small_obob/study.xlsx"
         )
-        exp_file = "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_serum/small_obob_maven_6eaas_serum.xlsx"
-        file = pafl.find_annot_file(exp_file, "DataRepo/data/tests/small_obob")
+        exp_file = "DataRepo/tests/data/small_obob/small_obob_maven_6eaas_serum/small_obob_maven_6eaas_serum.xlsx"
+        file = pafl.find_annot_file(exp_file, "DataRepo/tests/data/small_obob")
         self.assertEqual(exp_file, file)
         self.assertEqual(0, len(pafl.aggregated_errors_object.exceptions))
 
@@ -471,11 +471,11 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
         # I only selected that study dir because it had multiple files with the same name under it, and that's the only
         # test data dir that does.
         pafl = PeakAnnotationFilesLoader(
-            file="DataRepo/data/tests/multiple_representations/study.xlsx"
+            file="DataRepo/tests/data/multiple_representations/study.xlsx"
         )
-        exp_file = "DataRepo/data/tests/multiple_representations/resolution_handling/negative_cor.xlsx"
+        exp_file = "DataRepo/tests/data/multiple_representations/resolution_handling/negative_cor.xlsx"
         file = pafl.find_annot_file(
-            "negative_cor.xlsx", "DataRepo/data/tests/multiple_representations"
+            "negative_cor.xlsx", "DataRepo/tests/data/multiple_representations"
         )
         self.assertEqual(exp_file, file)
         self.assertEqual(0, len(pafl.aggregated_errors_object.exceptions))
@@ -485,11 +485,11 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
         # I only selected that study dir because it had multiple files with the same name under it, and that's the only
         # test data dir that does.
         pafl = PeakAnnotationFilesLoader(
-            file="DataRepo/data/tests/multiple_representations/study.xlsx"
+            file="DataRepo/tests/data/multiple_representations/study.xlsx"
         )
-        exp_file = "DataRepo/data/tests/multiple_representations/resolution_handling/negative_cor.xlsx"
+        exp_file = "DataRepo/tests/data/multiple_representations/resolution_handling/negative_cor.xlsx"
         file = pafl.find_annot_file(
-            "bad/path/negative_cor.xlsx", "DataRepo/data/tests/multiple_representations"
+            "bad/path/negative_cor.xlsx", "DataRepo/tests/data/multiple_representations"
         )
         self.assertEqual(exp_file, file)
         self.assertEqual(1, len(pafl.aggregated_errors_object.exceptions))
@@ -516,11 +516,11 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
         # I only selected that study dir because it had multiple files with the same name under it, and that's the only
         # test data dir that does.
         pafl = PeakAnnotationFilesLoader(
-            file="DataRepo/data/tests/multiple_representations/study.xlsx"
+            file="DataRepo/tests/data/multiple_representations/study.xlsx"
         )
         exp_file = "doesnotexist.xlsx"
         file = pafl.find_annot_file(
-            exp_file, "DataRepo/data/tests/multiple_representations"
+            exp_file, "DataRepo/tests/data/multiple_representations"
         )
         self.assertEqual(exp_file, file)
         self.assertEqual(0, len(pafl.aggregated_errors_object.exceptions))
@@ -531,10 +531,10 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
         otherwise, it would be fully redundant).  This was a change made to accommodate a review issue about using a
         single return type."""
         pafl = PeakAnnotationFilesLoader(
-            file="DataRepo/data/tests/small_obob/study.xlsx"
+            file="DataRepo/tests/data/small_obob/study.xlsx"
         )
         filename = "small_obob_maven_6eaas_serum.xlsx"
-        file = pafl.find_annot_file(filename, "DataRepo/data/tests/small_obob")
+        file = pafl.find_annot_file(filename, "DataRepo/tests/data/small_obob")
         self.assertEqual(filename, file)
         self.assertEqual(1, len(pafl.aggregated_errors_object.exceptions))
         self.assertEqual(1, pafl.aggregated_errors_object.num_warnings)
@@ -545,27 +545,27 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
 
     def test_map_peak_annot_files(self):
         pafl = PeakAnnotationFilesLoader(
-            file="DataRepo/data/tests/submission_v3/study.xlsx"
+            file="DataRepo/tests/data/submission_v3/study.xlsx"
         )
         expected = {
             "study_no_defs.xlsx": [
-                "DataRepo/data/tests/submission_v3/study_no_defs.xlsx"
+                "DataRepo/tests/data/submission_v3/study_no_defs.xlsx"
             ],
-            "lcprotocols.tsv": ["DataRepo/data/tests/submission_v3/lcprotocols.tsv"],
+            "lcprotocols.tsv": ["DataRepo/tests/data/submission_v3/lcprotocols.tsv"],
             "study_with_autofill_seeds.xlsx": [
-                "DataRepo/data/tests/submission_v3/study_with_autofill_seeds.xlsx"
+                "DataRepo/tests/data/submission_v3/study_with_autofill_seeds.xlsx"
             ],
-            "sequences.tsv": ["DataRepo/data/tests/submission_v3/sequences.tsv"],
-            "defaults.tsv": ["DataRepo/data/tests/submission_v3/defaults.tsv"],
+            "sequences.tsv": ["DataRepo/tests/data/submission_v3/sequences.tsv"],
+            "defaults.tsv": ["DataRepo/tests/data/submission_v3/defaults.tsv"],
             "study.xlsx": [
-                "DataRepo/data/tests/submission_v3/study.xlsx",
-                "DataRepo/data/tests/submission_v3/multitracer_v3/study.xlsx",
+                "DataRepo/tests/data/submission_v3/study.xlsx",
+                "DataRepo/tests/data/submission_v3/multitracer_v3/study.xlsx",
             ],
             "alaglu_cor.xlsx": [
-                "DataRepo/data/tests/submission_v3/multitracer_v3/alaglu_cor.xlsx"
+                "DataRepo/tests/data/submission_v3/multitracer_v3/alaglu_cor.xlsx"
             ],
             "study_missing_data.xlsx": [
-                "DataRepo/data/tests/submission_v3/multitracer_v3/study_missing_data.xlsx"
+                "DataRepo/tests/data/submission_v3/multitracer_v3/study_missing_data.xlsx"
             ],
         }
         ptntl_annot_fls = pafl.map_potential_peak_annot_files()

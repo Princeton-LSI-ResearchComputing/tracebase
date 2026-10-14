@@ -27,7 +27,7 @@ class ExportStudiesTestBase(TracebaseTestCase):
         call_command("loaddata", "lc_methods")
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/small_obob/small_obob_study_prerequisites.xlsx",
+            infile="DataRepo/tests/data/small_obob/small_obob_study_prerequisites.xlsx",
         )
         Study.objects.create(name="Small OBOB")
         Infusate.objects.get_or_create_infusate(
@@ -36,14 +36,14 @@ class ExportStudiesTestBase(TracebaseTestCase):
         call_command(
             "load_animals",
             infile=(
-                "DataRepo/data/tests/small_obob/"
+                "DataRepo/tests/data/small_obob/"
                 "small_obob_animal_and_sample_table.xlsx"
             ),
         )
         call_command(
             "load_samples",
             infile=(
-                "DataRepo/data/tests/small_obob/"
+                "DataRepo/tests/data/small_obob/"
                 "small_obob_animal_and_sample_table.xlsx"
             ),
         )
@@ -56,7 +56,7 @@ class ExportStudiesTests(ExportStudiesTestBase):
         call_command(
             "load_study",
             infile=(
-                "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_serum/"
+                "DataRepo/tests/data/small_obob/small_obob_maven_6eaas_serum/"
                 "small_obob_sample_table_serum_only.xlsx"
             ),
         )

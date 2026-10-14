@@ -83,7 +83,7 @@ class CompoundTests(TracebaseTestCase):
     def test__animals_by_tracer(self):
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/compounds/animals_by_tracer_compound.xlsx",
+            infile="DataRepo/tests/data/compounds/animals_by_tracer_compound.xlsx",
         )
         lysine = Compound.objects.get(name="lysine")
         self.assertEqual(2, lysine._animals_by_tracer())

@@ -15,7 +15,7 @@ class QuerysetToPandasDataFrameBaseTests(TracebaseTestCase):
         # load small set of data
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/dataframes/animal_sample_table_df_test1_v3.xlsx",
+            infile="DataRepo/tests/data/dataframes/animal_sample_table_df_test1_v3.xlsx",
         )
 
         # define expected data in dictionaries

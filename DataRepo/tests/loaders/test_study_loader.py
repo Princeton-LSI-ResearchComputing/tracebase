@@ -52,7 +52,7 @@ class StudyLoaderTests(TracebaseTestCase):
     fixtures = ["data_types.yaml", "data_formats.yaml"]
 
     def test_study_loader_load_data_success(self):
-        file = "DataRepo/data/tests/submission_v3/multitracer_v3/study.xlsx"
+        file = "DataRepo/tests/data/submission_v3/multitracer_v3/study.xlsx"
         sl = StudyV3Loader(
             df=read_from_file(file, sheet=None),
             file=file,
@@ -129,7 +129,7 @@ class StudyLoaderTests(TracebaseTestCase):
 
     def test_study_loader_package_group_exceptions(self):
         file = (
-            "DataRepo/data/tests/submission_v3/multitracer_v3/study_missing_data.xlsx"
+            "DataRepo/tests/data/submission_v3/multitracer_v3/study_missing_data.xlsx"
         )
         sl = StudyV3Loader(
             df=read_from_file(file, sheet=None),
@@ -237,7 +237,7 @@ class StudyLoaderTests(TracebaseTestCase):
 
     def test_study_loader_create_grouped_exceptions(self):
         file = (
-            "DataRepo/data/tests/submission_v3/multitracer_v3/study_missing_data.xlsx"
+            "DataRepo/tests/data/submission_v3/multitracer_v3/study_missing_data.xlsx"
         )
         sl = StudyV3Loader(
             df=read_from_file(file, sheet=None),
@@ -276,14 +276,14 @@ class StudyLoaderTests(TracebaseTestCase):
 
     def test_determine_matching_versions_v2(self):
         df = read_from_file(
-            "DataRepo/data/tests/study_doc_versions/study_v2.xlsx", sheet=None
+            "DataRepo/tests/data/study_doc_versions/study_v2.xlsx", sheet=None
         )
         version_list, _ = StudyLoader.determine_matching_versions(df)
         self.assertEqual(["2.0"], version_list)
 
     def test_determine_matching_versions_v3(self):
         df = read_from_file(
-            "DataRepo/data/tests/study_doc_versions/study_v3.xlsx", sheet=None
+            "DataRepo/tests/data/study_doc_versions/study_v3.xlsx", sheet=None
         )
         version_list, _ = StudyLoader.determine_matching_versions(df)
         self.assertEqual(["3.0"], version_list)
@@ -335,7 +335,7 @@ class StudyLoaderTests(TracebaseTestCase):
 
     def test_exclude_sheets_excluded_from_load(self):
         file = (
-            "DataRepo/data/tests/submission_v3/multitracer_v3/study_missing_data.xlsx"
+            "DataRepo/tests/data/submission_v3/multitracer_v3/study_missing_data.xlsx"
         )
         sl = StudyV3Loader(
             df=read_from_file(file, sheet=None),
@@ -376,12 +376,12 @@ class StudyLoaderTests(TracebaseTestCase):
         )
 
     def test_no_samples_no_serum_warnings(self):
-        file = "DataRepo/data/tests/animal_without_samples/study.xlsx"
+        file = "DataRepo/tests/data/animal_without_samples/study.xlsx"
 
         # Load prerequisite data - entire study containing animal with no
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/no_serum_samples/study.xlsx",
+            infile="DataRepo/tests/data/no_serum_samples/study.xlsx",
         )
 
         # Create a loader instance

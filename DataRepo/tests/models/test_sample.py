@@ -18,7 +18,7 @@ class SampleTests(TracebaseTestCase):
         super().setUpTestData()
         call_command(
             "load_study",
-            infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table_no_newsample.xlsx",
+            infile="DataRepo/tests/data/small_obob/small_obob_animal_and_sample_table_no_newsample.xlsx",
         )
 
     def test_is_serum_sample_autoupdates(self):

@@ -70,11 +70,11 @@ class InfusateTests(TracebaseTestCase):
     def setUpTestData(cls):
         call_command(
             "load_tissues",
-            infile="DataRepo/data/tests/tissues/tissues.tsv",
+            infile="DataRepo/tests/data/tissues/tissues.tsv",
         )
         call_command(
             "load_compounds",
-            infile="DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv",
+            infile="DataRepo/tests/data/compounds/consolidated_tracebase_compound_list.tsv",
             verbosity=2,
         )
         super().setUpTestData()
